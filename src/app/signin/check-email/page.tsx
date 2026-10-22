@@ -20,6 +20,16 @@ export default function CheckEmailPage() {
         <p className="mt-2 text-[15px] leading-relaxed text-ink-soft">
           There&apos;s a sign-in link on its way. It works once and expires in 15 minutes.
         </p>
+        {process.env.VERCEL_ENV === "preview" ? (
+          <p className="mt-4 rounded-lg border border-line bg-field px-3 py-2 text-[13px] leading-relaxed text-ink-soft">
+            This is a preview deployment, so nothing is actually sent —{" "}
+            <a href="/dev/outbox" className="font-medium text-accent underline underline-offset-2">
+              read the captured email
+            </a>
+            .
+          </p>
+        ) : null}
+
         <p className="mt-4 text-[13px] leading-relaxed text-ink-muted">
           Nothing arrived? Check spam, then{" "}
           <Link href="/signin" className="font-medium text-accent underline decoration-accent/30 underline-offset-4">
