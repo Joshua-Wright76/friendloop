@@ -1,8 +1,8 @@
 {
   "crons": [
     {
-      "path": "/api/cron/daily",
-      "schedule": "0 14 * * *"
+      "path": "/api/cron/sweep",
+      "schedule": "0 6 * * *"
     }
   ]
 }

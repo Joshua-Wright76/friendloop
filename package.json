@@ -6,18 +6,29 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "typecheck": "tsc --noEmit",
+    "test": "node --test 'src/**/*.test.ts'",
+    "check:flows": "node scripts/check-flows.mjs",
+    "db:generate": "drizzle-kit generate",
+    "db:push": "drizzle-kit push",
+    "e2e": "playwright test",
+    "e2e:ui": "playwright test --ui",
+    "verify": "npm run typecheck && npm run lint && npm run test && npm run check:flows && npm run check:migrations",
+    "check:migrations": "node scripts/check-migrations.mjs",
+    "db:seed": "node scripts/seed-dev.mjs"
   },
   "dependencies": {
-    "@neondatabase/serverless": "^1.2.0",
     "drizzle-orm": "^0.45.4",
     "next": "16.4.2",
-    "next-auth": "^5.0.0-beta.32",
+    "postgres": "^3.4.9",
     "react": "19.3.0",
     "react-dom": "19.3.0",
-    "resend": "^6.34.1"
+    "resend": "^6.34.1",
+    "temporal-polyfill": "^1.0.6"
   },
   "devDependencies": {
+    "@playwright/test": "^1.64.1",
     "@tailwindcss/turbopack": "^4",
     "@types/node": "^20",
     "@types/react": "^19",

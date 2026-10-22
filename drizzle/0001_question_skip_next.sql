@@ -1,0 +1,1 @@
+ALTER TABLE "questions" ADD COLUMN "skip_next" boolean DEFAULT false NOT NULL;

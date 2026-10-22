@@ -1,0 +1,69 @@
+import { defineConfig, devices } from "@playwright/test";
+
+/**
+ * Two targets, one suite:
+ *   local — `npm run e2e` (boots Next against TEST_DATABASE_URL)
+ *   prod  — `E2E_BASE_URL=https://friendloop.dev npx playwright test --grep @probe`
+ *
+ * The suite never talks to Resend locally: `EMAIL_TRANSPORT=outbox` keeps every
+ * send in the outbox table, and `E2E=1` lets a test move the clock with
+ * `x-e2e-now`. Production probes read the same way through a token-scoped route.
+ */
+const TEST_PORT = 3100;
+const baseURL = process.env.E2E_BASE_URL ?? `http://localhost:${TEST_PORT}`;
+const isProd = Boolean(process.env.E2E_BASE_URL);
+
+process.env.CRON_SECRET ??= "e2e-cron-secret";
+if (!isProd) {
+  process.env.E2E ??= "1";
+  process.env.EMAIL_TRANSPORT ??= "outbox";
+  if (process.env.TEST_DATABASE_URL) process.env.DATABASE_URL ??= process.env.TEST_DATABASE_URL;
+}
+
+export default defineConfig({
+  testDir: "./e2e",
+  fullyParallel: true,
+  forbidOnly: Boolean(process.env.CI),
+  retries: process.env.CI ? 1 : 0,
+  // One worker: every test truncates the same database. Parallel workers get
+  // per-worker schemas when the suite is big enough to need them.
+  workers: 1,
+  globalSetup: "./e2e/global-setup.ts",
+  reporter: process.env.CI
+    ? [["list"], ["html", { open: "never" }], ["github"]]
+    : [["list"], ["html", { open: "never" }]],
+  timeout: 30_000,
+  expect: { timeout: 7_000 },
+  use: {
+    baseURL,
+    trace: "on-first-retry",
+    video: "retain-on-failure",
+    screenshot: "only-on-failure",
+  },
+  projects: [
+    { name: "desktop", use: { ...devices["Desktop Chrome"] } },
+    {
+      // The reply form is the surface that actually ships to phones.
+      name: "phone",
+      testMatch: /(A2|B4|D4|D5|D6)\.spec\.ts/,
+      use: { ...devices["iPhone 13"] },
+    },
+  ],
+  webServer: isProd
+    ? undefined
+    : {
+        // A production build, not dev: no on-demand compilation mid-test, and the
+        // suite exercises the same rendering path that ships.
+        command: `npm run build && npx next start -p ${TEST_PORT}`,
+        url: `http://localhost:${TEST_PORT}`,
+        reuseExistingServer: false,
+        timeout: 180_000,
+        env: {
+          E2E: "1",
+          EMAIL_TRANSPORT: "outbox",
+          CRON_SECRET: process.env.CRON_SECRET ?? "e2e-cron-secret",
+          DATABASE_URL: process.env.TEST_DATABASE_URL ?? process.env.DATABASE_URL ?? "",
+          NEXT_PUBLIC_APP_URL: `http://localhost:${TEST_PORT}`,
+        },
+      },
+});

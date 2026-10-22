@@ -12,6 +12,9 @@
 
 # testing
 /coverage
+/playwright-report/
+/test-results/
+/.impeccable/
 
 # next.js
 /.next/
@@ -39,3 +42,11 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# agent harness installs (regenerate with: npx impeccable install)
+/.claude/
+/.opencode/
+/.pi/
+/.codex/
+/.agents/skills/impeccable/scripts/
+/.impeccable/live/

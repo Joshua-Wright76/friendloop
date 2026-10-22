@@ -1,0 +1,22 @@
+import { test, expect } from "@playwright/test";
+import { resetDatabase } from "../support/db";
+import { signIn, uniqueEmail } from "../support/harness";
+
+test.beforeEach(async () => {
+  await resetDatabase();
+});
+
+test("A5 · signing out ends the session everywhere", async ({ page }) => {
+  const email = uniqueEmail("owner");
+  await signIn(page, email);
+
+  await page.getByRole("button", { name: "Sign out" }).click();
+  await expect(page).toHaveURL(/\/signin$/);
+
+  await page.goto("/you");
+  await expect(page).toHaveURL(/\/signin$/);
+
+  // The old cookie is gone, not just the UI.
+  const cookies = await page.context().cookies();
+  expect(cookies.find((cookie) => cookie.name === "fl_session")).toBeUndefined();
+});
