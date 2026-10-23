@@ -34,7 +34,8 @@ export default async function DevOutboxPage() {
         Captured email
       </h1>
       <p className="mt-1.5 text-[14px] leading-relaxed text-ink-soft">
-        Preview deployments never send mail. Everything the app would have emailed is here.
+        Every email the app produces on this deployment, whether it was really sent or only captured.
+        Handy for grabbing a sign-in link without leaving the tab.
       </p>
 
       <div className="mt-5 flex flex-col gap-2.5">

@@ -18,6 +18,11 @@ export type QueueInput = RenderedEmail & {
   fromName?: string | null;
 };
 
+/** True when emails are only recorded, never handed to a provider. */
+export function emailIsCaptured(): boolean {
+  return transport() === "outbox";
+}
+
 /** `outbox` skips the provider entirely (tests, and local dev without a key). */
 function transport(): "outbox" | "resend" {
   if (process.env.EMAIL_TRANSPORT === "outbox") return "outbox";

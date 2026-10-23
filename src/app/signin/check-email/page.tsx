@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { emailIsCaptured } from "@/lib/email/send";
 
 export default function CheckEmailPage() {
   return (
@@ -22,9 +23,11 @@ export default function CheckEmailPage() {
         </p>
         {process.env.VERCEL_ENV === "preview" ? (
           <p className="mt-4 rounded-lg border border-line bg-field px-3 py-2 text-[13px] leading-relaxed text-ink-soft">
-            This is a preview deployment, so nothing is actually sent —{" "}
+            {emailIsCaptured()
+              ? "This preview captures email instead of sending it — "
+              : "Every preview email is kept as a copy — "}
             <a href="/dev/outbox" className="font-medium text-accent underline underline-offset-2">
-              read the captured email
+              open the dev outbox
             </a>
             .
           </p>
