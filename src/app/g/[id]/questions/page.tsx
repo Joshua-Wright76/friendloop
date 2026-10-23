@@ -6,6 +6,7 @@ import { questions } from "@/db/schema";
 import { currentUser } from "@/lib/auth";
 import { viewerFor } from "@/lib/permissions";
 import { addAction, archiveAction, moveAction, skipNextAction } from "./actions";
+import { LoopNav } from "@/components/loop-nav";
 
 export const instant = false;
 
@@ -33,12 +34,13 @@ export default async function QuestionsPage({
     .orderBy(asc(questions.position));
 
   return (
-    <main className="mx-auto w-full max-w-[560px] px-4 pb-16 pt-5">
+    <main className="mx-auto w-full max-w-[680px] px-4 pb-16 pt-5 sm:px-6">
       <header className="mb-5">
         <Link href={`/g/${id}`} className="text-[13px] font-medium text-ink-soft hover:text-ink">
           ← Back to loop
         </Link>
       </header>
+      <LoopNav id={id} active="Questions" />
 
       <h1 className="text-[28px] font-semibold leading-tight tracking-[-0.025em] text-ink">Questions</h1>
       <p className="mt-1.5 text-[15px] leading-relaxed text-ink-soft">
@@ -50,7 +52,7 @@ export default async function QuestionsPage({
 
       <ol className="mt-5 flex flex-col gap-2.5">
         {pool.map((question, index) => (
-          <li key={question.id} className="card p-4">
+          <li key={question.id} className="card paper p-4">
             <div className="flex items-start gap-3">
               <span className="mt-0.5 flex h-5 w-5 flex-none items-center justify-center rounded-full bg-field text-[11px] font-semibold text-ink-muted numeric">
                 {index + 1}
@@ -137,7 +139,7 @@ export default async function QuestionsPage({
 
 function Notice({ children }: { children: React.ReactNode }) {
   return (
-    <div className="settle mt-4 rounded-xl border border-accent-line bg-accent-soft px-4 py-3 text-[14px] leading-relaxed text-accent-ink">
+    <div className="notice settle mt-4 border bg-accent-soft px-4 py-3 text-[14px] leading-relaxed">
       {children}
     </div>
   );

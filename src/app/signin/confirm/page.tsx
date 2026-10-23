@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { peekMagicLink } from "@/lib/auth";
 import { confirmLink } from "./actions";
+import { Brand, Tape } from "@/components/stationery";
 
 export const instant = false;
 
@@ -35,17 +36,10 @@ export default async function ConfirmPage({
 
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-[440px] flex-col justify-center px-4 py-10">
-      <Link
-        href="/"
-        className="mb-8 flex items-center gap-2 self-start text-[15px] font-semibold tracking-[-0.01em] text-ink"
-      >
-        <span className="grid h-6 w-6 place-items-center rounded-[7px] bg-accent text-[13px] font-bold text-white">
-          f
-        </span>
-        Friendloop
-      </Link>
+      <div className="mb-8 self-start"><Brand /></div>
 
-      <div className="card p-6">
+      <div className="card p-6 pt-8">
+        <Tape tone="stripe" position="center" />
         {failure ? (
           <>
             <h1 className="text-[24px] font-semibold leading-tight tracking-[-0.022em] text-ink">

@@ -1,72 +1,70 @@
 # Design
 
-Clean SaaS, executed properly: a light gray page, white cards with a hairline and a
-shadow you can barely see, one blue accent that means "act here", and a warm
-neutral ramp so nothing reads as cold enterprise gray. Dark mode is built from the
-same relationships, not inverted at the end.
+Friendloop uses **Gingham Picnic**, selected from the stationery directions in
+`public/design/design-samples.html`. The complete responsive flow reference is in
+`public/design/flow-screens.html` (also available at `/design/flow-screens.html`).
 
-Chosen deliberately over six more expressive worlds. The group using this writes
-four sentences a week on a phone in bed; the interface should be obvious at 7am
-and invisible at 11pm.
+The product should feel like a small letter exchanged by friends, not enterprise
+software: warm gingham, cream paper, handwritten-style display type, taped notes,
+and stitched dividers. The playfulness lives in the surfaces; controls and copy
+remain direct and easy to use on a phone.
 
-## Colour roles
+## Typography
 
-| Token | Job | Never used for |
-| --- | --- | --- |
-| `--page` | the ground behind everything | text |
-| `--card` | any surface carrying reading or writing | decoration |
-| `--line` / `--line-strong` | hairlines, dividers, input hover | emphasis |
-| `--field` | the writing area inside a card | page background |
-| `--ink` / `--ink-soft` / `--ink-muted` | body, secondary, metadata on cards | text on accent fills |
-| `--accent` | the one action that matters on the screen | anything decorative |
-| `--accent-soft` / `--accent-line` | the "sent" confirmation, selection tints | primary buttons |
-| `--danger` / `--success` | errors, confirmations | anything else |
+- **Gaegu 700** for the wordmark, page titles, questions, and section headings.
+- **Nunito 400/700/800** for body copy, controls, labels, and metadata.
+- Body copy is generally 15–17px. Nothing meaningful is below 12px.
+- Counts use tabular numerals so progress does not shift as it changes.
+- Both families are self-hosted through `next/font` in `src/app/layout.tsx`.
 
-Exactly one accent per screen. If two things on a screen are blue, one of them is
-wrong — the only exception is the focus ring, which is the same blue because focus
-*is* an action.
+## Colour and texture
 
-## Type
+| Token | Job |
+| --- | --- |
+| `--page` / `--check` | warm pink ground and its gingham pattern |
+| `--card` | cream stationery carrying reading or writing |
+| `--line` / `--line-strong` | borders, dividers, and quiet controls |
+| `--rule` / `--margin` | blue notebook rules and red notebook margin |
+| `--ink` / `--ink-soft` / `--ink-muted` | reading, supporting copy, and metadata |
+| `--accent` / `--accent-deep` | primary action and its pressed edge |
+| `--accent-soft` / `--accent-line` | confirmation washes and dashed stitching |
+| `--danger` / `--success` | destructive and successful states |
 
-- **Everything** is Geist Sans. Questions at 16px/600, body at 15px/400, metadata
-  at 13px, the round number at 30px/600 with −0.025em tracking. Nothing below 12px.
-- Numbers that count (`1 of 4 answered`) are tabular so they don't jitter as you type.
-- Geist Mono exists in the tokens for code and email addresses only; it is not a
-  display face here.
+Dark mode is a deliberately tuned evening stationery palette, not an inversion.
+It preserves the same contrast relationships and gingham texture.
 
-## Surfaces
+## Surfaces and controls
 
-- **Card** (`.card`): 14px radius, 1px `--line`, one soft shadow. Cards are the only
-  container; they never nest, and a card never sits inside another card.
-- **Field** (`.field`): 10px radius, `--field` fill, transparent border that turns
-  accent on focus with a 3px 16%-alpha ring. No placeholder is ever the only label.
-- **Top bar**: sticky, 56px, blurred page tint, loop name on the left, a quiet count
-  chip on the right. It never carries actions.
-- **Action bar**: fixed bottom, opaque card, one line of state and one primary
-  button. It never floats over the field you are typing in.
+- **Cards:** 6px corners, cream fill, a hairline, and one soft pink shadow.
+- **Paper:** the `.paper` treatment adds a notebook margin. Reply fields use
+  `.lined-field` for 28px writing rules.
+- **Tape:** four patterns (`dots`, `stripe`, `mint`, `check`) decorate important
+  notes. Tape is always aria-hidden and never carries information.
+- **Buttons:** pill-shaped, Nunito 800. Primary actions have a 3px pressed edge;
+  quiet actions use an inset border. Minimum target height is 44px.
+- **Fields:** cream fill, visible border, and a soft accent focus ring. Every input
+  has a label or accessible name.
+- **Navigation:** loop sections use stitched headers and underline tabs. Reply
+  screens keep the loop name and answer count in a sticky top bar, with draft
+  state and the primary action in a fixed bottom bar.
+- **Brand:** the cherry illustration and Gaegu wordmark are shared by the landing,
+  account, reply, and issue experiences.
 
 ## Motion
 
-Two moves, both short:
-
-- Cards ride in 6px over 320ms on first paint, staggered only by document order.
-- The sent banner settles from 96% scale over 220ms.
-
-Nothing bounces, nothing loops, and `prefers-reduced-motion` removes both.
+Cards may ride in 6px over 320ms; confirmations settle from 96% over 220ms.
+Nothing loops or bounces. `prefers-reduced-motion` removes both effects.
 
 ## Copy
 
-Plain, second person, no exclamation marks. Buttons name their outcome ("Send
-answers", "Save changes"), errors name the recovery, and the confirmation says what
-happens next ("Sent. You can change these until Friday 9:00 AM."). Time is stated in
-the loop's zone with the reader's own zone in parentheses when they differ.
+Plain, warm, second person, with no exclamation marks. Buttons name their outcome
+("Send answers", "Save changes"), errors name the recovery, and confirmations say
+what happens next. Time is shown in the loop's zone and the reader's own zone when
+they differ.
 
-## Email
+## Implementation
 
-Same voice, same one-accent discipline: light card, serif heading, one blue button.
-Readable with images off, always with a plain-text twin.
-
-## Not yet designed
-
-The delivered issue view (`/i/<n>`) and the create-a-loop flow do not exist yet.
-Both inherit this world; neither has needed its own decisions so far.
+Shared tokens and stationery primitives live in `src/app/globals.css`. Reusable
+brand, cherry, tape, envelope, and loop-navigation components live in
+`src/components/`. Route behavior, server actions, autosave, and permissions are
+independent of the visual system.

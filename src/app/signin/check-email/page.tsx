@@ -1,20 +1,14 @@
 import Link from "next/link";
 import { emailIsCaptured } from "@/lib/email/send";
+import { Brand, Envelope } from "@/components/stationery";
 
 export default function CheckEmailPage() {
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-[440px] flex-col justify-center px-4 py-10">
-      <Link
-        href="/"
-        className="mb-8 flex items-center gap-2 self-start text-[15px] font-semibold tracking-[-0.01em] text-ink"
-      >
-        <span className="grid h-6 w-6 place-items-center rounded-[7px] bg-accent text-[13px] font-bold text-white">
-          f
-        </span>
-        Friendloop
-      </Link>
+      <div className="mb-8 self-start"><Brand /></div>
 
-      <div className="card p-6">
+      <div className="card p-6 text-center">
+        <Envelope />
         <h1 className="text-[24px] font-semibold leading-tight tracking-[-0.022em] text-ink">
           Check your inbox
         </h1>

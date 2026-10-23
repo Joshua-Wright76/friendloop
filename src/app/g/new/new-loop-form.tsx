@@ -4,6 +4,7 @@ import { useActionState, useState } from "react";
 import Link from "next/link";
 import { createLoopAction, type CreateState } from "./actions";
 import { TimezoneField } from "./timezone-field";
+import { Tape } from "@/components/stationery";
 
 const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 const HOURS = Array.from({ length: 24 }, (_, hour) => hour);
@@ -36,15 +37,16 @@ export function NewLoopForm({ bank }: Props) {
     );
 
   return (
-    <form action={action} className="flex flex-col gap-5">
+    <form action={action} className="flex flex-col gap-6">
       <datalist id="timezones">
         {ZONES.map((zone) => (
           <option key={zone} value={zone} />
         ))}
       </datalist>
 
-      <label className="flex flex-col gap-1.5">
-        <span className="text-[13px] font-medium text-ink-soft">Name</span>
+      <label className="card flex flex-col gap-2 p-5 pt-7">
+        <Tape tone="stripe" position="right" />
+        <span className="font-display text-[23px] font-bold text-ink">What’s it called?</span>
         <input
           name="name"
           required
@@ -54,7 +56,7 @@ export function NewLoopForm({ bank }: Props) {
         />
       </label>
 
-      <fieldset className="flex flex-col gap-2">
+      <fieldset className="flex flex-col gap-3">
         <legend className="mb-1 text-[13px] font-medium text-ink-soft">Who writes</legend>
         <label className="card flex cursor-pointer items-start gap-3 p-4">
           <input type="radio" name="mode" value="group" defaultChecked className="mt-1 accent-[var(--accent)]" />
@@ -76,7 +78,7 @@ export function NewLoopForm({ bank }: Props) {
         </label>
       </fieldset>
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="card grid grid-cols-2 gap-4 p-5">
         <label className="flex flex-col gap-1.5">
           <span className="text-[13px] font-medium text-ink-soft">Day</span>
           <select name="weekday" defaultValue="5" className="field h-[46px] py-0">

@@ -14,6 +14,7 @@ import {
   resendAction,
   transferAction,
 } from "./actions";
+import { LoopNav } from "@/components/loop-nav";
 
 export const instant = false;
 
@@ -42,12 +43,13 @@ export default async function MembersPage({
   const fromYou = group.mode === "from_you";
 
   return (
-    <main className="mx-auto w-full max-w-[560px] px-4 pb-16 pt-5">
+    <main className="mx-auto w-full max-w-[680px] px-4 pb-16 pt-5 sm:px-6">
       <header className="mb-5 flex items-center justify-between gap-3">
         <Link href={`/g/${id}`} className="text-[13px] font-medium text-ink-soft hover:text-ink">
           ← {group.name}
         </Link>
       </header>
+      <LoopNav id={id} active="People" isOwner={isOwner} />
 
       <h1 className="text-[28px] font-semibold leading-tight tracking-[-0.025em] text-ink">People</h1>
       <p className="mt-1.5 text-[15px] leading-relaxed text-ink-soft">
@@ -176,7 +178,7 @@ export default async function MembersPage({
 
 function Notice({ children }: { children: React.ReactNode }) {
   return (
-    <div className="settle mt-4 rounded-xl border border-accent-line bg-accent-soft px-4 py-3 text-[14px] leading-relaxed text-accent-ink">
+    <div className="notice settle mt-4 border bg-accent-soft px-4 py-3 text-[14px] leading-relaxed">
       {children}
     </div>
   );

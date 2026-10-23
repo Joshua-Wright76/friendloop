@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { currentUser } from "@/lib/auth";
 import { loadIssue, membershipForViewer } from "@/lib/issue-view";
 import { IssueBody } from "./issue-body";
+import { Cherries } from "@/components/stationery";
 
 export const instant = false;
 
@@ -30,20 +31,22 @@ export default async function IssuePage({
   if (!view) notFound();
 
   return (
-    <main className="mx-auto w-full max-w-[560px] px-4 pb-16 pt-5">
-      <header className="mb-5 flex items-center justify-between gap-3">
-        <span className="truncate text-[14px] font-medium text-ink-soft">{view.group.name}</span>
-        <span className="rounded-full border border-line bg-card px-2.5 py-1 text-[12px] font-medium text-ink-soft numeric">
-          Round {view.issue.number}
+    <main className="mx-auto w-full max-w-[680px] px-4 pb-16 pt-5 sm:px-6">
+      <header className="stitched mb-8 flex items-center justify-between gap-3 border-b pb-4">
+        <span className="flex min-w-0 items-center gap-2 font-display text-[23px] font-bold text-ink">
+          <Cherries className="h-7 w-7 flex-none" /><span className="truncate">{view.group.name}</span>
         </span>
+        <span className="chip border bg-card px-2.5 py-1 text-[12px] font-bold text-ink-soft numeric">Round {view.issue.number}</span>
       </header>
 
-      <h1 className="text-[30px] font-semibold leading-[1.1] tracking-[-0.025em] text-ink">
-        Round {view.issue.number}
-      </h1>
-      <p className="mt-1.5 text-[15px] leading-relaxed text-ink-soft">
-        {view.answerCount} {view.answerCount === 1 ? "answer" : "answers"} from the group.
-      </p>
+      <div className="relative pr-16">
+        <Cherries className="absolute -top-2 right-0 h-16 w-16 rotate-12" />
+        <p className="eyebrow">Fresh from the loop</p>
+        <h1 className="mt-1 text-ink">Round {view.issue.number}</h1>
+        <p className="mt-2 text-[15px] leading-relaxed text-ink-soft">
+          {view.answerCount} {view.answerCount === 1 ? "answer" : "answers"} from the group.
+        </p>
+      </div>
 
       <IssueBody
         issueId={view.issue.id}

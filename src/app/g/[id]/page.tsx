@@ -7,6 +7,8 @@ import { currentUser } from "@/lib/auth";
 import { getNow } from "@/lib/clock";
 import { describeDeadline, nextSlot, weekdayName } from "@/lib/schedule";
 import { pauseAction, sendNowAction } from "./actions";
+import { Cherries, Tape } from "@/components/stationery";
+import { LoopNav } from "@/components/loop-nav";
 
 export const instant = false;
 
@@ -82,38 +84,37 @@ export default async function LoopPage({
   const writers = people.filter((person) => person.participation === "contributor").length;
 
   return (
-    <main className="mx-auto w-full max-w-[560px] px-4 pb-16 pt-5">
-      <header className="mb-5 flex items-center justify-between gap-3">
-        <Link href="/you" className="text-[13px] font-medium text-ink-soft hover:text-ink">
-          ← Your loops
+    <main className="mx-auto w-full max-w-[680px] px-4 pb-16 pt-5 sm:px-6">
+      <header className="stitched flex items-center justify-between gap-3 border-b pb-4">
+        <Link href="/you" className="flex min-w-0 items-center gap-2 font-display text-[23px] font-bold text-ink no-underline">
+          <Cherries className="h-7 w-7 flex-none" /><span className="truncate">{group.name}</span>
         </Link>
-        <span className="rounded-full border border-line bg-card px-2.5 py-1 text-[12px] font-medium capitalize text-ink-soft">
-          {membership.access}
-        </span>
+        <span className="chip border bg-card px-2.5 py-1 text-[12px] font-bold capitalize text-ink-soft">{membership.access}</span>
       </header>
+      <LoopNav id={group.id} active="Overview" isOwner={isOwner} />
 
       {welcome === "1" ? (
-        <div className="settle mb-4 rounded-xl border border-accent-line bg-accent-soft px-4 py-3 text-[14px] leading-relaxed text-accent-ink">
+        <div className="notice settle mb-5 border bg-accent-soft px-4 py-3 text-[14px] leading-relaxed">
           Loop created. Invite a couple of people and the first round will go out on schedule.
         </div>
       ) : null}
 
-      <h1 className="text-[28px] font-semibold leading-tight tracking-[-0.025em] text-ink">
-        {group.name}
-      </h1>
+      <p className="eyebrow">The rhythm of your group</p>
+      <h1 className="mt-1 text-ink">{group.name}</h1>
       <p className="mt-1.5 text-[15px] leading-relaxed text-ink-soft">
         Every {group.cadenceWeeks === 1 ? "week" : `${group.cadenceWeeks} weeks`} on{" "}
         {weekdayName(group.promptWeekday)} at {group.promptHour}:00, {group.timezone}.
       </p>
 
-      <div className="card mt-5 p-5">
-        <p className="text-[13px] font-medium text-ink-muted">
+      <div className="card ride-in mt-6 p-5 pt-7">
+        <Tape tone="stripe" />
+        <p className="eyebrow">
           {group.pausedAt ? "Paused" : "Next round"}
         </p>
-        <p className="mt-1 text-[19px] font-semibold leading-snug tracking-[-0.015em] text-ink">
+        <h2 className="mt-2 text-ink">
           {group.pausedAt ? "Nothing scheduled" : nextLabel.inLoopZone}
-        </p>
-        <p className="mt-1 text-[14px] leading-relaxed text-ink-soft">
+        </h2>
+        <p className="mt-2 text-[14px] leading-relaxed text-ink-soft">
           {group.pausedAt
             ? "Nothing goes out until you resume it."
             : nextLabel.inViewerZone
@@ -141,7 +142,8 @@ export default async function LoopPage({
       </div>
 
       {openIssue ? (
-        <div className="card mt-3 p-5">
+        <div className="card ride-in mt-5 p-5 pt-7">
+          <Tape tone="dots" position="right" />
           <div className="flex items-baseline justify-between gap-3">
             <p className="text-[13px] font-medium text-ink-muted">Round {openIssue.number}</p>
             <p className="text-[13px] font-medium text-ink-soft numeric">
@@ -174,26 +176,16 @@ export default async function LoopPage({
         </div>
       ) : null}
 
-      <nav className="mt-3 grid grid-cols-2 gap-2.5">
-        <Link href={`/g/${group.id}/members`} className="card px-4 py-3.5 hover:shadow-[var(--shadow-lift)]">
-          <span className="block text-[15px] font-medium text-ink">People</span>
-          <span className="mt-0.5 block text-[13px] text-ink-muted numeric">{people.length} in the loop</span>
+      <div className="mt-5 grid grid-cols-2 gap-4">
+        <Link href={`/g/${group.id}/members`} className="card loop-card px-4 py-4 no-underline">
+          <span className="block font-display text-[23px] font-bold text-ink">People</span>
+          <span className="mt-1 block text-[13px] text-ink-muted numeric">{people.length} in the loop</span>
         </Link>
-        <Link href={`/g/${group.id}/questions`} className="card px-4 py-3.5 hover:shadow-[var(--shadow-lift)]">
-          <span className="block text-[15px] font-medium text-ink">Questions</span>
-          <span className="mt-0.5 block text-[13px] text-ink-muted numeric">{pool.length} in the pool</span>
+        <Link href={`/g/${group.id}/questions`} className="card loop-card px-4 py-4 no-underline">
+          <span className="block font-display text-[23px] font-bold text-ink">Questions</span>
+          <span className="mt-1 block text-[13px] text-ink-muted numeric">{pool.length} in the pool</span>
         </Link>
-        <Link href={`/g/${group.id}/issues`} className="card px-4 py-3.5 hover:shadow-[var(--shadow-lift)]">
-          <span className="block text-[15px] font-medium text-ink">Rounds</span>
-          <span className="mt-0.5 block text-[13px] text-ink-muted">Archive and delivery</span>
-        </Link>
-        {isOwner ? (
-          <Link href={`/g/${group.id}/settings`} className="card px-4 py-3.5 hover:shadow-[var(--shadow-lift)]">
-            <span className="block text-[15px] font-medium text-ink">Settings</span>
-            <span className="mt-0.5 block text-[13px] text-ink-muted">Schedule and sharing</span>
-          </Link>
-        ) : null}
-      </nav>
+      </div>
     </main>
   );
 }

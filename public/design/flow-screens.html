@@ -1,0 +1,1023 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Friendloop · Gingham Picnic · Every flow</title>
+<script>
+  (function () {
+    var p = new URLSearchParams(location.search), r = document.documentElement;
+    var dark = p.has('dark') ? true : p.has('light') ? false : matchMedia('(prefers-color-scheme: dark)').matches;
+    r.dataset.theme = dark ? 'dark' : 'light';
+    r.dataset.view = p.get('view') || 'both';
+  })();
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gaegu:wght@400;700&family=Nunito:wght@400;600;700;800&display=swap">
+<style>
+/* ═════════ tokens ═════════ */
+:root{
+  --display:'Gaegu',cursive;--body:'Nunito',system-ui,sans-serif;
+  --doc:#fdf8f6;
+  --page:#fff3f5;--check:rgba(236,118,148,.15);--card:#fffdfa;--line:#f1dae0;--line-strong:#e4bcc6;--rule:#d6e3f4;--margin:#f3a3b4;
+  --ink:#3d2a30;--ink-soft:#674d55;--ink-muted:#86676f;
+  --accent:#cc3456;--accent-ink:#fff;--accent-deep:#9e2440;--accent-soft:#fde4e9;--accent-line:#f3b1bf;
+  --danger:#a4262c;--danger-ink:#fff;--danger-soft:#fbe7e5;--success:#2e7d55;--success-soft:#e4f3ea;
+  --case:#f5b3c3;--scrim:rgba(61,42,48,.42);
+  --shadow:0 1px 2px rgba(120,40,60,.06),0 14px 26px -18px rgba(160,40,70,.4);
+}
+html[data-theme=dark]{
+  --doc:#161114;
+  --page:#241a20;--check:rgba(255,140,170,.07);--card:#30242a;--line:#46343c;--line-strong:#5c4650;--rule:rgba(150,180,225,.15);--margin:rgba(255,140,165,.45);
+  --ink:#f8eaee;--ink-soft:#dbc2c9;--ink-muted:#ae939b;
+  --accent:#ff8ba4;--accent-ink:#2a1219;--accent-deep:#c45a74;--accent-soft:#472833;--accent-line:#7a3c4e;
+  --danger:#ff9a6b;--danger-ink:#2b0d0b;--danger-soft:#46281c;--success:#7fd3a5;--success-soft:#1f3a2c;
+  --case:#583542;--scrim:rgba(0,0,0,.58);
+  --shadow:0 14px 26px -18px rgba(0,0,0,.7);
+}
+*,*::before,*::after{box-sizing:border-box}
+html{scroll-behavior:smooth;scroll-padding-top:76px;-webkit-text-size-adjust:100%}
+body{margin:0;font:16px/1.5 var(--body);background:var(--doc);color:var(--ink);-webkit-font-smoothing:antialiased}
+button,input,textarea,select{font:inherit;color:inherit}
+:focus-visible{outline:3px solid color-mix(in srgb,var(--accent) 70%,transparent);outline-offset:2px}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.rn{font-family:var(--body);font-weight:800;font-size:.84em;letter-spacing:-.02em}
+.tnum{font-variant-numeric:tabular-nums}
+.gingham{background-color:var(--page);background-image:linear-gradient(90deg,var(--check) 50%,transparent 0),linear-gradient(var(--check) 50%,transparent 0)}
+
+/* ═════════ document chrome ═════════ */
+.doc-head{background-size:40px 40px;border-bottom:2px dashed var(--accent-line)}
+.doc-head-in{max-width:1440px;margin:0 auto;padding:64px 32px 52px}
+.doc-card{position:relative;max-width:940px;background:var(--card);border:1px solid var(--line);border-radius:6px;box-shadow:var(--shadow);padding:34px 34px 28px}
+.kicker{margin:0;font-weight:800;font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-muted)}
+.doc-card h1{font-family:var(--display);font-weight:700;font-size:clamp(42px,6vw,66px);line-height:1;margin:8px 0 14px}
+.lede{margin:0;max-width:720px;font-size:17px;line-height:1.6;color:var(--ink-soft)}
+.cast{display:flex;flex-wrap:wrap;gap:8px;margin:20px 0 0;padding:0;list-style:none}
+.cast li{display:inline-flex;align-items:center;gap:8px;padding:4px 12px 4px 4px;border-radius:999px;background:var(--page);border:1px solid var(--line);font-size:13.5px;color:var(--ink-soft)}
+.cast b{color:var(--ink)}
+.today{margin:16px 0 0;font-size:14px;color:var(--ink-muted)}
+.index{display:grid;gap:8px;margin:22px 0 0}
+.index div{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+.index b{width:220px;font-family:var(--display);font-size:20px}
+.index a{display:inline-flex;align-items:center;min-height:32px;padding:0 10px;border-radius:5px;background:var(--accent-soft);color:var(--ink);font-weight:800;font-size:13px;text-decoration:none}
+.index a:hover{background:var(--accent-line)}
+.docnav{position:sticky;top:0;z-index:100;display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:4px 6px;padding:6px 16px;background:color-mix(in srgb,var(--doc) 88%,transparent);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);border-bottom:1px solid var(--line)}
+.docnav a{display:inline-flex;align-items:center;gap:6px;min-height:44px;padding:0 12px;border-radius:999px;color:inherit;text-decoration:none;font-weight:700;font-size:14px}
+.docnav a:hover{background:var(--accent-soft)}
+.docnav a b{color:var(--accent-deep)}
+html[data-theme=dark] .docnav a b{color:var(--accent)}
+.docnav .sep{width:1px;height:26px;background:var(--line-strong);margin:0 6px}
+.vseg{display:inline-flex;padding:3px;border-radius:999px;border:1.5px solid var(--line-strong);background:var(--card)}
+.vseg button{min-height:38px;padding:0 14px;border:0;border-radius:999px;background:none;font-weight:700;font-size:14px;color:var(--ink-soft);cursor:pointer}
+.vseg button[aria-pressed=true]{background:var(--ink);color:var(--card)}
+.modebtn{display:inline-flex;align-items:center;gap:10px;min-height:44px;padding:0 14px 0 8px;border-radius:999px;border:1.5px solid var(--line-strong);background:var(--card);cursor:pointer;font-weight:700;font-size:14px}
+.modebtn .knob{width:38px;height:24px;border-radius:999px;background:var(--line-strong);position:relative}
+.modebtn .knob::after{content:'';position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.2);transition:transform .2s}
+.modebtn[aria-pressed=true] .knob{background:var(--accent)}
+.modebtn[aria-pressed=true] .knob::after{transform:translateX(14px)}
+
+.group{max-width:1440px;margin:0 auto;padding:64px 32px 0}
+.group-head{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 16px;padding-bottom:14px;border-bottom:2px dashed var(--line-strong)}
+.gl{font-weight:800;font-size:46px;line-height:1;color:var(--accent)}
+.group-head h2{font-family:var(--display);font-size:44px;line-height:1;margin:0}
+.group-head p{margin:0;color:var(--ink-muted);font-size:15px;flex-basis:100%}
+.flow{padding:44px 0 52px;border-bottom:1px dashed var(--line-strong)}
+.flow:last-child{border-bottom:0}
+.flow-head{display:flex;gap:16px;align-items:flex-start;max-width:920px}
+.fid{flex:none;margin-top:4px;font-weight:800;font-size:15px;padding:6px 10px;border-radius:4px;background:var(--accent-soft);border:1px solid var(--accent-line)}
+.flow-head h3{font-family:var(--display);font-size:34px;line-height:1.05;margin:0}
+.flow-head p{margin:6px 0 0;color:var(--ink-soft);font-size:16px;line-height:1.55}
+.notes{margin:14px 0 0 0;padding:0;list-style:none;display:flex;flex-wrap:wrap;gap:8px}
+.notes li{font-size:13.5px;padding:6px 12px;border-radius:999px;border:1.5px dashed var(--accent-line);background:var(--card);color:var(--ink-soft)}
+.shots{display:grid;gap:40px;margin-top:30px}
+.shot{margin:0}
+.shot figcaption{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;margin:0 0 14px;font-weight:800;font-size:15px}
+.shot figcaption > b{width:26px;height:26px;border-radius:50%;display:grid;place-items:center;background:var(--ink);color:var(--card);font-size:13px}
+.shot code{font:600 12.5px/1 ui-monospace,'SF Mono',Menlo,monospace;color:var(--ink-muted);padding:6px 9px;border-radius:6px;background:var(--card);border:1px solid var(--line)}
+.viewer{display:inline-flex;align-items:center;gap:6px;font-weight:700;font-size:13px;color:var(--ink-muted)}
+.pair{display:flex;flex-wrap:wrap;gap:32px;align-items:flex-start}
+html[data-view=phone] .browser-wrap,html[data-view=desktop] .phone-wrap{display:none}
+html[data-view=phone] .shots{display:flex;flex-wrap:wrap;gap:36px}
+html[data-view=phone] .shot figcaption{max-width:360px;min-height:60px;align-content:flex-start}
+.doc-foot{max-width:760px;margin:0 auto;padding:80px 24px 110px;text-align:center}
+.doc-foot h2{font-family:var(--display);font-size:44px;margin:0 0 8px}
+.doc-foot p{margin:0 auto;max-width:560px;color:var(--ink-soft)}
+
+/* ═════════ frames ═════════ */
+.phone-wrap{flex:none;width:360px}
+.phone{position:relative;width:360px;height:760px;padding:10px;border-radius:52px;background:var(--case);box-shadow:0 40px 70px -36px rgba(70,20,45,.45),inset 0 0 0 1.5px rgba(255,255,255,.35)}
+html[data-theme=dark] .phone{box-shadow:0 40px 70px -30px rgba(0,0,0,.8),inset 0 0 0 1.5px rgba(255,255,255,.08)}
+.screen{position:relative;height:100%;border-radius:42px;overflow:hidden;display:flex;flex-direction:column;background:var(--page)}
+.screen.mailscreen{background:#fff}
+html[data-theme=dark] .screen.mailscreen{background:#1c1b1d}
+.statusbar{flex:none;position:relative;height:44px;display:flex;align-items:center;justify-content:space-between;padding:0 26px 0 34px;font:600 14px/1 system-ui,-apple-system,sans-serif;color:var(--ink)}
+.mailscreen .statusbar{color:#2a2426}
+html[data-theme=dark] .mailscreen .statusbar{color:#ece6e8}
+.island{position:absolute;left:50%;top:11px;width:92px;height:26px;margin-left:-46px;border-radius:20px;background:#0d0b0d}
+.sb-icons{display:flex;gap:6px;align-items:center}
+.sb-icons svg{fill:currentColor}
+.browser-wrap{flex:none;max-width:100%;overflow-x:auto}
+.browser{width:960px;border-radius:14px;overflow:hidden;background:var(--card);box-shadow:0 0 0 1px var(--line),0 40px 70px -40px rgba(70,20,45,.45)}
+html[data-theme=dark] .browser{box-shadow:0 0 0 1px var(--line),0 40px 70px -36px rgba(0,0,0,.8)}
+.chrome{display:flex;align-items:center;gap:12px;height:40px;padding:0 14px;background:var(--card);border-bottom:1px solid var(--line)}
+.dots{display:flex;gap:7px;width:60px}
+.dots i{width:11px;height:11px;border-radius:50%;background:var(--line-strong)}
+.url{flex:1;max-width:420px;margin:0 auto;height:26px;display:flex;align-items:center;justify-content:center;border-radius:8px;background:var(--page);font:500 12.5px/1 ui-monospace,'SF Mono',Menlo,monospace;color:var(--ink-muted);white-space:nowrap;overflow:hidden}
+.chrome-pad{width:60px}
+.viewport{position:relative;height:700px;display:flex;flex-direction:column;background:var(--page)}
+
+/* ═════════ app shell ═════════ */
+.app{position:relative;flex:1;min-height:0;display:flex;flex-direction:column;container:app/inline-size;background-size:22px 22px;color:var(--ink);font-family:var(--body)}
+.topbar{flex:none;position:relative;z-index:5;height:56px;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:0 16px;background:color-mix(in srgb,var(--card) 92%,transparent);border-bottom:2px dashed var(--accent-line)}
+.loopname{display:flex;align-items:center;gap:6px;min-width:0;font-family:var(--display);font-weight:700;font-size:21px;line-height:1.1;letter-spacing:-.01em;white-space:nowrap}
+.loopname svg{flex:none;width:22px;height:auto}
+.loopname span{overflow:hidden;text-overflow:ellipsis}
+.chip{flex:none;position:relative;display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:700;line-height:1;padding:7px 11px 7px 22px;border-radius:5px 999px 999px 5px;background:var(--card);border:1px solid var(--line-strong);color:var(--ink-soft);white-space:nowrap;font-variant-numeric:tabular-nums}
+.chip::before{content:'';position:absolute;left:9px;top:50%;width:6px;height:6px;margin-top:-3px;border-radius:50%;background:var(--page);box-shadow:inset 0 0 0 1px var(--line-strong)}
+.tabs{flex:none;position:relative;z-index:4;display:flex;gap:2px;padding:0 8px;overflow-x:auto;background:color-mix(in srgb,var(--card) 80%,transparent);border-bottom:1px solid var(--line);scrollbar-width:none}
+.tabs::-webkit-scrollbar{display:none}
+.tab{min-height:44px;display:inline-flex;align-items:center;padding:0 10px;border-bottom:3px solid transparent;font-weight:700;font-size:14px;color:var(--ink-soft);white-space:nowrap;cursor:pointer}
+.tab[aria-current]{color:var(--ink);border-bottom-color:var(--margin)}
+.body{flex:1;min-height:0;overflow-y:auto;scrollbar-width:none;position:relative}
+.body::-webkit-scrollbar{display:none}
+.wrap{margin:0 auto;padding:22px 16px 36px;display:flex;flex-direction:column;gap:18px}
+.wrap.narrow{max-width:600px}
+.wrap.read{max-width:1000px}
+.wrap.wide{max-width:1040px}
+.cols,.col{display:flex;flex-direction:column;gap:18px;min-width:0}
+.only-wide{display:none!important}
+.actionbar{flex:none;position:relative;z-index:5;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 16px 14px;background:var(--card);border-top:2px dashed var(--accent-line)}
+.phone .actionbar{padding-bottom:28px}
+.state{font-size:13px;line-height:1.3;color:var(--ink-muted);min-width:0}
+
+/* ═════════ type ═════════ */
+.eyebrow{margin:0;font-family:var(--display);font-weight:700;font-size:22px;line-height:1.15;color:var(--ink-soft)}
+.round{margin:2px 0 6px;font-family:var(--display);font-weight:700;font-size:38px;line-height:1.05}
+.wrap > .eyebrow + .round{margin-top:-16px}
+.h2{margin:0 0 8px;font-family:var(--display);font-weight:700;font-size:25px;line-height:1.15}
+.qtext{display:block;margin:0 0 8px;font-family:var(--display);font-weight:700;font-size:23px;line-height:1.25;color:var(--ink)}
+.p{margin:0 0 10px;font-size:15px;line-height:1.55;color:var(--ink-soft)}
+.p:last-child{margin-bottom:0}
+.p b{color:var(--ink)}
+.meta{margin:0;font-size:13px;line-height:1.45;color:var(--ink-muted)}
+.center{text-align:center}
+.lbl{display:block;margin:0 0 6px;font-weight:800;font-size:14px;color:var(--ink)}
+.lbl.gap{margin-top:16px}
+.help{margin:6px 0 0;font-size:13px;line-height:1.45;color:var(--ink-muted)}
+.due{margin:0;font-size:14px;line-height:1.45;color:var(--ink-soft)}
+.due span{color:var(--ink-muted)}
+.right{display:flex;justify-content:flex-end;flex-wrap:wrap;gap:10px;margin-top:14px}
+.row-btns{display:flex;flex-wrap:wrap;gap:10px;margin:14px 0 4px}
+
+/* ═════════ surfaces ═════════ */
+.card{position:relative;background:var(--card);border:1px solid var(--line);border-radius:6px;box-shadow:var(--shadow);padding:18px 16px}
+.card.taped{padding-top:26px}
+.paper{padding:26px 16px 16px 36px}
+.paper::before{content:'';position:absolute;top:0;bottom:0;left:24px;width:1.5px;background:var(--margin)}
+.hint{margin:-2px 0 8px;font-size:13px;line-height:1.4;color:var(--ink-muted)}
+.tape{position:absolute;z-index:3;top:-11px;width:88px;height:22px;opacity:.9;pointer-events:none;clip-path:polygon(0 0,100% 0,97% 25%,100% 50%,97% 75%,100% 100%,0 100%,3% 75%,0 50%,3% 25%)}
+.tape.l{left:22px;transform:rotate(-4deg)}
+.tape.r{right:18px;transform:rotate(3deg)}
+.tape.c{left:50%;margin-left:-44px;transform:rotate(-1.5deg)}
+.tape.dots{background:radial-gradient(circle,rgba(255,255,255,.85) 1.8px,transparent 2.3px) 0 0/9px 9px,#f6a6ba}
+.tape.stripe{background:repeating-linear-gradient(-45deg,#ffcf9e 0 5px,#fff0d8 5px 10px)}
+.tape.mint{background:repeating-linear-gradient(90deg,rgba(255,255,255,.55) 0 3px,transparent 3px 11px),#a9dec9}
+.tape.check{background:linear-gradient(90deg,rgba(110,150,225,.32) 50%,transparent 0) 0 0/8px 8px,linear-gradient(rgba(110,150,225,.32) 50%,transparent 0) 0 0/8px 8px,#eaf1ff}
+html[data-theme=dark] .tape{opacity:.6}
+.deco{position:absolute;pointer-events:none;z-index:3}
+.deco svg{display:block;width:100%;height:auto}
+.hero,.issue-head{position:relative;padding:4px 4px 0}
+.cherry-big{top:-8px;right:4px;width:56px;transform:rotate(14deg)}
+.ill{display:block;width:120px;height:auto;color:var(--ink-soft)}
+.ill .fillcard{fill:var(--card)}
+.banner{display:flex;gap:12px;align-items:flex-start;padding:14px 16px;border-radius:6px;border:1.5px dashed var(--accent-line);background:var(--accent-soft);font-size:14.5px;line-height:1.5;color:var(--ink)}
+.banner > svg{flex:none;width:28px;height:auto;margin-top:2px;color:var(--margin)}
+.banner b{display:block;font-family:var(--display);font-size:23px;line-height:1.1;margin-bottom:3px}
+.banner.ok{border-color:color-mix(in srgb,var(--success) 50%,transparent);background:var(--success-soft)}
+.banner.ok > svg{color:var(--success)}
+.banner.warn{border-color:color-mix(in srgb,var(--danger) 45%,transparent);background:var(--danger-soft)}
+.banner.warn > svg{color:var(--danger)}
+.tags{display:flex;flex-wrap:wrap;gap:6px;margin:0}
+.tag{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:999px;border:1px solid var(--line-strong);background:var(--page);font:700 12px/1.3 var(--body);color:var(--ink-soft);white-space:nowrap;vertical-align:1px}
+.tag svg{width:12px;height:12px}
+.tag.hl{background:var(--accent-soft);border-color:var(--accent-line);color:var(--ink)}
+.tag.read{border-style:dashed}
+.grid2{display:grid;gap:16px}
+.grid2.tight{grid-template-columns:1fr 1fr;gap:12px;margin:16px 0}
+.plain{margin:0;padding-left:20px;font-size:14.5px;line-height:1.7;color:var(--ink-soft)}
+
+/* ═════════ controls ═════════ */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:0 20px;border:0;border-radius:999px;font:800 15px/1 var(--body);white-space:nowrap;cursor:pointer;text-decoration:none}
+.btn svg{width:18px;height:18px}
+.btn.primary{background:var(--accent);color:var(--accent-ink);box-shadow:0 3px 0 var(--accent-deep)}
+.btn.primary:active{transform:translateY(2px);box-shadow:0 1px 0 var(--accent-deep)}
+.btn.quiet{background:var(--card);color:var(--ink-soft);box-shadow:inset 0 0 0 1.5px var(--line-strong)}
+.btn.danger{background:var(--danger);color:var(--danger-ink);box-shadow:0 3px 0 color-mix(in srgb,var(--danger) 60%,#000)}
+.btn.danger-line{background:transparent;color:var(--danger);box-shadow:inset 0 0 0 1.5px currentColor}
+.btn.link{padding:0 4px;background:none;color:var(--ink-soft);text-decoration:underline;text-decoration-style:dashed;text-underline-offset:4px;font-weight:700}
+.btn.block{width:100%}
+.btn.small{min-height:40px;padding:0 16px;font-size:14px}
+.btn[aria-disabled=true]{opacity:.5;cursor:not-allowed}
+.btn.is-focus{outline:3px solid color-mix(in srgb,var(--accent) 70%,transparent);outline-offset:3px}
+.iconbtn{flex:none;width:44px;height:44px;display:grid;place-items:center;padding:0;border-radius:10px;border:1.5px solid var(--line);background:var(--card);color:var(--ink-soft);cursor:pointer}
+.iconbtn[disabled]{opacity:.35;cursor:default}
+.iconbtn.sm{width:40px;height:40px}
+.iconpad{flex:none;width:44px}
+.input{display:block;width:100%;min-height:46px;padding:0 14px;border:1.5px solid var(--line-strong);border-radius:8px;background:var(--card);font-size:16px;color:var(--ink)}
+textarea.input{padding:10px 14px;line-height:1.5;resize:none;min-height:76px}
+.input::placeholder,.lined::placeholder{color:var(--ink-muted);opacity:1}
+.input:focus,.input.is-focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 16%,transparent)}
+.input.is-invalid{border-color:var(--danger);box-shadow:0 0 0 3px color-mix(in srgb,var(--danger) 14%,transparent)}
+.select{-webkit-appearance:none;appearance:none;padding-right:40px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%2386676f' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 14px center}
+.mono{font-family:ui-monospace,'SF Mono',Menlo,monospace!important;font-size:14px!important}
+.lined{display:block;width:100%;min-height:84px;padding:0 4px;border:0;border-radius:3px;background:repeating-linear-gradient(transparent 0 27px,var(--rule) 27px 28px);background-attachment:local;font:16px/28px var(--body);color:var(--ink);resize:none}
+.lined:focus,.lined.is-focus{outline:none;box-shadow:0 0 0 1.5px var(--accent),0 0 0 5px color-mix(in srgb,var(--accent) 16%,transparent)}
+.lined-p{margin:0;font-size:15px;line-height:28px;border-bottom:1px solid var(--rule);color:var(--ink)}
+.paper-note{margin-top:16px;padding-left:14px;border-left:1.5px solid var(--margin)}
+.seg{display:inline-flex;max-width:100%;padding:3px;border-radius:999px;background:var(--page);border:1.5px solid var(--line-strong)}
+.seg span{min-height:38px;display:inline-flex;align-items:center;padding:0 14px;border-radius:999px;font-weight:700;font-size:14px;color:var(--ink-soft);white-space:nowrap;cursor:pointer}
+.seg .on{background:var(--card);color:var(--ink);box-shadow:0 0 0 1.5px var(--margin),0 2px 0 var(--line-strong)}
+.choices{display:grid;gap:10px}
+.choice{display:grid;grid-template-columns:22px 1fr;gap:12px;align-items:start;padding:14px;border:1.5px solid var(--line-strong);border-radius:6px;background:var(--card);cursor:pointer}
+.choice b{display:block;font-size:15px}
+.choice .meta{display:block;margin-top:2px}
+.choice.on{border-color:var(--margin);background:var(--accent-soft)}
+.choice.person{align-items:center;padding:10px 14px}
+.ch-p{display:flex;align-items:center;gap:10px;font-weight:700;font-size:15px}
+.radio{width:22px;height:22px;border-radius:50%;border:2px solid var(--line-strong);display:grid;place-items:center;background:var(--card)}
+.choice.on .radio{border-color:var(--ink)}
+.choice.on .radio::after{content:'';width:10px;height:10px;border-radius:50%;background:var(--ink)}
+.cbox{flex:none;width:24px;height:24px;border-radius:6px;border:2px solid var(--line-strong);background:var(--card);display:grid;place-items:center}
+.cbox.on{background:var(--ink);border-color:var(--ink)}
+.cbox.on::after{content:'';width:11px;height:6px;border:2.5px solid var(--card);border-top:0;border-right:0;transform:translateY(-1px) rotate(-45deg)}
+.check{display:inline-flex;align-items:center;gap:8px;min-height:44px;padding-right:8px;font-size:13.5px;font-weight:700;color:var(--ink-soft);cursor:pointer;white-space:nowrap}
+.switch{flex:none;width:48px;height:28px;border-radius:999px;background:var(--line-strong);position:relative}
+.switch::after{content:'';position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.25)}
+.switch.on{background:var(--success)}
+.switch.on::after{transform:translateX(20px)}
+.rowflex{display:flex;gap:14px;align-items:flex-start;justify-content:space-between}
+.copyrow{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.copyrow .input{flex:1 1 100%;min-width:0}
+.lock{display:flex;gap:10px;align-items:flex-start;margin:0;padding:12px 14px;border-radius:6px;background:var(--page);border:1.5px dashed var(--line-strong);font-size:14px;color:var(--ink-soft)}
+.lock svg{flex:none;margin-top:1px}
+.steps{display:flex;gap:6px;list-style:none;margin:0 0 4px;padding:0}
+.steps li{flex:1;height:6px;border-radius:999px;background:var(--line)}
+.steps li.done{background:var(--margin)}
+.steps li.now{background:var(--ink-soft)}
+
+/* ═════════ reply ═════════ */
+.photo{display:grid;place-items:center;gap:6px;width:100%;min-height:116px;padding:12px;border:2px dashed var(--line-strong);border-radius:6px;background:transparent;color:var(--ink-soft);font-weight:800;font-size:15px;cursor:pointer}
+.photo svg{width:26px;height:26px}
+.photo.has{display:block;border-style:solid;padding:8px;cursor:default}
+.pic{display:block;height:150px;border-radius:3px;background:radial-gradient(circle at 28% 66%,#ff9fbf 0 9%,transparent 9.5%),radial-gradient(circle at 44% 57%,#ffd37a 0 8%,transparent 8.5%),radial-gradient(circle at 60% 67%,#c7a6ff 0 9%,transparent 9.5%),radial-gradient(circle at 80% 24%,#fff6c9 0 9%,transparent 9.5%),linear-gradient(#bfe3ff,#ffe3ec 62%,#a8d8b0 62%)}
+.pic.sea{background:radial-gradient(circle at 76% 28%,#fff4c2 0 9%,transparent 9.5%),linear-gradient(#ffd6c9,#fde9e2 46%,#8cc9e6 46%,#5ea9d3)}
+.pic.plate{background:radial-gradient(ellipse 34% 30% at 50% 54%,#fffaf2 0 70%,#efdccb 72% 86%,transparent 88%),radial-gradient(circle at 50% 54%,rgba(0,0,0,.08) 0 40%,transparent 41%),#e7c2b0}
+.pic.geese{background:radial-gradient(ellipse 9% 7% at 30% 62%,#fff 0 95%,transparent),radial-gradient(ellipse 8% 6% at 52% 66%,#fff 0 95%,transparent),radial-gradient(ellipse 9% 7% at 72% 60%,#fff 0 95%,transparent),linear-gradient(#cfe6f7,#e8f3fb 48%,#a9d39b 48%,#86bd7b)}
+.cap{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:6px;font-size:13px;font-weight:700;color:var(--ink-muted)}
+
+/* ═════════ issue ═════════ */
+.answer{display:grid;grid-template-columns:36px minmax(0,1fr);gap:12px;padding:14px 0;border-top:1px dashed var(--line-strong)}
+.qtext + .answer{border-top:0;padding-top:4px}
+.answer.mine{margin:0 -10px;padding-left:10px;padding-right:10px;border-radius:6px;border-top-color:transparent;background:color-mix(in srgb,var(--accent-soft) 60%,transparent)}
+.av{flex:none;position:relative;width:36px;height:36px;border-radius:50%;display:grid;place-items:center;font-size:14px;font-weight:800;background:hsl(var(--h) 85% 89%);color:hsl(var(--h) 45% 28%)}
+html[data-theme=dark] .av{background:hsl(var(--h) 30% 30%);color:hsl(var(--h) 85% 88%)}
+.av.sm{width:28px;height:28px;font-size:12px}
+.av.xs{width:22px;height:22px;font-size:11px}
+.av.done::after{content:'';position:absolute;right:-4px;bottom:-4px;width:17px;height:17px;border-radius:50%;border:2px solid var(--card);background:var(--success) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5'/%3E%3C/svg%3E") center/9px no-repeat}
+.who{margin:0;font-size:13.5px;font-weight:800;color:var(--ink-soft)}
+.who em{font-style:normal;font-weight:600;color:var(--ink-muted)}
+.atext{margin:2px 0 8px;font-size:15.5px;line-height:1.55;color:var(--ink)}
+.reacts{position:relative;display:flex;flex-wrap:wrap;gap:6px}
+.react{display:inline-flex;align-items:center;gap:5px;min-height:34px;padding:0 11px;border-radius:999px;border:1px solid var(--line-strong);background:var(--card);font-size:13.5px;font-weight:700;color:var(--ink-soft);cursor:pointer;font-variant-numeric:tabular-nums}
+.react[aria-pressed=true]{background:var(--accent-soft);border-color:var(--accent-line);color:var(--ink)}
+.react.add{width:34px;padding:0;justify-content:center}
+.react.add svg{width:16px;height:16px}
+.react.add.is-open{border-color:var(--ink-soft);color:var(--ink)}
+.picker{position:absolute;left:0;top:calc(100% + 8px);z-index:6;display:flex;gap:2px;padding:5px;background:var(--card);border:1px solid var(--line-strong);border-radius:999px;box-shadow:0 14px 28px -12px rgba(80,20,40,.45)}
+.picker button{width:42px;height:42px;border:0;border-radius:50%;background:transparent;font-size:20px;cursor:pointer}
+.picker button[aria-pressed=true]{background:var(--accent-soft);box-shadow:inset 0 0 0 1.5px var(--accent-line)}
+.photos{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+.photos figure{margin:0}
+.photos .pic{height:118px}
+.photos figcaption{margin-top:6px;font-size:13px;line-height:1.35;color:var(--ink-muted)}
+.photos figcaption b{color:var(--ink-soft)}
+.comment{display:grid;grid-template-columns:30px minmax(0,1fr);gap:10px;margin:0 0 14px}
+.comment .av{width:30px;height:30px;font-size:12px}
+.comment p{margin:4px 0 0;font-size:14.5px;line-height:1.5}
+.comment b{margin-right:6px}
+.comment em{font-style:normal;font-size:12.5px;color:var(--ink-muted);margin-left:6px}
+.comment.new{margin:0 -10px 14px;padding:8px 10px;border-radius:6px;background:color-mix(in srgb,var(--accent-soft) 60%,transparent)}
+.cform{display:flex;gap:8px;align-items:flex-start;margin-top:4px}
+.cform .input{flex:1;min-width:0}
+.err{display:flex;gap:6px;align-items:center;margin:8px 0 0;font-size:13.5px;font-weight:700;color:var(--danger)}
+.err svg{width:18px;height:18px}
+.side-list{list-style:none;margin:0;padding:0}
+.side-list li{padding:9px 0;border-top:1px dashed var(--line-strong);font-size:14px;line-height:1.4;color:var(--ink-soft)}
+.side-list li:first-child{border-top:0}
+.snip{margin:8px 0 12px;padding-left:12px;border-left:2px solid var(--margin);font-size:14.5px;line-height:1.5;color:var(--ink)}
+.snip span{display:block;margin-top:2px;font-size:12.5px;font-weight:700;color:var(--ink-muted)}
+
+/* ═════════ lists ═════════ */
+.mlist,.qlist,.picklist,.bank{list-style:none;margin:0;padding:0}
+.mrow,.qrow,.irow{display:flex;flex-wrap:wrap;align-items:center;gap:10px 12px;padding:12px 0;border-top:1px dashed var(--line-strong)}
+.mlist > :first-child,.qlist > :first-child,.ilist > :first-child{border-top:0}
+.row-main{flex:1 1 150px;min-width:0}
+.row-title{margin:0;font-weight:800;font-size:15px;line-height:1.35;overflow-wrap:anywhere}
+.row-title em{font-style:normal;font-weight:600;color:var(--ink-muted)}
+.row-sub{margin:2px 0 0;font-size:13px;line-height:1.45;color:var(--ink-muted);overflow-wrap:anywhere}
+.mtags{display:flex;gap:6px;flex-wrap:wrap}
+.hl-row,.mrow.open,.qrow.hl,.irow.hl{margin:0 -10px;padding-left:10px;padding-right:10px;border-radius:6px;border-top-color:transparent;background:color-mix(in srgb,var(--accent-soft) 55%,transparent)}
+.mpanel{order:5;flex-basis:100%;padding:6px 0 4px 48px}
+.mpanel .lbl{margin-bottom:8px}
+.qnum{flex:none;width:28px;height:28px;border-radius:50%;display:grid;place-items:center;font-size:13px;font-weight:800;background:var(--page);border:1.5px solid var(--line-strong);color:var(--ink-soft)}
+.qnum svg{width:15px;height:15px}
+.qrow.off .row-title{color:var(--ink-muted)}
+.qctl{display:flex;align-items:center;gap:6px}
+.pick{display:flex;align-items:center;gap:12px;min-height:52px;padding:6px 0;border-top:1px dashed var(--line-strong);font-size:15px;font-weight:700}
+.pick:first-child{border-top:0}
+.pick-t{flex:1}
+.order{flex:none;width:28px;height:28px;border-radius:50%;display:grid;place-items:center;background:var(--accent-soft);border:1.5px solid var(--accent-line);font-weight:800;font-size:13px;color:var(--ink)}
+.parsed{list-style:none;margin:12px 0 0;padding:0;display:grid;gap:6px}
+.parsed li{display:flex;align-items:center;gap:10px;padding:4px 4px 4px 8px;border-radius:999px;background:var(--page);border:1px solid var(--line);font-size:14px;font-weight:700}
+.parsed .pe{flex:1;min-width:0;overflow-wrap:anywhere}
+.bank li{display:flex;align-items:center;gap:10px;padding:8px 0;border-top:1px dashed var(--line-strong);font-size:14px;font-weight:700;color:var(--ink-soft)}
+.bank li:first-child{border-top:0}
+.bank li span{flex:1}
+.inum{flex:none;width:44px;height:44px;border-radius:8px;display:grid;place-items:center;background:var(--page);border:1.5px solid var(--line-strong);font-weight:800;font-size:16px}
+.loopcard{display:flex;flex-direction:column;gap:8px}
+.lc-head{display:flex;align-items:center;gap:8px}
+.lc-head svg{width:22px;height:auto}
+.lc-head .h2{margin:0}
+.lc-line{margin:0;font-weight:800;font-size:15px}
+.newloop{display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:12px;border:2px dashed var(--accent-line);box-shadow:none;background:color-mix(in srgb,var(--card) 70%,transparent)}
+.account{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:14px}
+.progress{margin:14px 0 12px}
+.count{margin:0 0 10px;font-size:15px;color:var(--ink-soft)}
+.count b{margin-right:4px;font-size:30px;line-height:1;color:var(--ink)}
+.avrow{display:flex;flex-wrap:wrap;gap:12px 16px}
+.avwrap{display:inline-flex;align-items:center;gap:8px;font-size:14px;font-weight:700}
+.avwrap em{font-style:normal;font-weight:700;font-size:12px;color:var(--success);margin-left:2px}
+.avwrap.wait{color:var(--ink-muted)}
+.avwrap.wait .av{opacity:.55}
+.arch{display:flex;gap:14px;align-items:flex-start}
+.arch .row-main .snip{margin-bottom:0}
+.dangerzone{border:1.5px dashed color-mix(in srgb,var(--danger) 45%,transparent)}
+.dangerzone .h2{color:var(--danger)}
+
+/* ═════════ overlays ═════════ */
+.scrim{position:absolute;inset:0;z-index:40;display:flex;align-items:flex-end;background:var(--scrim)}
+.sheet{position:relative;width:100%;max-height:calc(100% - 40px);overflow-y:auto;background:var(--card);border-radius:16px 16px 0 0;padding:30px 18px 24px;box-shadow:0 -10px 30px -10px rgba(0,0,0,.3)}
+.phone .sheet{padding-bottom:34px}
+.sheet .tape{top:-6px}
+.sheet .h2{margin:0 0 8px;font-size:27px}
+.sheet .input{margin-bottom:4px}
+.sheet-actions{display:flex;flex-direction:column-reverse;gap:10px;margin-top:20px}
+.sheet-actions .btn{width:100%}
+.toast{position:absolute;z-index:30;left:50%;bottom:100px;transform:translateX(-50%);display:flex;align-items:center;gap:10px;width:max-content;max-width:calc(100% - 32px);padding:12px 18px;border-radius:16px;background:var(--ink);color:var(--card);font-size:14px;font-weight:700;line-height:1.35;box-shadow:0 12px 28px -12px rgba(0,0,0,.45)}
+.toast svg{flex:none;color:#9be3b8}
+html[data-theme=dark] .toast svg{color:#1f7a4c}
+.toast.low{bottom:24px}
+.phone .toast.low{bottom:34px}
+.has-toast .wrap{padding-bottom:120px}
+
+/* ═════════ auth ═════════ */
+.auth{display:flex;flex-direction:column;align-items:center;gap:14px;width:100%;max-width:440px;margin:0 auto;padding-top:20px}
+.auth.center{text-align:center}
+.auth .p{max-width:380px}
+.auth-card{width:100%;text-align:left}
+.field-l{margin:16px 0}
+
+/* ═════════ mail ═════════ */
+.mail{position:relative;flex:1;min-height:0;display:flex;flex-direction:column;container:mail/inline-size;background:#fff;color:#2a2426;font-family:-apple-system,system-ui,sans-serif}
+html[data-theme=dark] .mail{background:#1c1b1d;color:#ece6e8}
+.mail-bar{flex:none;display:flex;align-items:center;gap:6px;height:46px;padding:0 12px;border-bottom:1px solid rgba(0,0,0,.08);font-size:16px;font-weight:600}
+html[data-theme=dark] .mail-bar{border-color:rgba(255,255,255,.08)}
+.mail-bar .grow{flex:1}
+.mail-main{flex:1;min-height:0;display:flex}
+.mail-side{display:none}
+.mail-scroll{flex:1;min-height:0;overflow-y:auto;scrollbar-width:none}
+.mail-scroll::-webkit-scrollbar{display:none}
+.mail-head{display:flex;gap:12px;align-items:center;padding:14px 16px 4px}
+.mail-head .av{width:40px;height:40px;font-size:16px}
+.mf{margin:0;font-size:15px}
+.mf span,.mt{color:#8a8285;font-size:13px}
+.mf span{margin-left:4px}
+.mt{margin:2px 0 0}
+.mail-subj{margin:6px 16px 14px;font-size:21px;line-height:1.25;font-weight:700}
+.em{background:#fbf1f3;padding:0 0 26px;font-family:'Nunito',Arial,sans-serif;color:#4d3a40}
+.em-band{height:20px;background-color:#fff3f5;background-image:linear-gradient(90deg,rgba(236,118,148,.25) 50%,transparent 0),linear-gradient(rgba(236,118,148,.25) 50%,transparent 0);background-size:14px 14px}
+.em-card{margin:18px 14px 0;padding:24px 20px;background:#fffdfa;border:1px solid #f1dae0;border-radius:6px}
+.em-eyebrow{margin:0!important;font-size:13px!important;font-weight:800;letter-spacing:.04em;color:#86676f!important}
+.em-h{margin:4px 0 14px;font-family:'Gaegu',Georgia,serif;font-weight:700;font-size:32px;line-height:1.1;color:#3d2a30}
+.em p{margin:0 0 12px;font-size:15px;line-height:1.6}
+.em ol{margin:0 0 16px;padding-left:22px;font-size:15px;line-height:1.7;font-weight:700;color:#3d2a30}
+.em-btn{display:inline-block;margin:6px 0 4px;padding:13px 24px;border-radius:999px;background:#cc3456;color:#fff;font-weight:800;font-size:15px;text-decoration:none;box-shadow:0 3px 0 #9e2440}
+.em .em-small{font-size:13px;color:#86676f}
+.em-url{word-break:break-all;color:#674d55}
+.em-q{margin:22px 0 8px;padding-top:16px;border-top:1px dashed #e4bcc6;font-family:'Gaegu',Georgia,serif;font-size:24px;line-height:1.2;color:#3d2a30}
+.em .em-a b{color:#3d2a30}
+.em-photo{margin:0 0 14px}
+.em-photo .pic{height:160px}
+.em .em-cap{margin:6px 0 0;font-size:13px;color:#86676f}
+.em .em-foot{margin:18px 24px 0;font-size:12.5px;line-height:1.5;color:#86676f;text-align:center}
+@container mail (min-width:720px){
+  .mail-side{display:block;flex:none;width:250px;padding:8px 0;border-right:1px solid rgba(0,0,0,.08)}
+  .mi{display:grid;gap:2px;padding:10px 16px;font-size:13px;border-left:3px solid transparent}
+  .mi b{font-size:14px}
+  .mi span{color:#6f686a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .mi em{font-style:normal;font-size:12px;color:#9a9396}
+  .mi.on{background:#fdeef1;border-left-color:#e8a0b0}
+  .mail-head{padding:22px 32px 4px}
+  .mail-subj{margin:8px 32px 18px;font-size:24px}
+  .em{max-width:640px;margin:0 32px 32px;border-radius:8px;overflow:hidden}
+  .em-card{margin:24px 36px 0;padding:32px 36px}
+}
+html[data-theme=dark] .mail-side{border-color:rgba(255,255,255,.08)}
+html[data-theme=dark] .mi.on{background:#3a2a30}
+html[data-theme=dark] .mi span{color:#b9b0b3}
+.issue-head{padding-right:64px}
+
+/* ═════════ responsive: must stay last so it overrides the base rules ═════════ */
+@container app (max-width:719px){
+  .cols .aside.first{order:-1}
+  .mrow .mtags{order:3;flex-basis:100%;padding-left:48px}
+  .qctl{flex-basis:100%;padding-left:40px}
+  .qctl .check{margin-right:auto}
+  .picker{left:-48px}
+  .picker button{width:38px;height:38px;font-size:18px}
+  .tabs{-webkit-mask-image:linear-gradient(90deg,#000 82%,transparent);mask-image:linear-gradient(90deg,#000 82%,transparent)}
+}
+@container app (min-width:720px){
+  .topbar{padding:0 28px}
+  .loopname{font-size:24px;gap:8px}
+  .loopname svg{width:24px}
+  .tabs{padding:0 20px}
+  .tab{padding:0 14px}
+  .wrap{padding:34px 32px 52px;gap:20px}
+  .cols{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:24px;align-items:start}
+  .cols > .main{grid-column:1;grid-row:1}
+  .cols > .aside{grid-column:2;grid-row:1}
+  .only-wide{display:block!important}
+  .only-narrow{display:none!important}
+  .grid2{grid-template-columns:1fr 1fr}
+  .actionbar{padding:14px max(32px,calc((100% - 560px) / 2))}
+  .choices.two{grid-template-columns:1fr 1fr}
+  .photos{grid-template-columns:repeat(3,1fr)}
+  .scrim{align-items:center;justify-content:center}
+  .sheet{width:480px;border-radius:8px;padding:32px 28px 26px}
+  .sheet-actions{flex-direction:row;justify-content:flex-end}
+  .sheet-actions .btn{width:auto}
+  .toast{bottom:92px}
+  .toast.low{bottom:28px}
+  .round{font-size:44px}
+}
+</style>
+</head>
+<body>
+<header class="doc-head gingham">
+  <div class="doc-head-in">
+    <div class="doc-card">
+      <i class="tape dots l"></i><i class="tape stripe r"></i>
+      <p class="kicker">Friendloop · 01 Gingham Picnic</p>
+      <h1>Every flow, on gingham</h1>
+      <p class="lede">All 41 flows from the spec, each on a phone and on desktop. Both frames draw the same screen, and the desktop layout is what that screen grows into on a wider window. Emails are shown in a mail app, since that’s where people read them. Pink highlights mark what changed in each step, and a ring shows where focus is.</p>
+      <ul class="cast" id="cast"></ul>
+      <p class="today">In these mocks it’s Friday, Oct 23, 2026. Issue 11 went out this morning, and Issue 12 is open until Friday, Oct 30 at 9:00 AM London time.</p>
+      <div class="index" id="index"></div>
+    </div>
+  </div>
+</header>
+<nav class="docnav" id="docnav" aria-label="Flow groups"></nav>
+<main id="flows"></main>
+<footer class="doc-foot">
+  <h2>That’s all 41</h2>
+  <p>Point at anything that feels off, like copy, layout, or a missing state, and I’ll change it here before any of it turns into components.</p>
+</footer>
+
+<script>
+/* ═════════ icons & doodles ═════════ */
+const CHERRY = `<svg viewBox="0 0 32 32" aria-hidden="true"><path d="M16 4c-2.5 6-6 10-8.6 13M16 4c1.2 6 4 9.6 7.6 12" fill="none" stroke="#5b8a4a" stroke-width="1.8" stroke-linecap="round"/><path d="M16 4c3-2.6 7.5-2.4 9.5.4-3.4 2-6.6 1.8-9.5-.4z" fill="#7cb35f"/><circle cx="8" cy="22" r="6" fill="#e0405e"/><circle cx="23.6" cy="21" r="6" fill="#e0405e"/><circle cx="5.8" cy="19.8" r="1.7" fill="#fff" opacity=".75"/><circle cx="21.4" cy="18.8" r="1.7" fill="#fff" opacity=".75"/></svg>`;
+const DOODLE = `<svg viewBox="0 0 40 36" aria-hidden="true"><path d="M20 31C9 24 3.5 17.5 4.5 11.5 5.4 6.3 10.8 4 14.6 5.6c2.8 1.2 4.4 3.6 5.4 5.9 1-2.7 3-5.4 6.6-6.3 4.2-1 9 1.8 9 7.6 0 6.2-5.8 12.8-15.4 18.6" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+const CHECK_BIG = `<svg viewBox="0 0 28 28" aria-hidden="true"><circle cx="14" cy="14" r="12" fill="none" stroke="currentColor" stroke-width="2.2"/><path d="M8.5 14.5l3.8 3.8 7.4-8" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+const WARN_BIG = `<svg viewBox="0 0 28 28" aria-hidden="true"><path d="M14 3.5 25.5 24h-23z" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"/><path d="M14 11v6M14 20.5v.5" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>`;
+const PAUSE_BIG = `<svg viewBox="0 0 28 28" aria-hidden="true"><circle cx="14" cy="14" r="12" fill="none" stroke="currentColor" stroke-width="2.2"/><path d="M11 9.5v9M17 9.5v9" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/></svg>`;
+const ENVELOPE = `<svg class="ill" viewBox="0 0 120 90" aria-hidden="true"><path class="fillcard" d="M14 24c-1-5 2-8 7-8h78c5 0 8 3 7 8l-2 46c0 5-3 8-8 8H24c-5 0-8-3-8-8z" stroke="currentColor" stroke-width="2.6" stroke-linejoin="round"/><path d="M15 21l45 32 44-32" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M60 66c-7-4.5-10-8.5-9.5-12 .4-3 3.4-4.4 5.7-3.4 1.6.7 2.9 1.9 3.8 3.5.9-1.6 2.2-2.8 3.8-3.5 2.3-1 5.3.4 5.7 3.4.5 3.5-2.5 7.5-9.5 12z" fill="#e0405e"/></svg>`;
+const HOURGLASS = `<svg class="ill" viewBox="0 0 80 90" style="width:84px" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8h44M18 82h44"/><path d="M24 8c0 20 32 24 32 37S24 62 24 82M56 8c0 20-32 24-32 37s32 24 32 37"/></g><path d="M30 76c3-7 17-7 20 0z" fill="#e0405e"/><circle cx="40" cy="50" r="1.8" fill="#e0405e"/></svg>`;
+const SWAP = `<svg class="ill" viewBox="0 0 100 70" style="width:110px" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M16 24h60l-12-12M84 46H24l12 12"/></g><circle cx="86" cy="20" r="5" fill="#e0405e"/></svg>`;
+const PLATE = `<svg class="ill" viewBox="0 0 100 70" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="3"><ellipse cx="50" cy="42" rx="40" ry="20"/><ellipse cx="50" cy="40" rx="24" ry="10"/></g><g fill="currentColor"><circle cx="40" cy="39" r="1.7"/><circle cx="57" cy="43" r="1.4"/><circle cx="61" cy="37" r="1.2"/></g><path d="M62 14c3-6 9-9 15-8" stroke="#5b8a4a" stroke-width="2.6" fill="none" stroke-linecap="round"/></svg>`;
+const ic = d => `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
+const I = {
+  up: ic('<path d="M12 19V5M6 11l6-6 6 6"/>'),
+  down: ic('<path d="M12 5v14M6 13l6 6 6-6"/>'),
+  box: ic('<path d="M4 6h16v4H4zM5.5 10v9h13v-9M10 14h4"/>'),
+  dots: ic('<circle cx="5" cy="12" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="19" cy="12" r="1.4"/>'),
+  lock: ic('<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>'),
+  check: ic('<path d="M5 12.5l4.5 4.5L19 7.5"/>'),
+  x: ic('<path d="M6 6l12 12M18 6 6 18"/>'),
+  plus: ic('<path d="M12 5v14M5 12h14"/>'),
+  back: ic('<path d="M15 5l-7 7 7 7"/>'),
+  warn: ic('<path d="M12 4 21 20H3z"/><path d="M12 10v4M12 17v.5"/>'),
+  camera: ic('<path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/>'),
+};
+const SB = `<svg viewBox="0 0 18 12" width="18" height="12"><rect x="0" y="8" width="3" height="4" rx="1"/><rect x="5" y="5" width="3" height="7" rx="1"/><rect x="10" y="2" width="3" height="10" rx="1"/><rect x="15" y="0" width="3" height="12" rx="1"/></svg><svg viewBox="0 0 26 12" width="25" height="12"><rect x=".5" y=".5" width="22" height="11" rx="3.5" fill="none" stroke="currentColor" opacity=".45"/><rect x="2.5" y="2.5" width="15" height="7" rx="2"/><rect x="23.5" y="4" width="2" height="4" rx="1" opacity=".45"/></svg>`;
+
+/* ═════════ people & content ═════════ */
+const P = {
+  priya: { n: 'Priya Shah', f: 'Priya', h: 330, e: 'priya.shah@example.com', where: 'London' },
+  maya: { n: 'Maya Patel', f: 'Maya', h: 275, e: 'maya.patel@example.com', where: 'New York' },
+  jo: { n: 'Jo Okafor', f: 'Jo', h: 200, e: 'jo.okafor@example.com', where: 'Lisbon' },
+  sam: { n: 'Sam Reyes', f: 'Sam', h: 150, e: 'sam.reyes@example.com', where: 'Los Angeles' },
+  ana: { n: 'Ana Costa', f: 'Ana', h: 30, e: 'ana.costa@example.com', where: 'Lisbon' },
+  theo: { n: 'Theo Park', f: 'Theo', h: 240, e: 'theo.park@example.com', where: 'Seoul' },
+  lena: { n: 'Lena Fischer', f: 'Lena', h: 100, e: 'lena.f@example.com', where: 'Berlin' },
+  ravi: { n: 'Ravi', f: 'Ravi', h: 15, e: 'ravi@example.com', where: 'Mumbai' },
+  anika: { n: 'Anika', f: 'Anika', h: 300, e: 'anika.m@example.com' },
+  dev: { n: 'Dev', f: 'Dev', h: 180, e: 'dev.k@example.com' },
+};
+const NOBODY = { n: 'Someone new', f: '?', h: 60 };
+const VISITOR = { n: 'A visitor', f: '?', h: 60 };
+
+const Q = [
+  { text: 'What made you laugh this week?' },
+  { text: 'What’s on your nightstand right now?', hint: 'A book, a mug, a pile of receipts. It all counts.' },
+  { text: 'One photo from your week', hint: 'Just one. It doesn’t have to be good.', photo: true },
+  { text: 'What are you looking forward to?' },
+];
+const MV = {
+  laugh: 'My nephew asked if the moon is “on” during the day. I’ve been thinking about it since Tuesday.',
+  stand: 'A library book about octopuses and the hand cream I keep forgetting to use.',
+  ahead: 'My sister visiting in November. We’re trying the pottery place together.',
+  ahead2: 'My sister visiting in November. We’re trying the pottery place together. She doesn’t know it’s a plate place.',
+};
+const SV = { laugh: 'Gerald (the starter) has doubled in size. I’m a little scared of him.', stand: 'A mug of cold tea I keep meaning to wash.' };
+const DUE = {
+  maya: 'Closes Friday, Oct 30 at 9:00 AM London time <span>(5:00 AM your time)</span>',
+  ana: 'Closes Friday, Oct 30 at 9:00 AM London time',
+  sam: 'Closes Friday, Oct 30 at 9:00 AM London time <span>(2:00 AM your time)</span>',
+};
+const I11 = [
+  { q: 'What made you laugh this week?', a: [
+    [P.priya, 'A group of geese has decided my bus stop belongs to them. They have a schedule now. I respect it.', [['😂', 4, true], ['♥', 2]]],
+    [P.jo, 'My dad sent a four-minute voice memo of himself trying to find the record button.', [['😂', 5]]],
+    [P.maya, 'Went to a pottery class and made a bowl. It is a plate.', [['♥', 3], ['😂', 2]]],
+    [P.ana, 'Watching my neighbour’s toddler try to high-five a pigeon.', [['😂', 3]]],
+    [P.sam, 'Late, but here: my sourdough starter has a name now. It is Gerald.', [], true],
+  ] },
+  { q: 'What’s on your nightstand right now?', a: [
+    [P.priya, 'Three library books, all overdue, all half-read.', [['♥', 1]]],
+    [P.jo, 'A candle that smells like “cashmere”, whatever that means.', [['😂', 2]]],
+    [P.maya, 'Hand cream and a book about octopuses.', []],
+    [P.ana, 'My phone, face down, as a treat.', [['♥', 2]]],
+  ] },
+  { q: 'One photo from your week', photos: [[P.jo, 'sea', 'The sea at Cascais, 7am'], [P.maya, 'plate', 'The plate'], [P.priya, 'geese', 'The landlords']] },
+  { q: 'What are you looking forward to?', a: [
+    [P.priya, 'Seeing all of you in December.', [['♥', 4]]],
+    [P.jo, 'Sleeping in on Sunday.', []],
+    [P.maya, 'My sister visiting.', [['♥', 1]]],
+    [P.ana, 'The first cold morning that actually feels like autumn.', []],
+  ] },
+];
+const BANK = ['What made you laugh this week?', 'What’s on your nightstand right now?', 'One photo from your week', 'What are you looking forward to?', 'What’s one small win from this week?', 'Who did you think about this week?', 'What are you listening to?', 'What did you make this week?'];
+
+/* ═════════ building blocks ═════════ */
+const gx = s => String(s).replace(/’/g, "'").replace(/(\d[\d:]*)/g, '<span class="rn">$1</span>');
+const av = (p, cls = '') => `<span class="av ${cls}" style="--h:${p.h}" aria-hidden="true">${p.f[0]}</span>`;
+const tape = k => `<i class="tape ${k}" aria-hidden="true"></i>`;
+const TAPES = ['dots l', 'stripe r', 'mint l', 'check r'];
+const chip = t => `<span class="chip">${t}</span>`;
+const btn = (t, cls = 'primary', attrs = '') => `<button type="button" class="btn ${cls}" ${attrs}>${t}</button>`;
+const eyebrow = t => `<p class="eyebrow">${gx(t)}</p>`;
+const title = t => `<h2 class="round">${gx(t)}</h2>`;
+const h2 = t => `<h3 class="h2">${gx(t)}</h3>`;
+const banner = (t, text, kind = '', icon = DOODLE) => `<div class="banner ${kind}" role="status">${icon}<div><b>${gx(t)}</b>${text}</div></div>`;
+const toast = (t, low = true) => `<div class="toast${low ? ' low' : ''}" role="status">${I.check}<span>${t}</span></div>`;
+const wordmark = `<span class="loopname">${CHERRY}<span>Friendloop</span></span>`;
+const loopmark = (n = 'Saturday Club') => `<span class="loopname">${CHERRY}<span>${n}</span></span>`;
+const topbar = (left, right = '') => `<header class="topbar">${left}${right}</header>`;
+const tabs = (active, owner = true) => `<nav class="tabs" aria-label="Manage the loop">${['Overview', 'People', 'Questions', 'Issues', 'Settings'].filter(t => owner || t !== 'Settings').map(t => `<a class="tab"${t === active ? ' aria-current="page"' : ''}>${t}</a>`).join('')}</nav>`;
+const bar = (state, action) => `<footer class="actionbar"><span class="state" aria-live="polite">${state}</span>${action}</footer>`;
+const dialog = (body, actions) => `<div class="scrim"><div class="sheet" role="dialog" aria-modal="true">${tape('dots c')}${body}<div class="sheet-actions">${actions}</div></div></div>`;
+const app = ({ top, nav = '', body, bar: b = '', overlay = '', width = 'narrow' }) =>
+  `<div class="app gingham${overlay.includes('class="toast') ? ' has-toast' : ''}">${top}${nav}<div class="body"><div class="wrap ${width}">${body}</div></div>${b}${overlay}</div>`;
+const reactBtn = (e, n, on) => `<button type="button" class="react" data-e="${e}" aria-pressed="${!!on}"><span aria-hidden="true">${e}</span><span class="n">${n}</span></button>`;
+
+/* ═════════ A · auth ═════════ */
+function signin(u, o = {}) {
+  return app({ top: topbar(wordmark), body: `${o.banner || ''}<div class="auth"><section class="card taped auth-card">${tape('dots c')}${eyebrow('Hello again,')}${title('Sign in')}<p class="p">We’ll email you a link. There’s no password.</p><div class="field-l"><label class="lbl" for="${u}-em">Email</label><input class="input${o.focus ? ' is-focus' : ''}" id="${u}-em" type="email" value="${o.email || ''}" placeholder="you@example.com" autocomplete="email"></div>${btn('Send me a link', 'primary block')}</section><p class="meta center">Only here to answer questions? You don’t need to sign in.<br>The link in your email takes you straight there.</p></div>` });
+}
+function checkInbox(u, email) {
+  return app({ top: topbar(wordmark), body: `<div class="auth center">${ENVELOPE}${title('Check your inbox')}<p class="p">We sent a sign-in link to <b>${email}</b>. It works once, for the next 15 minutes.</p>${btn('Send it again', 'quiet')}${btn('Use a different email', 'link')}</div>` });
+}
+function expired(u) {
+  return app({ top: topbar(wordmark), body: `<div class="auth center">${HOURGLASS}${title('This link has expired')}<p class="p">Sign-in links work once, for 15 minutes. This one has been used or has run out.</p>${btn('Send me a new one')}<p class="meta">It’ll go to ${P.priya.e}.</p>${btn('Use a different email', 'link')}</div>` });
+}
+function revoked(u) {
+  return app({ top: topbar(wordmark), body: `<div class="auth center">${SWAP}${title('This link was replaced')}<p class="p">There’s a newer link for you in a more recent email. Use that one, or ask the person who runs your loop to send it again.</p><p class="meta">To keep the loop private, this page doesn’t show anything from it.</p></div>` });
+}
+function inviteExpired(u) {
+  return app({ top: topbar(wordmark), body: `<div class="auth center">${HOURGLASS}${title('This invitation has expired')}<p class="p">Invitations last two weeks, and this one ran out on Tuesday, Nov 3. Ask Priya for a new one and it’ll work straight away.</p><p class="meta">Nothing was signed in or saved.</p></div>` });
+}
+function nothing(u, o) {
+  return app({ top: topbar(o.loop ? loopmark() : wordmark), body: `<div class="auth center">${PLATE}${title(o.title)}<p class="p">${o.text}</p>${btn(o.cta)}</div>` });
+}
+function you(u, o = {}) {
+  const loops = [
+    ['Saturday Club', ['Owner', 'Everyone answers'], 'Issue 12 is open · 4 of 5 answered', 'Closes Friday, Oct 30 at 9:00 AM'],
+    ['Notes from Priya', ['Owner', 'From you'], 'Issue 3 goes out Sunday', '4 readers · Sunday, Oct 25 at 10:00 AM'],
+    ['Lena’s Book Loop', ['Member'], 'Issue 8 is open', 'You haven’t answered yet · closes Monday'],
+  ];
+  const cards = loops.map(([n, tags, line, sub], i) => `<article class="card loopcard${i === 0 ? ' taped' : ''}">${i === 0 ? tape('dots r') : ''}<div class="lc-head">${CHERRY}${h2(n)}</div><p class="tags">${tags.map(t => `<span class="tag">${t}</span>`).join('')}</p><p class="lc-line">${line}</p><p class="meta">${sub}</p><div class="right">${btn('Open', 'quiet small')}</div></article>`).join('');
+  return app({ top: topbar(wordmark, chip(P.priya.n)), width: 'wide', body: `${eyebrow('Hi Priya,')}${title('Your loops')}<div class="grid2">${cards}<article class="card newloop"><p class="p">Got another group that should catch up more?</p>${btn('Start a loop')}</article></div><section class="card account"><div><p class="lbl">Signed in as</p><p class="meta">${P.priya.e}</p></div>${btn('Sign out', 'quiet' + (o.focusOut ? ' is-focus' : ''))}</section>` });
+}
+
+/* ═════════ B · create & invite ═════════ */
+const choice = (t, d, on) => `<div class="choice${on ? ' on' : ''}" role="radio" aria-checked="${on}"><span class="radio"></span><span><b>${t}</b><span class="meta">${d}</span></span></div>`;
+const steps = n => `<ol class="steps" aria-label="Step ${n} of 4">${[1, 2, 3, 4].map(i => `<li class="${i < n ? 'done' : i === n ? 'now' : ''}"></li>`).join('')}</ol>`;
+const createShell = (step, body, state, next) => app({ top: topbar(wordmark, chip(`Step ${step} of 4`)), body: steps(step) + body, bar: bar(state, btn(next)) });
+function create1(u, o = {}) {
+  const fy = o.fromYou;
+  return createShell(1, `${eyebrow('New loop')}${title('Start a loop')}<section class="card taped">${tape('stripe r')}<label class="lbl" for="${u}-n">What’s it called?</label><input class="input is-focus" id="${u}-n" value="${fy ? 'Notes from Priya' : 'The Cousins'}"><p class="help">It’s the sender name on every email the loop sends.</p></section><section class="card"><p class="lbl">Who answers?</p><div class="choices">${choice('Everyone answers', 'Each issue collects answers from the whole group, then sends them back to everyone.', !fy)}${choice('From you', 'You write, everyone else reads. Good for a family update.', !!fy)}</div>${fy ? '<p class="help">Everyone you invite will be a reader. In this kind of loop nobody else can be switched to answering.</p>' : ''}</section>`, 'You can change all of this later', 'Next: schedule');
+}
+function create2(u) {
+  return createShell(2, `${eyebrow('The Cousins')}${title('When does it go out?')}<section class="card"><p class="lbl">How often</p><div class="seg"><span class="on">Every week</span><span>Every two weeks</span></div><div class="grid2 tight"><div><label class="lbl" for="${u}-d">Questions go out on</label><select class="input select" id="${u}-d"><option>Friday</option></select></div><div><label class="lbl" for="${u}-h">At</label><select class="input select" id="${u}-h"><option>9:00 AM</option></select></div></div><label class="lbl" for="${u}-z">Loop time zone</label><select class="input select" id="${u}-z"><option>London (Europe/London)</option></select><p class="help">Everyone sees deadlines in this time, and in their own if it’s different.</p></section><section class="card paper">${tape('mint l')}<p class="qtext">Here’s how it’ll go</p><p class="lined-p">First questions go out <b>Friday, Oct 30 at 9:00 AM</b>.</p><p class="lined-p">Answers are due a week later, <b>Friday, Nov 6 at 9:00 AM</b>.</p><p class="lined-p">Then everyone gets the issue, and the next one starts.</p></section>`, 'You can change this later', 'Next: questions');
+}
+function create3(u) {
+  const picked = { 0: 1, 2: 2, 3: 3 };
+  return createShell(3, `${eyebrow('The Cousins')}${title('Pick a few questions')}<p class="p">These go out every week. You can change them whenever you like.</p><section class="card"><ul class="picklist">${BANK.map((q, i) => `<li class="pick"><span class="cbox${picked[i] ? ' on' : ''}"></span><span class="pick-t">${q}</span>${picked[i] ? `<span class="order" aria-label="Asked ${picked[i]}${['st', 'nd', 'rd'][picked[i] - 1]}">${picked[i]}</span>` : ''}</li>`).join('')}</ul><div class="row-btns">${btn(I.plus + 'Write your own', 'link')}</div></section>`, '3 picked, asked in this order', 'Next: people');
+}
+function create4(u) {
+  return createShell(4, `${eyebrow('The Cousins')}${title('Who’s in?')}<section class="card taped">${tape('dots l')}<label class="lbl" for="${u}-i">Email addresses</label><textarea class="input is-focus" id="${u}-i" rows="3">ravi@example.com, anika.m@example.com
+dev.k@example.com</textarea><p class="help">Paste as many as you like, with commas or new lines between them.</p><ul class="parsed">${[P.ravi, P.anika, P.dev].map(p => `<li>${av(p, 'sm')}<span class="pe">${p.e}</span><button type="button" class="iconbtn sm" aria-label="Remove ${p.e}">${I.x}</button></li>`).join('')}</ul></section><section class="card"><p class="lbl">They’ll join as</p><div class="seg"><span class="on">Answers</span><span>Reads</span></div><p class="help">Each person gets their own link by email. No account, no password.</p></section>`, '3 invitations ready', 'Create the loop');
+}
+function cousins(u, o = {}) {
+  const body = `${o.fresh ? banner('The Cousins is ready', 'Ravi, Anika and Dev have their invitations.', 'ok', CHECK_BIG) : ''}<div class="cols"><div class="col main"><section class="card taped">${tape('stripe l')}${eyebrow('Issue 1')}${h2('Opens Friday, Oct 30 at 9:00 AM')}<p class="p">London time. Everyone gets three questions and a week to answer.</p><div class="row-btns">${btn('Start it now')}</div><p class="help">Or wait for Friday. Either way, Issue 1 only goes out once.</p></section></div><div class="col aside"><section class="card">${h2('People')}<div class="mlist">${[P.ravi, P.anika, P.dev].map(p => `<div class="mrow">${av(p)}<div class="row-main"><p class="row-title">${p.e}</p><p class="row-sub">Invited today · not opened yet</p></div></div>`).join('')}</div></section><section class="card">${h2('Questions')}<ol class="plain">${[BANK[0], BANK[2], BANK[3]].map(q => `<li>${q}</li>`).join('')}</ol></section></div></div>`;
+  return app({ top: topbar(loopmark('The Cousins'), chip('Not started')), nav: tabs('Overview'), width: 'wide', body, overlay: o.confirm ? dialog(`${h2('Start Issue 1 now?')}<p class="p">Ravi, Anika, Dev and you get the questions straight away, with a week to answer. Friday’s scheduled send won’t happen on top of it.</p>`, btn('Not yet', 'quiet') + btn('Start Issue 1')) : '' });
+}
+
+/* ═════════ reply sheet ═════════ */
+const photoBox = has => has
+  ? `<div class="photo has"><span class="pic plate" role="img" aria-label="Photo: a plate that was meant to be a bowl"></span><span class="cap">plate-not-bowl.jpg${btn('Remove', 'link')}</span></div>`
+  : `<button type="button" class="photo">${I.camera}<span>Add a photo</span></button>`;
+function replyScreen(u, o = {}) {
+  const who = o.who || P.maya, vals = o.values || [];
+  const n = vals.filter(Boolean).length + (o.photo ? 1 : 0);
+  const cards = Q.map((q, i) => `<article class="card paper">${tape(TAPES[i])}${q.photo ? `<p class="qtext">${gx(q.text)}</p>` : `<label class="qtext" for="${u}-q${i}">${gx(q.text)}</label>`}${q.hint ? `<p class="hint">${q.hint}</p>` : ''}${q.photo ? photoBox(o.photo) : `<textarea class="lined${o.focus === i ? ' is-focus' : ''}" id="${u}-q${i}" rows="3" placeholder="Write a little or a lot">${vals[i] || ''}</textarea>`}</article>`).join('');
+  return app({
+    top: topbar(loopmark(), chip(`${n} of 4 answered`)),
+    body: `<div class="hero"><span class="deco cherry-big">${CHERRY}</span>${eyebrow(`Hi ${who.f},`)}${title('Issue 12')}<p class="due">${o.due || DUE.maya}</p></div>${o.banner || ''}${cards}`,
+    bar: bar(o.state || 'Draft saved', o.action || btn('Send answers')),
+  });
+}
+function reader(u) {
+  return app({ top: topbar(loopmark(), chip('You’re reading')), body: `<div class="hero"><span class="deco cherry-big">${CHERRY}</span>${eyebrow('Hi Theo,')}${title('Issue 12 is on its way')}<p class="due">Arrives Friday, Oct 30 at 9:00 AM London time <span>(6:00 PM your time)</span></p></div><section class="card taped">${tape('mint l')}<p class="p">You’re a reader in Saturday Club. Everyone else is answering this week’s questions, and you’ll get the whole issue by email when it’s done. There’s nothing for you to fill in.</p></section><section class="card">${eyebrow('Last week')}${h2('Issue 11')}<p class="meta">Delivered Friday, Oct 23 · 5 answered</p><p class="snip">A group of geese has decided my bus stop belongs to them.<span>Priya</span></p>${btn('Read Issue 11')}</section><section class="card">${h2('Older issues')}<ul class="side-list"><li>Issue 10 · Friday, Oct 16</li><li>Issue 9 · Friday, Oct 9</li><li>Issue 8 · Friday, Oct 2</li></ul></section>` });
+}
+
+/* ═════════ owner overview ═════════ */
+function overview(u, o = {}) {
+  const viewer = o.viewer || P.priya, admin = viewer !== P.priya;
+  const answered = [P.priya, P.jo, P.ana, P.maya], waiting = [P.sam];
+  const tz = admin ? ' <span class="meta">(5:00 AM your time)</span>' : '';
+  const body = `${admin ? banner('You’re an admin now', 'Priya made you an admin of Saturday Club. You can invite people and look after the questions.', 'ok', CHECK_BIG) : ''}<div class="cols"><div class="col main"><section class="card taped">${tape('dots l')}${eyebrow('This week')}${h2('Issue 12 is open')}<p class="p">Closes Friday, Oct 30 at 9:00 AM London time${tz}.</p><div class="progress"><p class="count tnum"><b>${answered.length}</b>of 5 answered</p><div class="avrow">${answered.map(p => `<span class="avwrap">${av(p, 'done')}<span>${p === viewer ? 'You' : p.f}${o.just === p ? '<em>just now</em>' : ''}</span></span>`).join('')}${waiting.map(p => `<span class="avwrap wait">${av(p)}<span>${p.f}</span></span>`).join('')}</div></div><p class="meta">Sam gets one reminder on Wednesday at 9:00 AM. Nobody else hears from us until Friday.</p></section><section class="card">${h2('Issue 11')}<p class="meta">Delivered Friday, Oct 23 · 5 answered · 2 comments</p><div class="right">${btn('Read Issue 11', 'quiet small')}</div></section></div><div class="col aside"><section class="card">${h2('Next up')}<p class="p">Issue 13 opens Friday, Oct 30 at 9:00 AM, right as Issue 12 is delivered. It asks 4 questions.</p>${btn('Change questions', 'link')}</section><section class="card">${h2('People')}<p class="p">6 in the loop · 1 invitation waiting</p>${btn('Invite someone', 'link')}</section></div></div>`;
+  return app({ top: topbar(loopmark(), chip(admin ? 'Admin' : 'Owner')), nav: tabs('Overview', !admin), width: 'wide', body });
+}
+function skipped(u) {
+  return app({ top: topbar(loopmark(), chip('Paused')), nav: tabs('Overview'), width: 'wide', body: `${banner('Issue 6 was skipped', 'Nobody answered before Friday, Sep 18 at 9:00 AM, so there was nothing to send and nobody got an empty email. Saturday Club is paused until you start it again.', 'warn', WARN_BIG)}<div class="cols"><div class="col main"><section class="card taped">${tape('dots l')}${h2('Ready when you are')}<p class="p">Quiet weeks happen. You could swap in a lighter question, or just let people know it’s coming back.</p><p class="p">Resume now and <b>Issue 7 opens Friday, Sep 25 at 9:00 AM</b> London time.</p><div class="row-btns">${btn('Resume the loop')}${btn('Change the questions', 'quiet')}</div></section></div><div class="col aside"><section class="card">${h2('Issue 6')}<p class="meta">Opened Friday, Sep 11 · asked 5 people · nobody answered · not sent</p></section><section class="card">${h2('Issue 5')}<p class="meta">Delivered Friday, Sep 11 · 4 answered</p><div class="right">${btn('Read Issue 5', 'quiet small')}</div></section></div></div>` });
+}
+function paused(u) {
+  return app({ top: topbar(loopmark(), chip('Paused')), nav: tabs('Overview'), width: 'wide', body: `${banner('Paused since Saturday, Oct 24', 'No new issues are opening. Issue 12 was still delivered on Friday, Oct 30, as planned.', '', PAUSE_BIG)}<div class="cols"><div class="col main"><section class="card taped">${tape('stripe l')}${h2('Ready when you are')}<p class="p">Resume now and <b>Issue 13 opens Friday, Nov 6 at 9:00 AM</b> London time. Everyone gets the questions then, with a week to answer.</p><div class="row-btns">${btn('Resume the loop')}</div><p class="help">The schedule picks up from the moment you resume. Nothing is sent to make up for the weeks off.</p></section></div><div class="col aside"><section class="card">${h2('Issue 12')}<p class="meta">Delivered Friday, Oct 30 · 5 answered · 4 comments</p><div class="right">${btn('Read Issue 12', 'quiet small')}</div></section></div></div>` });
+}
+function issuesTab(u) {
+  const rows = [
+    [12, 'Open', 'Opened Friday, Oct 23 at 9:00 AM · closes Friday, Oct 30 · 4 of 5 answered'],
+    [11, 'Delivered', 'Friday, Oct 23 · 5 answered · 2 comments'],
+    [10, 'Delivered', 'Friday, Oct 16 · 5 answered · shared by link'],
+    [9, 'Delivered', 'Friday, Oct 9 · 4 answered'],
+    [8, 'Delivered', 'Friday, Oct 2 · 5 answered'],
+    [7, 'Delivered', 'Friday, Sep 25 · 3 answered'],
+    [6, 'Skipped', 'Friday, Sep 18 · nobody answered, nothing sent'],
+  ];
+  return app({ top: topbar(loopmark(), chip('12 issues')), nav: tabs('Issues'), width: 'wide', body: `${eyebrow('Every issue so far')}${title('Issues')}<div class="cols"><div class="col main"><section class="card"><div class="ilist">${rows.map(([n, s, sub]) => `<div class="irow${s === 'Open' ? ' hl' : ''}"><span class="inum tnum">${n}</span><div class="row-main"><p class="row-title">Issue ${n} <span class="tag${s === 'Open' ? ' hl' : s === 'Skipped' ? ' read' : ''}">${s}</span></p><p class="row-sub">${sub}</p></div>${s === 'Skipped' ? '' : btn('Open', 'quiet small')}</div>`).join('')}</div></section></div><div class="col aside"><section class="card">${h2('Next up')}<p class="p">Issue 13 opens Friday, Oct 30 at 9:00 AM London time, the moment Issue 12 is delivered.</p></section></div></div>` });
+}
+
+/* ═════════ people ═════════ */
+const MEMBERS = [
+  { p: P.priya, you: true, access: 'Owner', part: 'Answers' },
+  { p: P.maya, access: 'Admin', part: 'Answers' },
+  { p: P.jo, access: 'Member', part: 'Answers' },
+  { p: P.sam, access: 'Member', part: 'Answers' },
+  { p: P.ana, access: 'Member', part: 'Answers' },
+  { p: P.theo, access: 'Member', part: 'Reads' },
+];
+function inviteCard(u, o) {
+  const g1 = o.v === 'G1', fy = o.fromYou;
+  return `<section class="card taped">${tape('stripe r')}${h2('Invite people')}<label class="lbl" for="${u}-inv">Email addresses</label><textarea class="input${g1 ? ' is-focus' : ''}" id="${u}-inv" rows="2" placeholder="Paste a few, with commas between them">${g1 ? P.theo.e : ''}</textarea><p class="lbl gap">They’ll join as</p>${fy ? `<p class="lock">${I.lock}<span>Everyone joins as a reader. In a From-you loop, only you answer.</span></p>` : `<div class="seg"><span${g1 ? '' : ' class="on"'}>Answers</span><span${g1 ? ' class="on"' : ''}>Reads</span></div><p class="help">${g1 ? 'Readers get every issue by email and are never asked questions.' : 'They get the questions each week and the issue when it’s done.'}</p>`}<div class="right">${btn(g1 ? 'Invite Theo' : 'Send invites')}</div></section>`;
+}
+function people(u, o = {}) {
+  const fy = o.fromYou;
+  let list = fy
+    ? [{ p: P.priya, you: true, access: 'Owner', part: 'Writes' }, ...[P.maya, P.jo, P.ana, P.theo].map(p => ({ p, access: 'Member', part: 'Reads', lock: true }))]
+    : MEMBERS.map(m => ({ ...m }));
+  if (o.v === 'G1') list = list.filter(m => m.p !== P.theo);
+  const find = p => list.find(m => m.p === p);
+  if (o.v === 'G2') Object.assign(find(P.sam), { part: 'Reads', panel: `<div class="mpanel"><p class="lbl">How Sam takes part</p><div class="seg"><span>Answers</span><span class="on">Reads</span></div><p class="help">From Issue 13, Sam just reads. Whatever he’s already written for Issue 12 stays.</p></div>` });
+  if (o.v === 'G3') Object.assign(find(P.maya), { panel: `<div class="mpanel"><p class="lbl">What Maya can do</p><div class="seg"><span>Member</span><span class="on">Admin</span></div><p class="help">Admins can invite and remove people and look after the questions. Only you can change the schedule, hand the loop over or delete it.</p></div>` });
+  const rows = list.map(m => `<div class="mrow${m.panel ? ' open' : ''}">${av(m.p)}<div class="row-main"><p class="row-title">${m.p.n}${m.you ? ' <em>(you)</em>' : ''}</p><p class="row-sub">${m.p.e}</p></div><div class="mtags">${m.access !== 'Member' ? `<span class="tag">${m.access}</span>` : ''}<span class="tag${m.part === 'Reads' ? ' read' : ''}">${m.lock ? I.lock : ''}${m.part}</span></div>${m.you ? '<span class="iconpad"></span>' : `<button type="button" class="iconbtn" aria-label="Manage ${m.p.f}"${m.panel ? ' aria-expanded="true"' : ''}>${I.dots}</button>`}${m.panel || ''}</div>`).join('');
+  const nAns = list.filter(m => m.part === 'Answers').length;
+  const summary = fy ? 'You write, everyone else reads' : `${nAns} answer, ${list.length - nAns} ${list.length - nAns === 1 ? 'reads' : 'read'}`;
+  const pending = fy ? '' : `<section class="card pending">${h2('Waiting to join')}<div class="mlist"><div class="mrow${o.v === 'B5' ? ' open' : ''}">${av(P.lena)}<div class="row-main"><p class="row-title">${P.lena.e}</p><p class="row-sub">Invited Tuesday, Oct 20 · not opened yet · runs out Nov 3</p></div>${btn(o.v === 'B5' ? I.check + 'Sent again' : 'Resend', 'quiet small')}</div></div></section>`;
+  const overlay = o.v === 'F3'
+    ? dialog(`${h2('Remove Sam from Saturday Club?')}<p class="p">Sam stops getting emails and his links stop working. His answers stay in the issues that were already delivered.</p>`, btn('Keep Sam', 'quiet') + btn('Remove Sam', 'danger'))
+    : o.v === 'B5' ? toast('Sent again to lena.f@example.com. It’s the same link as before.') : '';
+  return app({ top: topbar(loopmark(fy ? 'Notes from Priya' : 'Saturday Club'), chip(`${list.length} people`)), nav: tabs('People'), width: 'wide', overlay, body: `${eyebrow(summary)}${title('People')}<div class="cols"><div class="col main"><section class="card">${h2('In the loop')}<div class="mlist">${rows}</div></section>${pending}</div><div class="col aside first">${inviteCard(u, o)}</div></div>` });
+}
+
+/* ═════════ questions ═════════ */
+function questions(u, v) {
+  const pool = [['What made you laugh this week?'], ['What’s on your nightstand right now?'], ['One photo from your week', 'Photo'], ['What are you looking forward to?'], ['Best thing you ate this week?', 'Words', true]].map(([t, kind = 'Words', custom]) => ({ t, kind, custom, on: true }));
+  let archived = [], note = '';
+  if (v === 'C1') { pool[4].tag = 'New'; note = toast('Added. It’ll be in Issue 13.'); }
+  if (v === 'C2') { [pool[1], pool[2]] = [pool[2], pool[1]]; pool[1].tag = 'Moved up'; note = toast('Order saved. Issue 13 asks them like this.'); }
+  if (v === 'C3') { archived = [['What are you watching?', 'Archived just now · asked in Issues 2 to 9', true], ['Any big news?', 'Archived in August · asked in Issue 1']]; note = toast('Archived. Past issues still show it, word for word.'); }
+  if (v === 'C4') { pool[1].on = false; pool[1].tag = 'Skipped in Issue 13'; }
+  const n = pool.filter(q => q.on).length;
+  const rows = pool.map((q, i) => `<li class="qrow${q.tag ? ' hl' : ''}${q.on ? '' : ' off'}"><span class="qnum tnum">${i + 1}</span><div class="row-main"><p class="row-title">${q.t}</p><p class="row-sub">${q.kind} · ${q.custom ? 'written by you' : 'from the bank'}${q.tag ? ` <span class="tag hl">${q.tag}</span>` : ''}</p></div><div class="qctl"><span class="check" role="checkbox" aria-checked="${q.on}"><span class="cbox${q.on ? ' on' : ''}"></span>In Issue 13</span><button type="button" class="iconbtn" aria-label="Move up"${i === 0 ? ' disabled' : ''}>${I.up}</button><button type="button" class="iconbtn" aria-label="Move down"${i === pool.length - 1 ? ' disabled' : ''}>${I.down}</button><button type="button" class="iconbtn" aria-label="Archive">${I.box}</button></div></li>`).join('');
+  const arch = archived.length ? `<section class="card archived">${h2('Archived')}<p class="meta">Not asked anymore. Past issues still show them exactly as they were.</p><ul class="qlist">${archived.map(([t, when, now]) => `<li class="qrow${now ? ' hl' : ''}"><span class="qnum">${I.box}</span><div class="row-main"><p class="row-title">${t}</p><p class="row-sub">${when}</p></div>${btn('Restore', 'quiet small')}</li>`).join('')}</ul></section>` : '';
+  return app({ top: topbar(loopmark(), chip(`${pool.length} in the pool`)), nav: tabs('Questions'), width: 'wide', overlay: note, body: `${eyebrow('Changes start with Issue 13')}${title('Questions')}<div class="cols"><div class="col main">${banner(`Issue 13 asks ${n} questions`, 'Issue 12 is open with its own four. Anything you change here starts on Friday, Oct 30.', '', DOODLE)}<section class="card"><ol class="qlist">${rows}</ol></section><section class="card taped">${tape('mint l')}<label class="lbl" for="${u}-nq">Write your own</label><input class="input" id="${u}-nq" placeholder="Ask the group something"><div class="right">${btn('Add question')}</div></section>${arch}</div><div class="col aside"><section class="card">${h2('Question bank')}<p class="meta">Add one to the pool.</p><ul class="bank">${BANK.slice(4).map(q => `<li><span>${q}</span><button type="button" class="iconbtn sm" aria-label="Add: ${q}">${I.plus}</button></li>`).join('')}</ul></section></div></div>` });
+}
+
+/* ═════════ issue ═════════ */
+const PICKER = `<div class="picker" role="group" aria-label="Reactions">${['😂', '♥', '😮', '🥹', '👏', '🙌'].map(e => `<button type="button" aria-pressed="${e === '😂' || e === '♥'}">${e}</button>`).join('')}</div>`;
+function answerHTML([p, t, r = [], late], me, o, picker) {
+  const reacts = r.map(([e, n, on]) => reactBtn(e, n + (picker && e === '♥' ? 1 : 0), on || (picker && e === '♥'))).join('');
+  return `<div class="answer${p === me ? ' mine' : ''}">${av(p)}<div><p class="who">${p.f}${p === me ? ' <em>· you</em>' : ''}${late ? ' <span class="tag">Added later</span>' : ''}</p><p class="atext">${t}</p>${o.anon ? '' : `<div class="reacts">${reacts}<button type="button" class="react add${picker ? ' is-open' : ''}" aria-label="Add a reaction"${picker ? ' aria-expanded="true"' : ''}>${I.plus}</button>${picker ? PICKER : ''}</div>`}</div></div>`;
+}
+const photosHTML = (list, me) => `<div class="photos">${list.map(([p, k, c]) => `<figure><span class="pic ${k}" role="img" aria-label="${c}"></span><figcaption><b>${p === me ? 'You' : p.f}</b> · ${c}</figcaption></figure>`).join('')}</div>`;
+function commentsCard(u, o) {
+  const list = [[P.sam, 'Priya, we need a weekly geese update now.', 'Fri'], [P.priya, 'Already planned. They have a union.', 'Fri']];
+  if (o.comments === 'posted') list.push([P.maya, 'Gerald is a perfect name. Please send photos of Gerald.', 'Just now', true]);
+  const err = o.comments === 'error';
+  return `<section class="card taped comments">${tape('mint c')}<h3 class="qtext">Comments</h3>${list.map(([p, t, w, isNew]) => `<div class="comment${isNew ? ' new' : ''}">${av(p)}<p><b>${p.f}</b>${t}<em>${w}</em></p></div>`).join('')}<form class="cform" onsubmit="return false"><label class="sr" for="${u}-c">Write a comment</label><input class="input${err ? ' is-invalid' : ''}" id="${u}-c" placeholder="Write a comment"${err ? ' aria-invalid="true" aria-describedby="' + u + '-ce"' : ''}>${btn('Post', o.postQuiet ? 'quiet' : 'primary', 'type="submit"')}</form>${err ? `<p class="err" id="${u}-ce">${I.warn}Write something first, then post.</p>` : ''}</section>`;
+}
+function issueScreen(u, o = {}) {
+  const me = o.viewer || (o.anon ? null : P.maya);
+  const head = `<header class="issue-head"><span class="deco cherry-big">${CHERRY}</span>${eyebrow('Delivered Friday, Oct 23')}${title('Issue 11')}<p class="due">5 of you answered · 4 questions${o.anon ? '' : ' · 2 comments'}</p></header>`;
+  const qs = I11.map((q, qi) => `<article class="card taped">${tape(TAPES[qi])}<h3 class="qtext">${gx(q.q)}</h3>${q.photos ? photosHTML(q.photos, me) : q.a.map((a, ai) => answerHTML(a, me, o, o.picker && qi === 0 && ai === 0)).join('')}</article>`).join('');
+  const share = o.share ? `<section class="card taped">${tape('stripe r')}<div class="rowflex"><div>${h2('Share by link')}<p class="meta">Anyone with the link can read this issue, and nothing else from the loop.</p></div><span class="switch on" role="switch" aria-checked="true" aria-label="Share by link"></span></div><div class="copyrow"><label class="sr" for="${u}-sl">Share link</label><input class="input mono" id="${u}-sl" value="friendloop.app/s/k7Qm2xTa" readonly>${btn('Copy link')}</div><p class="help">Turn it off and the link stops working straight away.</p></section>` : '';
+  if (o.anon) {
+    return app({ top: topbar(loopmark(), chip('Shared with you')), width: 'narrow', body: `${head}${qs}<p class="meta center">Shared from Saturday Club, a private loop on Friendloop.<br>Comments and reactions stay inside the loop.</p>` });
+  }
+  const side = `<div class="col aside first">${share}<section class="card only-wide">${h2('In this issue')}<ol class="side-list">${I11.map(q => `<li>${q.q}</li>`).join('')}</ol></section><section class="card only-wide">${h2('Older issues')}<ul class="side-list"><li>Issue 10 · Friday, Oct 16</li><li>Issue 9 · Friday, Oct 9</li><li>Issue 8 · Friday, Oct 2</li></ul></section></div>`;
+  return app({ top: topbar(loopmark(), chip('Issue 11')), width: 'read', body: `${head}<div class="cols"><div class="col main">${qs}${commentsCard(u, o)}</div>${side}</div>` });
+}
+function memberHome(u) {
+  const arch = [
+    [11, 'Friday, Oct 23', 5, 'A group of geese has decided my bus stop belongs to them.', 'Priya'],
+    [10, 'Friday, Oct 16', 5, 'I finally fixed the wobbly table. It was the floor.', 'Jo'],
+    [9, 'Friday, Oct 9', 4, 'Found my diary from 2004. Never reading it again.', 'Ana'],
+    [8, 'Friday, Oct 2', 5, 'My plant has a new leaf and I’m unreasonably proud.', 'Maya'],
+    [7, 'Friday, Sep 25', 3, 'Took the long way home on purpose.', 'Sam'],
+  ];
+  return app({ top: topbar(loopmark(), chip('Issue 12 open')), width: 'wide', body: `<section class="card taped">${tape('dots l')}${eyebrow('This week · Issue 12')}${h2('You’ve answered 2 of 4')}<p class="p">Closes Friday, Oct 30 at 9:00 AM London time.</p><div class="row-btns">${btn('Keep going')}</div></section>${title('Past issues')}<div class="grid2">${arch.map(([n, d, k, s, w]) => `<article class="card arch"><span class="inum tnum">${n}</span><div class="row-main"><p class="row-title">Issue ${n}</p><p class="row-sub">${d} · ${k} answered</p><p class="snip">${s}<span>${w}</span></p></div></article>`).join('')}</div><div class="right">${btn('Issue 5 and older', 'link')}</div>` });
+}
+
+/* ═════════ settings ═════════ */
+function settings(u, o = {}) {
+  const ch = o.changed, tag = ch ? ' <span class="tag hl">Changed</span>' : '';
+  const body = `${eyebrow('Only you can change these')}${title('Settings')}<div class="cols"><div class="col main"><section class="card"><label class="lbl" for="${u}-ln">Loop name</label><input class="input" id="${u}-ln" value="Saturday Club"><p class="help">It’s the sender name on every email.</p></section><section class="card taped changed">${tape('stripe r')}${h2('Schedule')}<p class="lbl">How often</p><div class="seg"><span class="on">Every week</span><span>Every two weeks</span></div><div class="grid2 tight"><div><label class="lbl" for="${u}-d">Questions go out on${tag}</label><select class="input select${ch ? ' is-focus' : ''}" id="${u}-d"><option>${ch ? 'Sunday' : 'Friday'}</option></select></div><div><label class="lbl" for="${u}-h">At${tag}</label><select class="input select" id="${u}-h"><option>${ch ? '10:00 AM' : '9:00 AM'}</option></select></div></div><label class="lbl" for="${u}-z">Loop time zone</label><select class="input select" id="${u}-z"><option>London (Europe/London)</option></select><div class="paper-note"><p class="lined-p">${ch ? 'Next questions go out <b>Sunday, Nov 1 at 10:00 AM</b>.' : 'Next questions go out <b>Friday, Oct 30 at 9:00 AM</b>.'}</p><p class="lined-p">${ch ? 'Issue 12 still closes <b>Friday, Oct 30 at 9:00 AM</b>.' : 'Answers are due a week after that.'}</p>${ch ? '<p class="lined-p">The new time starts with Issue 13.</p>' : ''}</div></section></div><div class="col aside"><section class="card">${h2('Pause the loop')}<p class="p">No new issues open while it’s paused. An issue that’s already open still gets delivered.</p>${btn('Pause', 'quiet')}</section><section class="card">${h2('Hand it over')}<p class="p">Make someone else the owner. You’ll stay as an admin and keep answering.</p>${btn('Choose someone', 'quiet')}</section><section class="card dangerzone">${h2('Delete Saturday Club')}<p class="p">Deletes every issue, answer, photo and comment. This can’t be undone.</p>${btn('Delete this loop', 'danger-line')}</section></div></div>`;
+  return app({ top: topbar(loopmark(), chip('Owner')), nav: tabs('Settings'), width: 'wide', body, overlay: o.dialog || '', bar: ch ? bar('Unsaved changes', btn('Save changes')) : bar('Everything’s saved', btn('Save changes', 'quiet', 'aria-disabled="true"')) });
+}
+const deleteDialog = u => dialog(`${h2('Delete Saturday Club?')}<p class="p">This deletes all 12 issues and every answer, photo and comment. Everyone’s links stop working. It can’t be undone.</p><label class="lbl" for="${u}-del">Type “Saturday Club” to confirm</label><input class="input is-focus" id="${u}-del" value="Saturday Club" autocomplete="off">`, btn('Keep the loop', 'quiet') + btn('Delete forever', 'danger'));
+const transferDialog = u => dialog(`${h2('Hand over Saturday Club')}<p class="p">The new owner can change the schedule, hand it on, or delete it. You’ll stay as an admin and keep answering.</p><div class="choices">${[P.maya, P.jo, P.sam, P.ana].map((p, i) => `<div class="choice person${i === 0 ? ' on' : ''}" role="radio" aria-checked="${i === 0}"><span class="radio"></span><span class="ch-p">${av(p, 'sm')}<span>${p.n}${i === 0 ? ' <span class="tag">Admin</span>' : ''}</span></span></div>`).join('')}</div>`, btn('Cancel', 'quiet') + btn('Make Maya the owner'));
+
+/* ═════════ email ═════════ */
+function mail(u, o) {
+  const inbox = [[o.from, o.subject, o.time, true], ['Mum', 'Photos from Sunday', 'Yesterday'], ['Library', 'Your books are due soon', 'Wed']];
+  return `<div class="mail"><div class="mail-bar">${I.back}<span>Inbox</span><span class="grow"></span>${I.dots}</div><div class="mail-main"><aside class="mail-side" aria-hidden="true">${inbox.map(([f, s, t, on]) => `<div class="mi${on ? ' on' : ''}"><b>${f}</b><span>${s}</span><em>${t}</em></div>`).join('')}</aside><div class="mail-scroll"><div class="mail-head"><span class="av" style="--h:340" aria-hidden="true">${o.from[0]}</span><div><p class="mf"><b>${o.from}</b><span>loops@friendloop.app</span></p><p class="mt">to ${o.to} · ${o.time}</p></div></div><h2 class="mail-subj">${o.subject}</h2><div class="em"><div class="em-band"></div><div class="em-card">${o.html}</div><p class="em-foot">${o.foot}</p></div></div></div></div>`;
+}
+const emSignin = u => mail(u, { from: 'Friendloop', to: 'me', time: '3:37 PM', subject: 'Your sign-in link', html: `<p class="em-eyebrow">Friendloop</p><h1 class="em-h">${gx('Here’s your link')}</h1><p>Tap the button to sign in. It works once, until 3:52 PM.</p><p><a class="em-btn">Sign in to Friendloop</a></p><p class="em-small">Or paste this into your browser:<br><span class="em-url">https://friendloop.app/signin/confirm?token=Qm7d…x2</span></p>`, foot: 'Didn’t ask for this? You can ignore it. Nobody gets in without this link.' });
+const emInvite = u => mail(u, { from: 'The Cousins', to: 'me', time: '4:02 PM', subject: 'Priya added you to The Cousins', html: `<p class="em-eyebrow">The Cousins</p><h1 class="em-h">${gx('You’re in')}</h1><p>Priya started a loop for the cousins. Every Friday you’ll get three questions. Answer whenever suits you, and a week later everyone gets all the answers back as one issue.</p><p>No app, no account. This button is your way in.</p><p><a class="em-btn">Open my link</a></p><p class="em-small">Your first questions arrive Friday, Oct 30 at 9:00 AM London time (2:30 PM your time).</p>`, foot: 'This link is just for you, so please don’t forward it. If you don’t open it, the invitation runs out on Friday, Nov 6.' });
+const emPrompt = u => mail(u, { from: 'Saturday Club', to: 'me', time: '5:00 AM', subject: 'Issue 12 is open', html: `<p class="em-eyebrow">Saturday Club · Issue 12</p><h1 class="em-h">${gx('Hi Maya, Issue 12 is open')}</h1><p>Four questions this week:</p><ol>${Q.map(q => `<li>${q.text}</li>`).join('')}</ol><p><a class="em-btn">Answer now</a></p><p class="em-small">Answers close Friday, Oct 30 at 9:00 AM London time (5:00 AM your time).</p>`, foot: 'This link is just for you. Answers save as you type, and you can change them until the deadline.' });
+const emIssue = u => mail(u, { from: 'Saturday Club', to: 'me', time: '5:00 AM', subject: 'Issue 11 is here', html: `<p class="em-eyebrow">Saturday Club</p><h1 class="em-h">${gx('Issue 11')}</h1><p>Friday, October 23. Four of you answered this week.</p>${I11.map(q => `<h2 class="em-q">${gx(q.q)}</h2>${q.photos ? q.photos.map(([p, k, c]) => `<div class="em-photo"><span class="pic ${k}" role="img" aria-label="Photo from ${p.f}: ${c}"></span><p class="em-cap"><b>${p.f}:</b> ${c}</p></div>`).join('') : q.a.filter(a => !a[3]).map(([p, t]) => `<p class="em-a"><b>${p.f}</b><br>${t}</p>`).join('')}`).join('')}<p style="margin-top:22px"><a class="em-btn">Read it on the web</a></p><p class="em-small">Reactions, comments and anything added late live on the web version.</p>`, foot: 'You’re getting this because you’re in Saturday Club. There’s a plain-text version of this email too.' });
+const emSkipped = u => mail(u, { from: 'Saturday Club', to: 'me', time: '9:00 AM', subject: 'Issue 6 was skipped', html: `<p class="em-eyebrow">Saturday Club</p><h1 class="em-h">${gx('Issue 6 was skipped')}</h1><p>Nobody answered before Friday, Sep 18 at 9:00 AM, so there was nothing to send. Nobody got an empty email.</p><p>Saturday Club is paused until you start it again. When you do, the next issue opens on the following Friday.</p><p><a class="em-btn">Open Saturday Club</a></p>`, foot: 'You’re getting this because you run Saturday Club.' });
+const emReminder = u => mail(u, { from: 'Saturday Club', to: 'me', time: '1:00 AM', subject: 'Two days left for Issue 12', html: `<p class="em-eyebrow">Saturday Club · Issue 12</p><h1 class="em-h">${gx('Hi Sam, two days left')}</h1><p>Issue 12 closes Friday, Oct 30 at 9:00 AM London time (2:00 AM your time).</p><p>Even one answer is plenty.</p><p><a class="em-btn">Answer now</a></p>`, foot: 'This is the only reminder you’ll get for Issue 12.' });
+
+/* ═════════ flows ═════════ */
+const GROUPS = {
+  A: ['Auth', 'Only people who run a loop ever sign in. Everyone else uses the link in their email.', 'Auth'],
+  B: ['Create and invite', 'Priya starts a second loop for her cousins, and Ana joins Saturday Club.', 'Create'],
+  C: ['Questions', 'The pool of questions on Saturday Club. Every change starts with the next issue.', 'Questions'],
+  D: ['The issue cycle', 'An issue opens, gets answered, nudges, and is delivered, or skipped.', 'Issue cycle'],
+  E: ['Reading and reacting', 'Issue 11, delivered this morning.', 'Reading'],
+  F: ['Loop settings', 'The few things only the owner can change.', 'Settings'],
+  G: ['Roles and permissions', 'Who answers, who reads, and who can change what.', 'Roles'],
+};
+const SENT = banner('Sent', 'You can change these until Friday 9:00 AM London time (5:00 AM yours).', 'ok', CHECK_BIG);
+const OWNER = [P.priya, 'owner'];
+const FLOWS = [
+  { g: 'A', id: 'A1', title: 'Request a magic link', what: 'Priya types her email and gets one sign-in link. The screen only ever says to check her inbox.', notes: ['No password, ever', 'People who only answer are told they don’t need this', 'The link works once, for 15 minutes'], shots: [
+    { label: 'Sign in', url: '/signin', as: OWNER, render: u => signin(u, { email: P.priya.e, focus: true }) },
+    { label: 'Check your inbox', url: '/signin', as: OWNER, render: u => checkInbox(u, P.priya.e) },
+    { label: 'The sign-in email', mail: true, as: OWNER, render: emSignin },
+  ] },
+  { g: 'A', id: 'A2', title: 'Sign in with a valid link', what: 'Following the link signs Priya in and lands her on Your loops, with her name in the top bar.', notes: ['Her name sits in the chip, so the top bar still has no buttons', 'Sign out is at the bottom of this page'], shots: [
+    { label: 'Your loops', url: '/you', as: OWNER, render: u => you(u) },
+  ] },
+  { g: 'A', id: 'A3', title: 'Expired or reused link', what: 'A used or out-of-date link gets a calm page with one way forward, never an error.', notes: ['The button names the fix', 'It already knows which address to use'], shots: [
+    { label: 'This link has expired', url: '/signin/confirm?token=…', as: OWNER, render: expired },
+  ] },
+  { g: 'A', id: 'A4', title: 'Unknown email', what: 'An address with no account sees exactly the same screen and gets the same email. The account only exists once the link is used.', notes: ['Nobody can use this form to find out who has an account'], shots: [
+    { label: 'Same screen as A1', url: '/signin', as: [NOBODY, 'no account yet'], render: u => checkInbox(u, 'kit.moreau@example.com') },
+  ] },
+  { g: 'A', id: 'A5', title: 'Sign out', what: 'Sign out ends the session and goes back to Sign in. The old cookie stops working, so /you sends her here too.', shots: [
+    { label: 'Bottom of Your loops', url: '/you', scroll: 'bottom', as: OWNER, render: u => you(u, { focusOut: true }) },
+    { label: 'Signed out', url: '/signin', as: [P.priya, 'signed out'], render: u => signin(u, { banner: banner('You’re signed out', 'See you next week.', 'ok', CHECK_BIG) }) },
+  ] },
+  { g: 'A', id: 'A6', title: 'Revoked reply token', what: 'An old reply link that has been replaced explains itself, with no form and nothing from the loop.', notes: ['No loop name, no questions, no names', 'Points to the newer email'], shots: [
+    { label: 'This link was replaced', url: '/r/7f3a…', as: [P.sam, 'old link'], render: revoked },
+  ] },
+
+  { g: 'B', id: 'B1', title: 'Create a loop', what: 'Priya names the loop, picks who answers, and sets the day, time and time zone. Then she lands on its overview.', notes: ['The preview states the first send and the due date in plain words', 'One decision per step on a phone'], shots: [
+    { label: 'Name and kind', url: '/new', as: OWNER, render: u => create1(u) },
+    { label: 'Schedule', url: '/new', as: OWNER, render: create2 },
+    { label: 'Lands on the overview', url: '/g/the-cousins', as: OWNER, render: u => cousins(u, { fresh: true }) },
+  ] },
+  { g: 'B', id: 'B2', title: 'Pick starting questions', what: 'At least one question from the bank, kept in the order she picks them.', notes: ['Numbers show the order', 'Next stays off until one is picked'], shots: [
+    { label: 'Pick a few', url: '/new', as: OWNER, render: create3 },
+  ] },
+  { g: 'B', id: 'B3', title: 'Invite several members', what: 'Pasting three addresses makes three invitations, each with its own link. Each email names the loop.', notes: ['Addresses are split as you paste', 'The email comes from “The Cousins”, via one Friendloop address'], shots: [
+    { label: 'Who’s in?', url: '/new', as: OWNER, render: create4 },
+    { label: 'Ravi’s invitation', mail: true, as: [P.ravi, 'invited, in Mumbai'], render: emInvite },
+  ] },
+  { g: 'B', id: 'B4', title: 'Accept an invitation', what: 'Ana opens her invite and lands right on this week’s questions, with her name on them. No sign-in.', notes: ['The welcome says who added her', 'Ana is in Lisbon, on the loop’s clock, so only one time is shown'], shots: [
+    { label: 'Straight to the questions', url: '/r/c91e…', as: [P.ana, 'new, answers'], render: u => replyScreen(u, { who: P.ana, due: DUE.ana, banner: banner('Welcome to Saturday Club', 'Priya added you. These are this week’s questions. Answer right here, no account needed.', '', DOODLE) }) },
+  ] },
+  { g: 'B', id: 'B5', title: 'Resend an invitation', what: 'Resending emails the same link again. No new token, and no second Lena.', notes: ['The toast says it’s the same link', 'You can see when the invite runs out'], shots: [
+    { label: 'Sent again', url: '/g/sat-club/members', scroll: '.pending', as: OWNER, render: u => people(u, { v: 'B5' }) },
+  ] },
+  { g: 'B', id: 'B6', title: 'Expired invitation', what: 'An invite older than two weeks asks for a new one, and doesn’t sign anyone in.', shots: [
+    { label: 'Invitation expired', url: '/r/0d2b…', as: [P.lena, 'invited Oct 20'], render: inviteExpired },
+  ] },
+
+  { g: 'C', id: 'C1', title: 'Add a custom question', what: 'A new question lands at the end of the pool, switched on and ready for the next issue.', shots: [
+    { label: 'Added to the pool', url: '/g/sat-club/questions', scroll: '.qrow.hl', as: OWNER, render: u => questions(u, 'C1') },
+  ] },
+  { g: 'C', id: 'C2', title: 'Reorder questions', what: 'Up and down buttons move a question. The new order is the order Issue 13 asks them in.', notes: ['Buttons, not dragging, so it works with a thumb or a keyboard'], shots: [
+    { label: 'Moved up', url: '/g/sat-club/questions', scroll: '.qrow.hl', as: OWNER, render: u => questions(u, 'C2') },
+  ] },
+  { g: 'C', id: 'C3', title: 'Archive a question', what: 'Archived questions leave the pool and future issues. Past issues keep the original words.', shots: [
+    { label: 'Archived', url: '/g/sat-club/questions', scroll: '.archived', as: OWNER, render: u => questions(u, 'C3') },
+  ] },
+  { g: 'C', id: 'C4', title: 'Choose the next issue’s questions', what: 'Unticking a question skips it in Issue 13 only. It stays in the pool for later.', shots: [
+    { label: 'Skipping one', url: '/g/sat-club/questions', scroll: '.qrow.hl', as: OWNER, render: u => questions(u, 'C4') },
+  ] },
+
+  { g: 'D', id: 'D1', title: 'Open an issue on schedule', what: 'Once Friday 9:00 AM passes, Issue 12 opens with a copy of the questions, and everyone who answers gets one email.', notes: ['The questions are in the email, so it reads fine with images off', 'Deadline in loop time and Maya’s time'], shots: [
+    { label: 'Maya’s email', mail: true, as: [P.maya, 'answers, in New York'], render: emPrompt },
+  ] },
+  { g: 'D', id: 'D2', title: 'Don’t open early or twice', what: 'An early sweep does nothing, and a second sweep finds Issue 12 already there. Priya only ever sees one issue per Friday.', notes: ['Nothing to see on purpose: one row, and one email each'], shots: [
+    { label: 'One issue per Friday', url: '/g/sat-club/issues', as: OWNER, render: issuesTab },
+  ] },
+  { g: 'D', id: 'D3', title: 'Start an issue manually', what: '“Start it now” opens Issue 1 straight away, and Friday’s scheduled send won’t make a second one.', shots: [
+    { label: 'Waiting for Friday', url: '/g/the-cousins', as: OWNER, render: u => cousins(u) },
+    { label: 'Confirm', url: '/g/the-cousins', as: OWNER, render: u => cousins(u, { confirm: true }) },
+  ] },
+  { g: 'D', id: 'D4', title: 'Draft autosaves', what: 'Every answer saves as a draft while Maya types. If she reloads, it’s all still there.', notes: ['The bar says what happened, quietly', 'The count moves as she types'], shots: [
+    { label: 'Typing', url: '/r/a41c…', as: [P.maya, 'answers'], render: u => replyScreen(u, { values: [MV.laugh, 'A library book about octopuses and the hand cr'], focus: 1, state: 'Draft saved just now' }) },
+  ] },
+  { g: 'D', id: 'D5', title: 'Submit answers', what: 'Sending marks every answer as sent, with a time. Priya’s count goes up.', shots: [
+    { label: 'Sent', url: '/r/a41c…', as: [P.maya, 'answers'], render: u => replyScreen(u, { values: [MV.laugh, MV.stand, '', MV.ahead], photo: true, banner: SENT, state: 'Sent at 9:52 AM', action: btn('Send answers', 'quiet', 'aria-disabled="true"') }) },
+    { label: 'Priya’s overview', url: '/g/sat-club', as: OWNER, render: u => overview(u, { just: P.maya }) },
+  ] },
+  { g: 'D', id: 'D6', title: 'Edit a submitted answer', what: 'Until delivery, Maya can change an answer and send again. It updates the same reply and its time.', shots: [
+    { label: 'Changed after sending', url: '/r/a41c…', scroll: '.is-focus', as: [P.maya, 'answers'], render: u => replyScreen(u, { values: [MV.laugh, MV.stand, '', MV.ahead2], photo: true, focus: 3, banner: banner('Sent at 9:52 AM', 'You’ve changed one answer since then. Send again to update it.', 'ok', CHECK_BIG), state: 'Changes not sent yet', action: btn('Send changes') }) },
+  ] },
+  { g: 'D', id: 'D7', title: 'Deliver the issue', what: 'After Friday 9:00 AM everyone gets one email with every answer, and the issue goes live on the web.', notes: ['A plain-text copy goes out with it', 'Photos have captions, so it still makes sense with images off'], shots: [
+    { label: 'Issue 11 in Maya’s inbox', mail: true, as: [P.maya, 'answers'], render: emIssue },
+  ] },
+  { g: 'D', id: 'D8', title: 'Nothing to deliver', what: 'No answers means no email. The issue is marked skipped, the loop pauses, and Priya is told why.', shots: [
+    { label: 'Priya’s overview', url: '/g/sat-club', as: OWNER, render: skipped },
+    { label: 'The note to Priya', mail: true, as: OWNER, render: emSkipped },
+  ] },
+  { g: 'D', id: 'D9', title: 'Nudge the stragglers', what: 'Two days before delivery, anyone who hasn’t answered gets exactly one reminder. Anyone who has gets nothing.', notes: ['It says it’s the only one', 'No counts and no guilt, just the time'], shots: [
+    { label: 'Sam’s reminder', mail: true, as: [P.sam, 'answers, in LA'], render: emReminder },
+  ] },
+
+  { g: 'E', id: 'E1', title: 'Read a delivered issue', what: 'Every question with everyone’s answers, Maya’s own marked, and the date at the top.', notes: ['Late answers are labelled, not hidden', 'Desktop adds a contents list'], shots: [
+    { label: 'Issue 11', url: '/i/11', as: [P.maya, 'answers'], render: u => issueScreen(u) },
+  ] },
+  { g: 'E', id: 'E2', title: 'Read by share link', what: 'With sharing on, anyone with the link can read the issue, and nothing else from the loop.', notes: ['Off by default', 'Turning it off kills the link at once'], shots: [
+    { label: 'Priya turns it on', url: '/i/11', as: OWNER, render: u => issueScreen(u, { viewer: P.priya, share: true, postQuiet: true }) },
+    { label: 'What a visitor sees', url: '/s/k7Qm2xTa', as: [VISITOR, 'no account'], render: u => issueScreen(u, { anon: true }) },
+  ] },
+  { g: 'E', id: 'E3', title: 'Comment on an issue', what: 'Comments show up for everyone straight away. An empty one gets a gentle no.', shots: [
+    { label: 'Empty comment', url: '/i/11', scroll: '.comments', as: [P.maya, 'answers'], render: u => issueScreen(u, { comments: 'error' }) },
+    { label: 'Posted', url: '/i/11', scroll: '.comments', as: [P.maya, 'answers'], render: u => issueScreen(u, { comments: 'posted' }) },
+  ] },
+  { g: 'E', id: 'E4', title: 'React to an answer', what: 'Tap to add a reaction, tap again to take it back. The counts update for everyone.', shots: [
+    { label: 'Picking a reaction', url: '/i/11', as: [P.maya, 'answers'], render: u => issueScreen(u, { picker: true }) },
+  ] },
+  { g: 'E', id: 'E5', title: 'Browse the archive', what: 'Past issues, newest first. Each opens on its own, whether or not an issue is open right now.', shots: [
+    { label: 'Jo’s loop page', url: '/g/sat-club', as: [P.jo, 'member'], render: memberHome },
+  ] },
+
+  { g: 'F', id: 'F1', title: 'Change cadence or time zone', what: 'A new day, time or time zone changes the next send. The issue that’s already open keeps its deadline.', shots: [
+    { label: 'Moving to Sundays', url: '/g/sat-club/settings', scroll: '.changed', as: OWNER, render: u => settings(u, { changed: true }) },
+  ] },
+  { g: 'F', id: 'F2', title: 'Pause and resume', what: 'A paused loop says so on its overview. Resuming picks the next slot from that moment.', shots: [
+    { label: 'Paused', url: '/g/sat-club', as: OWNER, render: paused },
+  ] },
+  { g: 'F', id: 'F3', title: 'Remove a member', what: 'Removing Sam stops his emails and his links. His answers stay in delivered issues.', shots: [
+    { label: 'Confirm', url: '/g/sat-club/members', as: OWNER, render: u => people(u, { v: 'F3' }) },
+  ] },
+  { g: 'F', id: 'F4', title: 'Delete a loop', what: 'Priya types the loop’s name to confirm. Everything goes, and the old address finds nothing.', shots: [
+    { label: 'Type the name', url: '/g/sat-club/settings', scroll: '.dangerzone', as: OWNER, render: u => settings(u, { dialog: deleteDialog(u) }) },
+    { label: 'Afterwards', url: '/g/sat-club', as: OWNER, render: u => nothing(u, { title: 'Nothing here', text: 'This loop doesn’t exist anymore, or the link has a typo.', cta: 'Go to your loops' }) },
+  ] },
+  { g: 'F', id: 'F5', title: 'Non-owner is refused', what: 'Jo trying an owner page hits a plain dead end, and the same request as a POST is refused by the server.', notes: ['Settings quietly sends members back to the loop instead'], shots: [
+    { label: 'Jo tries the People page', url: '/g/sat-club/members', as: [P.jo, 'member'], render: u => nothing(u, { loop: true, title: 'Nothing to see here', text: 'This part of Saturday Club is for the people who run it.', cta: 'Back to Saturday Club' }) },
+  ] },
+
+  { g: 'G', id: 'G1', title: 'Invite as reader', what: 'Theo joins as a reader. He gets each issue, is never asked, and his link shows the issue instead of a form.', shots: [
+    { label: 'Inviting Theo', url: '/g/sat-club/members', as: OWNER, render: u => people(u, { v: 'G1' }) },
+    { label: 'Theo’s link', url: '/r/e5b0…', as: [P.theo, 'reads, in Seoul'], render: reader },
+  ] },
+  { g: 'G', id: 'G2', title: 'Switch participation', what: 'Flipping Sam to reader stops his questions from Issue 13. Nothing he wrote is deleted.', shots: [
+    { label: 'Sam reads now', url: '/g/sat-club/members', scroll: '.mrow.open', as: OWNER, render: u => people(u, { v: 'G2' }) },
+  ] },
+  { g: 'G', id: 'G3', title: 'Promote to admin', what: 'Maya can now look after people and questions. Settings stays Priya’s alone.', shots: [
+    { label: 'Making Maya an admin', url: '/g/sat-club/members', scroll: '.mrow.open', as: OWNER, render: u => people(u, { v: 'G3' }) },
+    { label: 'What Maya sees', url: '/g/sat-club', as: [P.maya, 'admin'], render: u => overview(u, { viewer: P.maya }) },
+  ] },
+  { g: 'G', id: 'G4', title: 'Reader cannot reply', what: 'If a reader’s form sends anyway, the server answers 403 and saves nothing. The page says why, kindly.', notes: ['Sam still had the form open when Priya switched him to reader'], shots: [
+    { label: 'Refused', url: '/r/b77d…', as: [P.sam, 'reads now'], render: u => replyScreen(u, { who: P.sam, due: DUE.sam, values: [SV.laugh, SV.stand], banner: banner('These weren’t sent', 'Priya switched you to reading this loop, so there’s nothing to answer this week. Your words are still here if you want to copy them.', 'warn', WARN_BIG), state: 'Not sent', action: btn('Read Issue 11', 'quiet') }) },
+  ] },
+  { g: 'G', id: 'G5', title: 'Transfer ownership', what: 'Priya hands the loop to Maya and becomes an admin who still answers.', shots: [
+    { label: 'Choose the new owner', url: '/g/sat-club/settings', as: OWNER, render: u => settings(u, { dialog: transferDialog(u) }) },
+  ] },
+  { g: 'G', id: 'G6', title: 'From-you mode', what: 'In a From-you loop everyone else is a reader, and the controls say so instead of offering a switch.', shots: [
+    { label: 'Choosing “From you”', url: '/new', as: OWNER, render: u => create1(u, { fromYou: true }) },
+    { label: 'People in a From-you loop', url: '/g/notes/members', as: OWNER, render: u => people(u, { fromYou: true }) },
+  ] },
+];
+
+/* ═════════ render ═════════ */
+const STATUS = `<div class="statusbar" aria-hidden="true"><span>9:41</span><span class="island"></span><span class="sb-icons">${SB}</span></div>`;
+const phoneFrame = (inner, isMail) => `<div class="phone-wrap"><div class="phone" role="group" aria-label="Phone"><div class="screen${isMail ? ' mailscreen' : ''}">${STATUS}${inner}</div></div></div>`;
+const browserFrame = (inner, url) => `<div class="browser-wrap"><div class="browser" role="group" aria-label="Desktop"><div class="chrome" aria-hidden="true"><span class="dots"><i></i><i></i><i></i></span><span class="url">${url}</span><span class="chrome-pad"></span></div><div class="viewport">${inner}</div></div></div>`;
+const shotHTML = (f, s, i) => {
+  const u = `${f.id}-${i}`;
+  const [who, role] = s.as;
+  return `<figure class="shot"${s.scroll ? ` data-scroll="${s.scroll}"` : ''}><figcaption><b>${i + 1}</b>${s.label}<code>${s.mail ? 'email' : s.url}</code><span class="viewer">${av(who, 'xs')}${who.f === '?' ? who.n : who.f}, ${role}</span></figcaption><div class="pair">${phoneFrame(s.render(u + 'm'), s.mail)}${browserFrame(s.render(u + 'd'), s.mail ? 'Mail' : 'friendloop.app' + s.url)}</div></figure>`;
+};
+const flowHTML = f => `<section class="flow" id="${f.id}" aria-labelledby="${f.id}-t"><header class="flow-head"><span class="fid">${f.id}</span><div><h3 id="${f.id}-t">${gx(f.title)}</h3><p>${f.what}</p></div></header>${f.notes ? `<ul class="notes">${f.notes.map(n => `<li>${n}</li>`).join('')}</ul>` : ''}<div class="shots">${f.shots.map((s, i) => shotHTML(f, s, i)).join('')}</div></section>`;
+
+document.getElementById('flows').innerHTML = Object.entries(GROUPS).map(([g, [name, blurb]]) => {
+  const fl = FLOWS.filter(f => f.g === g);
+  return `<section class="group" id="group-${g}" aria-labelledby="group-${g}-t"><header class="group-head"><span class="gl">${g}</span><h2 id="group-${g}-t">${name}</h2><p>${blurb} · ${fl.length} flows</p></header>${fl.map(flowHTML).join('')}</section>`;
+}).join('');
+document.getElementById('index').innerHTML = Object.entries(GROUPS).map(([g, [name]]) => `<div><b>${gx(name)}</b>${FLOWS.filter(f => f.g === g).map(f => `<a href="#${f.id}" title="${f.title}">${f.id}</a>`).join('')}</div>`).join('');
+document.getElementById('cast').innerHTML = [[P.priya, 'owner, London'], [P.maya, 'admin, New York'], [P.jo, 'Lisbon'], [P.sam, 'Los Angeles'], [P.ana, 'Lisbon, new'], [P.theo, 'reader, Seoul'], [P.lena, 'invited']].map(([p, r]) => `<li>${av(p, 'sm')}<span><b>${p.f}</b> · ${r}</span></li>`).join('');
+document.getElementById('docnav').innerHTML = Object.entries(GROUPS).map(([g, [, , short]]) => `<a href="#group-${g}"><b>${g}</b>${short}</a>`).join('') +
+  `<span class="sep" aria-hidden="true"></span><span class="vseg" role="group" aria-label="Show">${['both', 'phone', 'desktop'].map(v => `<button type="button" data-view="${v}" aria-pressed="${document.documentElement.dataset.view === v}">${v[0].toUpperCase() + v.slice(1)}</button>`).join('')}</span><button type="button" class="modebtn" id="mode" aria-pressed="false"><span class="knob" aria-hidden="true"></span>Dark mode</button>`;
+
+function placeScrolls() {
+  document.querySelectorAll('.shot[data-scroll]').forEach(shot => {
+    const sel = shot.dataset.scroll;
+    shot.querySelectorAll('.body').forEach(body => {
+      if (sel === 'bottom') { body.scrollTop = body.scrollHeight; return; }
+      const t = body.querySelector(sel);
+      if (!t) return;
+      const tr = t.getBoundingClientRect(), br = body.getBoundingClientRect();
+      if (tr.top < br.top || tr.bottom > br.bottom - 24) body.scrollTop += tr.top - br.top - 28;
+    });
+  });
+}
+(document.fonts ? document.fonts.ready : Promise.resolve()).then(() => requestAnimationFrame(placeScrolls));
+
+document.addEventListener('click', e => {
+  const v = e.target.closest('[data-view]');
+  if (v) {
+    document.documentElement.dataset.view = v.dataset.view;
+    document.querySelectorAll('.vseg button').forEach(b => b.setAttribute('aria-pressed', String(b === v)));
+    requestAnimationFrame(placeScrolls);
+    return;
+  }
+  if (e.target.closest('#mode')) {
+    const r = document.documentElement;
+    r.dataset.theme = r.dataset.theme === 'dark' ? 'light' : 'dark';
+    syncMode();
+    return;
+  }
+  const r = e.target.closest('.react:not(.add)');
+  if (r) {
+    const on = r.getAttribute('aria-pressed') === 'true', n = r.querySelector('.n');
+    n.textContent = Math.max(0, +n.textContent + (on ? -1 : 1));
+    r.setAttribute('aria-pressed', String(!on));
+  }
+});
+const syncMode = () => document.getElementById('mode').setAttribute('aria-pressed', String(document.documentElement.dataset.theme === 'dark'));
+syncMode();
+</script>
+</body>
+</html>

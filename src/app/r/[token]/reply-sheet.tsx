@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Deadline } from "@/lib/schedule";
+import { Cherries, Tape } from "@/components/stationery";
 
 type SaveResult = { ok: true; savedAt: string } | { ok: false; error: string };
 
@@ -135,48 +136,45 @@ export function ReplySheet({
 
   return (
     <>
-      <header className="sticky top-0 z-20 border-b border-line bg-page/85 backdrop-blur-md">
-        <div className="mx-auto flex h-14 w-full max-w-[560px] items-center justify-between gap-3 px-4">
-          <span className="truncate text-[14px] font-medium text-ink-soft">{loopName}</span>
-          <span className="flex h-7 items-center rounded-full border border-line bg-card px-3 text-[12px] font-medium text-ink-soft numeric">
-            {total} {total === 1 ? "question" : "questions"}
+      <header className="reply-topbar stitched sticky top-0 z-20 border-b bg-page/85 backdrop-blur-md">
+        <div className="mx-auto flex h-16 w-full max-w-[600px] items-center justify-between gap-3 px-4">
+          <span className="flex min-w-0 items-center gap-2 font-display text-[23px] font-bold text-ink">
+            <Cherries className="h-7 w-7 flex-none" /><span className="truncate">{loopName}</span>
+          </span>
+          <span className="chip flex h-7 items-center border bg-card px-3 text-[12px] font-bold text-ink-soft numeric">
+            {answered} of {total} answered
           </span>
         </div>
       </header>
 
-      <main className="mx-auto w-full max-w-[560px] px-4 pb-36 pt-6">
-        <h1 className="text-[30px] font-semibold leading-[1.1] tracking-[-0.025em] text-ink">
-          Round {roundNumber}
-        </h1>
-        <p className="mt-2 text-[15px] leading-relaxed text-ink-soft">
+      <main className="mx-auto w-full max-w-[600px] px-4 pb-36 pt-7">
+        <div className="relative pr-16">
+          <Cherries className="absolute -top-2 right-0 h-16 w-16 rotate-12" />
+          <p className="eyebrow">Hi {displayName},</p>
+          <h1 className="mt-1 text-ink">Round {roundNumber}</h1>
+        </div>
+        <p className="mt-3 text-[15px] leading-relaxed text-ink-soft">
           Closes {deadline.inLoopZone}
           {deadline.inViewerZone ? ` (${deadline.inViewerZone} where you are)` : ""}.
         </p>
 
         {sent ? (
-          <div className="settle mt-5 flex items-start gap-3 rounded-xl border border-accent-line bg-accent-soft px-4 py-3">
+          <div className="notice settle mt-6 flex items-start gap-3 border bg-accent-soft px-4 py-3">
             <svg viewBox="0 0 20 20" aria-hidden className="mt-0.5 h-4 w-4 flex-none fill-accent">
               <path d="M10 1.7a8.3 8.3 0 100 16.6 8.3 8.3 0 000-16.6zm3.8 6.4l-4.4 4.7a.9.9 0 01-1.3 0L6.2 10.9a.9.9 0 111.3-1.3l1.2 1.3 3.8-4a.9.9 0 011.3 1.2z" />
             </svg>
-            <p className="text-[14px] leading-relaxed text-accent-ink">
+            <p className="text-[14px] leading-relaxed text-ink">
               Sent. You can change these until {deadline.inLoopZone}.
             </p>
           </div>
         ) : null}
 
-        <div className="mt-5 flex flex-col gap-3">
-          {questions.map((question) => (
-            <label key={question.id} className="card block p-4">
-              <span className="flex items-start gap-3">
-                <span
-                  aria-hidden
-                  className="mt-0.5 flex h-5 w-5 flex-none items-center justify-center rounded-full bg-field text-[11px] font-semibold text-ink-muted numeric"
-                >
-                  {question.index}
-                </span>
-                <span className="text-[16px] font-semibold leading-snug tracking-[-0.01em] text-ink">
-                  {question.text}
-                </span>
+        <div className="mt-7 flex flex-col gap-6">
+          {questions.map((question, index) => (
+            <label key={question.id} className="card paper ride-in block p-5 pt-7">
+              <Tape tone={(["dots", "stripe", "mint", "check"] as const)[index % 4]} position={index % 2 ? "right" : "left"} />
+              <span className="mb-3 block font-display text-[25px] font-bold leading-[1.15] text-ink">
+                {question.text}
               </span>
 
               <textarea
@@ -191,9 +189,9 @@ export function ReplySheet({
                 onFocus={(event) => autosize(event.currentTarget)}
                 rows={2}
                 maxLength={8000}
-                placeholder="A sentence is plenty."
+                placeholder="Write a little or a lot"
                 aria-label={question.text}
-                className="field mt-3"
+                className="field lined-field mt-2"
               />
             </label>
           ))}
@@ -217,10 +215,10 @@ export function ReplySheet({
       </main>
 
       <div
-        className="fixed inset-x-0 bottom-0 z-20 border-t border-line bg-card/95 backdrop-blur-md"
+        className="reply-actionbar stitched-top fixed inset-x-0 bottom-0 z-20 border-t backdrop-blur-md"
         style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}
       >
-        <div className="mx-auto flex w-full max-w-[560px] items-center justify-between gap-3 px-4 pt-3">
+        <div className="mx-auto flex w-full max-w-[600px] items-center justify-between gap-3 px-4 pt-3">
           <span className="text-[13px] font-medium text-ink-soft numeric">
             {sent ? "Sent" : `${answered} of ${total} answered`}
           </span>

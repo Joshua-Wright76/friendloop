@@ -7,6 +7,7 @@ import { currentUser } from "@/lib/auth";
 import { viewerFor } from "@/lib/permissions";
 import { TimezoneField } from "../../new/timezone-field";
 import { deleteAction, pauseHereAction, settingsAction } from "./actions";
+import { LoopNav } from "@/components/loop-nav";
 
 export const instant = false;
 
@@ -52,12 +53,13 @@ export default async function SettingsPage({
   if (viewer.membership.access !== "owner") redirect(`/g/${id}`);
 
   return (
-    <main className="mx-auto w-full max-w-[560px] px-4 pb-16 pt-5">
+    <main className="mx-auto w-full max-w-[680px] px-4 pb-16 pt-5 sm:px-6">
       <header className="mb-5">
         <Link href={`/g/${id}`} className="text-[13px] font-medium text-ink-soft hover:text-ink">
           ← {group.name}
         </Link>
       </header>
+      <LoopNav id={id} active="Settings" isOwner />
 
       <h1 className="text-[28px] font-semibold leading-tight tracking-[-0.025em] text-ink">Settings</h1>
 
@@ -177,8 +179,8 @@ function Notice({ children, tone }: { children: React.ReactNode; tone?: "danger"
     <div
       className={`settle mt-4 rounded-xl border px-4 py-3 text-[14px] leading-relaxed ${
         tone === "danger"
-          ? "border-danger/40 bg-danger/10 text-danger"
-          : "border-accent-line bg-accent-soft text-accent-ink"
+          ? "notice border-danger/40 bg-danger/10 text-danger"
+          : "notice border-accent-line bg-accent-soft text-ink"
       }`}
     >
       {children}

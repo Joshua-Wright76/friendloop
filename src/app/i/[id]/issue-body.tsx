@@ -3,6 +3,7 @@
 import { useOptimistic, useState, useTransition } from "react";
 import { addComment, toggleReaction } from "./actions";
 import type { IssueAnswer, IssueBlock } from "@/lib/issue-view";
+import { Tape } from "@/components/stationery";
 
 type Comment = { id: string; author: string; body: string };
 
@@ -22,19 +23,18 @@ export function IssueBody({
   comments,
 }: Props) {
   return (
-    <div className="mt-6 flex flex-col gap-5">
+    <div className="mt-8 flex flex-col gap-7">
       {blocks
         .filter((block) => block.answers.length > 0)
         .map((block, index) => (
-          <section key={block.questionId}>
-            <h2 className="flex items-start gap-3 text-[16px] font-semibold leading-snug tracking-[-0.01em] text-ink">
-              <span className="mt-0.5 flex h-5 w-5 flex-none items-center justify-center rounded-full bg-field text-[11px] font-semibold text-ink-muted numeric">
-                {index + 1}
-              </span>
+          <section key={block.questionId} className="card paper ride-in p-5 pt-7">
+            <Tape tone={(["dots", "stripe", "mint", "check"] as const)[index % 4]} position={index % 2 ? "right" : "left"} />
+            <h2 className="issue-question flex items-start gap-3 text-ink">
+              <span className="question-number mt-0.5 numeric">{index + 1}</span>
               {block.question}
             </h2>
 
-            <div className="mt-2.5 flex flex-col gap-2.5">
+            <div className="mt-3">
               {block.answers.map((answer) => (
                 <AnswerCard
                   key={answer.replyId}
@@ -48,12 +48,10 @@ export function IssueBody({
           </section>
         ))}
 
-      <section className="mt-2">
-        <h2 className="text-[16px] font-semibold tracking-[-0.01em] text-ink">
-          Comments
-        </h2>
+      <section className="card mt-2 p-5">
+        <h2 className="text-ink">Comments</h2>
         {comments.length > 0 ? (
-          <div className="card mt-2.5 divide-y divide-line">
+          <div className="mt-3 divide-y divide-line border-t border-line">
             {comments.map((comment) => (
               <div key={comment.id} className="px-4 py-3">
                 <p className="text-[13px] font-medium text-ink-soft">
@@ -104,9 +102,12 @@ function AnswerCard({
   );
 
   return (
-    <article className="card p-4">
-      <p className="text-[13px] font-medium text-ink-soft">{answer.author}</p>
-      <p className="mt-1 whitespace-pre-wrap text-[16px] leading-relaxed text-ink">
+    <article className="answer-card mt-4 border-t border-line pt-4 first:border-t-0">
+      <div className="flex items-center gap-2.5">
+        <span className="avatar" aria-hidden="true">{answer.author.charAt(0)}</span>
+        <p className="m-0 text-[14px] font-extrabold text-ink-soft">{answer.author}</p>
+      </div>
+      <p className="mt-2 whitespace-pre-wrap text-[16px] leading-relaxed text-ink">
         {answer.body}
       </p>
       {answer.photoUrl ? (
