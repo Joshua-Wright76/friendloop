@@ -57,7 +57,7 @@ Vercel → Project → Settings → Environment Variables.
 | URL | **https://friendloop.dev** | **https://dev.friendloop.dev** |
 | Branch | `main` | `dev` |
 | Database | `neondb` | `friendloop_dev` (same Neon project) |
-| Email | Resend, really sent | captured only, readable at `/dev/outbox` |
+| Email | Resend, really sent | Resend, really sent — and every send is logged at `/dev/outbox` |
 | Cron | daily sweep | none — Vercel cron runs against production only |
 
 ```sh
@@ -66,9 +66,13 @@ git push origin dev    # -> dev.friendloop.dev
 ```
 
 A push to `dev` builds a preview deployment and the domain follows it
-(`gitBranch: dev`). Preview deployments set `EMAIL_TRANSPORT=outbox`, so nothing
-is ever mailed: sign in on dev, then open **/dev/outbox** to click the link.
-That page 404s in production.
+(`gitBranch: dev`). Dev sends real mail through Resend, from the same verified
+sender, with links pointing at `dev.friendloop.dev`. Every email is also recorded:
+**`/dev/outbox`** is the fastest way to grab a sign-in link, and it 404s in
+production.
+
+Set `EMAIL_TRANSPORT=outbox` in any environment to stop real sending there; the
+code then records emails without calling Resend at all.
 
 **Commit authorship matters.** Vercel blocks any deployment whose commit author it
 cannot map to a GitHub account, so commits must be authored with a GitHub email:
