@@ -50,6 +50,43 @@ Vercel → Project → Settings → Environment Variables.
 | `BLOB_READ_WRITE_TOKEN` | (optional) Vercel → Storage → Blob |
 | `TEST_DATABASE_URL` | a throwaway Postgres for e2e (Neon branch or local container) |
 
+## Environments
+
+| | Production | Dev |
+| --- | --- | --- |
+| URL | **https://friendloop.dev** | **https://dev.friendloop.dev** |
+| Branch | `main` | `dev` |
+| Database | `neondb` | `friendloop_dev` (same Neon project) |
+| Email | Resend, really sent | captured only, readable at `/dev/outbox` |
+| Cron | daily sweep | none — Vercel cron runs against production only |
+
+```sh
+git push origin main   # -> friendloop.dev
+git push origin dev    # -> dev.friendloop.dev
+```
+
+A push to `dev` builds a preview deployment and the domain follows it
+(`gitBranch: dev`). Preview deployments set `EMAIL_TRANSPORT=outbox`, so nothing
+is ever mailed: sign in on dev, then open **/dev/outbox** to click the link.
+That page 404s in production.
+
+**Commit authorship matters.** Vercel blocks any deployment whose commit author it
+cannot map to a GitHub account, so commits must be authored with a GitHub email:
+
+```sh
+git config user.name "Joshua Wright"
+git config user.email "Joshua-Wright76@users.noreply.github.com"
+```
+
+### Migrations
+
+Both databases need them, and the dev one is not a copy of production:
+
+```sh
+DATABASE_URL="$PROD_URL" npx drizzle-kit migrate
+DATABASE_URL="$DEV_URL"  npx drizzle-kit migrate
+```
+
 ## Dev
 
 ```sh
