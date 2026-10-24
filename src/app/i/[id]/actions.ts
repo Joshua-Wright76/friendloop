@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/db";
 import { comments, issues, reactions } from "@/db/schema";
 import { membershipForViewer } from "@/lib/issue-view";
+import { copy } from "@/lib/copy";
 
 export type ActionResult = { ok: boolean; error?: string };
 
@@ -24,11 +25,11 @@ export async function addComment(input: {
   viewerToken: string | null;
 }): Promise<ActionResult> {
   const body = input.body.trim();
-  if (!body) return { ok: false, error: "Write something first." };
-  if (body.length > 2000) return { ok: false, error: "That comment is too long." };
+  if (!body) return { ok: false, error: copy.issue.writeFirst };
+  if (body.length > 2000) return { ok: false, error: copy.issue.errors.tooLong };
 
   const membership = await viewerFor(input.issueId, input.viewerToken);
-  if (!membership) return { ok: false, error: "Only members of this loop can comment." };
+  if (!membership) return { ok: false, error: copy.issue.errors.commentMembersOnly };
 
   await db.insert(comments).values({
     issueId: input.issueId,
@@ -47,7 +48,7 @@ export async function toggleReaction(input: {
   viewerToken: string | null;
 }): Promise<ActionResult> {
   const membership = await viewerFor(input.issueId, input.viewerToken);
-  if (!membership) return { ok: false, error: "Only members of this loop can react." };
+  if (!membership) return { ok: false, error: copy.issue.errors.reactMembersOnly };
 
   const [existing] = await db
     .select()

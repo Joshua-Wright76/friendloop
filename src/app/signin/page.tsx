@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { currentUser } from "@/lib/auth";
 import { SignInForm } from "./signin-form";
 import { Brand, Tape } from "@/components/stationery";
+import { copy } from "@/lib/copy";
 
 export const instant = false;
 
@@ -14,19 +15,16 @@ export default async function SignInPage() {
 
       <div className="card p-6 pt-8">
         <Tape tone="dots" position="center" />
-        <p className="eyebrow">Hello again,</p>
+        <p className="eyebrow">{copy.signIn.eyebrow}</p>
         <h1 className="text-[24px] font-semibold leading-tight tracking-[-0.022em] text-ink">
-          Sign in
+          {copy.signIn.title}
         </h1>
         <p className="mb-5 mt-1.5 text-[15px] leading-relaxed text-ink-soft">
-          For the person who runs the loop.
+          {copy.signIn.subtitle}
         </p>
         <SignInForm />
       </div>
 
-      <p className="mt-6 px-1 text-[13px] leading-relaxed text-ink-muted">
-        Answering questions? You never sign in — the link in your email is enough.
-      </p>
     </main>
   );
 }

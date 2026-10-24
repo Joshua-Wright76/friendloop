@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { copy } from "@/lib/copy";
 
 export function Cherries({ className = "" }: { className?: string }) {
   return (
@@ -17,7 +18,7 @@ export function Brand({ href = "/" }: { href?: string | null }) {
   const content = (
     <>
       <Cherries className="brand-cherries" />
-      <span>Friendloop</span>
+      <span>{copy.common.brand}</span>
     </>
   );
 

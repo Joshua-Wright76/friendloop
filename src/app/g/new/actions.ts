@@ -4,10 +4,11 @@ import { redirect } from "next/navigation";
 import { currentUser } from "@/lib/auth";
 import { getNow } from "@/lib/clock";
 import { createLoop } from "@/lib/manage";
+import { copy } from "@/lib/copy";
 
 export type CreateState = { error?: string };
 
-const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+const WEEKDAYS = copy.common.weekdays;
 
 function validTimezone(value: string): boolean {
   try {
@@ -26,24 +27,17 @@ export async function createLoopAction(
   if (!user) redirect("/signin");
 
   const name = String(formData.get("name") ?? "").trim();
-  if (name.length < 2) return { error: "Give the loop a name." };
+  if (name.length < 2) return { error: copy.newLoop.errors.name };
 
   const timezone = String(formData.get("timezone") ?? "").trim();
-  if (!validTimezone(timezone)) return { error: "That timezone isn't one we recognise." };
+  if (!validTimezone(timezone)) return { error: copy.newLoop.errors.timezone };
 
   const promptWeekday = Number(formData.get("weekday") ?? 5);
   const promptHour = Number(formData.get("hour") ?? 9);
   const cadenceWeeks = Number(formData.get("cadence") ?? 1);
 
-  const picked = formData.getAll("question").map(String);
-  const custom = String(formData.get("custom") ?? "")
-    .split("\n")
-    .map((line) => line.trim())
-    .filter(Boolean);
-
-  const texts = [...picked, ...custom];
-  if (texts.length === 0) return { error: "Pick at least one question." };
-  if (texts.length > 8) return { error: "Eight questions is already a lot — trim it down." };
+  const texts = formData.getAll("question").map(String).map((question) => question.trim()).filter(Boolean);
+  if (texts.length === 0) return { error: copy.newLoop.errors.noQuestions };
 
   const at = await getNow();
   const groupId = await createLoop({
@@ -51,7 +45,7 @@ export async function createLoopAction(
     ownerEmail: user.email,
     ownerName: user.name,
     name,
-    mode: formData.get("mode") === "from_you" ? "from_you" : "group",
+    mode: "group",
     timezone,
     promptWeekday: Number.isFinite(promptWeekday) ? promptWeekday : 5,
     promptHour: Number.isFinite(promptHour) ? promptHour : 9,
@@ -60,5 +54,5 @@ export async function createLoopAction(
     at,
   });
 
-  redirect(`/g/${groupId}?welcome=1&day=${WEEKDAYS[promptWeekday] ?? "Friday"}`);
+  redirect(`/g/${groupId}?welcome=1&day=${WEEKDAYS[promptWeekday] ?? WEEKDAYS[5]}`);
 }

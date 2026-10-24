@@ -11,7 +11,7 @@ test("B1 · creating a loop makes you its owner and lands on it", async ({ page 
   await signIn(page, email);
 
   await page.getByRole("link", { name: "New loop" }).click();
-  await page.getByLabel("Name").fill("The Sunday Loop");
+  await page.getByLabel("Loop title").fill("The Sunday Loop");
   await page.getByRole("checkbox", { name: /What made you laugh this week/ }).first().check();
   await page.getByRole("button", { name: "Create loop" }).click();
 

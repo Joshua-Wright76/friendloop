@@ -2,6 +2,7 @@ import { desc } from "drizzle-orm";
 import { notFound } from "next/navigation";
 import { db } from "@/db";
 import { outbox } from "@/db/schema";
+import { copy } from "@/lib/copy";
 
 export const instant = false;
 
@@ -31,11 +32,10 @@ export default async function DevOutboxPage() {
   return (
     <main className="mx-auto w-full max-w-[560px] px-4 pb-16 pt-5">
       <h1 className="text-[26px] font-semibold leading-tight tracking-[-0.025em] text-ink">
-        Captured email
+        {copy.devOutbox.title}
       </h1>
       <p className="mt-1.5 text-[14px] leading-relaxed text-ink-soft">
-        Every email the app produces on this deployment, whether it was really sent or only captured.
-        Handy for grabbing a sign-in link without leaving the tab.
+        {copy.devOutbox.description}
       </p>
 
       <div className="mt-5 flex flex-col gap-2.5">
@@ -46,7 +46,7 @@ export default async function DevOutboxPage() {
               <div className="flex items-baseline justify-between gap-3">
                 <p className="truncate text-[14px] font-medium text-ink">{row.to}</p>
                 <span className="flex-none rounded-full border border-line px-2 py-0.5 text-[11px] font-medium uppercase tracking-wide text-ink-muted">
-                  {row.kind}
+                  {copy.devOutbox.kinds[row.kind]}
                 </span>
               </div>
               <p className="mt-0.5 text-[13px] text-ink-muted">{row.subject}</p>
@@ -63,7 +63,7 @@ export default async function DevOutboxPage() {
         })}
         {rows.length === 0 ? (
           <div className="card p-5 text-[14px] text-ink-muted">
-            Nothing yet. Request a sign-in link and it shows up here.
+            {copy.devOutbox.empty}
           </div>
         ) : null}
       </div>

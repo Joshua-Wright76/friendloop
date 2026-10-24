@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { saveDraftFor, submitFor } from "@/lib/reply";
+import { copy } from "@/lib/copy";
 
 /**
  * Writes live behind one POST endpoint rather than a Server Action so the rules
@@ -12,7 +13,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ tok
   try {
     payload = await request.json();
   } catch {
-    return NextResponse.json({ error: "Expected a JSON body." }, { status: 400 });
+    return NextResponse.json({ error: copy.reply.errors.json }, { status: 400 });
   }
 
   if (payload.action === "submit") {
@@ -24,7 +25,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ tok
 
   if (payload.action === "draft") {
     if (typeof payload.issueQuestionId !== "string") {
-      return NextResponse.json({ error: "Missing issueQuestionId." }, { status: 400 });
+      return NextResponse.json({ error: copy.reply.errors.missingQuestion }, { status: 400 });
     }
     const result = await saveDraftFor({
       token,
@@ -36,5 +37,5 @@ export async function POST(request: Request, { params }: { params: Promise<{ tok
       : NextResponse.json({ error: result.error }, { status: result.status });
   }
 
-  return NextResponse.json({ error: "Unknown action." }, { status: 400 });
+  return NextResponse.json({ error: copy.reply.errors.unknownAction }, { status: 400 });
 }

@@ -2,6 +2,7 @@
 
 import { useActionState } from "react";
 import { requestLink, type SignInState } from "./actions";
+import { copy } from "@/lib/copy";
 
 const initial: SignInState = {};
 
@@ -11,7 +12,7 @@ export function SignInForm() {
   return (
     <form action={action} className="flex flex-col gap-4">
       <label className="flex flex-col gap-1.5">
-        <span className="text-[13px] font-medium text-ink-soft">Your email</span>
+        <span className="text-[13px] font-medium text-ink-soft">{copy.signIn.emailLabel}</span>
         <input
           name="email"
           type="email"
@@ -19,7 +20,7 @@ export function SignInForm() {
           autoComplete="email"
           inputMode="email"
           autoFocus
-          placeholder="you@example.com"
+          placeholder={copy.signIn.emailPlaceholder}
           className="field h-[46px] py-0"
         />
       </label>
@@ -31,12 +32,9 @@ export function SignInForm() {
       ) : null}
 
       <button type="submit" disabled={pending} className="btn btn-primary w-full">
-        {pending ? "Sending…" : "Email me a link"}
+        {pending ? copy.signIn.sending : copy.signIn.submit}
       </button>
 
-      <p className="text-[13px] leading-relaxed text-ink-muted">
-        No password. We send a link that works once, for 15 minutes.
-      </p>
     </form>
   );
 }

@@ -3,6 +3,7 @@ import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { outbox } from "@/db/schema";
 import type { RenderedEmail } from "./templates";
+import { copy } from "../copy.ts";
 
 export type EmailKind = (typeof outbox.$inferInsert)["kind"];
 
@@ -31,7 +32,7 @@ function transport(): "outbox" | "resend" {
 }
 
 function addressBook(fromName?: string | null): string {
-  const configured = process.env.EMAIL_FROM ?? "Friendloop <hello@friendloop.dev>";
+  const configured = process.env.EMAIL_FROM ?? `${copy.common.brand} <hello@friendloop.dev>`;
   if (!fromName) return configured;
   const address = configured.match(/<([^>]+)>/)?.[1] ?? configured;
   return `${fromName} <${address}>`;

@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Gaegu, Nunito } from "next/font/google";
 import { ThemeSwitch } from "@/components/theme-switch";
+import { copy } from "@/lib/copy";
 import "./globals.css";
 
 const nunito = Nunito({
@@ -15,10 +16,10 @@ const gaegu = Gaegu({
 });
 
 export const metadata: Metadata = {
-  title: "Friendloop",
-  description: "A private newsletter for your friends. Answer a few questions, read everyone's.",
-  applicationName: "Friendloop",
-  appleWebApp: { capable: true, title: "Friendloop", statusBarStyle: "black-translucent" },
+  title: copy.common.metadataTitle,
+  description: copy.common.metadataDescription,
+  applicationName: copy.common.brand,
+  appleWebApp: { capable: true, title: copy.common.brand, statusBarStyle: "black-translucent" },
 };
 
 export const viewport: Viewport = {
@@ -44,7 +45,8 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         />
       </head>
       <body className="min-h-full">
-        {children}
+        <a href="#main-content" className="skip-link">{copy.common.skipToContent}</a>
+        <div id="main-content" tabIndex={-1}>{children}</div>
         <ThemeSwitch />
       </body>
     </html>

@@ -16,7 +16,7 @@ test("A4 · an unknown address leaves the same trace as a known one", async ({ p
   await page.getByRole("button", { name: "Email me a link" }).click();
   const mail = await latestOutboxFor(known);
   await page.goto(linkFrom(mail!.html, "/signin/confirm"));
-  await page.getByRole("button", { name: "Yes, sign me in" }).click();
+  await page.getByRole("button", { name: "Sign in" }).click();
   await expect(page).toHaveURL(/\/you$/);
 
   await page.context().clearCookies();

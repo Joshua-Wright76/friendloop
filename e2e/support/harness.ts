@@ -57,7 +57,7 @@ export async function signIn(page: Page, email: string): Promise<void> {
   const mail = await latestOutbox("signin:");
   if (!mail) throw new Error("No sign-in email was queued");
   await page.goto(linkFrom(mail.html, "/signin/confirm"));
-  await page.getByRole("button", { name: "Yes, sign me in" }).click();
+  await page.getByRole("button", { name: "Sign in" }).click();
   await expect(page).toHaveURL(/\/you$/);
 }
 

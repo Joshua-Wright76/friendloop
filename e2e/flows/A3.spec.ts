@@ -18,7 +18,7 @@ test("A3 · a second visit to the same link says it was used", async ({ page }) 
   const link = linkFrom(mail!.html, "/signin/confirm");
 
   await page.goto(link);
-  await page.getByRole("button", { name: "Yes, sign me in" }).click();
+  await page.getByRole("button", { name: "Sign in" }).click();
   await expect(page).toHaveURL(/\/you$/);
 
   await page.goto(link);

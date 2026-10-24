@@ -1,30 +1,37 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useSyncExternalStore } from "react";
+import { Picker } from "@/components/picker";
+import { copy } from "@/lib/copy";
 
-/** Fills the timezone field with the browser's zone the first time it renders. */
-export function TimezoneField({ name = "timezone" }: { name?: string }) {
-  const ref = useRef<HTMLInputElement>(null);
+const DEFAULT_TIMEZONE = copy.common.timezones[copy.common.timezones.length - 1];
+const OPTIONS = copy.common.timezones.map((timezone) => ({ value: timezone, label: timezone }));
 
-  useEffect(() => {
-    const input = ref.current;
-    if (input && !input.value) {
-      try {
-        input.value = Intl.DateTimeFormat().resolvedOptions().timeZone ?? "UTC";
-      } catch {
-        input.value = "UTC";
-      }
-    }
-  }, []);
+function browserTimezone(): string {
+  if (typeof window === "undefined") return "";
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || DEFAULT_TIMEZONE;
+  } catch {
+    return DEFAULT_TIMEZONE;
+  }
+}
 
+function subscribe() {
+  return () => {};
+}
+
+/** New loops start with the browser's zone; settings pass their saved zone. */
+export function TimezoneField({ name = "timezone", defaultValue }: { name?: string; defaultValue?: string }) {
+  const detected = useSyncExternalStore(subscribe, browserTimezone, () => "");
+  const initialValue = defaultValue ?? detected;
   return (
-    <input
-      ref={ref}
+    <Picker
+      key={initialValue || "timezone"}
       name={name}
-      list="timezones"
-      placeholder="Europe/Amsterdam"
-      autoComplete="off"
-      className="field h-[46px] py-0"
+      defaultValue={initialValue}
+      options={OPTIONS}
+      ariaLabel={copy.newLoop.timezone}
+      searchable
     />
   );
 }

@@ -5,6 +5,7 @@ import { db } from "@/db";
 import { groups, memberships } from "@/db/schema";
 import { currentUser } from "@/lib/auth";
 import { Brand, Cherries, Tape } from "@/components/stationery";
+import { copy } from "@/lib/copy";
 import { signOutAction } from "./actions";
 
 export const instant = false;
@@ -21,28 +22,26 @@ export default async function YouPage() {
 
   return (
     <main className="mx-auto w-full max-w-[720px] px-4 pb-16 pt-6 sm:px-6">
-      <header className="mb-10 flex items-center justify-between gap-3">
+      <header className="mb-10 flex items-start justify-between gap-3">
         <Brand href={null} />
-        <form action={signOutAction}>
-          <button type="submit" className="btn btn-quiet h-10 min-h-10 px-4 text-[13px]">Sign out</button>
-        </form>
+        <div className="flex max-w-[58%] flex-col items-end gap-2">
+          <form action={signOutAction}>
+            <button type="submit" className="btn btn-quiet h-10 min-h-10 px-4 text-[13px]">{copy.common.signOut}</button>
+          </form>
+          <p className="m-0 text-right text-[13px] leading-relaxed text-ink-muted [overflow-wrap:anywhere]">{user.email}</p>
+        </div>
       </header>
 
       <div className="flex items-end justify-between gap-4">
-        <div>
-          <p className="eyebrow">Your little corner</p>
-          <h1 className="mt-1 text-ink">Your loops</h1>
-        </div>
-        <Link href="/g/new" className="btn btn-primary">New loop</Link>
+        <h1 className="text-ink">{copy.you.title}</h1>
+        <Link href="/g/new" className="btn btn-primary">{copy.you.newLoop}</Link>
       </div>
-      <p className="mt-3 text-[14px] leading-relaxed text-ink-muted">Signed in as {user.email}</p>
-
       {loops.length === 0 ? (
         <div className="card mt-8 p-6 pt-8">
           <Tape tone="mint" />
-          <h2 className="text-ink">A blank page, in a good way.</h2>
+          <h2 className="text-ink">{copy.you.emptyTitle}</h2>
           <p className="mt-2 text-[15px] leading-relaxed text-ink-soft">
-            No loops yet. Start one, or wait for an invite — you never need this page to answer.
+            {copy.you.emptyBody}
           </p>
         </div>
       ) : (
@@ -56,14 +55,14 @@ export default async function YouPage() {
               </span>
               <span className="mt-4 flex flex-wrap gap-2">
                 <span className="rounded-full border border-line-strong bg-page px-2.5 py-1 text-[12px] font-bold capitalize text-ink-soft">
-                  {loop.access === "owner" ? "Owner" : loop.access === "admin" ? "Admin" : "Member"}
+                  {copy.common.roles[loop.access]}
                 </span>
                 <span className="rounded-full border border-line-strong bg-page px-2.5 py-1 text-[12px] font-bold text-ink-soft">
-                  {loop.participation === "contributor" ? "Writes" : "Reads"}
+                  {copy.common.participation[loop.participation]}
                 </span>
               </span>
               <span className="mt-auto flex items-center justify-between pt-6 text-[14px] font-extrabold text-ink-soft">
-                Open loop <span aria-hidden="true">→</span>
+                {copy.you.openLoop} <span aria-hidden="true">→</span>
               </span>
             </Link>
           ))}
@@ -71,7 +70,7 @@ export default async function YouPage() {
       )}
 
       <p className="mt-8 border-t border-dashed border-line-strong pt-5 text-[13px] leading-relaxed text-ink-muted">
-        Reading is open to everyone in a loop. Writing needs an invite.
+        {copy.you.footer}
       </p>
     </main>
   );

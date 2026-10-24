@@ -1,120 +1,82 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useRef, useState } from "react";
 import Link from "next/link";
 import { createLoopAction, type CreateState } from "./actions";
 import { TimezoneField } from "./timezone-field";
 import { Tape } from "@/components/stationery";
+import { Picker } from "@/components/picker";
+import { copy, text } from "@/lib/copy";
 
-const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+const WEEKDAYS = copy.common.weekdays;
 const HOURS = Array.from({ length: 24 }, (_, hour) => hour);
-const ZONES = [
-  "Europe/Amsterdam",
-  "Europe/London",
-  "Europe/Berlin",
-  "Europe/Lisbon",
-  "America/New_York",
-  "America/Chicago",
-  "America/Denver",
-  "America/Los_Angeles",
-  "America/Sao_Paulo",
-  "Asia/Tokyo",
-  "Asia/Singapore",
-  "Australia/Sydney",
-  "Pacific/Auckland",
-  "UTC",
-];
+const WEEKDAY_OPTIONS = WEEKDAYS.map((day, index) => ({ value: String(index), label: day }));
+const HOUR_OPTIONS = HOURS.map((hour) => ({ value: String(hour), label: `${String(hour).padStart(2, "0")}:00` }));
+const CADENCE_OPTIONS = [{ value: "1", label: copy.common.week }, { value: "2", label: copy.common.twoWeeks }];
 
 type Props = { bank: Array<{ group: string; questions: string[] }> };
 
 export function NewLoopForm({ bank }: Props) {
   const [state, action, pending] = useActionState(createLoopAction, {} as CreateState);
   const [picked, setPicked] = useState<string[]>([]);
+  const [custom, setCustom] = useState<Array<{ id: number; value: string }>>([]);
+  const nextCustomId = useRef(0);
+
+  const addCustom = () => {
+    const id = nextCustomId.current++;
+    setCustom((current) => [...current, { id, value: "" }]);
+  };
+
+  const updateCustom = (id: number, value: string) =>
+    setCustom((current) => current.map((question) => question.id === id ? { ...question, value } : question));
+
+  const removeCustom = (id: number) =>
+    setCustom((current) => current.filter((question) => question.id !== id));
 
   const toggle = (text: string) =>
     setPicked((current) =>
       current.includes(text) ? current.filter((value) => value !== text) : [...current, text],
     );
 
+  const customCount = custom.filter((question) => question.value.trim()).length;
+  const questionCount = picked.length + customCount;
+
   return (
     <form action={action} className="flex flex-col gap-6">
-      <datalist id="timezones">
-        {ZONES.map((zone) => (
-          <option key={zone} value={zone} />
-        ))}
-      </datalist>
-
       <label className="card flex flex-col gap-2 p-5 pt-7">
         <Tape tone="stripe" position="right" />
-        <span className="font-display text-[23px] font-bold text-ink">What’s it called?</span>
+        <span className="font-display text-[23px] font-bold text-ink">{copy.newLoop.nameLabel}</span>
         <input
           name="name"
           required
           maxLength={60}
-          placeholder="Friday Loop"
+          placeholder={copy.newLoop.namePlaceholder}
           className="field h-[46px] py-0"
         />
       </label>
 
-      <fieldset className="flex flex-col gap-3">
-        <legend className="mb-1 text-[13px] font-medium text-ink-soft">Who writes</legend>
-        <label className="card flex cursor-pointer items-start gap-3 p-4">
-          <input type="radio" name="mode" value="group" defaultChecked className="mt-1 accent-[var(--accent)]" />
-          <span>
-            <span className="block text-[15px] font-medium text-ink">Everyone</span>
-            <span className="mt-0.5 block text-[13px] leading-relaxed text-ink-soft">
-              Each person gets the questions and answers them. The usual.
-            </span>
-          </span>
-        </label>
-        <label className="card flex cursor-pointer items-start gap-3 p-4">
-          <input type="radio" name="mode" value="from_you" className="mt-1 accent-[var(--accent)]" />
-          <span>
-            <span className="block text-[15px] font-medium text-ink">Just you</span>
-            <span className="mt-0.5 block text-[13px] leading-relaxed text-ink-soft">
-              You write every round; everyone else reads.
-            </span>
-          </span>
-        </label>
-      </fieldset>
-
       <div className="card grid grid-cols-2 gap-4 p-5">
-        <label className="flex flex-col gap-1.5">
-          <span className="text-[13px] font-medium text-ink-soft">Day</span>
-          <select name="weekday" defaultValue="5" className="field h-[46px] py-0">
-            {WEEKDAYS.map((day, index) => (
-              <option key={day} value={index}>
-                {day}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="flex flex-col gap-1.5">
-          <span className="text-[13px] font-medium text-ink-soft">Time</span>
-          <select name="hour" defaultValue="9" className="field h-[46px] py-0">
-            {HOURS.map((hour) => (
-              <option key={hour} value={hour}>
-                {String(hour).padStart(2, "0")}:00
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="flex flex-col gap-1.5">
-          <span className="text-[13px] font-medium text-ink-soft">Timezone</span>
+        <div className="flex flex-col gap-1.5">
+          <span className="text-[13px] font-medium text-ink-soft">{copy.newLoop.day}</span>
+          <Picker name="weekday" defaultValue="5" options={WEEKDAY_OPTIONS} ariaLabel={copy.newLoop.day} />
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <span className="text-[13px] font-medium text-ink-soft">{copy.newLoop.time}</span>
+          <Picker name="hour" defaultValue="9" options={HOUR_OPTIONS} ariaLabel={copy.newLoop.time} />
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <span className="text-[13px] font-medium text-ink-soft">{copy.newLoop.timezone}</span>
           <TimezoneField />
-        </label>
-        <label className="flex flex-col gap-1.5">
-          <span className="text-[13px] font-medium text-ink-soft">Every</span>
-          <select name="cadence" defaultValue="1" className="field h-[46px] py-0">
-            <option value="1">week</option>
-            <option value="2">2 weeks</option>
-          </select>
-        </label>
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <span className="text-[13px] font-medium text-ink-soft">{copy.newLoop.every}</span>
+          <Picker name="cadence" defaultValue="1" options={CADENCE_OPTIONS} ariaLabel={copy.newLoop.every} />
+        </div>
       </div>
 
       <div className="flex flex-col gap-2">
         <p className="text-[13px] font-medium text-ink-soft">
-          Questions {picked.length > 0 ? `· ${picked.length} picked` : ""}
+          {copy.newLoop.questionsLabel} {questionCount > 0 ? text(copy.newLoop.picked, { count: questionCount }) : ""}
         </p>
         {bank.map((group) => (
           <div key={group.group} className="card p-2">
@@ -142,10 +104,40 @@ export function NewLoopForm({ bank }: Props) {
           </div>
         ))}
 
-        <label className="mt-1 flex flex-col gap-1.5">
-          <span className="text-[13px] font-medium text-ink-soft">Your own, one per line</span>
-          <textarea name="custom" rows={3} placeholder="What did you learn this week?" className="field" />
-        </label>
+        <div className="mt-3 flex items-center justify-between gap-3">
+          <span className="text-[13px] font-medium text-ink-soft">{copy.newLoop.customLabel}</span>
+          <button
+            type="button"
+            onClick={addCustom}
+            aria-label={copy.newLoop.addCustomAriaLabel}
+            className="btn btn-quiet h-11 min-h-11 w-11 px-0 text-[24px] leading-none"
+          >
+            <span aria-hidden="true">+</span>
+          </button>
+        </div>
+
+        {custom.map((question, index) => (
+          <div key={question.id} className="card flex items-center gap-2 p-3">
+            <input
+              name="question"
+              value={question.value}
+              onChange={(event) => updateCustom(question.id, event.target.value)}
+              maxLength={200}
+              autoFocus
+              placeholder={copy.newLoop.customPlaceholder}
+              aria-label={text(copy.newLoop.customQuestionAriaLabel, { number: index + 1 })}
+              className="field h-[46px] min-w-0 flex-1 py-0"
+            />
+            <button
+              type="button"
+              onClick={() => removeCustom(question.id)}
+              aria-label={text(copy.newLoop.removeCustomAriaLabel, { number: index + 1 })}
+              className="btn btn-quiet h-10 min-h-10 w-10 flex-none px-0 text-[20px]"
+            >
+              <span aria-hidden="true">×</span>
+            </button>
+          </div>
+        ))}
       </div>
 
       {state.error ? (
@@ -156,10 +148,10 @@ export function NewLoopForm({ bank }: Props) {
 
       <div className="flex items-center gap-3">
         <button type="submit" disabled={pending} className="btn btn-primary">
-          {pending ? "Creating…" : "Create loop"}
+          {pending ? copy.newLoop.creating : copy.newLoop.create}
         </button>
         <Link href="/you" className="text-[14px] font-medium text-ink-soft hover:text-ink">
-          Cancel
+          {copy.newLoop.cancel}
         </Link>
       </div>
     </form>

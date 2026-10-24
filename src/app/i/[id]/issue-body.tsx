@@ -4,6 +4,7 @@ import { useOptimistic, useState, useTransition } from "react";
 import { addComment, toggleReaction } from "./actions";
 import type { IssueAnswer, IssueBlock } from "@/lib/issue-view";
 import { Tape } from "@/components/stationery";
+import { copy, text } from "@/lib/copy";
 
 type Comment = { id: string; author: string; body: string };
 
@@ -49,7 +50,7 @@ export function IssueBody({
         ))}
 
       <section className="card mt-2 p-5">
-        <h2 className="text-ink">Comments</h2>
+        <h2 className="text-ink">{copy.issue.comments}</h2>
         {comments.length > 0 ? (
           <div className="mt-3 divide-y divide-line border-t border-line">
             {comments.map((comment) => (
@@ -64,7 +65,7 @@ export function IssueBody({
             ))}
           </div>
         ) : (
-          <p className="mt-2 text-[14px] text-ink-muted">Nothing yet.</p>
+          <p className="mt-2 text-[14px] text-ink-muted">{copy.issue.noComments}</p>
         )}
 
         {canInteract ? (
@@ -114,13 +115,13 @@ function AnswerCard({
         // eslint-disable-next-line @next/next/no-img-element
         <img
           src={answer.photoUrl}
-          alt=""
+          alt={answer.body || text(copy.issue.photoAlt, { author: answer.author })}
           className="mt-3 w-full rounded-lg border border-line object-cover"
         />
       ) : null}
       {answer.addedLater ? (
         <p className="mt-2 text-[12px] text-ink-muted">
-          added after the round went out
+          {copy.issue.addedLater}
         </p>
       ) : null}
 
@@ -131,7 +132,7 @@ function AnswerCard({
             type="button"
             disabled={!canInteract || pending}
             aria-pressed={reaction.mine}
-            aria-label={`React with ${reaction.emoji}`}
+            aria-label={text(copy.issue.reactAriaLabel, { emoji: reaction.emoji })}
             onClick={() =>
               startTransition(async () => {
                 addLocal(reaction.emoji);
@@ -174,7 +175,7 @@ function CommentForm({
   const submit = () => {
     const body = value.trim();
     if (!body) {
-      setError("Write something first.");
+      setError(copy.issue.writeFirst);
       return;
     }
     startTransition(async () => {
@@ -183,7 +184,7 @@ function CommentForm({
         setValue("");
         setError(null);
       } else {
-        setError(result.error ?? "Could not post that.");
+        setError(result.error ?? copy.issue.postError);
       }
     });
   };
@@ -200,8 +201,8 @@ function CommentForm({
         value={value}
         onChange={(event) => setValue(event.target.value)}
         rows={2}
-        placeholder="Say something nice."
-        aria-label="Comment"
+        placeholder={copy.issue.commentPlaceholder}
+        aria-label={copy.issue.commentAriaLabel}
         className="field"
       />
       <div className="mt-2 flex items-center justify-between gap-3">
@@ -212,7 +213,7 @@ function CommentForm({
           {error}
         </p>
         <button type="submit" disabled={pending} className="btn btn-primary">
-          {pending ? "Posting…" : "Post"}
+          {pending ? copy.issue.posting : copy.issue.post}
         </button>
       </div>
     </form>

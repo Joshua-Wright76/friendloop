@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { emailIsCaptured } from "@/lib/email/send";
 import { Brand, Envelope } from "@/components/stationery";
+import { copy } from "@/lib/copy";
 
 export default function CheckEmailPage() {
   return (
@@ -10,27 +11,27 @@ export default function CheckEmailPage() {
       <div className="card p-6 text-center">
         <Envelope />
         <h1 className="text-[24px] font-semibold leading-tight tracking-[-0.022em] text-ink">
-          Check your inbox
+          {copy.checkEmail.title}
         </h1>
         <p className="mt-2 text-[15px] leading-relaxed text-ink-soft">
-          There&apos;s a sign-in link on its way. It works once and expires in 15 minutes.
+          {copy.checkEmail.body}
         </p>
         {process.env.VERCEL_ENV === "preview" ? (
           <p className="mt-4 rounded-lg border border-line bg-field px-3 py-2 text-[13px] leading-relaxed text-ink-soft">
             {emailIsCaptured()
-              ? "This preview captures email instead of sending it — "
-              : "Every preview email is kept as a copy — "}
+              ? copy.checkEmail.previewCaptured
+              : copy.checkEmail.previewLogged}
             <a href="/dev/outbox" className="font-medium text-accent underline underline-offset-2">
-              open the dev outbox
+              {copy.checkEmail.openOutbox}
             </a>
             .
           </p>
         ) : null}
 
         <p className="mt-4 text-[13px] leading-relaxed text-ink-muted">
-          Nothing arrived? Check spam, then{" "}
+          {copy.checkEmail.nothingArrived}{" "}
           <Link href="/signin" className="font-medium text-accent underline decoration-accent/30 underline-offset-4">
-            try again
+            {copy.checkEmail.tryAgain}
           </Link>
           .
         </p>

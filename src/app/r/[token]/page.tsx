@@ -5,6 +5,7 @@ import { users } from "@/db/schema";
 import { describeDeadline } from "@/lib/schedule";
 import { resolveToken, sheetFor } from "@/lib/reply";
 import { ReplySheet } from "./reply-sheet";
+import { copy, text } from "@/lib/copy";
 
 // One indexed query behind this page; a blocking route is faster than a skeleton.
 export const instant = false;
@@ -20,7 +21,7 @@ function Closed({ title, body }: { title: string; body: string }) {
       </div>
       <p className="mt-6 text-center text-[13px] text-ink-muted">
         <Link href="/" className="underline decoration-line-strong underline-offset-4">
-          Friendloop
+          {copy.common.brand}
         </Link>
       </p>
     </main>
@@ -34,8 +35,8 @@ export default async function ReplyPage({ params }: { params: Promise<{ token: s
   if (context.state === "invalid") {
     return (
       <Closed
-        title="This link doesn't work anymore"
-        body="It was replaced or removed. Ask whoever runs the loop to send you a fresh one — it takes them a second."
+        title={copy.reply.invalidTitle}
+        body={copy.reply.invalidBody}
       />
     );
   }
@@ -43,8 +44,8 @@ export default async function ReplyPage({ params }: { params: Promise<{ token: s
   if (context.state === "expired") {
     return (
       <Closed
-        title="This invitation has expired"
-        body={`Invitations to ${context.groupName} last two weeks. Ask whoever runs the loop to send you a new one.`}
+        title={copy.reply.expiredTitle}
+        body={text(copy.reply.expiredBody, { groupName: context.groupName })}
       />
     );
   }
@@ -52,8 +53,8 @@ export default async function ReplyPage({ params }: { params: Promise<{ token: s
   if (context.state === "reader") {
     return (
       <Closed
-        title={`You're a reader in ${context.groupName}`}
-        body="Nothing to answer here — you'll get the issue in your inbox when it goes out."
+        title={text(copy.reply.readerTitle, { groupName: context.groupName })}
+        body={copy.reply.readerBody}
       />
     );
   }
@@ -62,8 +63,8 @@ export default async function ReplyPage({ params }: { params: Promise<{ token: s
   if (!sheet || !sheet.context.issue) {
     return (
       <Closed
-        title="Nothing open right now"
-        body={`${context.group.name} isn't taking answers at the moment. You'll get an email when the next round opens.`}
+        title={copy.reply.nothingOpenTitle}
+        body={text(copy.reply.nothingOpenBody, { groupName: context.group.name })}
       />
     );
   }

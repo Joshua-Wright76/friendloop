@@ -105,6 +105,14 @@ npm run db:push        # create tables
 npm run dev
 ```
 
+## Site and email copy
+
+All user-facing site copy and all six email templates live in
+[`src/content/copy.json`](./src/content/copy.json), organized by page and email
+type. Edit that file directly; dynamic values use named placeholders such as
+`{groupName}`, `{count}`, and `{url}`. The starter question bank, form errors,
+plain-text emails, accessibility labels, and metadata are included too.
+
 ## Verify
 
 ```sh
@@ -114,6 +122,7 @@ docker run -d --name friendloop-test -e POSTGRES_PASSWORD=postgres \
   -e POSTGRES_DB=friendloop_test -p 55432:5432 postgres:16-alpine
 export TEST_DATABASE_URL="postgresql://postgres:postgres@localhost:55432/friendloop_test"
 npm run check:flows -- --strict   # what the release workflow enforces
+npx playwright test e2e/accessibility.spec.ts  # WCAG 2.2 AA axe checks, both themes
 ```
 
 Flow coverage is not a vibe: `specs/flows.md` lists every user-visible flow, each

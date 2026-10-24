@@ -15,6 +15,7 @@ import {
   transferAction,
 } from "./actions";
 import { LoopNav } from "@/components/loop-nav";
+import { copy } from "@/lib/copy";
 
 export const instant = false;
 
@@ -51,17 +52,17 @@ export default async function MembersPage({
       </header>
       <LoopNav id={id} active="People" isOwner={isOwner} />
 
-      <h1 className="text-[28px] font-semibold leading-tight tracking-[-0.025em] text-ink">People</h1>
+      <h1 className="text-[28px] font-semibold leading-tight tracking-[-0.025em] text-ink">{copy.members.title}</h1>
       <p className="mt-1.5 text-[15px] leading-relaxed text-ink-soft">
         {fromYou
-          ? "In this loop you write and everyone else reads."
-          : "Writers get the questions. Readers just get the issue."}
+          ? copy.members.fromYouDescription
+          : copy.members.groupDescription}
       </p>
 
-      {notices.invited ? <Notice>Invitations sent.</Notice> : null}
-      {notices.resent ? <Notice>Invitation sent again.</Notice> : null}
-      {notices.removed ? <Notice>They&apos;re out of the loop.</Notice> : null}
-      {notices.transferred ? <Notice>You&apos;re now an admin — the loop has a new owner.</Notice> : null}
+      {notices.invited ? <Notice>{copy.members.invitedNotice}</Notice> : null}
+      {notices.resent ? <Notice>{copy.members.resentNotice}</Notice> : null}
+      {notices.removed ? <Notice>{copy.members.removedNotice}</Notice> : null}
+      {notices.transferred ? <Notice>{copy.members.transferredNotice}</Notice> : null}
 
       <div className="mt-5 flex flex-col gap-2.5">
         {people.map((person) => {
@@ -72,18 +73,18 @@ export default async function MembersPage({
                 <div className="min-w-0">
                   <p className="truncate text-[15px] font-medium text-ink">
                     {person.name ?? person.email.split("@")[0]}
-                    {isYou ? <span className="ml-1.5 text-[13px] text-ink-muted">you</span> : null}
+                    {isYou ? <span className="ml-1.5 text-[13px] text-ink-muted">{copy.members.you}</span> : null}
                   </p>
                   <p className="truncate text-[13px] text-ink-muted">{person.email}</p>
                 </div>
                 <span className="flex-none rounded-full border border-line px-2.5 py-1 text-[12px] font-medium capitalize text-ink-soft">
-                  {person.access}
+                  {copy.common.roles[person.access]}
                 </span>
               </div>
 
               <p className="mt-2 text-[13px] text-ink-soft">
-                {person.participation === "contributor" ? "Writes" : "Reads"}
-                {!person.acceptedAt ? " · invite not opened yet" : ""}
+                {copy.common.participation[person.participation]}
+                {!person.acceptedAt ? ` · ${copy.members.invitePending}` : ""}
               </p>
 
               {manages && person.access !== "owner" ? (
@@ -98,7 +99,7 @@ export default async function MembersPage({
                         value={person.participation === "contributor" ? "reader" : "contributor"}
                       />
                       <button type="submit" className="btn btn-quiet h-9 px-3 text-[13px]">
-                        {person.participation === "contributor" ? "Make a reader" : "Make a writer"}
+                        {person.participation === "contributor" ? copy.members.makeReader : copy.members.makeWriter}
                       </button>
                     </form>
                   ) : null}
@@ -108,7 +109,7 @@ export default async function MembersPage({
                     <input type="hidden" name="membershipId" value={person.id} />
                     <input type="hidden" name="access" value={person.access === "admin" ? "member" : "admin"} />
                     <button type="submit" className="btn btn-quiet h-9 px-3 text-[13px]">
-                      {person.access === "admin" ? "Remove admin" : "Make an admin"}
+                      {person.access === "admin" ? copy.members.removeAdmin : copy.members.makeAdmin}
                     </button>
                   </form>
 
@@ -117,7 +118,7 @@ export default async function MembersPage({
                       <input type="hidden" name="groupId" value={id} />
                       <input type="hidden" name="membershipId" value={person.id} />
                       <button type="submit" className="btn btn-quiet h-9 px-3 text-[13px]">
-                        Resend invite
+                        {copy.members.resendInvite}
                       </button>
                     </form>
                   ) : null}
@@ -127,7 +128,7 @@ export default async function MembersPage({
                       <input type="hidden" name="groupId" value={id} />
                       <input type="hidden" name="membershipId" value={person.id} />
                       <button type="submit" className="btn btn-quiet h-9 px-3 text-[13px]">
-                        Make owner
+                        {copy.members.makeOwner}
                       </button>
                     </form>
                   ) : null}
@@ -136,7 +137,7 @@ export default async function MembersPage({
                     <input type="hidden" name="groupId" value={id} />
                     <input type="hidden" name="membershipId" value={person.id} />
                     <button type="submit" className="btn btn-quiet h-9 px-3 text-[13px] text-danger">
-                      Remove
+                      {copy.members.remove}
                     </button>
                   </form>
                 </div>
@@ -149,26 +150,26 @@ export default async function MembersPage({
       {manages ? (
         <form action={inviteAction} className="card mt-5 p-5">
           <input type="hidden" name="groupId" value={id} />
-          <h2 className="text-[16px] font-semibold tracking-[-0.01em] text-ink">Invite people</h2>
+          <h2 className="text-[16px] font-semibold tracking-[-0.01em] text-ink">{copy.members.inviteTitle}</h2>
           <p className="mt-1 text-[13px] leading-relaxed text-ink-soft">
-            One address per line. They get a link — no account needed.
+            {copy.members.inviteDescription}
           </p>
           <textarea
             name="emails"
             required
             rows={3}
-            placeholder="alice@example.com&#10;bob@example.com"
-            aria-label="Email addresses"
+            placeholder={copy.members.invitePlaceholder}
+            aria-label={copy.members.inviteAriaLabel}
             className="field mt-3"
           />
           {!fromYou ? (
             <label className="mt-3 flex items-center gap-2 text-[14px] text-ink-soft">
               <input type="checkbox" name="participation" value="reader" className="accent-[var(--accent)]" />
-              Invite them as readers
+              {copy.members.inviteAsReaders}
             </label>
           ) : null}
           <button type="submit" className="btn btn-primary mt-4">
-            Send invitations
+            {copy.members.sendInvitations}
           </button>
         </form>
       ) : null}
@@ -178,7 +179,7 @@ export default async function MembersPage({
 
 function Notice({ children }: { children: React.ReactNode }) {
   return (
-    <div className="notice settle mt-4 border bg-accent-soft px-4 py-3 text-[14px] leading-relaxed">
+    <div role="status" className="notice settle mt-4 border bg-accent-soft px-4 py-3 text-[14px] leading-relaxed">
       {children}
     </div>
   );

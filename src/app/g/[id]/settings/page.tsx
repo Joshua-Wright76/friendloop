@@ -8,27 +8,16 @@ import { viewerFor } from "@/lib/permissions";
 import { TimezoneField } from "../../new/timezone-field";
 import { deleteAction, pauseHereAction, settingsAction } from "./actions";
 import { LoopNav } from "@/components/loop-nav";
+import { Picker } from "@/components/picker";
+import { copy } from "@/lib/copy";
 
 export const instant = false;
 
-const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+const WEEKDAYS = copy.common.weekdays;
 const HOURS = Array.from({ length: 24 }, (_, hour) => hour);
-const ZONES = [
-  "Europe/Amsterdam",
-  "Europe/London",
-  "Europe/Berlin",
-  "Europe/Lisbon",
-  "America/New_York",
-  "America/Chicago",
-  "America/Denver",
-  "America/Los_Angeles",
-  "America/Sao_Paulo",
-  "Asia/Tokyo",
-  "Asia/Singapore",
-  "Australia/Sydney",
-  "Pacific/Auckland",
-  "UTC",
-];
+const WEEKDAY_OPTIONS = WEEKDAYS.map((day, index) => ({ value: String(index), label: day }));
+const HOUR_OPTIONS = HOURS.map((hour) => ({ value: String(hour), label: `${String(hour).padStart(2, "0")}:00` }));
+const CADENCE_OPTIONS = [{ value: "1", label: copy.common.week }, { value: "2", label: copy.common.twoWeeks }];
 
 export default async function SettingsPage({
   params,
@@ -61,59 +50,38 @@ export default async function SettingsPage({
       </header>
       <LoopNav id={id} active="Settings" isOwner />
 
-      <h1 className="text-[28px] font-semibold leading-tight tracking-[-0.025em] text-ink">Settings</h1>
+      <h1 className="text-[28px] font-semibold leading-tight tracking-[-0.025em] text-ink">{copy.settings.title}</h1>
 
-      {notices.saved ? <Notice>Saved.</Notice> : null}
+      {notices.saved ? <Notice>{copy.settings.savedNotice}</Notice> : null}
       {notices.error === "confirm" ? (
-        <Notice tone="danger">Type the loop&apos;s name exactly to delete it.</Notice>
+        <Notice tone="danger">{copy.settings.confirmError}</Notice>
       ) : null}
-
-      <datalist id="timezones">
-        {ZONES.map((zone) => (
-          <option key={zone} value={zone} />
-        ))}
-      </datalist>
 
       <form action={settingsAction} className="card mt-5 p-5">
         <input type="hidden" name="groupId" value={id} />
 
         <label className="flex flex-col gap-1.5">
-          <span className="text-[13px] font-medium text-ink-soft">Name</span>
+          <span className="text-[13px] font-medium text-ink-soft">{copy.settings.name}</span>
           <input name="name" defaultValue={group.name} required className="field h-[46px] py-0" />
         </label>
 
         <div className="mt-4 grid grid-cols-2 gap-3">
-          <label className="flex flex-col gap-1.5">
-            <span className="text-[13px] font-medium text-ink-soft">Day</span>
-            <select name="weekday" defaultValue={String(group.promptWeekday)} className="field h-[46px] py-0">
-              {WEEKDAYS.map((day, index) => (
-                <option key={day} value={index}>
-                  {day}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="flex flex-col gap-1.5">
-            <span className="text-[13px] font-medium text-ink-soft">Time</span>
-            <select name="hour" defaultValue={String(group.promptHour)} className="field h-[46px] py-0">
-              {HOURS.map((hour) => (
-                <option key={hour} value={hour}>
-                  {String(hour).padStart(2, "0")}:00
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="flex flex-col gap-1.5">
-            <span className="text-[13px] font-medium text-ink-soft">Timezone</span>
-            <TimezoneField />
-          </label>
-          <label className="flex flex-col gap-1.5">
-            <span className="text-[13px] font-medium text-ink-soft">Every</span>
-            <select name="cadence" defaultValue={String(group.cadenceWeeks)} className="field h-[46px] py-0">
-              <option value="1">week</option>
-              <option value="2">2 weeks</option>
-            </select>
-          </label>
+          <div className="flex flex-col gap-1.5">
+            <span className="text-[13px] font-medium text-ink-soft">{copy.settings.day}</span>
+            <Picker name="weekday" defaultValue={String(group.promptWeekday)} options={WEEKDAY_OPTIONS} ariaLabel={copy.settings.day} />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <span className="text-[13px] font-medium text-ink-soft">{copy.settings.time}</span>
+            <Picker name="hour" defaultValue={String(group.promptHour)} options={HOUR_OPTIONS} ariaLabel={copy.settings.time} />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <span className="text-[13px] font-medium text-ink-soft">{copy.settings.timezone}</span>
+            <TimezoneField defaultValue={group.timezone} />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <span className="text-[13px] font-medium text-ink-soft">{copy.settings.every}</span>
+            <Picker name="cadence" defaultValue={String(group.cadenceWeeks)} options={CADENCE_OPTIONS} ariaLabel={copy.settings.every} />
+          </div>
         </div>
 
         <label className="mt-4 flex items-start gap-2.5 text-[14px] leading-relaxed text-ink-soft">
@@ -124,30 +92,30 @@ export default async function SettingsPage({
             className="mt-0.5 accent-[var(--accent)]"
           />
           <span>
-            Anyone with an issue&apos;s share link can read it.
-            <span className="mt-0.5 block text-[13px] text-ink-muted">Off by default.</span>
+            {copy.settings.sharing}
+            <span className="mt-0.5 block text-[13px] text-ink-muted">{copy.settings.sharingDefault}</span>
           </span>
         </label>
 
         <button type="submit" className="btn btn-primary mt-5">
-          Save changes
+          {copy.settings.save}
         </button>
       </form>
 
       <div className="card mt-3 p-5">
         <h2 className="text-[16px] font-semibold tracking-[-0.01em] text-ink">
-          {group.pausedAt ? "The loop is paused" : "Pause this loop"}
+          {group.pausedAt ? copy.settings.pausedTitle : copy.settings.pauseTitle}
         </h2>
         <p className="mt-1 text-[14px] leading-relaxed text-ink-soft">
           {group.pausedAt
-            ? "Resuming starts the rhythm again from today."
-            : "Nothing goes out until you resume. Nobody is removed."}
+            ? copy.settings.resumeDescription
+            : copy.settings.pauseDescription}
         </p>
         <form action={pauseHereAction} className="mt-3">
           <input type="hidden" name="groupId" value={id} />
           <input type="hidden" name="paused" value={group.pausedAt ? "0" : "1"} />
           <button type="submit" className="btn btn-quiet">
-            {group.pausedAt ? "Resume" : "Pause"}
+            {group.pausedAt ? copy.settings.resume : copy.settings.pause}
           </button>
         </form>
       </div>
@@ -155,19 +123,19 @@ export default async function SettingsPage({
       <form action={deleteAction} className="card mt-3 border-danger/30 p-5">
         <input type="hidden" name="groupId" value={id} />
         <input type="hidden" name="name" value={group.name} />
-        <h2 className="text-[16px] font-semibold tracking-[-0.01em] text-ink">Delete the loop</h2>
+        <h2 className="text-[16px] font-semibold tracking-[-0.01em] text-ink">{copy.settings.deleteTitle}</h2>
         <p className="mt-1 text-[14px] leading-relaxed text-ink-soft">
-          Every round, answer, and comment goes with it. Type <strong>{group.name}</strong> to confirm.
+          {copy.settings.deleteDescriptionPrefix} <strong>{group.name}</strong> {copy.settings.deleteDescriptionSuffix}
         </p>
         <input
           name="confirm"
           required
-          aria-label="Loop name"
+          aria-label={copy.settings.deleteAriaLabel}
           placeholder={group.name}
           className="field mt-3 h-[46px] py-0"
         />
-        <button type="submit" className="btn mt-3 bg-danger text-white hover:opacity-90">
-          Delete forever
+        <button type="submit" className="btn btn-danger mt-3 hover:opacity-90">
+          {copy.settings.delete}
         </button>
       </form>
     </main>
@@ -177,6 +145,7 @@ export default async function SettingsPage({
 function Notice({ children, tone }: { children: React.ReactNode; tone?: "danger" }) {
   return (
     <div
+      role="status"
       className={`settle mt-4 rounded-xl border px-4 py-3 text-[14px] leading-relaxed ${
         tone === "danger"
           ? "notice border-danger/40 bg-danger/10 text-danger"

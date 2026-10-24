@@ -10,7 +10,7 @@ test("B2 · the questions you pick become the loop's starting pool, in order", a
   await signIn(page, uniqueEmail("owner"));
 
   await page.goto("/g/new");
-  await page.getByLabel("Name").fill("Book Club");
+  await page.getByLabel("Loop title").fill("Book Club");
   await page.getByRole("checkbox", { name: /What made you laugh this week/ }).first().check();
   await page.getByRole("checkbox", { name: /What are you looking forward to/ }).first().check();
   await page.getByRole("button", { name: "Create loop" }).click();

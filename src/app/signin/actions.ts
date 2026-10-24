@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { requestMagicLink } from "@/lib/auth";
+import { copy } from "@/lib/copy";
 
 export type SignInState = { error?: string };
 
@@ -11,7 +12,7 @@ export async function requestLink(
 ): Promise<SignInState> {
   const email = String(formData.get("email") ?? "");
   if (!email.includes("@") || email.length < 3) {
-    return { error: "That doesn't look like an email address." };
+    return { error: copy.signIn.invalidEmail };
   }
 
   await requestMagicLink(email);

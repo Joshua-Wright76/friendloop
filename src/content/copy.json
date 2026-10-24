@@ -1,0 +1,396 @@
+{
+  "common": {
+    "brand": "Friendloop",
+    "skipToContent": "Skip to content",
+    "cherry": "🍒",
+    "metadataTitle": "Friendloop",
+    "metadataDescription": "A private newsletter for your friends",
+    "signIn": "Sign in",
+    "signOut": "Sign out",
+    "yourLoops": "Your loops",
+    "backToLoop": "← Back to loop",
+    "weekdays": ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"],
+    "timezones": ["Europe/Amsterdam", "Europe/London", "Europe/Berlin", "Europe/Lisbon", "America/New_York", "America/Chicago", "America/Denver", "America/Los_Angeles", "America/Sao_Paulo", "Asia/Tokyo", "Asia/Singapore", "Australia/Sydney", "Pacific/Auckland", "UTC"],
+    "week": "week",
+    "twoWeeks": "2 weeks",
+    "roles": {
+      "owner": "Owner",
+      "admin": "Admin",
+      "member": "Member"
+    },
+    "participation": {
+      "contributor": "Writes",
+      "reader": "Reads"
+    },
+    "issueStatus": {
+      "open": "open",
+      "delivered": "delivered",
+      "skipped": "skipped"
+    },
+    "navigation": {
+      "ariaLabel": "Manage the loop",
+      "overview": "Overview",
+      "people": "People",
+      "questions": "Questions",
+      "rounds": "Rounds",
+      "settings": "Settings"
+    },
+    "picker": {
+      "searchTimezones": "Search timezones…",
+      "noResults": "No matching options"
+    },
+    "theme": {
+      "light": "Light",
+      "dark": "Dark",
+      "switchToDark": "Light mode: switch to dark mode",
+      "switchToLight": "Dark mode: switch to light mode"
+    }
+  },
+  "home": {
+    "signIn": "Sign in",
+    "titleStart": "A private newsletter,",
+    "titleAccent": "written by us <3",
+    "description": "Weekly newsletters written by your friends!",
+    "startLoop": "Start a loop"
+  },
+  "signIn": {
+    "eyebrow": "Hello again,",
+    "title": "Sign in",
+    "subtitle": "For the person who runs the loop.",
+    "emailLabel": "Your email",
+    "emailPlaceholder": "you@example.com",
+    "sending": "Sending…",
+    "submit": "Email me a link",
+    "invalidEmail": "That doesn't look like an email address."
+  },
+  "checkEmail": {
+    "title": "Check your inbox",
+    "body": "There's a sign-in link on its way. It works once and expires in 15 minutes.",
+    "previewCaptured": "This preview captures email instead of sending it, ",
+    "previewLogged": "Every preview email is kept as a copy. ",
+    "openOutbox": "open the dev outbox",
+    "nothingArrived": "Nothing arrived? Check spam, then",
+    "tryAgain": "try again"
+  },
+  "confirm": {
+    "newLink": "Send me a new link",
+    "title": "Sign in as {email}",
+    "fallbackName": "yourself",
+    "submit": "Sign in",
+    "problems": {
+      "expired": {
+        "title": "That link has expired",
+        "body": "Sign-in links last 15 minutes. Ask for a fresh one and it'll work."
+      },
+      "used": {
+        "title": "That link was already used",
+        "body": "Each link signs you in once. Ask for a new one to get back in."
+      },
+      "unknown": {
+        "title": "That link isn't valid",
+        "body": "It may have been truncated by your email client. Ask for a new one."
+      }
+    }
+  },
+  "you": {
+    "title": "Your loops",
+    "newLoop": "New loop",
+    "emptyTitle": "A blank page, in a good way.",
+    "emptyBody": "No loops yet. Start one, or wait for an invite",
+    "openLoop": "Open loop",
+    "footer": "Reading is open to everyone in a loop. Writing needs an invite."
+  },
+  "newLoop": {
+    "pageTitle": "New loop",
+    "nameLabel": "Loop title",
+    "namePlaceholder": "Friday Loop",
+    "day": "Day",
+    "time": "Time",
+    "timezone": "Timezone",
+    "every": "Every",
+    "questionsLabel": "Questions",
+    "picked": "· {count} picked",
+    "customLabel": "Custom questions",
+    "customPlaceholder": "What did you learn this week?",
+    "addCustomAriaLabel": "Add a custom question",
+    "customQuestionAriaLabel": "Custom question {number}",
+    "removeCustomAriaLabel": "Remove custom question {number}",
+    "creating": "Creating…",
+    "create": "Create loop",
+    "cancel": "Cancel",
+    "errors": {
+      "name": "Give the loop a name.",
+      "timezone": "That timezone isn't one we recognise.",
+      "noQuestions": "Pick at least one question."
+    },
+    "questionBank": [
+      { "group": "Small", "text": "What made you laugh this week?" },
+      { "group": "Small", "text": "What are you looking forward to?" },
+      { "group": "Small", "text": "What's something small you're proud of?" },
+      { "group": "Small", "text": "What did you eat that was worth remembering?" },
+      { "group": "Small", "text": "What's the last thing that surprised you?" },
+      { "group": "People", "text": "Who did you talk to this week that you want to see again?" },
+      { "group": "People", "text": "Who's someone you've been thinking about lately?" },
+      { "group": "People", "text": "What's something you'd like to thank someone for?" },
+      { "group": "Place", "text": "Where did you go that was worth the trip?" },
+      { "group": "Place", "text": "What's a place you keep meaning to visit?" },
+      { "group": "Inner", "text": "What's been on your mind?" },
+      { "group": "Inner", "text": "What did you change your mind about recently?" },
+      { "group": "Inner", "text": "What's something you're bad at and enjoying anyway?" }
+    ]
+  },
+  "loop": {
+    "eyebrow": "The rhythm of your group",
+    "schedule": "Every {cadence} on {weekday} at {hour}:00, {timezone}.",
+    "cadenceWeek": "week",
+    "cadenceWeeks": "{count} weeks",
+    "paused": "Paused",
+    "nextRound": "Next round",
+    "nothingScheduled": "Nothing scheduled",
+    "pausedDescription": "Nothing goes out until you resume it.",
+    "viewerTimezone": "That's {time} where you are.",
+    "opensForAnswers": "Opens for answers then.",
+    "sendNow": "Send now",
+    "resume": "Resume",
+    "pause": "Pause",
+    "welcome": "Loop created. Invite a couple of people and the first round will go out on schedule.",
+    "round": "Round {number}",
+    "progress": "{answered} of {writers} in",
+    "closes": "Closes {deadline}.",
+    "nobody": "Nobody yet.",
+    "seeRound": "See the round",
+    "peopleCount": "{count} in the loop",
+    "questionsCount": "{count} in the pool"
+  },
+  "members": {
+    "title": "People",
+    "fromYouDescription": "In this loop you write and everyone else reads.",
+    "groupDescription": "Writers get the questions. Readers just get the issue.",
+    "invitedNotice": "Invitations sent.",
+    "resentNotice": "Invitation sent again.",
+    "removedNotice": "They're out of the loop.",
+    "transferredNotice": "You're now an admin! the loop has a new owner.",
+    "you": "you",
+    "invitePending": "invite not opened yet",
+    "makeReader": "Make a reader",
+    "makeWriter": "Make a writer",
+    "removeAdmin": "Remove admin",
+    "makeAdmin": "Make an admin",
+    "resendInvite": "Resend invite",
+    "makeOwner": "Make owner",
+    "remove": "Remove",
+    "inviteTitle": "Invite people",
+    "inviteDescription": "Put one address per line, and each will get a invite link",
+    "invitePlaceholder": "jela@example.com\nscotty@example.com",
+    "inviteAriaLabel": "Email addresses",
+    "inviteAsReaders": "Invite as readers",
+    "sendInvitations": "Send invitations"
+  },
+  "questions": {
+    "title": "Questions",
+    "description": "Everything on the list goes into the next round, top to bottom.",
+    "addedNotice": "Question added",
+    "archivedNotice": "Archived",
+    "skipNextNote": "Sitting out the next round",
+    "up": "Up",
+    "down": "Down",
+    "backIn": "Back in",
+    "skipNext": "Skip next round",
+    "archive": "Archive",
+    "empty": "No questions yet.",
+    "addTitle": "Add a question",
+    "newQuestionPlaceholder": "What did you learn this week?",
+    "newQuestionAriaLabel": "New question",
+    "add": "Add question"
+  },
+  "rounds": {
+    "title": "Rounds",
+    "open": "Round {number} is open now.",
+    "nothingOpen": "Nothing open right now.",
+    "openedNotice": "Round {number} is open and everyone's been emailed.",
+    "round": "Round {number}",
+    "answer": "1 answer",
+    "answers": "{count} answers",
+    "read": "Read it",
+    "shareLink": "Share link: {url}",
+    "emptyPrefix": "No rounds yet. Use",
+    "emptyAction": "Send now",
+    "emptySuffix": "on the loop page to start one."
+  },
+  "settings": {
+    "title": "Settings",
+    "savedNotice": "Saved.",
+    "confirmError": "Type the loop's name exactly to delete it.",
+    "name": "Name",
+    "day": "Day",
+    "time": "Time",
+    "timezone": "Timezone",
+    "every": "Every",
+    "sharing": "Anyone with an issue's share link can read it.",
+    "sharingDefault": "Off by default.",
+    "save": "Save changes",
+    "pausedTitle": "The loop is paused",
+    "pauseTitle": "Pause this loop",
+    "resumeDescription": "Resuming starts the rhythm again from today.",
+    "pauseDescription": "Nothing goes out until you resume. Nobody is removed.",
+    "resume": "Resume",
+    "pause": "Pause",
+    "deleteTitle": "Delete the loop",
+    "deleteDescriptionPrefix": "Every round, answer, and comment goes with it. Type",
+    "deleteDescriptionSuffix": "to confirm.",
+    "deleteAriaLabel": "Loop name",
+    "delete": "Delete forever"
+  },
+  "reply": {
+    "invalidTitle": "This link doesn't work anymore",
+    "invalidBody": "It was replaced or removed. Ask whoever runs the loop to send you a fresh link",
+    "expiredTitle": "This invitation has expired",
+    "expiredBody": "Invitations to {groupName} last two weeks. Ask whoever runs the loop to send you a new one.",
+    "readerTitle": "You're a reader in {groupName}",
+    "readerBody": "Nothing to answer here, you'll get the issue in your inbox when it's published",
+    "nothingOpenTitle": "Nothing open right now",
+    "nothingOpenBody": "{groupName} isn't taking answers at the moment. You'll get an email when the next round opens.",
+    "hi": "Hi {name},",
+    "round": "Round {number}",
+    "closes": "Closes {deadline}",
+    "viewerTimezone": "({time} where you are)",
+    "sent": "Sent. You can change these until {deadline}.",
+    "placeholder": "Write a little or a lot",
+    "saving": "Saving…",
+    "saved": "Saved",
+    "draftSaved": "Draft saved",
+    "notSaved": "Not saved. check your connection",
+    "privacy": "{displayName}, only the people in {loopName} will read this.",
+    "sentState": "Sent",
+    "answered": "{answered} of {total} answered",
+    "sending": "Sending…",
+    "saveChanges": "Save changes",
+    "sendAnswers": "Send answers",
+    "genericError": "Something went wrong.",
+    "errors": {
+      "json": "Expected a JSON body.",
+      "missingQuestion": "Missing issueQuestionId.",
+      "unknownAction": "Unknown action.",
+      "invalidLink": "This link no longer works.",
+      "expired": "This invitation has expired, ask for a new link.",
+      "reader": "Readers don't answer questions.",
+      "nothingOpen": "Nothing is open right now.",
+      "wrongQuestion": "That question isn't in this round."
+    }
+  },
+  "issue": {
+    "eyebrow": "Fresh from the loop",
+    "round": "Round {number}",
+    "answer": "1 answer from the group.",
+    "answers": "{count} answers from the group.",
+    "comments": "Comments",
+    "you": "You",
+    "noComments": "Nothing yet.",
+    "addedLater": "added after the round went out",
+    "photoAlt": "Photo from {author}",
+    "reactAriaLabel": "React with {emoji}",
+    "writeFirst": "Write something first.",
+    "postError": "Could not post that.",
+    "commentPlaceholder": "Say something nice.",
+    "commentAriaLabel": "Comment",
+    "posting": "Posting…",
+    "post": "Post",
+    "errors": {
+      "tooLong": "That comment is too long.",
+      "commentMembersOnly": "Only members of this loop can comment.",
+      "reactMembersOnly": "Only members of this loop can react."
+    }
+  },
+  "share": {
+    "eyebrow": "Fresh from the loop",
+    "round": "Round {number}",
+    "answer": "1 answer from the group.",
+    "answers": "{count} answers from the group.",
+    "sharedFrom": "Shared from"
+  },
+  "emails": {
+    "defaultFooter": "You're getting this because you're in a Friendloop.",
+    "questionSingular": "question",
+    "questionPlural": "questions",
+    "answerSingular": "answer",
+    "answerPlural": "answers",
+    "addedLater": "added after the loop went out",
+    "signIn": {
+      "subject": "Your Friendloop sign-in link",
+      "preheader": "This link works once and expires in 15 minutes.",
+      "heading": "Sign in to friendloop",
+      "body": "This link works once and expires in 15 minutes. If you didn't request this link, feel free to ignore it.",
+      "cta": "Sign in",
+      "footer": "Friendloop · private group newsletters",
+      "text": "Sign in to friendloop\n\n{body}\n\nSign in: {url}"
+    },
+    "invite": {
+      "subject": "{inviterName} added you to {groupName}",
+      "preheaderReader": "You'll get the issues, no questions to answer.",
+      "preheaderContributor": "You'll get a few questions each round.",
+      "heading": "You're in {groupName}",
+      "body": "{inviterName} added you to {groupName}, a private newsletter for your group.",
+      "readerBody": "You'll get each issue when it goes out. Nothing to answer, just have a read.",
+      "contributorBody": "Every round you'll get a few questions. Answer whatever you feel like, and everyone's answers become the next issue.",
+      "readerCta": "Have a look",
+      "contributorCta": "Answer the first round",
+      "footer": "{groupName} · sent by Friendloop",
+      "text": "{inviterName} added you to {groupName}.\n\n{url}"
+    },
+    "prompt": {
+      "subject": "{memberName}, {questionCount} {plural} for {groupName}",
+      "preheader": "Closes {deadlineLabel}.",
+      "heading": "Round {issueNumber} is open",
+      "body": "{questionCount} {plural}, no rush. Closes {deadlineLabel}.",
+      "writingNote": "Write as much or as little as you like, even just a sentence counts!",
+      "cta": "Answer {questionCount} {plural}",
+      "footer": "{groupName} · you can change your answers until it closes",
+      "text": "{groupName} round {issueNumber} is open: {questionCount} {plural}.\n\n{url}\n\nCloses {deadlineLabel}."
+    },
+    "reminder": {
+      "subject": "Still time for {groupName}",
+      "preheader": "Closes {deadlineLabel}.",
+      "heading": "A nudge from {groupName}",
+      "bodySingular": "{memberName}, {remaining} answer is still waiting. It closes {deadlineLabel}.",
+      "bodyPlural": "{memberName}, {remaining} answers are still waiting. It closes {deadlineLabel}.",
+      "writingNote": "One line is plenty.",
+      "cta": "Finish my answers",
+      "footer": "{groupName} · sent by Friendloop",
+      "text": "{memberName}, {remaining} still waiting on {groupName}. Closes {deadlineLabel}.\n\n{url}"
+    },
+    "delivery": {
+      "subject": "{groupName} · round {issueNumber}",
+      "preheader": "{count} {plural} from the group.",
+      "heading": "Round {issueNumber}",
+      "body": "Here's what everyone wrote.",
+      "cta": "Read it on the web",
+      "shareFooter": "{groupName} · shareable link: {shareUrl}",
+      "replyFooter": "{groupName} · reply to this email to talk about it",
+      "text": "{groupName} · round {issueNumber}\n\n{url}\n\n{answers}",
+      "textAnswer": "{question}\n{author}: {body}"
+    },
+    "paused": {
+      "subject": "{groupName} paused itself",
+      "preheader": "Nobody answered, so nothing was sent.",
+      "heading": "Nothing to send this round",
+      "body": "Nobody answered this round's questions in {groupName}, so we skipped it rather than send an empty issue.",
+      "resumeBody": "The loop is paused. Pick it back up whenever the group is ready",
+      "cta": "Open the loop",
+      "footer": "{groupName} · sent by Friendloop",
+      "text": "Nobody answered, so {groupName} skipped this round and paused.\n\n{url}"
+    }
+  },
+  "devOutbox": {
+    "title": "Captured email",
+    "description": "Every email the app produces on this deployment, whether it was really sent or only captured. Handy for grabbing a sign-in link without leaving the tab.",
+    "empty": "Nothing yet. Request a sign-in link and it shows up here.",
+    "kinds": {
+      "signin": "sign in",
+      "invite": "invitation",
+      "prompt": "questions",
+      "reminder": "reminder",
+      "delivery": "issue",
+      "nudge": "reminder"
+    }
+  }
+}

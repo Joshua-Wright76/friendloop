@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useSyncExternalStore } from "react";
+import { copy } from "@/lib/copy";
 
 type Theme = "light" | "dark";
 
@@ -37,7 +38,7 @@ export function ThemeSwitch() {
     <button
       type="button"
       className="theme-switch"
-      aria-label={`Switch to ${theme === "light" ? "dark" : "light"} mode`}
+      aria-label={theme === "light" ? copy.common.theme.switchToDark : copy.common.theme.switchToLight}
       aria-pressed={theme === "dark"}
       onClick={toggle}
     >
@@ -51,7 +52,7 @@ export function ThemeSwitch() {
           <path d="M20.5 15.2A8.5 8.5 0 0 1 8.8 3.5 8.5 8.5 0 1 0 20.5 15.2Z" fill="currentColor" />
         )}
       </svg>
-      <span className="theme-switch-label">{theme === "light" ? "Light" : "Dark"}</span>
+      <span className="theme-switch-label">{theme === "light" ? copy.common.theme.light : copy.common.theme.dark}</span>
       <span className="theme-switch-track" aria-hidden="true"><span /></span>
     </button>
   );

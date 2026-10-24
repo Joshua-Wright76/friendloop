@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Brand, Cherries, Tape } from "@/components/stationery";
+import { copy } from "@/lib/copy";
 
 export default function Home() {
   return (
@@ -7,7 +8,7 @@ export default function Home() {
       <header className="flex items-center justify-between gap-4">
         <Brand />
         <Link href="/signin" className="text-[14px] font-bold text-ink-soft underline decoration-dashed underline-offset-4 hover:text-ink">
-          Sign in
+          {copy.home.signIn}
         </Link>
       </header>
 
@@ -16,13 +17,13 @@ export default function Home() {
           <Tape tone="dots" position="left" />
           <Cherries className="home-doodle" />
           <h1 className="home-title font-bold text-ink">
-            A newsletter for your friends, <em>written by your friends.</em>
+            {copy.home.titleStart} <em>{copy.home.titleAccent}</em>
           </h1>
           <p className="mt-6 max-w-[48ch] text-[17px] leading-relaxed text-ink-soft">
-            A few questions go out each week. Everyone answers in a sentence. It comes back as something worth reading.
+            {copy.home.description}
           </p>
           <div className="mt-8">
-            <Link href="/signin" className="btn btn-primary">Start a loop</Link>
+            <Link href="/signin" className="btn btn-primary">{copy.home.startLoop}</Link>
           </div>
         </section>
       </div>

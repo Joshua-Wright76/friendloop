@@ -7,6 +7,7 @@ import { currentUser } from "@/lib/auth";
 import { viewerFor } from "@/lib/permissions";
 import { addAction, archiveAction, moveAction, skipNextAction } from "./actions";
 import { LoopNav } from "@/components/loop-nav";
+import { copy } from "@/lib/copy";
 
 export const instant = false;
 
@@ -37,18 +38,18 @@ export default async function QuestionsPage({
     <main className="mx-auto w-full max-w-[680px] px-4 pb-16 pt-5 sm:px-6">
       <header className="mb-5">
         <Link href={`/g/${id}`} className="text-[13px] font-medium text-ink-soft hover:text-ink">
-          ← Back to loop
+          {copy.common.backToLoop}
         </Link>
       </header>
       <LoopNav id={id} active="Questions" />
 
-      <h1 className="text-[28px] font-semibold leading-tight tracking-[-0.025em] text-ink">Questions</h1>
+      <h1 className="text-[28px] font-semibold leading-tight tracking-[-0.025em] text-ink">{copy.questions.title}</h1>
       <p className="mt-1.5 text-[15px] leading-relaxed text-ink-soft">
-        Everything on the list goes into the next round, top to bottom.
+        {copy.questions.description}
       </p>
 
-      {notices.added ? <Notice>Question added.</Notice> : null}
-      {notices.archived ? <Notice>Archived — past rounds keep their wording.</Notice> : null}
+      {notices.added ? <Notice>{copy.questions.addedNotice}</Notice> : null}
+      {notices.archived ? <Notice>{copy.questions.archivedNotice}</Notice> : null}
 
       <ol className="mt-5 flex flex-col gap-2.5">
         {pool.map((question, index) => (
@@ -61,7 +62,7 @@ export default async function QuestionsPage({
                 <p className="text-[15px] font-medium leading-snug text-ink">{question.text}</p>
                 {question.skipNext ? (
                   <p className="mt-1 text-[12px] font-medium text-ink-muted">
-                    Sitting out the next round
+                    {copy.questions.skipNextNote}
                   </p>
                 ) : null}
               </div>
@@ -78,7 +79,7 @@ export default async function QuestionsPage({
                     disabled={index === 0}
                     className="btn btn-quiet h-9 px-3 text-[13px]"
                   >
-                    Up
+                    {copy.questions.up}
                   </button>
                 </form>
                 <form action={moveAction}>
@@ -90,21 +91,21 @@ export default async function QuestionsPage({
                     disabled={index === pool.length - 1}
                     className="btn btn-quiet h-9 px-3 text-[13px]"
                   >
-                    Down
+                    {copy.questions.down}
                   </button>
                 </form>
                 <form action={skipNextAction}>
                   <input type="hidden" name="groupId" value={id} />
                   <input type="hidden" name="questionId" value={question.id} />
                   <button type="submit" className="btn btn-quiet h-9 px-3 text-[13px]">
-                    {question.skipNext ? "Back in" : "Skip next round"}
+                    {question.skipNext ? copy.questions.backIn : copy.questions.skipNext}
                   </button>
                 </form>
                 <form action={archiveAction}>
                   <input type="hidden" name="groupId" value={id} />
                   <input type="hidden" name="questionId" value={question.id} />
                   <button type="submit" className="btn btn-quiet h-9 px-3 text-[13px] text-danger">
-                    Archive
+                    {copy.questions.archive}
                   </button>
                 </form>
               </div>
@@ -112,24 +113,24 @@ export default async function QuestionsPage({
           </li>
         ))}
         {pool.length === 0 ? (
-          <li className="card p-5 text-[14px] text-ink-muted">No questions yet.</li>
+          <li className="card p-5 text-[14px] text-ink-muted">{copy.questions.empty}</li>
         ) : null}
       </ol>
 
       {manages ? (
         <form action={addAction} className="card mt-5 p-5">
           <input type="hidden" name="groupId" value={id} />
-          <h2 className="text-[16px] font-semibold tracking-[-0.01em] text-ink">Add a question</h2>
+          <h2 className="text-[16px] font-semibold tracking-[-0.01em] text-ink">{copy.questions.addTitle}</h2>
           <input
             name="text"
             required
             maxLength={200}
-            placeholder="What did you learn this week?"
-            aria-label="New question"
+            placeholder={copy.questions.newQuestionPlaceholder}
+            aria-label={copy.questions.newQuestionAriaLabel}
             className="field mt-3 h-[46px] py-0"
           />
           <button type="submit" className="btn btn-primary mt-3">
-            Add question
+            {copy.questions.add}
           </button>
         </form>
       ) : null}
@@ -139,7 +140,7 @@ export default async function QuestionsPage({
 
 function Notice({ children }: { children: React.ReactNode }) {
   return (
-    <div className="notice settle mt-4 border bg-accent-soft px-4 py-3 text-[14px] leading-relaxed">
+    <div role="status" className="notice settle mt-4 border bg-accent-soft px-4 py-3 text-[14px] leading-relaxed">
       {children}
     </div>
   );

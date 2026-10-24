@@ -4,6 +4,7 @@ import { currentUser } from "@/lib/auth";
 import { loadIssue, membershipForViewer } from "@/lib/issue-view";
 import { IssueBody } from "./issue-body";
 import { Cherries } from "@/components/stationery";
+import { copy, text } from "@/lib/copy";
 
 export const instant = false;
 
@@ -36,15 +37,15 @@ export default async function IssuePage({
         <span className="flex min-w-0 items-center gap-2 font-display text-[23px] font-bold text-ink">
           <Cherries className="h-7 w-7 flex-none" /><span className="truncate">{view.group.name}</span>
         </span>
-        <span className="chip border bg-card px-2.5 py-1 text-[12px] font-bold text-ink-soft numeric">Round {view.issue.number}</span>
+        <span className="chip border bg-card px-2.5 py-1 text-[12px] font-bold text-ink-soft numeric">{text(copy.issue.round, { number: view.issue.number })}</span>
       </header>
 
       <div className="relative pr-16">
         <Cherries className="absolute -top-2 right-0 h-16 w-16 rotate-12" />
-        <p className="eyebrow">Fresh from the loop</p>
-        <h1 className="mt-1 text-ink">Round {view.issue.number}</h1>
+        <p className="eyebrow">{copy.issue.eyebrow}</p>
+        <h1 className="mt-1 text-ink">{text(copy.issue.round, { number: view.issue.number })}</h1>
         <p className="mt-2 text-[15px] leading-relaxed text-ink-soft">
-          {view.answerCount} {view.answerCount === 1 ? "answer" : "answers"} from the group.
+          {view.answerCount === 1 ? copy.issue.answer : text(copy.issue.answers, { count: view.answerCount })}
         </p>
       </div>
 
@@ -62,7 +63,7 @@ export default async function IssuePage({
 
       <p className="mt-8 text-center text-[13px] text-ink-muted">
         <Link href="/" className="underline decoration-line-strong underline-offset-4">
-          Friendloop
+          {copy.common.brand}
         </Link>
       </p>
     </main>

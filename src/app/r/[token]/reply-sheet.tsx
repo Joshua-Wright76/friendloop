@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Deadline } from "@/lib/schedule";
 import { Cherries, Tape } from "@/components/stationery";
+import { copy, text } from "@/lib/copy";
 
 type SaveResult = { ok: true; savedAt: string } | { ok: false; error: string };
 
@@ -13,7 +14,7 @@ async function post(token: string, payload: Record<string, unknown>): Promise<Sa
     body: JSON.stringify(payload),
   });
   const data = (await response.json()) as { ok?: boolean; savedAt?: string; error?: string };
-  if (!response.ok || !data.ok) return { ok: false, error: data.error ?? "Something went wrong." };
+  if (!response.ok || !data.ok) return { ok: false, error: data.error ?? copy.reply.genericError };
   return { ok: true, savedAt: data.savedAt ?? "" };
 }
 
@@ -142,7 +143,7 @@ export function ReplySheet({
             <Cherries className="h-7 w-7 flex-none" /><span className="truncate">{loopName}</span>
           </span>
           <span className="chip flex h-7 items-center border bg-card px-3 text-[12px] font-bold text-ink-soft numeric">
-            {answered} of {total} answered
+            {text(copy.reply.answered, { answered, total })}
           </span>
         </div>
       </header>
@@ -150,21 +151,21 @@ export function ReplySheet({
       <main className="mx-auto w-full max-w-[600px] px-4 pb-36 pt-7">
         <div className="relative pr-16">
           <Cherries className="absolute -top-2 right-0 h-16 w-16 rotate-12" />
-          <p className="eyebrow">Hi {displayName},</p>
-          <h1 className="mt-1 text-ink">Round {roundNumber}</h1>
+          <p className="eyebrow">{text(copy.reply.hi, { name: displayName })}</p>
+          <h1 className="mt-1 text-ink">{text(copy.reply.round, { number: roundNumber })}</h1>
         </div>
         <p className="mt-3 text-[15px] leading-relaxed text-ink-soft">
-          Closes {deadline.inLoopZone}
-          {deadline.inViewerZone ? ` (${deadline.inViewerZone} where you are)` : ""}.
+          {text(copy.reply.closes, { deadline: deadline.inLoopZone })}{" "}
+          {deadline.inViewerZone ? text(copy.reply.viewerTimezone, { time: deadline.inViewerZone }) : ""}.
         </p>
 
         {sent ? (
-          <div className="notice settle mt-6 flex items-start gap-3 border bg-accent-soft px-4 py-3">
+          <div role="status" className="notice settle mt-6 flex items-start gap-3 border bg-accent-soft px-4 py-3">
             <svg viewBox="0 0 20 20" aria-hidden className="mt-0.5 h-4 w-4 flex-none fill-accent">
               <path d="M10 1.7a8.3 8.3 0 100 16.6 8.3 8.3 0 000-16.6zm3.8 6.4l-4.4 4.7a.9.9 0 01-1.3 0L6.2 10.9a.9.9 0 111.3-1.3l1.2 1.3 3.8-4a.9.9 0 011.3 1.2z" />
             </svg>
             <p className="text-[14px] leading-relaxed text-ink">
-              Sent. You can change these until {deadline.inLoopZone}.
+              {text(copy.reply.sent, { deadline: deadline.inLoopZone })}
             </p>
           </div>
         ) : null}
@@ -189,7 +190,7 @@ export function ReplySheet({
                 onFocus={(event) => autosize(event.currentTarget)}
                 rows={2}
                 maxLength={8000}
-                placeholder="Write a little or a lot"
+                placeholder={copy.reply.placeholder}
                 aria-label={question.text}
                 className="field lined-field mt-2"
               />
@@ -204,13 +205,13 @@ export function ReplySheet({
         ) : null}
 
         <p aria-live="polite" className="mt-4 h-5 text-[13px] text-ink-muted">
-          {status === "saving" ? "Saving…" : null}
-          {status === "saved" ? (sent ? "Saved" : "Draft saved") : null}
-          {status === "error" ? "Not saved — check your connection" : null}
+          {status === "saving" ? copy.reply.saving : null}
+          {status === "saved" ? (sent ? copy.reply.saved : copy.reply.draftSaved) : null}
+          {status === "error" ? copy.reply.notSaved : null}
         </p>
 
         <p className="mt-2 text-[13px] leading-relaxed text-ink-muted">
-          {displayName}, only the people in {loopName} will read this.
+          {text(copy.reply.privacy, { displayName, loopName })}
         </p>
       </main>
 
@@ -220,7 +221,7 @@ export function ReplySheet({
       >
         <div className="mx-auto flex w-full max-w-[600px] items-center justify-between gap-3 px-4 pt-3">
           <span className="text-[13px] font-medium text-ink-soft numeric">
-            {sent ? "Sent" : `${answered} of ${total} answered`}
+            {sent ? copy.reply.sentState : text(copy.reply.answered, { answered, total })}
           </span>
           <button
             type="button"
@@ -228,7 +229,7 @@ export function ReplySheet({
             disabled={sending || (!sent && answered === 0)}
             className="btn btn-primary"
           >
-            {sending ? "Sending…" : sent ? "Save changes" : "Send answers"}
+            {sending ? copy.reply.sending : sent ? copy.reply.saveChanges : copy.reply.sendAnswers}
           </button>
         </div>
       </div>

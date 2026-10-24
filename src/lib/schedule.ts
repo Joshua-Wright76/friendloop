@@ -1,4 +1,5 @@
 import { Temporal } from "temporal-polyfill";
+import { copy } from "./copy.ts";
 
 /**
  * Schedule math. Everything here is pure: callers pass `at` explicitly.
@@ -173,5 +174,5 @@ export function describeDeadline(
 
 /** 0 = Sunday … 6 = Saturday for a local date, for "is it Friday there?" checks. */
 export function weekdayName(weekday: number): string {
-  return ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"][weekday] ?? "Friday";
+  return copy.common.weekdays[weekday] ?? copy.common.weekdays[5];
 }

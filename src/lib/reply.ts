@@ -2,6 +2,7 @@ import { and, asc, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { groups, issueQuestions, issues, memberships, replies } from "@/db/schema";
 import { getNow } from "./clock";
+import { copy } from "./copy.ts";
 
 /** How long an unopened invitation stays good. */
 export const INVITE_DAYS = 14;
@@ -64,16 +65,16 @@ async function ensureWritable(token: string): Promise<Gate> {
   const context = await resolveToken(token);
 
   if (context.state === "invalid") {
-    return { ok: false, result: { ok: false, status: 404, error: "This link no longer works." } };
+    return { ok: false, result: { ok: false, status: 404, error: copy.reply.errors.invalidLink } };
   }
   if (context.state === "expired") {
     return {
       ok: false,
-      result: { ok: false, status: 403, error: "This invitation has expired — ask for a new link." },
+      result: { ok: false, status: 403, error: copy.reply.errors.expired },
     };
   }
   if (context.state === "reader") {
-    return { ok: false, result: { ok: false, status: 403, error: "Readers don't answer questions." } };
+    return { ok: false, result: { ok: false, status: 403, error: copy.reply.errors.reader } };
   }
   return { ok: true, context };
 }
@@ -88,7 +89,7 @@ export async function saveDraftFor(input: {
   if (!gate.ok) return gate.result;
 
   const { context } = gate;
-  if (!context.issue) return { ok: false, status: 409, error: "Nothing is open right now." };
+  if (!context.issue) return { ok: false, status: 409, error: copy.reply.errors.nothingOpen };
 
   const [question] = await db
     .select()
@@ -97,7 +98,7 @@ export async function saveDraftFor(input: {
       and(eq(issueQuestions.id, input.issueQuestionId), eq(issueQuestions.issueId, context.issue.id)),
     )
     .limit(1);
-  if (!question) return { ok: false, status: 409, error: "That question isn't in this round." };
+  if (!question) return { ok: false, status: 409, error: copy.reply.errors.wrongQuestion };
 
   const at = await getNow();
   const afterDelivery = context.issue.status === "delivered" || at > context.issue.deliversAt;
@@ -128,7 +129,7 @@ export async function submitFor(token: string): Promise<WriteResult> {
   if (!gate.ok) return gate.result;
 
   const { context } = gate;
-  if (!context.issue) return { ok: false, status: 409, error: "Nothing is open right now." };
+  if (!context.issue) return { ok: false, status: 409, error: copy.reply.errors.nothingOpen };
 
   const at = await getNow();
   await db

@@ -9,6 +9,7 @@ import {
   reactions,
   replies,
 } from "@/db/schema";
+import { copy } from "./copy.ts";
 
 export type IssueAnswer = {
   replyId: string;
@@ -97,7 +98,7 @@ export async function loadIssue(input: {
         const forReply = reactionRows.filter((reaction) => reaction.replyId === row.replyId);
         return {
           replyId: row.replyId,
-          author: mine ? "You" : (row.name ?? row.email.split("@")[0]),
+          author: mine ? copy.issue.you : (row.name ?? row.email.split("@")[0]),
           isYou: mine,
           body: row.body,
           photoUrl: row.photoUrl,
@@ -135,7 +136,7 @@ export async function loadIssue(input: {
     comments: commentRows.map((row) => ({
       id: row.id,
       author:
-        row.membershipId === input.viewerMembershipId ? "You" : (row.name ?? row.email.split("@")[0]),
+        row.membershipId === input.viewerMembershipId ? copy.issue.you : (row.name ?? row.email.split("@")[0]),
       body: row.body,
       createdAt: row.createdAt,
     })),

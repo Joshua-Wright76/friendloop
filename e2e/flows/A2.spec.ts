@@ -19,7 +19,7 @@ test("A2 · the emailed link signs you in and puts you on your own page", async 
 
   await page.goto(link);
   await expect(page.getByText(email)).toBeVisible();
-  await page.getByRole("button", { name: "Yes, sign me in" }).click();
+  await page.getByRole("button", { name: "Sign in" }).click();
 
   await expect(page).toHaveURL(/\/you$/);
   await expect(page.getByText(`Signed in as ${email}`)).toBeVisible();
