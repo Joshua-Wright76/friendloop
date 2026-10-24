@@ -61,9 +61,15 @@ Vercel → Project → Settings → Environment Variables.
 | Cron | daily sweep | none — Vercel cron runs against production only |
 
 ```sh
-git push origin main   # -> friendloop.dev
-git push origin dev    # -> dev.friendloop.dev
+git push origin main   # -> friendloop.dev, then syncs dev and updates dev.friendloop.dev
+git push origin dev    # -> dev.friendloop.dev only
 ```
+
+Merging or pushing to `main` runs `.github/workflows/sync-dev.yml`, which
+fast-forwards `dev` to the same commit. Vercel's existing Git integration then
+deploys both environments automatically: production from `main` and dev from
+`dev`. If `dev` has diverged, the sync stops rather than force-pushing over it.
+A direct push to `dev` still deploys only the dev environment.
 
 A push to `dev` builds a preview deployment and the domain follows it
 (`gitBranch: dev`). Dev sends real mail through Resend, from the same verified

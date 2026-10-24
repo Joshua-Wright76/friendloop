@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Gaegu, Nunito } from "next/font/google";
+import { ThemeSwitch } from "@/components/theme-switch";
 import "./globals.css";
 
 const nunito = Nunito({
@@ -24,10 +25,7 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
-  themeColor: [
-    { media: "(prefers-color-scheme: dark)", color: "#241a20" },
-    { media: "(prefers-color-scheme: light)", color: "#fff3f5" },
-  ],
+  themeColor: "#fff3f5",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
@@ -35,8 +33,20 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     <html
       lang="en"
       className={`${nunito.variable} ${gaegu.variable} h-full antialiased`}
+      data-theme="light"
+      suppressHydrationWarning
     >
-      <body className="min-h-full">{children}</body>
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `try{if(localStorage.getItem("friendloop-theme")==="dark")document.documentElement.dataset.theme="dark"}catch{}`,
+          }}
+        />
+      </head>
+      <body className="min-h-full">
+        {children}
+        <ThemeSwitch />
+      </body>
     </html>
   );
 }
