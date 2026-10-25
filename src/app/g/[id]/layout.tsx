@@ -29,7 +29,20 @@ async function LoadedGroupLayout({ children, params }: Props) {
   if (!user) redirect("/signin");
 
   const [row] = await db
-    .select({ group: groups, membership: memberships })
+    .select({
+      group: groups,
+      membership: {
+        id: memberships.id,
+        groupId: memberships.groupId,
+        userId: memberships.userId,
+        email: memberships.email,
+        name: memberships.name,
+        access: memberships.access,
+        participation: memberships.participation,
+        invitedAt: memberships.invitedAt,
+        acceptedAt: memberships.acceptedAt,
+      },
+    })
     .from(memberships)
     .innerJoin(groups, eq(groups.id, memberships.groupId))
     .where(and(

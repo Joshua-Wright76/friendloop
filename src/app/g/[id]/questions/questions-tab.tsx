@@ -19,7 +19,7 @@ export default function QuestionsTab({ notices }: { notices: { added?: string; a
           {copy.common.backToLoop}
         </Link>
       </header>
-      <LoopNav id={id} active="Questions" />
+      <LoopNav id={id} active="Questions" isOwner={membership.access === "owner"} />
 
       <h1 className="text-[28px] font-semibold leading-tight tracking-[-0.025em] text-ink">{copy.questions.title}</h1>
       <p className="mt-1.5 text-[15px] leading-relaxed text-ink-soft">

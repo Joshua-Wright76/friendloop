@@ -105,6 +105,15 @@ npm run db:push        # create tables
 npm run dev
 ```
 
+### Local UI preview
+
+Open **http://localhost:3000/dev/ui** (or the **UI preview** link on the local
+landing page). This creates an isolated demo user and loop, starts a local test
+session, and opens `/dev/screens`, where every public, management, reply, and
+issue screen is one click away. Use **Reset demo data** to restore the fixtures.
+The preview never touches existing loops and returns 404 outside local
+development.
+
 ## Site and email copy
 
 All user-facing site copy and all six email templates live in
@@ -112,6 +121,22 @@ All user-facing site copy and all six email templates live in
 type. Edit that file directly; dynamic values use named placeholders such as
 `{groupName}`, `{count}`, and `{url}`. The starter question bank, form errors,
 plain-text emails, accessibility labels, and metadata are included too.
+
+## Navigation benchmark
+
+Measure click-to-rendered-content time across all five loop tabs against a
+production build. The current budget is 95ms average (baseline before shared
+layout data: 954ms; optimized result: 53ms).
+
+```sh
+npm run build
+npx next start -p 3101
+# in another terminal
+E2E_BASE_URL=http://localhost:3101 ENFORCE=1 NAV_BUDGET_MS=95 npm run measure:navigation
+```
+
+`NAV_CYCLES` controls repetitions. `ENFORCE=1` makes the command fail when the
+average exceeds `NAV_BUDGET_MS`.
 
 ## Verify
 

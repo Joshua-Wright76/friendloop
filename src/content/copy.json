@@ -396,6 +396,33 @@
       "text": "Nobody answered, so {groupName} skipped this round and paused.\n\n{url}"
     }
   },
+  "devUi": {
+    "title": "UI preview",
+    "description": "Click through a fully seeded demo loop. No sign-in or real data required.",
+    "reset": "Reset demo data",
+    "enable": "Enable the demo session",
+    "signout": "View sign-in (signs you out)",
+    "publicHeading": "Public and authentication",
+    "loopHeading": "Loop management",
+    "issueHeading": "Replies and issues",
+    "screens": {
+      "home": "Landing page",
+      "signIn": "Sign in",
+      "checkEmail": "Check your inbox",
+      "confirm": "Confirm sign-in",
+      "yourLoops": "Your loops",
+      "newLoop": "New loop",
+      "overview": "Loop overview",
+      "members": "People and invitations",
+      "questions": "Question management",
+      "rounds": "Rounds archive",
+      "settings": "Loop settings",
+      "reply": "Reply sheet",
+      "issue": "Delivered issue",
+      "shared": "Shared issue",
+      "invalid": "Expired or invalid reply link"
+    }
+  },
   "devOutbox": {
     "title": "Captured email",
     "description": "Every email the app produces on this deployment, whether it was really sent or only captured. Handy for grabbing a sign-in link without leaving the tab.",

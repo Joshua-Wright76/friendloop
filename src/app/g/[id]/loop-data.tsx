@@ -6,7 +6,9 @@ import type { groups, issues, memberships, questions } from "@/db/schema";
 import type { Deadline } from "@/lib/schedule";
 
 type Group = typeof groups.$inferSelect;
-type Membership = typeof memberships.$inferSelect;
+type Membership = Pick<typeof memberships.$inferSelect,
+  "id" | "groupId" | "userId" | "email" | "name" | "access" | "participation" | "invitedAt" | "acceptedAt"
+>;
 
 export type LoopPerson = Pick<Membership,
   "id" | "email" | "name" | "access" | "participation" | "invitedAt" | "acceptedAt" | "userId"

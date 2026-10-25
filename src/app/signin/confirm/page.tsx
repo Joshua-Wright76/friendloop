@@ -43,7 +43,7 @@ export default async function ConfirmPage({
             <h1 className="text-[24px] font-semibold leading-tight tracking-[-0.022em] text-ink [overflow-wrap:anywhere]">
               {text(copy.confirm.title, { email: peek?.state === "valid" ? peek.email : copy.confirm.fallbackName })}
             </h1>
-            <form action={confirmLink}>
+            <form action={confirmLink} className="mt-4">
               <input type="hidden" name="token" value={token ?? ""} />
               <button type="submit" className="btn btn-primary w-full">
                 {copy.confirm.submit}
