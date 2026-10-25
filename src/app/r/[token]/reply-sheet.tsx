@@ -87,10 +87,8 @@ export function ReplySheet({
       if ((revisions.current.get(questionId) ?? 0) !== revision) return;
       if (result.ok) {
         setQuestionStatuses((current) => ({ ...current, [questionId]: nonEmpty ? "saved" : "empty" }));
-        if (nonEmpty) {
-          setStatus("saved");
-          setError(null);
-        }
+        setStatus("saved");
+        setError(null);
       } else {
         setQuestionStatuses((current) => ({ ...current, [questionId]: "error" }));
         setStatus("error");

@@ -70,7 +70,7 @@ export function InviteForm({ groupId }: { groupId: string }) {
         {emails.map((email) => (
           <span key={email} className="inline-flex items-center gap-1 rounded-full border border-line bg-card px-2.5 py-1 text-[13px] text-ink">
             {email}
-            <button type="button" aria-label={text(copy.members.removeEmail, { email })} disabled={pending} onClick={() => setEmails(emails.filter((item) => item !== email))} className="text-ink-muted hover:text-ink">×</button>
+            <button type="button" aria-label={text(copy.members.removeEmail, { email })} disabled={pending} onClick={() => setEmails(emails.filter((item) => item !== email))} className="flex h-6 w-6 flex-none items-center justify-center rounded-full text-ink-muted hover:bg-field hover:text-ink">×</button>
           </span>
         ))}
         <input

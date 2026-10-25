@@ -2,14 +2,15 @@
 
 import { useEffect, useRef, useState, useTransition } from "react";
 import { copy, text } from "@/lib/copy";
-import { moveItem } from "@/lib/question-order";
+import { itemsInPreferredOrder, moveItem } from "@/lib/question-order";
 import { reorderQuestions } from "./actions";
 import { archiveAction, skipNextAction } from "./actions";
 
 type Question = { id: string; text: string; skipNext: boolean };
 
 export function QuestionOrder({ groupId, questions: initial }: { groupId: string; questions: Question[] }) {
-  const [items, setItems] = useState(initial);
+  const [orderedIds, setOrderedIds] = useState(() => initial.map((question) => question.id));
+  const items = itemsInPreferredOrder(orderedIds, initial);
   const [movingId, setMovingId] = useState<string | null>(null);
   const [message, setMessage] = useState("");
   const [pending, startTransition] = useTransition();
@@ -22,19 +23,19 @@ export function QuestionOrder({ groupId, questions: initial }: { groupId: string
   }, [movingId]);
 
   async function move(questionId: string, targetIndex: number) {
-    const previous = items;
+    const previousOrder = items.map((item) => item.id);
     const sourceIndex = items.findIndex((item) => item.id === questionId);
     if (sourceIndex < 0 || targetIndex === sourceIndex) return;
     const next = moveItem(items, sourceIndex, targetIndex);
-    setItems(next);
+    setOrderedIds(next.map((item) => item.id));
     setMessage("");
     setMovingId(null);
     startTransition(async () => {
       try {
         const authoritative = await reorderQuestions(groupId, questionId, targetIndex);
-        setItems(authoritative);
+        setOrderedIds(authoritative.map((item) => item.id));
       } catch {
-        setItems(previous);
+        setOrderedIds(previousOrder);
         setMessage(copy.questions.orderError);
       }
     });

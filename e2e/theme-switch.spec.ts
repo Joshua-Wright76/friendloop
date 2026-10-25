@@ -6,6 +6,8 @@ test("theme switch responds to taps and persists across reloads", async ({ page 
   await page.goto("/");
   const root = page.locator("html");
   await expect(root).toHaveAttribute("data-theme", "light");
+  const trackTransitions = await page.locator(".theme-switch-track").evaluate((element) => getComputedStyle(element).transitionProperty);
+  expect(trackTransitions.split(",").map((property) => property.trim())).not.toContain("background");
   await expect(page.locator(".theme-switch-sun")).toBeAttached();
   await expect(page.locator(".theme-switch-moon")).toBeAttached();
 
@@ -38,4 +40,20 @@ test("theme and stationery motion respects reduced motion", async ({ page }) => 
   });
   expect(durations.transition.every((duration) => duration <= 0.001)).toBe(true);
   expect(durations.animation).toBeLessThanOrEqual(0.001);
+});
+
+test("theme switching applies immediately when reduced motion is enabled", async ({ page }) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(document, "startViewTransition", {
+      configurable: true,
+      value: () => {
+        throw new Error("A theme view transition should not run with reduced motion enabled");
+      },
+    });
+  });
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.goto("/");
+
+  await page.getByRole("button", { name: /switch to dark mode/ }).click();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
 });

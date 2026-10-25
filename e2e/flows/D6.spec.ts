@@ -38,3 +38,29 @@ test("D6 · a submitted answer can still be rewritten, not duplicated", async ({
   expect(saved[0].body).toBe("Second version, with the good detail.");
   expect(saved[0].status).toBe("submitted");
 });
+
+test("D6 · clearing a draft resolves the overall save status after an older write is discarded", async ({ page }) => {
+  const loop = await seedLoop();
+  await seedOpenIssue(loop, { openedAt: AFTER_FIRST_SLOT });
+  const alice = loop.members.find((member) => member.email.startsWith("alice"))!;
+  let delayedBody: string | null = null;
+
+  await page.route("**/api/reply/**", async (route) => {
+    const payload = route.request().postDataJSON() as { action: string; body?: string };
+    if (payload.action === "draft" && payload.body === "A draft that gets cleared.") {
+      delayedBody = payload.body;
+      await new Promise((resolve) => setTimeout(resolve, 1200));
+    }
+    await route.fulfill({ json: { ok: true, savedAt: new Date().toISOString() } });
+  });
+
+  await page.goto(`/r/${alice.token}`);
+  await waitForSheet(page);
+  const answer = page.getByLabel("What made you laugh this week?");
+  await answer.fill("A draft that gets cleared.");
+  await expect.poll(() => delayedBody).toBe("A draft that gets cleared.");
+  await answer.fill("");
+
+  await expect(page.getByRole("button", { name: "Send answers" })).toBeDisabled();
+  await expect(page.getByText("Draft saved", { exact: true })).toBeVisible({ timeout: 5000 });
+});

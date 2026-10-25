@@ -79,6 +79,7 @@ html[data-theme="dark"] {
 
 * { -webkit-tap-highlight-color: transparent; }
 * { transition-property: border-color, box-shadow; transition-duration: 220ms; transition-timing-function: ease; }
+::view-transition-group(root) { animation-duration: 220ms; animation-timing-function: ease; }
 html {
   background-color: var(--page);
   background-image: linear-gradient(90deg, var(--check) 50%, transparent 0), linear-gradient(var(--check) 50%, transparent 0);
@@ -270,7 +271,7 @@ html[data-theme="dark"] .tape { opacity: .6; }
 .theme-switch-icon { width: 17px; height: 17px; overflow: visible; }
 .theme-switch-sun, .theme-switch-moon { transform-box: fill-box; transform-origin: center; opacity: 0; transform: rotate(-35deg) scale(.72); transition: opacity 180ms ease, transform 220ms cubic-bezier(.2,.8,.2,1); }
 .theme-switch-sun.is-visible, .theme-switch-moon.is-visible { opacity: 1; transform: rotate(0) scale(1); }
-.theme-switch-track { position: relative; width: 34px; height: 22px; border-radius: 999px; background: var(--line-strong); transition: background 160ms ease; }
+.theme-switch-track { position: relative; width: 34px; height: 22px; border-radius: 999px; background: var(--line-strong); }
 .theme-switch-track > span { position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: 50%; background: var(--card); box-shadow: 0 1px 2px rgb(0 0 0 / .2); transition: transform 160ms ease; }
 .theme-switch[aria-pressed="true"] .theme-switch-track { background: var(--accent); }
 .theme-switch[aria-pressed="true"] .theme-switch-track > span { transform: translateX(12px); }
@@ -329,6 +330,7 @@ body:has(.reply-actionbar) .theme-switch { bottom: calc(92px + env(safe-area-ins
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
   *, *::before, *::after { animation-duration: .001ms !important; transition-duration: .001ms !important; }
+  ::view-transition-group(root) { animation-duration: 0s !important; }
 }
 
 @keyframes reaction-select {

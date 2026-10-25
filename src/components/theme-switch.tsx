@@ -5,6 +5,10 @@ import { copy } from "@/lib/copy";
 
 type Theme = "light" | "dark";
 
+type ViewTransitionDocument = Document & {
+  startViewTransition?: (update: () => void) => unknown;
+};
+
 function applyTheme(theme: Theme) {
   document.documentElement.dataset.theme = theme;
   document.querySelector('meta[name="theme-color"]')?.setAttribute("content", theme === "dark" ? "#241a20" : "#fff3f5");
@@ -14,6 +18,21 @@ function applyTheme(theme: Theme) {
     // The switch still works when storage is unavailable.
   }
   window.dispatchEvent(new Event("friendloop-theme-change"));
+}
+
+function transitionTheme(theme: Theme) {
+  const update = () => applyTheme(theme);
+  const documentWithViewTransitions = document as ViewTransitionDocument;
+
+  if (
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches ||
+    typeof documentWithViewTransitions.startViewTransition !== "function"
+  ) {
+    update();
+    return;
+  }
+
+  documentWithViewTransitions.startViewTransition(update);
 }
 
 function subscribe(onChange: () => void) {
@@ -32,7 +51,7 @@ export function ThemeSwitch() {
     document.querySelector('meta[name="theme-color"]')?.setAttribute("content", theme === "dark" ? "#241a20" : "#fff3f5");
   }, [theme]);
 
-  const toggle = () => applyTheme(theme === "light" ? "dark" : "light");
+  const toggle = () => transitionTheme(theme === "light" ? "dark" : "light");
 
   return (
     <button
