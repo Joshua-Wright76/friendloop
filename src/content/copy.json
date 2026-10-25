@@ -171,10 +171,18 @@
     "resendInvite": "Resend invite",
     "remove": "Remove",
     "inviteTitle": "Invite people",
-    "inviteDescription": "Put one address per line, and each will get a invite link",
-    "invitePlaceholder": "jela@example.com\nscotty@example.com",
+    "inviteDescription": "Add email addresses, separated by spaces, commas, or semicolons.",
+    "invitePlaceholder": "name@example.com",
     "inviteAriaLabel": "Email addresses",
-    "sendInvitations": "Send invitations"
+    "sendInvitations": "Send invitations",
+    "invalidEmails": "Enter valid email addresses before sending.",
+    "inviteFailed": "Invitations couldn't be sent. Please try again.",
+    "inviteSuccess": "Invitations sent.",
+    "inviteSkipped": "{count} already in the loop.",
+    "removeEmail": "Remove {email}",
+    "roleSaving": "Updating member type…",
+    "roleUpdated": "Member type updated.",
+    "roleError": "Member type couldn't be updated. Please try again."
   },
   "questions": {
     "title": "Questions",

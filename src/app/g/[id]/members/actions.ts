@@ -23,19 +23,26 @@ export async function inviteAction(formData: FormData) {
   const groupId = String(formData.get("groupId") ?? "");
   const viewer = await requireManager(groupId);
 
-  const emails = String(formData.get("emails") ?? "");
+  const emails = formData.getAll("emails").map(String);
+  if (emails.length === 0 || emails.some((email) => !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))) {
+    return { ok: false as const, message: "invalid" as const };
+  }
   const participation = "contributor";
 
-  await inviteMembers({
-    groupId,
-    emails: [emails],
-    participation,
-    actorName: viewer.user.name ?? viewer.user.email.split("@")[0],
-    at: await getNow(),
-  });
+  try {
+    const result = await inviteMembers({
+      groupId,
+      emails,
+      participation,
+      actorName: viewer.user.name ?? viewer.user.email.split("@")[0],
+      at: await getNow(),
+    });
 
-  revalidatePath(`/g/${groupId}/members`);
-  redirect(`/g/${groupId}/members?invited=1`);
+    revalidatePath(`/g/${groupId}/members`);
+    return { ok: true as const, invited: result.invited, skipped: result.skipped };
+  } catch {
+    return { ok: false as const, message: "failed" as const };
+  }
 }
 
 export async function resendAction(formData: FormData) {
@@ -92,16 +99,19 @@ export async function roleAction(formData: FormData) {
   const viewer = await viewerFor(groupId);
   if (!viewer || viewer.membership.access === "member") redirect(`/g/${groupId}`);
 
-  if (access === "owner") {
-    if (viewer.membership.access !== "owner") redirect(`/g/${groupId}`);
-    await transferOwnership(groupId, viewer.membership.id, membershipId);
+  try {
+    if (access === "owner") {
+      if (viewer.membership.access !== "owner") return { ok: false as const };
+      await transferOwnership(groupId, viewer.membership.id, membershipId);
+      revalidatePath(`/g/${groupId}/members`);
+      return { ok: true as const, access: "owner" as const };
+    }
+    await setAccess(groupId, membershipId, access === "admin" ? "admin" : "member");
     revalidatePath(`/g/${groupId}/members`);
-    redirect(`/g/${groupId}/members?transferred=1`);
+    return { ok: true as const, access: access === "admin" ? "admin" as const : "member" as const };
+  } catch {
+    return { ok: false as const };
   }
-
-  await setAccess(groupId, membershipId, access === "admin" ? "admin" : "member");
-  revalidatePath(`/g/${groupId}/members`);
-  redirect(`/g/${groupId}/members`);
 }
 
 export async function transferAction(formData: FormData) {

@@ -12,9 +12,10 @@ type Props = {
   ariaLabel: string;
   searchable?: boolean;
   onValueChange?: (value: string) => void;
+  disabled?: boolean;
 };
 
-export function Picker({ name, defaultValue, options, ariaLabel, searchable = false, onValueChange }: Props) {
+export function Picker({ name, defaultValue, options, ariaLabel, searchable = false, onValueChange, disabled = false }: Props) {
   const [value, setValue] = useState(defaultValue);
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -118,6 +119,7 @@ export function Picker({ name, defaultValue, options, ariaLabel, searchable = fa
         ref={trigger}
         type="button"
         className="picker-trigger"
+        disabled={disabled}
         suppressHydrationWarning
         aria-label={`${ariaLabel}: ${selected?.label ?? value}`}
         aria-haspopup="listbox"

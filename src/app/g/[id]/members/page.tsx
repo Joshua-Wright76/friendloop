@@ -6,8 +6,9 @@ import { groups } from "@/db/schema";
 import { currentUser } from "@/lib/auth";
 import { membersOf } from "@/lib/manage";
 import { viewerFor } from "@/lib/permissions";
-import { inviteAction, removeAction, resendAction } from "./actions";
+import { removeAction, resendAction } from "./actions";
 import { MemberRolePicker } from "./member-role-picker";
+import { InviteForm } from "./invite-form";
 import { LoopNav } from "@/components/loop-nav";
 import { copy } from "@/lib/copy";
 
@@ -109,24 +110,7 @@ export default async function MembersPage({
       </div>
 
       {manages ? (
-        <form action={inviteAction} className="card mt-5 p-5">
-          <input type="hidden" name="groupId" value={id} />
-          <h2 className="text-[16px] font-semibold tracking-[-0.01em] text-ink">{copy.members.inviteTitle}</h2>
-          <p className="mt-1 text-[13px] leading-relaxed text-ink-soft">
-            {copy.members.inviteDescription}
-          </p>
-          <textarea
-            name="emails"
-            required
-            rows={3}
-            placeholder={copy.members.invitePlaceholder}
-            aria-label={copy.members.inviteAriaLabel}
-            className="field mt-3"
-          />
-          <button type="submit" className="btn btn-primary mt-4">
-            {copy.members.sendInvitations}
-          </button>
-        </form>
+        <InviteForm groupId={id} />
       ) : null}
     </main>
   );

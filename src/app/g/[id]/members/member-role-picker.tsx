@@ -1,39 +1,65 @@
 "use client";
 
-import { useRef } from "react";
+import { useState, useTransition } from "react";
 import { Picker, type PickerOption } from "@/components/picker";
 import { copy, text } from "@/lib/copy";
 import { roleAction } from "./actions";
 
-type Props = {
-  groupId: string;
-  membershipId: string;
-  memberName: string;
-  current: "member" | "admin";
-  canAssignOwner: boolean;
-};
+type Access = "member" | "admin" | "owner";
+type Props = { groupId: string; membershipId: string; memberName: string; current: "member" | "admin"; canAssignOwner: boolean };
 
 export function MemberRolePicker({ groupId, membershipId, memberName, current, canAssignOwner }: Props) {
-  const form = useRef<HTMLFormElement>(null);
+  const [access, setAccess] = useState<Access>(current);
+  const [message, setMessage] = useState("");
+  const [pending, startTransition] = useTransition();
   const options: PickerOption[] = [
     { value: "member", label: copy.common.roles.member },
     { value: "admin", label: copy.common.roles.admin },
     ...(canAssignOwner ? [{ value: "owner", label: copy.common.roles.owner }] : []),
   ];
 
+  function update(next: string) {
+    const previous = access;
+    const nextAccess = next as Access;
+    setAccess(nextAccess);
+    setMessage("");
+    startTransition(async () => {
+      const formData = new FormData();
+      formData.set("groupId", groupId);
+      formData.set("membershipId", membershipId);
+      formData.set("access", nextAccess);
+      try {
+        const result = await roleAction(formData);
+        if (!result.ok) {
+          setAccess(previous);
+          setMessage(copy.members.roleError);
+        } else if (nextAccess === "owner") {
+          setMessage(copy.members.transferredNotice);
+        } else {
+          setMessage(copy.members.roleUpdated);
+        }
+      } catch {
+        setAccess(previous);
+        setMessage(copy.members.roleError);
+      }
+    });
+  }
+
   return (
-    <form ref={form} action={roleAction} className="member-role-form">
-      <input type="hidden" name="groupId" value={groupId} />
-      <input type="hidden" name="membershipId" value={membershipId} />
+    <div className="member-role-form">
       <div className="member-role-picker">
         <Picker
+          key={access}
           name="access"
-          defaultValue={current}
+          defaultValue={access}
           options={options}
           ariaLabel={text(copy.members.roleAriaLabel, { name: memberName })}
-          onValueChange={() => requestAnimationFrame(() => form.current?.requestSubmit())}
+          onValueChange={update}
+          disabled={pending}
         />
       </div>
-    </form>
+      {pending ? <span className="ml-2 text-[11px] text-ink-muted" role="status">{copy.members.roleSaving}</span> : null}
+      {message ? <span className={`ml-2 text-[11px] ${message === copy.members.roleError ? "text-danger" : "text-ink-muted"}`} role="status">{message}</span> : null}
+    </div>
   );
 }
