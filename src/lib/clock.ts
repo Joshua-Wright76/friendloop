@@ -8,13 +8,16 @@ import { connection } from "next/server";
  * instead of calling this, so it stays deterministic and testable. With
  * `E2E=1` a test can jump the app forward with an `x-e2e-now` header.
  */
-export async function getNow(): Promise<Date> {
+export async function getNow(options: { skipConnection?: boolean } = {}): Promise<Date> {
   // Reading the clock is request-time work: tell Next so a prerender stops here
-  // instead of baking a timestamp into a static shell.
-  try {
-    await connection();
-  } catch {
-    // Outside a request (scripts, tests) there is nothing to mark.
+  // instead of baking a timestamp into a static shell. Private cache functions
+  // already run at request time, and Next forbids connection() inside them.
+  if (!options.skipConnection) {
+    try {
+      await connection();
+    } catch {
+      // Outside a request (scripts, tests) there is nothing to mark.
+    }
   }
 
   if (process.env.E2E === "1") {

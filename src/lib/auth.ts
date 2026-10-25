@@ -115,7 +115,7 @@ export async function currentUser(): Promise<CurrentUser | null> {
   cacheTag(token ? `session:${token}` : "session:anonymous");
   if (!token) return null;
 
-  const at = await getNow();
+  const at = await getNow({ skipConnection: true });
   const rows = await db
     .select({ id: users.id, email: users.email, name: users.name, timezone: users.timezone })
     .from(sessions)
