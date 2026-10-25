@@ -17,7 +17,6 @@ const HOUR_OPTIONS = HOURS.map((hour) => ({
 const CADENCE_OPTIONS = copy.newLoop.cadences;
 const VALID_EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-type Mode = "group" | "from_you";
 type Participation = "contributor" | "reader";
 type ModalKind = "name-ideas" | "question" | "section" | "preview" | null;
 type SectionPreset = (typeof copy.newLoop.wizard.sections.presets)[number];
@@ -112,7 +111,6 @@ function AccessibleDialog({
 export function NewLoopForm({ bank }: { bank: Array<{ group: string; questions: string[] }> }) {
   const [state, action, pending] = useActionState(createLoopAction, {} as CreateState);
   const [step, setStep] = useState(0);
-  const [mode, setMode] = useState<Mode>("group");
   const [participation, setParticipation] = useState<Participation>("contributor");
   const [name, setName] = useState("");
   const [cadence, setCadence] = useState("1");
@@ -155,11 +153,6 @@ export function NewLoopForm({ bank }: { bank: Array<{ group: string; questions: 
   useEffect(() => {
     stepHeading.current?.focus();
   }, [step]);
-
-  function changeMode(nextMode: Mode) {
-    setMode(nextMode);
-    setParticipation(nextMode === "from_you" ? "reader" : "contributor");
-  }
 
   function toggleQuestion(question: string) {
     setPicked((current) => current.includes(question)
@@ -262,13 +255,12 @@ export function NewLoopForm({ bank }: { bank: Array<{ group: string; questions: 
         if (step !== copy.newLoop.wizard.steps.length - 1) event.preventDefault();
       }}
     >
-      <input type="hidden" name="mode" value={mode} />
       <input type="hidden" name="name" value={name} />
       <input type="hidden" name="cadence" value={cadence} />
       <input type="hidden" name="weekday" value={weekday} />
       <input type="hidden" name="hour" value={hour} />
       <input type="hidden" name="timezone" value={timezone} />
-      <input type="hidden" name="participation" value={mode === "from_you" ? "reader" : participation} />
+      <input type="hidden" name="participation" value={participation} />
       <input type="hidden" name="personalNote" value={personalNote} />
       {questions.map((question, index) => <input key={`${index}:${question}`} type="hidden" name="question" value={question} />)}
       {emails.map((email) => <input key={email} type="hidden" name="email" value={email} />)}
@@ -298,45 +290,6 @@ export function NewLoopForm({ bank }: { bank: Array<{ group: string; questions: 
       </div>
 
       <section className="wizard-step" aria-labelledby="wizard-step-heading">
-        {step === 0 ? (
-          <>
-            <h1 ref={stepHeading} tabIndex={-1} id="wizard-step-heading" className="wizard-heading">{copy.newLoop.wizard.mode.title}</h1>
-            <p className="wizard-description">{copy.newLoop.wizard.mode.description}</p>
-            <div className="mt-6 grid gap-3">
-              <button
-                type="button"
-                aria-pressed={mode === "group"}
-                onClick={() => changeMode("group")}
-                className={`wizard-choice ${mode === "group" ? "wizard-choice--selected" : ""}`}
-              >
-                <span className="wizard-choice__icon" aria-hidden="true">
-                  <svg viewBox="0 0 24 24" className="h-6 w-6"><circle cx="8" cy="8" r="3" fill="none" stroke="currentColor" strokeWidth="1.8" /><circle cx="17" cy="9" r="2.4" fill="none" stroke="currentColor" strokeWidth="1.8" /><path d="M2.5 20v-1.2a5.5 5.5 0 0 1 11 0V20zM14 15a4.7 4.7 0 0 1 7.5 3.8V20h-5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="wizard-choice__title">{copy.newLoop.wizard.mode.group}</span>
-                  <span className="wizard-choice__description">{copy.newLoop.wizard.mode.groupDescription}</span>
-                </span>
-                <span className="wizard-choice__radio" aria-hidden="true">{mode === "group" ? <i /> : null}</span>
-              </button>
-              <button
-                type="button"
-                aria-pressed={mode === "from_you"}
-                onClick={() => changeMode("from_you")}
-                className={`wizard-choice ${mode === "from_you" ? "wizard-choice--selected" : ""}`}
-              >
-                <span className="wizard-choice__icon" aria-hidden="true">
-                  <svg viewBox="0 0 24 24" className="h-6 w-6"><rect x="3" y="5" width="18" height="14" rx="2" fill="none" stroke="currentColor" strokeWidth="1.8" /><path d="m4 7 8 6 8-6" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="wizard-choice__title">{copy.newLoop.wizard.mode.fromYou}</span>
-                  <span className="wizard-choice__description">{copy.newLoop.wizard.mode.fromYouDescription}</span>
-                </span>
-                <span className="wizard-choice__radio" aria-hidden="true">{mode === "from_you" ? <i /> : null}</span>
-              </button>
-            </div>
-          </>
-        ) : null}
-
         {step === 1 ? (
           <>
             <h1 ref={stepHeading} tabIndex={-1} id="wizard-step-heading" className="wizard-heading">{copy.newLoop.wizard.details.title}</h1>
@@ -529,11 +482,8 @@ export function NewLoopForm({ bank }: { bank: Array<{ group: string; questions: 
         {step === 4 ? (
           <>
             <h1 ref={stepHeading} tabIndex={-1} id="wizard-step-heading" className="wizard-heading">{copy.newLoop.wizard.readers.title}</h1>
-            <p className="wizard-description">
-              {mode === "from_you" ? copy.newLoop.wizard.readers.fromYouDescription : copy.newLoop.wizard.readers.groupDescription}
-            </p>
-            {mode === "group" ? (
-              <fieldset className="mt-5">
+            <p className="wizard-description">{copy.newLoop.wizard.readers.groupDescription}</p>
+            <fieldset className="mt-5">
                 <legend className="mb-2 text-[14px] font-bold text-ink">{copy.newLoop.wizard.readers.roleLabel}</legend>
                 <div className="grid gap-2 sm:grid-cols-2">
                   <button
@@ -556,7 +506,6 @@ export function NewLoopForm({ bank }: { bank: Array<{ group: string; questions: 
                   </button>
                 </div>
               </fieldset>
-            ) : null}
             <div className="mt-5">
               <label htmlFor="reader-emails" className="mb-2 block text-[14px] font-bold text-ink">{copy.newLoop.wizard.readers.emailLabel}</label>
               <div

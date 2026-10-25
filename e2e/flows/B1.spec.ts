@@ -18,7 +18,6 @@ test("B1 · creating a group loop saves its cadence and makes you its owner", as
   await expect(page.getByRole("progressbar", { name: "Loop setup progress" })).toHaveAttribute("aria-valuenow", "2");
   await page.getByRole("button", { name: "Go to the previous setup step" }).click();
   await expect(page.getByRole("progressbar", { name: "Loop setup progress" })).toHaveAttribute("aria-valuenow", "1");
-  await page.getByRole("button", { name: NEXT }).click();
   await page.getByLabel("Loop title").fill("The Sunday Loop");
   await page.getByRole("button", { name: "Quarterly (13 weeks)" }).click();
   await page.getByRole("button", { name: NEXT }).click();

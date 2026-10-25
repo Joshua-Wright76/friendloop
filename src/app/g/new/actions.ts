@@ -35,7 +35,7 @@ export async function createLoopAction(
   const promptWeekday = Number(formData.get("weekday") ?? 5);
   const promptHour = Number(formData.get("hour") ?? 9);
   const cadenceWeeks = Number(formData.get("cadence") ?? 1);
-  const mode = formData.get("mode") === "from_you" ? "from_you" : "group";
+  const mode = "group";
   const participation = formData.get("participation") === "reader" ? "reader" : "contributor";
   const validCadences = [1, 2, 4, 13];
   if (!validCadences.includes(cadenceWeeks)) return { error: copy.newLoop.errors.cadence };
@@ -75,7 +75,7 @@ export async function createLoopAction(
     await inviteMembers({
       groupId,
       emails,
-      participation: mode === "from_you" ? "reader" : participation,
+      participation,
       actorName: user.name ?? user.email.split("@")[0],
       at,
       personalNote: personalNote || undefined,

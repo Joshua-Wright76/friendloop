@@ -388,7 +388,7 @@ body:has(.reply-actionbar) .theme-switch { bottom: calc(92px + env(safe-area-ins
 .wizard-preset__check { display: grid; width: 20px; height: 20px; flex: none; place-items: center; color: var(--accent-ink); }
 .wizard-role { min-height: 76px; padding: 13px; border: 1.5px solid var(--line); border-radius: 6px; background: var(--card); color: var(--ink); text-align: left; cursor: pointer; }
 .wizard-role--selected { border-color: var(--accent); background: var(--accent-soft); box-shadow: inset 0 0 0 1px var(--accent-line); }
-.wizard-navigation { display: flex; align-items: center; gap: 10px; margin-top: 3px; padding: 12px 0 max(12px, env(safe-area-inset-bottom)); border-top: 1px dashed var(--accent-line); background: var(--page); }
+.wizard-navigation { display: flex; align-items: center; gap: 10px; margin-top: 3px; padding: 12px 0 max(12px, env(safe-area-inset-bottom)); border-top: 1px dashed var(--accent-line); background: transparent; }
 .wizard-dialog { width: min(560px, calc(100vw - 28px)); max-width: none; max-height: calc(100dvh - 32px); margin: auto; padding: clamp(18px, 4vw, 26px); overflow-y: auto; border: 1px solid var(--line-strong); border-radius: 8px; background: var(--card); color: var(--ink); box-shadow: var(--shadow-lift); }
 .wizard-dialog--wide { width: min(720px, calc(100vw - 28px)); }
 .wizard-dialog::backdrop { background: rgb(43 24 28 / .5); }

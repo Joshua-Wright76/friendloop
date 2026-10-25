@@ -141,17 +141,7 @@
       "backAriaLabel": "Go to the previous setup step",
       "nextAriaLabel": "Continue to the next setup step",
       "createAriaLabel": "Create this loop",
-      "steps": ["Choose a mode", "Name and rhythm", "Choose questions", "Add prompts", "Add readers", "Your note"],
-      "mode": {
-        "title": "How will this loop work?",
-        "description": "Choose who writes each issue.",
-        "group": "Group",
-        "groupDescription": "Everyone answers a few questions, then everyone gets the finished issue.",
-        "fromYou": "From You",
-        "fromYouDescription": "You write each issue and your readers receive it by email.",
-        "groupAriaLabel": "Group mode",
-        "fromYouAriaLabel": "From You mode"
-      },
+      "steps": ["Name and rhythm", "Choose questions", "Add prompts", "Add readers", "Your note"],
       "details": {
         "title": "Give your loop a name and rhythm",
         "description": "You can change these details later.",
