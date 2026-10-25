@@ -78,19 +78,34 @@ html[data-theme="dark"] {
 }
 
 * { -webkit-tap-highlight-color: transparent; }
-html { background: var(--page); color-scheme: light; scroll-behavior: smooth; }
+html {
+  background-color: var(--page);
+  background-image: linear-gradient(90deg, var(--check) 50%, transparent 0), linear-gradient(var(--check) 50%, transparent 0);
+  background-size: 32px 32px;
+  color-scheme: light;
+  scroll-behavior: smooth;
+}
 html[data-theme="dark"] { color-scheme: dark; }
 body {
   min-height: 100dvh;
   margin: 0;
-  background-color: var(--page);
-  background-image: linear-gradient(90deg, var(--check) 50%, transparent 0), linear-gradient(var(--check) 50%, transparent 0);
-  background-size: 32px 32px;
+  background: transparent;
+  isolation: isolate;
   color: var(--ink);
   font-family: var(--font-body);
   font-size: 16px;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
+}
+body::before {
+  content: "";
+  position: fixed;
+  z-index: -1;
+  inset: 0;
+  pointer-events: none;
+  background-color: var(--page);
+  background-image: linear-gradient(90deg, var(--check) 50%, transparent 0), linear-gradient(var(--check) 50%, transparent 0);
+  background-size: 32px 32px;
 }
 ::selection { background: color-mix(in oklab, var(--accent) 22%, transparent); }
 :focus-visible { outline: 3px solid color-mix(in srgb, var(--accent) 70%, transparent); outline-offset: 3px; border-radius: 5px; }
@@ -258,7 +273,9 @@ body:has(.reply-actionbar) .theme-switch { bottom: calc(92px + env(safe-area-ins
 @keyframes settle { from { opacity: 0; transform: scale(.96); } to { opacity: 1; transform: none; } }
 .settle { animation: settle 220ms cubic-bezier(.22,1,.36,1) both; }
 @media (max-width: 520px) {
-  body { background-size: 24px 24px; }
+  html, body::before { background-size: 24px 24px; }
+  .home-title { font-size: 44px !important; }
+  .home-card { padding: 24px; }
   .home-doodle { width: 56px; height: 56px; right: 18px; top: -22px; }
 }
 @media (prefers-reduced-motion: reduce) {
