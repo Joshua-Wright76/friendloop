@@ -13,13 +13,12 @@ export default async function NewLoopPage() {
   if (!user) redirect("/signin");
 
   return (
-    <main className="mx-auto w-full max-w-[680px] px-4 pb-16 pt-5 sm:px-6">
+    <main className="mx-auto w-full max-w-[760px] px-4 pb-10 pt-5 sm:px-6">
       <header className="stitched mb-8 flex items-center justify-between gap-3 border-b pb-4">
         <Brand href={null} />
         <Link href="/you" className="text-[13px] font-bold text-ink-soft hover:text-ink">← {copy.common.yourLoops}</Link>
       </header>
 
-      <h1 className="sr-only">{copy.newLoop.pageTitle}</h1>
       <NewLoopForm bank={bankByGroup()} />
     </main>
   );

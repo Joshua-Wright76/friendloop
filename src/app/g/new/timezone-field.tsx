@@ -1,6 +1,6 @@
 "use client";
 
-import { useSyncExternalStore } from "react";
+import { useEffect, useSyncExternalStore } from "react";
 import { Picker } from "@/components/picker";
 import { copy } from "@/lib/copy";
 
@@ -21,14 +21,30 @@ function subscribe() {
 }
 
 /** New loops start with the browser's zone; settings pass their saved zone. */
-export function TimezoneField({ name = "timezone", defaultValue }: { name?: string; defaultValue?: string }) {
+export function TimezoneField({
+  name = "timezone",
+  defaultValue,
+  value,
+  onValueChange,
+}: {
+  name?: string;
+  defaultValue?: string;
+  value?: string;
+  onValueChange?: (value: string) => void;
+}) {
   const detected = useSyncExternalStore(subscribe, browserTimezone, () => "");
   const initialValue = defaultValue ?? detected;
+  useEffect(() => {
+    if (value === undefined && initialValue) onValueChange?.(initialValue);
+  }, [initialValue, onValueChange, value]);
+
   return (
     <Picker
       key={initialValue || "timezone"}
       name={name}
-      defaultValue={initialValue}
+      defaultValue={initialValue || DEFAULT_TIMEZONE}
+      value={value}
+      onValueChange={onValueChange}
       options={OPTIONS}
       ariaLabel={copy.newLoop.timezone}
       searchable

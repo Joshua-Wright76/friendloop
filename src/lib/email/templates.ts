@@ -127,20 +127,24 @@ export function inviteEmail(input: {
   inviterName: string;
   url: string;
   isReader: boolean;
+  personalNote?: string;
 }): RenderedEmail {
-  const { groupName, inviterName, url, isReader } = input;
+  const { groupName, inviterName, url, isReader, personalNote } = input;
   const content = copy.emails.invite;
-  const values = { groupName, inviterName, url };
+  const values = { groupName, inviterName, url, personalNote: personalNote ?? "" };
+  const note = personalNote?.trim()
+    ? text(content.personalNote, values)
+    : null;
   return {
     subject: text(content.subject, values),
     html: layout({
       preheader: isReader ? content.preheaderReader : content.preheaderContributor,
       heading: text(content.heading, values),
-      body: [text(content.body, values), isReader ? content.readerBody : content.contributorBody],
+      body: [text(content.body, values), isReader ? content.readerBody : content.contributorBody, ...(note ? [note] : [])],
       cta: { label: isReader ? content.readerCta : content.contributorCta, url },
       footer: text(content.footer, values),
     }),
-    text: text(content.text, values),
+    text: `${text(content.text, values)}${note ? `\n\n${note}` : ""}`,
   };
 }
 

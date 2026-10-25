@@ -83,6 +83,7 @@ export async function inviteMembers(input: {
   participation: "contributor" | "reader";
   actorName: string;
   at: Date;
+  personalNote?: string;
 }): Promise<{ invited: number; skipped: number }> {
   const [group] = await db.select().from(groups).where(eq(groups.id, input.groupId)).limit(1);
   if (!group) throw new Error("not-found");
@@ -141,6 +142,7 @@ export async function inviteMembers(input: {
       groupName: group.name,
       inviterName: input.actorName,
       participation,
+      personalNote: input.personalNote,
     });
     invited += 1;
   }
@@ -183,6 +185,7 @@ async function sendInvite(input: {
   groupName: string;
   inviterName: string;
   participation: "contributor" | "reader";
+  personalNote?: string;
 }) {
   // A resend needs its own dedupe key, or the outbox would swallow it.
   const [{ sent }] = await db
@@ -195,6 +198,7 @@ async function sendInvite(input: {
     inviterName: input.inviterName,
     url: replyUrl(input.token),
     isReader: input.participation === "reader",
+    personalNote: input.personalNote,
   });
 
   await sendEmail({

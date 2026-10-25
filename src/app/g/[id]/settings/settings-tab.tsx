@@ -13,7 +13,7 @@ const WEEKDAYS = copy.common.weekdays;
 const HOURS = Array.from({ length: 24 }, (_, hour) => hour);
 const WEEKDAY_OPTIONS = WEEKDAYS.map((day, index) => ({ value: String(index), label: day }));
 const HOUR_OPTIONS = HOURS.map((hour) => ({ value: String(hour), label: `${String(hour).padStart(2, "0")}:00` }));
-const CADENCE_OPTIONS = [{ value: "1", label: copy.common.week }, { value: "2", label: copy.common.twoWeeks }];
+const CADENCE_OPTIONS = copy.newLoop.cadences;
 
 export default function SettingsTab({ notices }: { notices: { saved?: string; error?: string } }) {
   const { group, membership } = useLoopData();

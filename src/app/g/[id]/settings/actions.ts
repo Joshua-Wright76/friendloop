@@ -36,7 +36,9 @@ export async function settingsAction(formData: FormData) {
     timezone,
     promptWeekday: Number(formData.get("weekday") ?? 5),
     promptHour: Number(formData.get("hour") ?? 9),
-    cadenceWeeks: Number(formData.get("cadence") ?? 1) === 2 ? 2 : 1,
+    cadenceWeeks: [1, 2, 4, 13].includes(Number(formData.get("cadence") ?? 1))
+      ? Number(formData.get("cadence") ?? 1)
+      : 1,
     shareEnabled: formData.get("shareEnabled") === "on",
   });
 

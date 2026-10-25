@@ -42,3 +42,17 @@ test("every email uses Friendloop's stationery system and plain-text twin", () =
     assert.ok(email.text.length > 0);
   }
 });
+
+test("invite email includes a personal note without treating it as markup", () => {
+  const note = "A short hello <from me>";
+  const email = inviteEmail({
+    groupName: "Friday Loop",
+    inviterName: "Dev",
+    url: "https://friendloop.dev/invite",
+    isReader: true,
+    personalNote: note,
+  });
+
+  assert.ok(email.html.includes("A note from Dev: A short hello &lt;from me&gt;"));
+  assert.ok(email.text.includes(`A note from Dev: ${note}`));
+});
