@@ -42,6 +42,7 @@ export function ReplySheet({
     Object.fromEntries(questions.map((question) => [question.id, question.body.trim() ? "saved" : "empty"])),
   );
   const [sent, setSent] = useState(() => questions.some((question) => question.submitted));
+  const [animateSentStamp, setAnimateSentStamp] = useState(false);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -155,6 +156,7 @@ export function ReplySheet({
       }
 
       setSent(true);
+      setAnimateSentStamp(true);
       setStatus("saved");
     } catch {
       setError(copy.reply.genericError);
@@ -190,7 +192,7 @@ export function ReplySheet({
 
         {sent ? (
           <div role="status" className="notice settle mt-6 flex items-start gap-3 border bg-accent-soft px-4 py-3">
-            <svg viewBox="0 0 20 20" aria-hidden className="sent-stamp mt-0.5 h-4 w-4 flex-none fill-accent">
+            <svg viewBox="0 0 20 20" aria-hidden className={`sent-stamp mt-0.5 h-4 w-4 flex-none fill-accent${animateSentStamp ? " sent-stamp-animate" : ""}`}>
               <path d="M10 1.7a8.3 8.3 0 100 16.6 8.3 8.3 0 000-16.6zm3.8 6.4l-4.4 4.7a.9.9 0 01-1.3 0L6.2 10.9a.9.9 0 111.3-1.3l1.2 1.3 3.8-4a.9.9 0 011.3 1.2z" />
             </svg>
             <p className="text-[14px] leading-relaxed text-ink">

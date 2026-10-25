@@ -18,12 +18,14 @@ test("D6 · a submitted answer can still be rewritten, not duplicated", async ({
   await answer.fill("First version.");
   await page.getByRole("button", { name: "Send answers" }).click();
   await expect(page.getByRole("button", { name: "Save changes" })).toBeVisible();
+  await expect(page.locator(".sent-stamp")).toHaveClass(/sent-stamp-animate/);
 
   await answer.fill("Second version, with the good detail.");
   await page.getByRole("button", { name: "Save changes" }).click();
   await expect(page.getByText("Saved", { exact: true })).toBeVisible();
 
   await page.reload();
+  await expect(page.locator(".sent-stamp")).not.toHaveClass(/sent-stamp-animate/);
   await expect(page.getByLabel("What made you laugh this week?")).toHaveValue(
     "Second version, with the good detail.",
   );

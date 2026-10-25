@@ -15,6 +15,7 @@ test("theme switch responds to taps and persists across reloads", async ({ page 
 
   await page.reload();
   await expect(root).toHaveAttribute("data-theme", "dark");
+  await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute("content", "#241a20");
 
   await page.getByRole("button", { name: /switch to light mode/ }).tap();
   await expect(root).toHaveAttribute("data-theme", "light");

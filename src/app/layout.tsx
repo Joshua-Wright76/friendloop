@@ -40,7 +40,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       <head>
         <script
           dangerouslySetInnerHTML={{
-            __html: `try{if(localStorage.getItem("friendloop-theme")==="dark")document.documentElement.dataset.theme="dark"}catch{}`,
+            __html: `try{if(localStorage.getItem("friendloop-theme")==="dark"){document.documentElement.dataset.theme="dark";document.querySelector('meta[name="theme-color"]')?.setAttribute("content","#241a20")}}catch{}`,
           }}
         />
       </head>
