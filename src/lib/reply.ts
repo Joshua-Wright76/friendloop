@@ -1,8 +1,10 @@
-import { and, asc, desc, eq, inArray, isNull, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull } from "drizzle-orm";
 import { db } from "@/db";
 import { groups, issueQuestions, issues, memberships, replies } from "@/db/schema";
 import { getNow } from "./clock";
 import { copy } from "./copy.ts";
+import { deleteStoredPhoto } from "./photo-storage";
+import { replyHasContentCondition } from "./reply-query";
 
 /** How long an unopened invitation stays good. */
 export const INVITE_DAYS = 14;
@@ -59,7 +61,13 @@ export type WriteResult =
   | { ok: true; savedAt: string }
   | { ok: false; status: 403 | 404 | 409; error: string };
 
-type Gate = { ok: true; context: Extract<TokenContext, { state: "ok" }> } | { ok: false; result: WriteResult };
+export type PhotoWriteResult =
+  | { ok: true; savedAt: string; photoUrl: string }
+  | { ok: false; status: 403 | 404 | 409; error: string };
+
+type Gate =
+  | { ok: true; context: Extract<TokenContext, { state: "ok" }> }
+  | { ok: false; result: Extract<WriteResult, { ok: false }> };
 
 async function ensureWritable(token: string): Promise<Gate> {
   const context = await resolveToken(token);
@@ -77,6 +85,187 @@ async function ensureWritable(token: string): Promise<Gate> {
     return { ok: false, result: { ok: false, status: 403, error: copy.reply.errors.reader } };
   }
   return { ok: true, context };
+}
+
+type WritableContext = Omit<Extract<TokenContext, { state: "ok" }>, "issue"> & {
+  issue: NonNullable<Extract<TokenContext, { state: "ok" }>['issue']>;
+};
+
+type WritableQuestion =
+  | { ok: true; context: WritableContext; question: typeof issueQuestions.$inferSelect }
+  | { ok: false; result: Extract<WriteResult, { ok: false }> };
+
+async function ensureWritableQuestion(token: string, issueQuestionId: string): Promise<WritableQuestion> {
+  const gate = await ensureWritable(token);
+  if (!gate.ok) return gate;
+
+  const { context } = gate;
+  if (!context.issue) {
+    return { ok: false, result: { ok: false, status: 409, error: copy.reply.errors.nothingOpen } };
+  }
+
+  const [question] = await db
+    .select()
+    .from(issueQuestions)
+    .where(and(eq(issueQuestions.id, issueQuestionId), eq(issueQuestions.issueId, context.issue.id)))
+    .limit(1);
+  if (!question) {
+    return { ok: false, result: { ok: false, status: 409, error: copy.reply.errors.wrongQuestion } };
+  }
+
+  return { ok: true, context: { ...context, issue: context.issue }, question };
+}
+
+/** Check the bearer token and question before accepting or storing a photo. */
+export async function authorizeQuestionForReply(
+  token: string,
+  issueQuestionId: string,
+): Promise<{ ok: true } | Extract<WriteResult, { ok: false }>> {
+  const gate = await ensureWritableQuestion(token, issueQuestionId);
+  return gate.ok ? { ok: true } : gate.result;
+}
+
+/** Delete a stored photo only after no reply row points at it. */
+export async function deletePhotoIfUnreferenced(photoUrl: string): Promise<void> {
+  const [reference] = await db
+    .select({ issueQuestionId: replies.issueQuestionId })
+    .from(replies)
+    .where(eq(replies.photoUrl, photoUrl))
+    .limit(1);
+  if (!reference) await deleteStoredPhoto(photoUrl);
+}
+
+/** Check whether the signed Blob completion callback has saved an uploaded photo. */
+export async function photoSavedFor(input: {
+  token: string;
+  issueQuestionId: string;
+  photoUrl: string;
+}): Promise<{ ok: true; saved: boolean } | Extract<WriteResult, { ok: false }>> {
+  const gate = await ensureWritableQuestion(input.token, input.issueQuestionId);
+  if (!gate.ok) return gate.result;
+
+  const [reply] = await db
+    .select({ photoUrl: replies.photoUrl })
+    .from(replies)
+    .where(
+      and(
+        eq(replies.issueId, gate.context.issue.id),
+        eq(replies.issueQuestionId, gate.question.id),
+        eq(replies.membershipId, gate.context.membership.id),
+      ),
+    )
+    .limit(1);
+  return { ok: true, saved: reply?.photoUrl === input.photoUrl };
+}
+
+/** Save a photo without changing the existing text answer. */
+export async function savePhotoFor(input: {
+  token: string;
+  issueQuestionId: string;
+  photoUrl: string;
+}): Promise<PhotoWriteResult> {
+  const gate = await ensureWritableQuestion(input.token, input.issueQuestionId);
+  if (!gate.ok) return gate.result;
+
+  const { context, question } = gate;
+  const photoOwners = await db
+    .select({ issueId: replies.issueId, issueQuestionId: replies.issueQuestionId, membershipId: replies.membershipId })
+    .from(replies)
+    .where(eq(replies.photoUrl, input.photoUrl));
+  if (photoOwners.some((owner) =>
+    owner.issueId !== context.issue.id ||
+    owner.issueQuestionId !== question.id ||
+    owner.membershipId !== context.membership.id
+  )) {
+    return { ok: false, status: 409, error: copy.reply.errors.photoUploadFailed };
+  }
+
+  const at = await getNow();
+  const afterDelivery = context.issue.status === "delivered" || at > context.issue.deliversAt;
+  const [existing] = await db.transaction(async (tx) => {
+    const [previous] = await tx
+      .select({ photoUrl: replies.photoUrl })
+      .from(replies)
+      .where(
+        and(
+          eq(replies.issueId, context.issue.id),
+          eq(replies.issueQuestionId, question.id),
+          eq(replies.membershipId, context.membership.id),
+        ),
+      )
+      .limit(1);
+
+    await tx
+      .insert(replies)
+      .values({
+        issueId: context.issue.id,
+        issueQuestionId: question.id,
+        membershipId: context.membership.id,
+        body: "",
+        photoUrl: input.photoUrl,
+        status: "draft",
+        addedAfterDelivery: afterDelivery,
+      })
+      .onConflictDoUpdate({
+        target: [replies.issueId, replies.issueQuestionId, replies.membershipId],
+        set: { photoUrl: input.photoUrl, updatedAt: at, addedAfterDelivery: afterDelivery },
+      });
+
+    if (!context.membership.acceptedAt) {
+      await tx.update(memberships).set({ acceptedAt: at }).where(eq(memberships.id, context.membership.id));
+    }
+    return [previous] as const;
+  });
+
+  if (existing?.photoUrl && existing.photoUrl !== input.photoUrl) {
+    await deletePhotoIfUnreferenced(existing.photoUrl).catch((error: unknown) => {
+      console.error("Unable to remove replaced reply photo", error);
+    });
+  }
+
+  return { ok: true, savedAt: at.toISOString(), photoUrl: input.photoUrl };
+}
+
+/** Remove a photo while leaving the text and submission state alone. */
+export async function removePhotoFor(input: {
+  token: string;
+  issueQuestionId: string;
+}): Promise<WriteResult> {
+  const gate = await ensureWritableQuestion(input.token, input.issueQuestionId);
+  if (!gate.ok) return gate.result;
+
+  const { context, question } = gate;
+  const [existing] = await db
+    .select({ photoUrl: replies.photoUrl })
+    .from(replies)
+    .where(
+      and(
+        eq(replies.issueId, context.issue.id),
+        eq(replies.issueQuestionId, question.id),
+        eq(replies.membershipId, context.membership.id),
+      ),
+    )
+    .limit(1);
+
+  const at = await getNow();
+  if (!existing?.photoUrl) return { ok: true, savedAt: at.toISOString() };
+
+  await db
+    .update(replies)
+    .set({ photoUrl: null, updatedAt: at })
+    .where(
+      and(
+        eq(replies.issueId, context.issue.id),
+        eq(replies.issueQuestionId, question.id),
+        eq(replies.membershipId, context.membership.id),
+        eq(replies.photoUrl, existing.photoUrl),
+      ),
+    );
+
+  await deletePhotoIfUnreferenced(existing.photoUrl).catch((error: unknown) => {
+    console.error("Unable to remove reply photo", error);
+  });
+  return { ok: true, savedAt: at.toISOString() };
 }
 
 /** Autosave one answer. Creates the row, or updates it in place. */
@@ -139,7 +328,7 @@ export async function submitFor(token: string): Promise<WriteResult> {
       and(
         eq(replies.issueId, context.issue.id),
         eq(replies.membershipId, context.membership.id),
-        sql`${replies.body} <> ''`,
+        replyHasContentCondition(),
       ),
     );
 
@@ -181,6 +370,7 @@ export async function sheetFor(token: string) {
         id: question.id,
         text: question.text,
         body: reply?.body ?? "",
+        photoUrl: reply?.photoUrl ?? null,
         submitted: reply?.status === "submitted",
       };
     }),

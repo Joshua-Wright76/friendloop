@@ -47,7 +47,7 @@ Vercel → Project → Settings → Environment Variables.
 | `AUTH_SECRET` | `openssl rand -base64 32` — signs session cookies |
 | `NEXT_PUBLIC_APP_URL` | `http://localhost:3000` locally; your domain in prod |
 | `CRON_SECRET` | `openssl rand -hex 32` — protects the sweep endpoint |
-| `BLOB_READ_WRITE_TOKEN` | (optional) Vercel → Storage → Blob |
+| `BLOB_READ_WRITE_TOKEN` | Required for production photo uploads. Vercel → Storage → Blob |
 | `TEST_DATABASE_URL` | a throwaway Postgres for e2e (Neon branch or local container) |
 
 ## Environments

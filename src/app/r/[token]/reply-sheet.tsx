@@ -1,16 +1,25 @@
 "use client";
 
+/* eslint-disable @next/next/no-img-element -- Uploaded photos use local URLs in development and Blob URLs in production. */
+
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Deadline } from "@/lib/schedule";
 import { Cherries, Tape } from "@/components/stationery";
 import { copy, text } from "@/lib/copy";
-import { createSerialDraftWriter, postReply } from "@/lib/reply-client";
+import { MAX_PHOTO_BYTES, PHOTO_ACCEPT } from "@/lib/photo-validation";
+import {
+  createSerialDraftWriter,
+  postReply,
+  removeReplyPhoto,
+  uploadReplyPhoto,
+} from "@/lib/reply-client";
 
 export type SheetQuestion = {
   id: string;
   index: number;
   text: string;
   body: string;
+  photoUrl: string | null;
   submitted: boolean;
 };
 
@@ -25,6 +34,7 @@ type Props = {
 
 type SaveStatus = "idle" | "saving" | "saved" | "error";
 type QuestionSaveStatus = "empty" | "saving" | "saved" | "error";
+type PhotoStatus = "idle" | "uploading" | "saved" | "removing" | "removed" | "uploadError" | "removeError";
 
 export function ReplySheet({
   token,
@@ -41,6 +51,15 @@ export function ReplySheet({
   const [questionStatuses, setQuestionStatuses] = useState<Record<string, QuestionSaveStatus>>(() =>
     Object.fromEntries(questions.map((question) => [question.id, question.body.trim() ? "saved" : "empty"])),
   );
+  const [photoUrls, setPhotoUrls] = useState<Record<string, string | null>>(() =>
+    Object.fromEntries(questions.map((question) => [question.id, question.photoUrl])),
+  );
+  const [photoPreviews, setPhotoPreviews] = useState<Record<string, string | null>>({});
+  const [photoStates, setPhotoStates] = useState<Record<string, PhotoStatus>>(() =>
+    Object.fromEntries(questions.map((question) => [question.id, "idle"])),
+  );
+  const [photoErrors, setPhotoErrors] = useState<Record<string, string | null>>({});
+  const [retryablePhotos, setRetryablePhotos] = useState<Record<string, boolean>>({});
   const [sent, setSent] = useState(() => questions.some((question) => question.submitted));
   const [animateSentStamp, setAnimateSentStamp] = useState(false);
   const [sending, setSending] = useState(false);
@@ -49,6 +68,9 @@ export function ReplySheet({
   const timers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
   const revisions = useRef(new Map<string, number>());
   const fields = useRef(new Map<string, HTMLTextAreaElement>());
+  const photoFiles = useRef(new Map<string, File>());
+  const photoObjectUrls = useRef(new Map<string, string>());
+  const photoLocks = useRef(new Set<string>());
 
   const total = questions.length;
   const writeDraft = useMemo(
@@ -60,8 +82,14 @@ export function ReplySheet({
     [token],
   );
   const answered = useMemo(
-    () => Object.values(bodies).filter((body) => body.trim().length > 0).length,
-    [bodies],
+    () => questions.filter((question) =>
+      (bodies[question.id] ?? "").trim().length > 0 || Boolean(photoUrls[question.id]),
+    ).length,
+    [bodies, photoUrls, questions],
+  );
+  const photoBusy = useMemo(
+    () => Object.values(photoStates).some((state) => state === "uploading" || state === "removing"),
+    [photoStates],
   );
   const status: SaveStatus = useMemo(() => {
     const states = Object.values(questionStatuses);
@@ -79,10 +107,115 @@ export function ReplySheet({
     };
   }, []);
 
+  useEffect(() => () => {
+    for (const objectUrl of photoObjectUrls.current.values()) URL.revokeObjectURL(objectUrl);
+    photoObjectUrls.current.clear();
+  }, []);
+
   const autosize = useCallback((element: HTMLTextAreaElement) => {
     element.style.height = "auto";
     element.style.height = `${Math.max(element.scrollHeight, 72)}px`;
   }, []);
+
+  const clearPhotoPreview = useCallback((questionId: string) => {
+    const objectUrl = photoObjectUrls.current.get(questionId);
+    if (objectUrl) URL.revokeObjectURL(objectUrl);
+    photoObjectUrls.current.delete(questionId);
+    setPhotoPreviews((current) => ({ ...current, [questionId]: null }));
+  }, []);
+
+  const uploadPhoto = useCallback(async (questionId: string, file: File) => {
+    if (photoLocks.current.has(questionId)) return;
+    photoLocks.current.add(questionId);
+    setPhotoStates((current) => ({ ...current, [questionId]: "uploading" }));
+    setPhotoErrors((current) => ({ ...current, [questionId]: null }));
+
+    const result = await uploadReplyPhoto(
+      token,
+      questionId,
+      file,
+      copy.reply.errors.photoUploadFailed,
+    );
+    photoLocks.current.delete(questionId);
+
+    if (result.ok) {
+      setPhotoUrls((current) => ({ ...current, [questionId]: result.photoUrl }));
+      photoFiles.current.delete(questionId);
+      setRetryablePhotos((current) => ({ ...current, [questionId]: false }));
+      setPhotoStates((current) => ({ ...current, [questionId]: "saved" }));
+      setPhotoErrors((current) => ({ ...current, [questionId]: null }));
+    } else {
+      setPhotoStates((current) => ({ ...current, [questionId]: "uploadError" }));
+      setPhotoErrors((current) => ({ ...current, [questionId]: result.error }));
+    }
+    clearPhotoPreview(questionId);
+  }, [clearPhotoPreview, token]);
+
+  const selectPhoto = useCallback((questionId: string, file: File) => {
+    const supportedTypes = PHOTO_ACCEPT.split(",");
+    const error = file.size > MAX_PHOTO_BYTES
+      ? copy.reply.errors.photoTooLarge
+      : file.type && !supportedTypes.includes(file.type)
+        ? copy.reply.errors.invalidPhoto
+        : null;
+
+    if (error) {
+      photoFiles.current.delete(questionId);
+      setRetryablePhotos((current) => ({ ...current, [questionId]: false }));
+      clearPhotoPreview(questionId);
+      setPhotoStates((current) => ({ ...current, [questionId]: "uploadError" }));
+      setPhotoErrors((current) => ({ ...current, [questionId]: error }));
+      return;
+    }
+
+    photoFiles.current.set(questionId, file);
+    setRetryablePhotos((current) => ({ ...current, [questionId]: true }));
+    const oldObjectUrl = photoObjectUrls.current.get(questionId);
+    if (oldObjectUrl) URL.revokeObjectURL(oldObjectUrl);
+    const objectUrl = URL.createObjectURL(file);
+    photoObjectUrls.current.set(questionId, objectUrl);
+    setPhotoPreviews((current) => ({ ...current, [questionId]: objectUrl }));
+    void uploadPhoto(questionId, file);
+  }, [clearPhotoPreview, uploadPhoto]);
+
+  const removePhoto = useCallback(async (questionId: string) => {
+    if (photoLocks.current.has(questionId)) return;
+    photoFiles.current.delete(questionId);
+    setRetryablePhotos((current) => ({ ...current, [questionId]: false }));
+    clearPhotoPreview(questionId);
+    setPhotoErrors((current) => ({ ...current, [questionId]: null }));
+
+    if (!photoUrls[questionId]) {
+      setPhotoStates((current) => ({ ...current, [questionId]: "removed" }));
+      return;
+    }
+
+    photoLocks.current.add(questionId);
+    setPhotoStates((current) => ({ ...current, [questionId]: "removing" }));
+    const result = await removeReplyPhoto(
+      token,
+      questionId,
+      copy.reply.errors.photoRemoveFailed,
+    );
+    photoLocks.current.delete(questionId);
+
+    if (result.ok) {
+      setPhotoUrls((current) => ({ ...current, [questionId]: null }));
+      setPhotoStates((current) => ({ ...current, [questionId]: "removed" }));
+    } else {
+      setPhotoStates((current) => ({ ...current, [questionId]: "removeError" }));
+      setPhotoErrors((current) => ({ ...current, [questionId]: result.error }));
+    }
+  }, [clearPhotoPreview, photoUrls, token]);
+
+  const retryPhoto = useCallback((questionId: string) => {
+    if (photoStates[questionId] === "uploadError") {
+      const file = photoFiles.current.get(questionId);
+      if (file) void uploadPhoto(questionId, file);
+    } else if (photoStates[questionId] === "removeError") {
+      void removePhoto(questionId);
+    }
+  }, [photoStates, removePhoto, uploadPhoto]);
 
   const persist = useCallback(
     async (questionId: string, body: string) => {
@@ -123,6 +256,7 @@ export function ReplySheet({
   );
 
   const onSend = useCallback(async () => {
+    if (photoLocks.current.size > 0) return;
     for (const timer of timers.current.values()) clearTimeout(timer);
     timers.current.clear();
     setSending(true);
@@ -204,7 +338,23 @@ export function ReplySheet({
         ) : null}
 
         <div className="mt-7 flex flex-col gap-6">
-          {questions.map((question, index) => (
+          {questions.map((question, index) => {
+            const photoState = photoStates[question.id] ?? "idle";
+            const photoUrl = photoUrls[question.id];
+            const preview = photoPreviews[question.id];
+            const photoBusyForCard = photoState === "uploading" || photoState === "removing";
+            const showRemove = Boolean(photoUrl || preview || photoState === "uploadError" || photoState === "removeError");
+            const photoStatusText = photoState === "uploading"
+              ? copy.reply.photoUploading
+              : photoState === "removing"
+                ? copy.reply.photoRemoving
+                : photoState === "saved"
+                  ? copy.reply.photoSaved
+                  : photoState === "removed"
+                    ? copy.reply.photoRemoved
+                    : photoErrors[question.id];
+
+            return (
             <section key={question.id} className="card paper ride-in block p-5 pt-7">
               <Tape tone={(["dots", "stripe", "mint", "check"] as const)[index % 4]} position={index % 2 ? "right" : "left"} />
               <div className="mb-3 flex items-start justify-between gap-3">
@@ -241,8 +391,74 @@ export function ReplySheet({
                 aria-label={question.text}
                 className="field lined-field mt-2"
               />
+
+              {(preview || photoUrl) ? (
+                <img
+                  src={preview ?? photoUrl ?? ""}
+                  alt={copy.reply.photoPreview}
+                  className="mt-4 max-h-[320px] w-full rounded-md border border-line object-cover"
+                />
+              ) : null}
+
+              <div className="mt-4 flex flex-wrap items-center gap-3">
+                <input
+                  id={`photo-${question.id}`}
+                  type="file"
+                  accept={PHOTO_ACCEPT}
+                  className="peer sr-only"
+                  disabled={sending || photoBusyForCard}
+                  aria-label={photoUrl ? copy.reply.replacePhoto : copy.reply.addPhoto}
+                  aria-describedby={`photo-help-${question.id}`}
+                  onChange={(event) => {
+                    const file = event.currentTarget.files?.[0];
+                    event.currentTarget.value = "";
+                    if (file) selectPhoto(question.id, file);
+                  }}
+                />
+                <label
+                  htmlFor={`photo-${question.id}`}
+                  className="btn btn-quiet min-h-11 px-4 text-[13px] peer-disabled:pointer-events-none peer-disabled:opacity-45 peer-focus-visible:outline peer-focus-visible:outline-3 peer-focus-visible:outline-accent peer-focus-visible:outline-offset-2"
+                >
+                  {photoUrl ? copy.reply.replacePhoto : copy.reply.addPhoto}
+                </label>
+                {showRemove ? (
+                  <button
+                    type="button"
+                    className="btn btn-quiet min-h-11 px-4 text-[13px]"
+                    onClick={() => void removePhoto(question.id)}
+                    disabled={sending || photoBusyForCard}
+                  >
+                    {copy.reply.removePhoto}
+                  </button>
+                ) : null}
+                <span id={`photo-help-${question.id}`} className="text-[12px] leading-relaxed text-ink-muted">
+                  {copy.reply.photoFormats}
+                </span>
+              </div>
+              {photoStatusText ? (
+                <p
+                  id={`photo-status-${question.id}`}
+                  role={photoState === "uploadError" || photoState === "removeError" ? "alert" : "status"}
+                  aria-live={photoState === "uploadError" || photoState === "removeError" ? "assertive" : "polite"}
+                  aria-atomic="true"
+                  className={`mt-2 text-[13px] leading-relaxed ${photoState === "uploadError" || photoState === "removeError" ? "text-danger" : "text-ink-muted"}`}
+                >
+                  {photoStatusText}
+                </p>
+              ) : null}
+              {(photoState === "removeError" || (photoState === "uploadError" && retryablePhotos[question.id])) ? (
+                <button
+                  type="button"
+                  className="mt-1 min-h-11 text-[13px] font-bold text-ink underline underline-offset-2"
+                  onClick={() => retryPhoto(question.id)}
+                  disabled={sending || photoBusyForCard}
+                >
+                  {photoState === "removeError" ? copy.reply.retryPhotoRemove : copy.reply.retryPhotoUpload}
+                </button>
+              ) : null}
             </section>
-          ))}
+            );
+          })}
         </div>
 
         {error ? (
@@ -273,7 +489,7 @@ export function ReplySheet({
           <button
             type="button"
             onClick={onSend}
-            disabled={sending || (!sent && answered === 0)}
+            disabled={sending || photoBusy || (!sent && answered === 0)}
             className="btn btn-primary"
           >
             {sending ? copy.reply.sending : sent ? copy.reply.saveChanges : copy.reply.sendAnswers}

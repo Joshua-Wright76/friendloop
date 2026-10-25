@@ -88,6 +88,7 @@ export default async function ReplyPage({ params }: { params: Promise<{ token: s
         index: index + 1,
         text: question.text,
         body: question.body,
+        photoUrl: question.photoUrl,
         submitted: question.submitted,
       }))}
     />

@@ -20,6 +20,7 @@
     "db:seed": "node scripts/seed-dev.mjs"
   },
   "dependencies": {
+    "@vercel/blob": "^2.8.2",
     "drizzle-orm": "^0.45.4",
     "next": "16.4.2",
     "postgres": "^3.4.9",

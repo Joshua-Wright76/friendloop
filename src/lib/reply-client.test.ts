@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { createSerialDraftWriter, postReply } from "./reply-client.ts";
+import { createSerialDraftWriter, postReply, removeReplyPhoto, uploadReplyPhoto } from "./reply-client.ts";
 
 test("postReply turns network and response parsing exceptions into failed results", async () => {
   const networkFailure = await postReply("token", {}, "Could not save", async () => {
@@ -13,6 +13,50 @@ test("postReply turns network and response parsing exceptions into failed result
     json: async () => { throw new Error("invalid json"); },
   }) as unknown as Response);
   assert.deepEqual(parseFailure, { ok: false, error: "Could not save" });
+});
+
+test("photo upload sends multipart form data and returns the stored URL", async () => {
+  const file = new File([Uint8Array.from([0xff, 0xd8, 0xff])], "ignored-name.jpg", { type: "image/jpeg" });
+  let capturedUrl = "";
+  let capturedMethod = "";
+  let capturedBody!: FormData;
+
+  const result = await uploadReplyPhoto("reply-token", "question-id", file, "Could not upload", async (input, init) => {
+    capturedUrl = String(input);
+    capturedMethod = init?.method ?? "";
+    capturedBody = init?.body as FormData;
+    return {
+      ok: true,
+      json: async () => ({ ok: true, savedAt: "now", photoUrl: "http://localhost:3000/uploads/photo.jpg" }),
+    } as Response;
+  });
+
+  assert.deepEqual(result, {
+    ok: true,
+    savedAt: "now",
+    photoUrl: "http://localhost:3000/uploads/photo.jpg",
+  });
+  assert.equal(capturedUrl, "/api/reply/reply-token/photo");
+  assert.equal(capturedMethod, "POST");
+  assert.equal(capturedBody.get("issueQuestionId"), "question-id");
+  assert.equal((capturedBody.get("photo") as File).name, "ignored-name.jpg");
+});
+
+test("photo removal uses DELETE and reports server errors", async () => {
+  let capturedMethod = "";
+  let capturedBody = "";
+  const result = await removeReplyPhoto("reply-token", "question-id", "Could not remove", async (_input, init) => {
+    capturedMethod = init?.method ?? "";
+    capturedBody = init?.body as string;
+    return {
+      ok: false,
+      json: async () => ({ error: "That question isn't in this round." }),
+    } as Response;
+  });
+
+  assert.deepEqual(result, { ok: false, error: "That question isn't in this round." });
+  assert.equal(capturedMethod, "DELETE");
+  assert.deepEqual(JSON.parse(capturedBody), { issueQuestionId: "question-id" });
 });
 
 test("draft writes for one question are serialized so the latest body is written last", async () => {
