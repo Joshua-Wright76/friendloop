@@ -37,7 +37,7 @@ export function ReplySheet({
   const [bodies, setBodies] = useState<Record<string, string>>(() =>
     Object.fromEntries(questions.map((question) => [question.id, question.body])),
   );
-  const [status, setStatus] = useState<SaveStatus>("idle");
+  const [submitFailed, setSubmitFailed] = useState(false);
   const [questionStatuses, setQuestionStatuses] = useState<Record<string, QuestionSaveStatus>>(() =>
     Object.fromEntries(questions.map((question) => [question.id, question.body.trim() ? "saved" : "empty"])),
   );
@@ -63,6 +63,13 @@ export function ReplySheet({
     () => Object.values(bodies).filter((body) => body.trim().length > 0).length,
     [bodies],
   );
+  const status: SaveStatus = useMemo(() => {
+    const states = Object.values(questionStatuses);
+    if (submitFailed || states.includes("error")) return "error";
+    if (states.includes("saving")) return "saving";
+    if (states.includes("saved")) return "saved";
+    return "idle";
+  }, [questionStatuses, submitFailed]);
 
   useEffect(() => {
     const pending = timers.current;
@@ -82,16 +89,13 @@ export function ReplySheet({
       const revision = revisions.current.get(questionId) ?? 0;
       const nonEmpty = body.trim().length > 0;
       setQuestionStatuses((current) => ({ ...current, [questionId]: "saving" }));
-      if (nonEmpty) setStatus("saving");
       const result = await writeDraft(questionId, body);
       if ((revisions.current.get(questionId) ?? 0) !== revision) return;
       if (result.ok) {
         setQuestionStatuses((current) => ({ ...current, [questionId]: nonEmpty ? "saved" : "empty" }));
-        setStatus("saved");
         setError(null);
       } else {
         setQuestionStatuses((current) => ({ ...current, [questionId]: "error" }));
-        setStatus("error");
         setError(result.error);
       }
     },
@@ -122,6 +126,7 @@ export function ReplySheet({
     for (const timer of timers.current.values()) clearTimeout(timer);
     timers.current.clear();
     setSending(true);
+    setSubmitFailed(false);
     setError(null);
 
     try {
@@ -135,7 +140,7 @@ export function ReplySheet({
           if ((revisions.current.get(question.id) ?? 0) === revision) {
             setQuestionStatuses((current) => ({ ...current, [question.id]: "error" }));
           }
-          setStatus("error");
+          setSubmitFailed(true);
           setError(result.error);
           fields.current.get(question.id)?.focus();
           return;
@@ -149,16 +154,15 @@ export function ReplySheet({
 
       if (!result.ok) {
         setError(result.error);
-        setStatus("error");
+        setSubmitFailed(true);
         return;
       }
 
       setSent(true);
       setAnimateSentStamp(true);
-      setStatus("saved");
     } catch {
       setError(copy.reply.genericError);
-      setStatus("error");
+      setSubmitFailed(true);
     } finally {
       setSending(false);
     }

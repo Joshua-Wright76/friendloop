@@ -80,6 +80,12 @@ html[data-theme="dark"] {
 * { -webkit-tap-highlight-color: transparent; }
 * { transition-property: border-color, box-shadow; transition-duration: 220ms; transition-timing-function: ease; }
 ::view-transition-group(root) { animation-duration: 220ms; animation-timing-function: ease; }
+::view-transition-old(root) { z-index: 2; mix-blend-mode: normal; animation: theme-wipe 220ms ease both; }
+::view-transition-new(root) { z-index: 1; animation: none; }
+@keyframes theme-wipe {
+  from { clip-path: inset(0); opacity: 1; }
+  to { clip-path: inset(0 0 100% 0); opacity: 1; }
+}
 html {
   background-color: var(--page);
   background-image: linear-gradient(90deg, var(--check) 50%, transparent 0), linear-gradient(var(--check) 50%, transparent 0);
