@@ -202,7 +202,7 @@
       },
       "readers": {
         "title": "Add readers",
-        "groupDescription": "Invite your people to answer and read, or make someone a reader only.",
+        "groupDescription": "Invite your people to answer and read each issue.",
         "fromYouDescription": "Your readers will receive the issues you write. These invitations are always reader-only.",
         "emailLabel": "Email addresses",
         "emailPlaceholder": "Add an email address",

@@ -17,7 +17,6 @@ const HOUR_OPTIONS = HOURS.map((hour) => ({
 const CADENCE_OPTIONS = copy.newLoop.cadences;
 const VALID_EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-type Participation = "contributor" | "reader";
 type ModalKind = "name-ideas" | "question" | "section" | "preview" | null;
 type SectionPreset = (typeof copy.newLoop.wizard.sections.presets)[number];
 type CustomSection = { id: number; title: string; description: string };
@@ -107,7 +106,6 @@ function AccessibleDialog({
 export function NewLoopForm({ bank }: { bank: Array<{ group: string; questions: string[] }> }) {
   const [state, action, pending] = useActionState(createLoopAction, {} as CreateState);
   const [step, setStep] = useState(0);
-  const [participation, setParticipation] = useState<Participation>("contributor");
   const [name, setName] = useState("");
   const [cadence, setCadence] = useState("1");
   const [weekday, setWeekday] = useState("5");
@@ -211,7 +209,7 @@ export function NewLoopForm({ bank }: { bank: Array<{ group: string; questions: 
 
   function goNext() {
     setStepError("");
-    if (step === 1) {
+    if (step === 0) {
       if (name.trim().length < 2) {
         setStepError(copy.newLoop.errors.name);
         return;
@@ -221,7 +219,7 @@ export function NewLoopForm({ bank }: { bank: Array<{ group: string; questions: 
         return;
       }
     }
-    if (step === 4) {
+    if (step === 3) {
       if (emailDraft.trim() && !addEmails(emailDraft)) return;
       if (questions.length === 0) {
         setStepError(copy.newLoop.errors.noQuestions);
@@ -256,7 +254,7 @@ export function NewLoopForm({ bank }: { bank: Array<{ group: string; questions: 
       <input type="hidden" name="weekday" value={weekday} />
       <input type="hidden" name="hour" value={hour} />
       <input type="hidden" name="timezone" value={timezone} />
-      <input type="hidden" name="participation" value={participation} />
+      <input type="hidden" name="participation" value="contributor" />
       <input type="hidden" name="personalNote" value={personalNote} />
       {questions.map((question, index) => <input key={`${index}:${question}`} type="hidden" name="question" value={question} />)}
       {emails.map((email) => <input key={email} type="hidden" name="email" value={email} />)}
@@ -286,7 +284,7 @@ export function NewLoopForm({ bank }: { bank: Array<{ group: string; questions: 
       </div>
 
       <section className="wizard-step" aria-labelledby="wizard-step-heading">
-        {step === 1 ? (
+        {step === 0 ? (
           <>
             <h1 ref={stepHeading} tabIndex={-1} id="wizard-step-heading" className="wizard-heading">{copy.newLoop.wizard.details.title}</h1>
             <p className="wizard-description">{copy.newLoop.wizard.details.description}</p>
@@ -351,7 +349,7 @@ export function NewLoopForm({ bank }: { bank: Array<{ group: string; questions: 
           </>
         ) : null}
 
-        {step === 2 ? (
+        {step === 1 ? (
           <>
             <div className="flex flex-wrap items-end justify-between gap-2">
               <div>
@@ -413,7 +411,7 @@ export function NewLoopForm({ bank }: { bank: Array<{ group: string; questions: 
           </>
         ) : null}
 
-        {step === 3 ? (
+        {step === 2 ? (
           <>
             <h1 ref={stepHeading} tabIndex={-1} id="wizard-step-heading" className="wizard-heading">{copy.newLoop.wizard.sections.title}</h1>
             <p className="wizard-description">{copy.newLoop.wizard.sections.description}</p>
@@ -475,37 +473,15 @@ export function NewLoopForm({ bank }: { bank: Array<{ group: string; questions: 
           </>
         ) : null}
 
-        {step === 4 ? (
+        {step === 3 ? (
           <>
             <h1 ref={stepHeading} tabIndex={-1} id="wizard-step-heading" className="wizard-heading">{copy.newLoop.wizard.readers.title}</h1>
             <p className="wizard-description">{copy.newLoop.wizard.readers.groupDescription}</p>
-            <fieldset className="mt-5">
-                <legend className="mb-2 text-[14px] font-bold text-ink">{copy.newLoop.wizard.readers.roleLabel}</legend>
-                <div className="grid gap-2 sm:grid-cols-2">
-                  <button
-                    type="button"
-                    aria-pressed={participation === "contributor"}
-                    onClick={() => setParticipation("contributor")}
-                    className={`wizard-role ${participation === "contributor" ? "wizard-role--selected" : ""}`}
-                  >
-                    <span className="wizard-role__title">{copy.newLoop.wizard.readers.contributor}</span>
-                    <span className="wizard-role__description">{copy.newLoop.wizard.readers.contributorDescription}</span>
-                  </button>
-                  <button
-                    type="button"
-                    aria-pressed={participation === "reader"}
-                    onClick={() => setParticipation("reader")}
-                    className={`wizard-role ${participation === "reader" ? "wizard-role--selected" : ""}`}
-                  >
-                    <span className="wizard-role__title">{copy.newLoop.wizard.readers.reader}</span>
-                    <span className="wizard-role__description">{copy.newLoop.wizard.readers.readerDescription}</span>
-                  </button>
-                </div>
-              </fieldset>
             <div className="mt-5">
               <label htmlFor="reader-emails" className="mb-2 block text-[14px] font-bold text-ink">{copy.newLoop.wizard.readers.emailLabel}</label>
+              <div className="flex items-start gap-3">
               <div
-                className={`field flex min-h-[52px] flex-wrap items-center gap-2 p-2 ${emailError ? "border-danger" : ""}`}
+                className={`field flex min-h-[52px] flex-1 flex-wrap items-center gap-2 p-2 ${emailError ? "border-danger" : ""}`}
                 onClick={(event) => event.currentTarget.querySelector("input")?.focus()}
               >
                 {emails.map((email) => (
@@ -536,9 +512,10 @@ export function NewLoopForm({ bank }: { bank: Array<{ group: string; questions: 
                   autoComplete="email"
                   className="min-w-[180px] flex-1 border-0 bg-transparent p-1 text-[14px] text-ink outline-none"
                 />
-                <button type="button" onClick={() => addEmails(emailDraft)} className="btn btn-quiet h-10 min-h-10 flex-none px-3 text-[13px]">
-                  {copy.newLoop.wizard.readers.addEmail}
-                </button>
+              </div>
+              <button type="button" onClick={() => addEmails(emailDraft)} className="btn btn-quiet h-[46px] min-h-[46px] flex-none px-4 text-[13px]">
+                {copy.newLoop.wizard.readers.addEmail}
+              </button>
               </div>
               {emailError ? <p id={errorId} role="alert" className="mt-2 text-[13px] leading-relaxed text-danger">{emailError}</p> : null}
               {emailNotice ? <p role="status" className="mt-2 text-[13px] leading-relaxed text-ink-soft">{emailNotice}</p> : null}
@@ -547,7 +524,7 @@ export function NewLoopForm({ bank }: { bank: Array<{ group: string; questions: 
           </>
         ) : null}
 
-        {step === 5 ? (
+        {step === 4 ? (
           <>
             <h1 ref={stepHeading} tabIndex={-1} id="wizard-step-heading" className="wizard-heading">{copy.newLoop.wizard.note.title}</h1>
             <p className="wizard-description">{copy.newLoop.wizard.note.description}</p>
