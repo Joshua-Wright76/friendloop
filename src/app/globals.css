@@ -404,4 +404,5 @@ body:has(.reply-actionbar) .theme-switch { bottom: calc(92px + env(safe-area-ins
 }
 @media (prefers-reduced-motion: reduce) {
   .wizard-progress__track > span { transition: none; }
+  .picker-popover, .picker-sheet { animation: none !important; }
 }

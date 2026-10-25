@@ -191,6 +191,7 @@
         "title": "Add a few prompts",
         "description": "Choose a prompt or write your own. Each one becomes a regular text question.",
         "custom": "Write a custom prompt",
+        "questionFormat": "{title}: {description}",
         "customTitle": "Write a prompt",
         "titleLabel": "Prompt title",
         "titlePlaceholder": "A little something",

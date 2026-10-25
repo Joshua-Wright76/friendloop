@@ -24,7 +24,7 @@ type SectionPreset = (typeof copy.newLoop.wizard.sections.presets)[number];
 type CustomSection = { id: number; title: string; description: string };
 
 function sectionQuestion(title: string, description: string): string {
-  return `${title}: ${description}`;
+  return text(copy.newLoop.wizard.sections.questionFormat, { title, description });
 }
 
 function IconClose() {
@@ -137,6 +137,7 @@ export function NewLoopForm({ bank }: { bank: Array<{ group: string; questions: 
   const nextQuestionId = useRef(0);
   const nextSectionId = useRef(0);
   const errorId = useId();
+  const stepHeading = useRef<HTMLHeadingElement>(null);
 
   const presets = copy.newLoop.wizard.sections.presets;
   const questions = [
@@ -151,9 +152,13 @@ export function NewLoopForm({ bank }: { bank: Array<{ group: string; questions: 
   const selectedCadence = CADENCE_OPTIONS.find((option) => option.value === cadence) ?? CADENCE_OPTIONS[0];
   const currentStepLabel = copy.newLoop.wizard.steps[step];
 
+  useEffect(() => {
+    stepHeading.current?.focus();
+  }, [step]);
+
   function changeMode(nextMode: Mode) {
     setMode(nextMode);
-    if (nextMode === "from_you") setParticipation("reader");
+    setParticipation(nextMode === "from_you" ? "reader" : "contributor");
   }
 
   function toggleQuestion(question: string) {
@@ -295,7 +300,7 @@ export function NewLoopForm({ bank }: { bank: Array<{ group: string; questions: 
       <section className="wizard-step" aria-labelledby="wizard-step-heading">
         {step === 0 ? (
           <>
-            <h1 id="wizard-step-heading" className="wizard-heading">{copy.newLoop.wizard.mode.title}</h1>
+            <h1 ref={stepHeading} tabIndex={-1} id="wizard-step-heading" className="wizard-heading">{copy.newLoop.wizard.mode.title}</h1>
             <p className="wizard-description">{copy.newLoop.wizard.mode.description}</p>
             <div className="mt-6 grid gap-3">
               <button
@@ -334,7 +339,7 @@ export function NewLoopForm({ bank }: { bank: Array<{ group: string; questions: 
 
         {step === 1 ? (
           <>
-            <h1 id="wizard-step-heading" className="wizard-heading">{copy.newLoop.wizard.details.title}</h1>
+            <h1 ref={stepHeading} tabIndex={-1} id="wizard-step-heading" className="wizard-heading">{copy.newLoop.wizard.details.title}</h1>
             <p className="wizard-description">{copy.newLoop.wizard.details.description}</p>
             <div className="card relative mt-6 p-5 pt-7 sm:p-6 sm:pt-8">
               <Tape tone="stripe" position="right" />
@@ -401,7 +406,7 @@ export function NewLoopForm({ bank }: { bank: Array<{ group: string; questions: 
           <>
             <div className="flex flex-wrap items-end justify-between gap-2">
               <div>
-                <h1 id="wizard-step-heading" className="wizard-heading">{copy.newLoop.wizard.questions.title}</h1>
+                <h1 ref={stepHeading} tabIndex={-1} id="wizard-step-heading" className="wizard-heading">{copy.newLoop.wizard.questions.title}</h1>
                 <p className="wizard-description">{copy.newLoop.wizard.questions.description}</p>
               </div>
               <span className="chip border bg-card px-3 py-1.5 text-[13px] font-bold text-ink-soft numeric">
@@ -461,7 +466,7 @@ export function NewLoopForm({ bank }: { bank: Array<{ group: string; questions: 
 
         {step === 3 ? (
           <>
-            <h1 id="wizard-step-heading" className="wizard-heading">{copy.newLoop.wizard.sections.title}</h1>
+            <h1 ref={stepHeading} tabIndex={-1} id="wizard-step-heading" className="wizard-heading">{copy.newLoop.wizard.sections.title}</h1>
             <p className="wizard-description">{copy.newLoop.wizard.sections.description}</p>
             <div className="mt-5 grid gap-2.5 sm:grid-cols-2">
               {presets.map((preset: SectionPreset) => {
@@ -523,7 +528,7 @@ export function NewLoopForm({ bank }: { bank: Array<{ group: string; questions: 
 
         {step === 4 ? (
           <>
-            <h1 id="wizard-step-heading" className="wizard-heading">{copy.newLoop.wizard.readers.title}</h1>
+            <h1 ref={stepHeading} tabIndex={-1} id="wizard-step-heading" className="wizard-heading">{copy.newLoop.wizard.readers.title}</h1>
             <p className="wizard-description">
               {mode === "from_you" ? copy.newLoop.wizard.readers.fromYouDescription : copy.newLoop.wizard.readers.groupDescription}
             </p>
@@ -599,7 +604,7 @@ export function NewLoopForm({ bank }: { bank: Array<{ group: string; questions: 
 
         {step === 5 ? (
           <>
-            <h1 id="wizard-step-heading" className="wizard-heading">{copy.newLoop.wizard.note.title}</h1>
+            <h1 ref={stepHeading} tabIndex={-1} id="wizard-step-heading" className="wizard-heading">{copy.newLoop.wizard.note.title}</h1>
             <p className="wizard-description">{copy.newLoop.wizard.note.description}</p>
             <div className="card relative mt-5 p-5 pt-7">
               <Tape tone="dots" />
