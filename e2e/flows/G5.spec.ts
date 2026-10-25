@@ -14,7 +14,8 @@ test("G5 · transferring ownership hands over the owner-only keys", async ({ pag
 
   await page.goto(`/g/${loop.groupId}/members`);
   const card = page.locator(".card").filter({ hasText: "heir@friendloop.test" });
-  await card.getByRole("button", { name: "Make owner" }).click();
+  await card.getByRole("button", { name: /Member type for/ }).click();
+  await card.getByRole("option", { name: "Owner", exact: true }).click();
   await expect(page.getByText(/the loop has a new owner/)).toBeVisible();
 
   const roles = await rows<{ email: string; access: string }>(

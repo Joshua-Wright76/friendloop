@@ -9,8 +9,6 @@ import { addAction, archiveAction, moveAction, skipNextAction } from "./actions"
 import { LoopNav } from "@/components/loop-nav";
 import { copy } from "@/lib/copy";
 
-export const instant = false;
-
 export default async function QuestionsPage({
   params,
   searchParams,
@@ -24,7 +22,7 @@ export default async function QuestionsPage({
   const { id } = await params;
   const notices = await searchParams;
 
-  const viewer = await viewerFor(id);
+  const viewer = await viewerFor(id, user);
   if (!viewer) notFound();
   const manages = viewer.membership.access !== "member";
 

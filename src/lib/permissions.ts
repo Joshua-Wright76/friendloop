@@ -17,8 +17,8 @@ export function atLeast(access: Access, required: Access): boolean {
 }
 
 /** The signed-in person's membership in one loop, or null. */
-export async function viewerFor(groupId: string): Promise<Viewer | null> {
-  const user = await currentUser();
+export async function viewerFor(groupId: string, signedInUser?: CurrentUser): Promise<Viewer | null> {
+  const user = signedInUser ?? await currentUser();
   if (!user) return null;
 
   const [membership] = await db

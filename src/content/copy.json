@@ -2,6 +2,7 @@
   "common": {
     "brand": "Friendloop",
     "skipToContent": "Skip to content",
+    "loading": "Loading…",
     "cherry": "🍒",
     "metadataTitle": "Friendloop",
     "metadataDescription": "A private newsletter for your friends",
@@ -17,10 +18,6 @@
       "owner": "Owner",
       "admin": "Admin",
       "member": "Member"
-    },
-    "participation": {
-      "contributor": "Writes",
-      "reader": "Reads"
     },
     "issueStatus": {
       "open": "open",
@@ -97,8 +94,7 @@
     "newLoop": "New loop",
     "emptyTitle": "A blank page, in a good way.",
     "emptyBody": "No loops yet. Start one, or wait for an invite",
-    "openLoop": "Open loop",
-    "footer": "Reading is open to everyone in a loop. Writing needs an invite."
+    "openLoop": "Open loop"
   },
   "newLoop": {
     "pageTitle": "New loop",
@@ -165,25 +161,19 @@
   "members": {
     "title": "People",
     "fromYouDescription": "In this loop you write and everyone else reads.",
-    "groupDescription": "Writers get the questions. Readers just get the issue.",
     "invitedNotice": "Invitations sent.",
     "resentNotice": "Invitation sent again.",
     "removedNotice": "They're out of the loop.",
     "transferredNotice": "You're now an admin! the loop has a new owner.",
     "you": "you",
     "invitePending": "invite not opened yet",
-    "makeReader": "Make a reader",
-    "makeWriter": "Make a writer",
-    "removeAdmin": "Remove admin",
-    "makeAdmin": "Make an admin",
+    "roleAriaLabel": "Member type for {name}",
     "resendInvite": "Resend invite",
-    "makeOwner": "Make owner",
     "remove": "Remove",
     "inviteTitle": "Invite people",
     "inviteDescription": "Put one address per line, and each will get a invite link",
     "invitePlaceholder": "jela@example.com\nscotty@example.com",
     "inviteAriaLabel": "Email addresses",
-    "inviteAsReaders": "Invite as readers",
     "sendInvitations": "Send invitations"
   },
   "questions": {

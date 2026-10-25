@@ -6,18 +6,10 @@ import { groups } from "@/db/schema";
 import { currentUser } from "@/lib/auth";
 import { membersOf } from "@/lib/manage";
 import { viewerFor } from "@/lib/permissions";
-import {
-  accessAction,
-  inviteAction,
-  participationAction,
-  removeAction,
-  resendAction,
-  transferAction,
-} from "./actions";
+import { inviteAction, removeAction, resendAction } from "./actions";
+import { MemberRolePicker } from "./member-role-picker";
 import { LoopNav } from "@/components/loop-nav";
 import { copy } from "@/lib/copy";
-
-export const instant = false;
 
 export default async function MembersPage({
   params,
@@ -32,16 +24,16 @@ export default async function MembersPage({
   const { id } = await params;
   const notices = await searchParams;
 
-  const viewer = await viewerFor(id);
+  const viewer = await viewerFor(id, user);
   if (!viewer) notFound();
   const manages = viewer.membership.access !== "member";
   const isOwner = viewer.membership.access === "owner";
 
-  const [group] = await db.select().from(groups).where(eq(groups.id, id)).limit(1);
+  const [[group], people] = await Promise.all([
+    db.select().from(groups).where(eq(groups.id, id)).limit(1),
+    membersOf(id),
+  ]);
   if (!group) notFound();
-
-  const people = await membersOf(id);
-  const fromYou = group.mode === "from_you";
 
   return (
     <main className="mx-auto w-full max-w-[680px] px-4 pb-16 pt-5 sm:px-6">
@@ -53,11 +45,6 @@ export default async function MembersPage({
       <LoopNav id={id} active="People" isOwner={isOwner} />
 
       <h1 className="text-[28px] font-semibold leading-tight tracking-[-0.025em] text-ink">{copy.members.title}</h1>
-      <p className="mt-1.5 text-[15px] leading-relaxed text-ink-soft">
-        {fromYou
-          ? copy.members.fromYouDescription
-          : copy.members.groupDescription}
-      </p>
 
       {notices.invited ? <Notice>{copy.members.invitedNotice}</Notice> : null}
       {notices.resent ? <Notice>{copy.members.resentNotice}</Notice> : null}
@@ -77,70 +64,44 @@ export default async function MembersPage({
                   </p>
                   <p className="truncate text-[13px] text-ink-muted">{person.email}</p>
                 </div>
-                <span className="flex-none rounded-full border border-line px-2.5 py-1 text-[12px] font-medium capitalize text-ink-soft">
-                  {copy.common.roles[person.access]}
-                </span>
+                {manages && person.access !== "owner" ? (
+                  <MemberRolePicker
+                    groupId={id}
+                    membershipId={person.id}
+                    memberName={person.name ?? person.email}
+                    current={person.access}
+                    canAssignOwner={isOwner}
+                  />
+                ) : (
+                  <span className="flex-none rounded-full border border-line px-2.5 py-1 text-[12px] font-medium capitalize text-ink-soft">
+                    {copy.common.roles[person.access]}
+                  </span>
+                )}
               </div>
 
-              <p className="mt-2 text-[13px] text-ink-soft">
-                {copy.common.participation[person.participation]}
-                {!person.acceptedAt ? ` · ${copy.members.invitePending}` : ""}
-              </p>
-
-              {manages && person.access !== "owner" ? (
-                <div className="mt-3 flex flex-wrap items-center gap-2">
-                  {!fromYou ? (
-                    <form action={participationAction}>
-                      <input type="hidden" name="groupId" value={id} />
-                      <input type="hidden" name="membershipId" value={person.id} />
-                      <input
-                        type="hidden"
-                        name="participation"
-                        value={person.participation === "contributor" ? "reader" : "contributor"}
-                      />
-                      <button type="submit" className="btn btn-quiet h-9 px-3 text-[13px]">
-                        {person.participation === "contributor" ? copy.members.makeReader : copy.members.makeWriter}
-                      </button>
-                    </form>
-                  ) : null}
-
-                  <form action={accessAction}>
-                    <input type="hidden" name="groupId" value={id} />
-                    <input type="hidden" name="membershipId" value={person.id} />
-                    <input type="hidden" name="access" value={person.access === "admin" ? "member" : "admin"} />
-                    <button type="submit" className="btn btn-quiet h-9 px-3 text-[13px]">
-                      {person.access === "admin" ? copy.members.removeAdmin : copy.members.makeAdmin}
-                    </button>
-                  </form>
-
-                  {!person.acceptedAt ? (
+              {!person.acceptedAt ? (
+                <div className="mt-2 flex flex-wrap items-center gap-2 text-[13px] text-ink-soft">
+                  <span>{copy.members.invitePending}</span>
+                  {manages ? (
                     <form action={resendAction}>
                       <input type="hidden" name="groupId" value={id} />
                       <input type="hidden" name="membershipId" value={person.id} />
-                      <button type="submit" className="btn btn-quiet h-9 px-3 text-[13px]">
+                      <button type="submit" className="inline-flex min-h-6 items-center px-1 text-[13px] font-medium text-ink-soft underline decoration-dashed underline-offset-4 hover:text-ink">
                         {copy.members.resendInvite}
                       </button>
                     </form>
                   ) : null}
-
-                  {isOwner ? (
-                    <form action={transferAction}>
-                      <input type="hidden" name="groupId" value={id} />
-                      <input type="hidden" name="membershipId" value={person.id} />
-                      <button type="submit" className="btn btn-quiet h-9 px-3 text-[13px]">
-                        {copy.members.makeOwner}
-                      </button>
-                    </form>
-                  ) : null}
-
-                  <form action={removeAction}>
-                    <input type="hidden" name="groupId" value={id} />
-                    <input type="hidden" name="membershipId" value={person.id} />
-                    <button type="submit" className="btn btn-quiet h-9 px-3 text-[13px] text-danger">
-                      {copy.members.remove}
-                    </button>
-                  </form>
                 </div>
+              ) : null}
+
+              {manages && person.access !== "owner" ? (
+                <form action={removeAction} className="mt-3 flex justify-end">
+                  <input type="hidden" name="groupId" value={id} />
+                  <input type="hidden" name="membershipId" value={person.id} />
+                  <button type="submit" className="btn btn-danger h-9 min-h-9 px-3 text-[13px]">
+                    {copy.members.remove}
+                  </button>
+                </form>
               ) : null}
             </div>
           );
@@ -162,12 +123,6 @@ export default async function MembersPage({
             aria-label={copy.members.inviteAriaLabel}
             className="field mt-3"
           />
-          {!fromYou ? (
-            <label className="mt-3 flex items-center gap-2 text-[14px] text-ink-soft">
-              <input type="checkbox" name="participation" value="reader" className="accent-[var(--accent)]" />
-              {copy.members.inviteAsReaders}
-            </label>
-          ) : null}
           <button type="submit" className="btn btn-primary mt-4">
             {copy.members.sendInvitations}
           </button>

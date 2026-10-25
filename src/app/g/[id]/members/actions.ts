@@ -24,7 +24,7 @@ export async function inviteAction(formData: FormData) {
   const viewer = await requireManager(groupId);
 
   const emails = String(formData.get("emails") ?? "");
-  const participation = formData.get("participation") === "reader" ? "reader" : "contributor";
+  const participation = "contributor";
 
   await inviteMembers({
     groupId,
@@ -81,6 +81,25 @@ export async function accessAction(formData: FormData) {
   await requireManager(groupId);
 
   await setAccess(groupId, membershipId, access);
+  revalidatePath(`/g/${groupId}/members`);
+  redirect(`/g/${groupId}/members`);
+}
+
+export async function roleAction(formData: FormData) {
+  const groupId = String(formData.get("groupId") ?? "");
+  const membershipId = String(formData.get("membershipId") ?? "");
+  const access = String(formData.get("access") ?? "member");
+  const viewer = await viewerFor(groupId);
+  if (!viewer || viewer.membership.access === "member") redirect(`/g/${groupId}`);
+
+  if (access === "owner") {
+    if (viewer.membership.access !== "owner") redirect(`/g/${groupId}`);
+    await transferOwnership(groupId, viewer.membership.id, membershipId);
+    revalidatePath(`/g/${groupId}/members`);
+    redirect(`/g/${groupId}/members?transferred=1`);
+  }
+
+  await setAccess(groupId, membershipId, access === "admin" ? "admin" : "member");
   revalidatePath(`/g/${groupId}/members`);
   redirect(`/g/${groupId}/members`);
 }

@@ -57,9 +57,6 @@ export default async function YouPage() {
                 <span className="rounded-full border border-line-strong bg-page px-2.5 py-1 text-[12px] font-bold capitalize text-ink-soft">
                   {copy.common.roles[loop.access]}
                 </span>
-                <span className="rounded-full border border-line-strong bg-page px-2.5 py-1 text-[12px] font-bold text-ink-soft">
-                  {copy.common.participation[loop.participation]}
-                </span>
               </span>
               <span className="mt-auto flex items-center justify-between pt-6 text-[14px] font-extrabold text-ink-soft">
                 {copy.you.openLoop} <span aria-hidden="true">→</span>
@@ -69,9 +66,6 @@ export default async function YouPage() {
         </div>
       )}
 
-      <p className="mt-8 border-t border-dashed border-line-strong pt-5 text-[13px] leading-relaxed text-ink-muted">
-        {copy.you.footer}
-      </p>
     </main>
   );
 }

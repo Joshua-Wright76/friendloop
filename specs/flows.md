@@ -81,8 +81,6 @@ Status: `todo` (not built) · `done` (built and covered).
 
 | ID | Flow | Acceptance criteria | Status |
 | --- | --- | --- | --- |
-| G1 | Invite as reader | A reader is invited, receives the issue, is never prompted to reply, and their reply link shows the issue without a form. | done |
-| G2 | Switch participation | Flipping a member between contributor and reader changes whether the next issue prompts them, and never deletes existing replies. | done |
 | G3 | Promote to admin | Promoting a member to admin lets them manage questions and members, while the owner-only actions stay unavailable to them. | done |
 | G4 | Reader cannot reply | A direct POST to the reply endpoint from a reader is rejected with 403 and writes nothing. | done |
 | G5 | Transfer ownership | The owner transfers ownership, becomes an admin+contributor, and the new owner gains owner-only actions while the old owner loses them. | done |
@@ -90,4 +88,4 @@ Status: `todo` (not built) · `done` (built and covered).
 
 ---
 
-**41 flows.** A flow is only `done` when its spec passes locally and in CI.
+**39 flows.** A flow is only `done` when its spec passes locally and in CI.

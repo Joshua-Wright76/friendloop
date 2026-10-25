@@ -11,8 +11,6 @@ import { LoopNav } from "@/components/loop-nav";
 import { Picker } from "@/components/picker";
 import { copy } from "@/lib/copy";
 
-export const instant = false;
-
 const WEEKDAYS = copy.common.weekdays;
 const HOURS = Array.from({ length: 24 }, (_, hour) => hour);
 const WEEKDAY_OPTIONS = WEEKDAYS.map((day, index) => ({ value: String(index), label: day }));
@@ -32,7 +30,7 @@ export default async function SettingsPage({
   const { id } = await params;
   const notices = await searchParams;
 
-  const viewer = await viewerFor(id);
+  const viewer = await viewerFor(id, user);
   if (!viewer) notFound();
 
   const [group] = await db.select().from(groups).where(eq(groups.id, id)).limit(1);

@@ -9,8 +9,6 @@ import { url } from "@/lib/urls";
 import { LoopNav } from "@/components/loop-nav";
 import { copy, text } from "@/lib/copy";
 
-export const instant = false;
-
 export default async function IssuesPage({
   params,
   searchParams,
@@ -24,28 +22,29 @@ export default async function IssuesPage({
   const { id } = await params;
   const notices = await searchParams;
 
-  const viewer = await viewerFor(id);
+  const viewer = await viewerFor(id, user);
   if (!viewer) notFound();
 
-  const [group] = await db.select().from(groups).where(eq(groups.id, id)).limit(1);
+  const [[group], rounds] = await Promise.all([
+    db.select().from(groups).where(eq(groups.id, id)).limit(1),
+    db
+      .select({
+        id: issues.id,
+        number: issues.number,
+        status: issues.status,
+        opensAt: issues.opensAt,
+        deliversAt: issues.deliversAt,
+        shareToken: issues.shareToken,
+        answers: sql<number>`(
+          select count(*)::int from ${replies}
+          where ${replies.issueId} = ${issues.id} and ${replies.status} = 'submitted'
+        )`,
+      })
+      .from(issues)
+      .where(eq(issues.groupId, id))
+      .orderBy(desc(issues.number)),
+  ]);
   if (!group) notFound();
-
-  const rounds = await db
-    .select({
-      id: issues.id,
-      number: issues.number,
-      status: issues.status,
-      opensAt: issues.opensAt,
-      deliversAt: issues.deliversAt,
-      shareToken: issues.shareToken,
-      answers: sql<number>`(
-        select count(*)::int from ${replies}
-        where ${replies.issueId} = ${issues.id} and ${replies.status} = 'submitted'
-      )`,
-    })
-    .from(issues)
-    .where(eq(issues.groupId, id))
-    .orderBy(desc(issues.number));
 
   const open = rounds.find((round) => round.status === "open");
 

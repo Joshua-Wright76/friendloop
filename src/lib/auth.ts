@@ -1,4 +1,5 @@
 import { cookies } from "next/headers";
+import { cacheLife, cacheTag, updateTag } from "next/cache";
 import { and, eq, gt, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { magicLinks, memberships, sessions, users } from "@/db/schema";
@@ -107,8 +108,11 @@ export async function createSession(userId: string, at: Date): Promise<void> {
 }
 
 export async function currentUser(): Promise<CurrentUser | null> {
+  "use cache: private";
+  cacheLife({ stale: 300 });
   const jar = await cookies();
   const token = jar.get(SESSION_COOKIE)?.value;
+  cacheTag(token ? `session:${token}` : "session:anonymous");
   if (!token) return null;
 
   const at = await getNow();
@@ -127,6 +131,7 @@ export async function signOut(): Promise<void> {
   const token = jar.get(SESSION_COOKIE)?.value;
   if (token) {
     await db.delete(sessions).where(eq(sessions.tokenHash, hashToken(token)));
+    updateTag(`session:${token}`);
   }
   jar.delete(SESSION_COOKIE);
 }

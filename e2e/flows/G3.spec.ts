@@ -14,7 +14,9 @@ test("G3 · an admin manages people but never reaches owner settings", async ({ 
 
   await page.goto(`/g/${loop.groupId}/members`);
   const card = page.locator(".card").filter({ hasText: "admin@friendloop.test" });
-  await card.getByRole("button", { name: "Make an admin" }).click();
+  await card.getByRole("button", { name: /Member type for/ }).click();
+  await card.getByRole("option", { name: "Admin", exact: true }).click();
+  await expect(card.getByRole("button", { name: /Member type for.*Admin/ })).toBeVisible();
 
   const [row] = await rows<{ access: string }>("select access from memberships where id = $1", [member.id]);
   expect(row.access).toBe("admin");

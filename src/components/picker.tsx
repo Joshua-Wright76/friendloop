@@ -11,15 +11,17 @@ type Props = {
   options: PickerOption[];
   ariaLabel: string;
   searchable?: boolean;
+  onValueChange?: (value: string) => void;
 };
 
-export function Picker({ name, defaultValue, options, ariaLabel, searchable = false }: Props) {
+export function Picker({ name, defaultValue, options, ariaLabel, searchable = false, onValueChange }: Props) {
   const [value, setValue] = useState(defaultValue);
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);
   const root = useRef<HTMLDivElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
+  const hiddenInput = useRef<HTMLInputElement>(null);
   const search = useRef<HTMLInputElement>(null);
   const optionElements = useRef(new Map<number, HTMLButtonElement>());
   const activeRef = useRef(active);
@@ -74,6 +76,8 @@ export function Picker({ name, defaultValue, options, ariaLabel, searchable = fa
 
   const choose = (option: PickerOption) => {
     setValue(option.value);
+    if (hiddenInput.current) hiddenInput.current.value = option.value;
+    onValueChange?.(option.value);
     closePicker();
   };
 
@@ -109,7 +113,7 @@ export function Picker({ name, defaultValue, options, ariaLabel, searchable = fa
         }
       }}
     >
-      <input type="hidden" name={name} value={value} suppressHydrationWarning />
+      <input ref={hiddenInput} type="hidden" name={name} value={value} suppressHydrationWarning />
       <button
         ref={trigger}
         type="button"

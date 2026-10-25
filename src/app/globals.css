@@ -162,6 +162,12 @@ select.field { cursor: pointer; }
 .picker-option[aria-selected="true"] { color: var(--accent-ink); font-weight: 800; }
 .picker-check { width: 17px; height: 17px; flex: none; color: var(--accent); }
 .picker-empty { margin: 0; padding: 14px 10px; color: var(--ink-muted); font-size: 13px; text-align: center; }
+.member-role-form { flex: none; }
+.member-role-picker { width: 122px; }
+.member-role-picker .picker-trigger { min-height: 32px; padding: 4px 9px 4px 11px; border-color: var(--line-strong); border-radius: 999px; background: var(--page); font-size: 12px; font-weight: 600; }
+.member-role-picker .picker-chevron { width: 14px; height: 14px; }
+.member-role-picker .picker-popover { left: auto; right: 0; min-width: 140px; }
+.member-role-picker .picker-option { min-height: 36px; font-size: 13px; }
 @keyframes picker-in { from { transform: translateY(-4px) scale(.99); } to { transform: none; } }
 
 .btn {

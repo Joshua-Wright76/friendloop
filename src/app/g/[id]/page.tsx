@@ -11,8 +11,6 @@ import { Cherries, Tape } from "@/components/stationery";
 import { LoopNav } from "@/components/loop-nav";
 import { copy, text } from "@/lib/copy";
 
-export const instant = false;
-
 export default async function LoopPage({
   params,
   searchParams,
@@ -56,12 +54,23 @@ export default async function LoopPage({
   );
   const nextLabel = describeDeadline(next, group.timezone, user.timezone);
 
-  const [openIssue] = await db
-    .select()
-    .from(issues)
-    .where(and(eq(issues.groupId, group.id), eq(issues.status, "open")))
-    .orderBy(desc(issues.number))
-    .limit(1);
+  const [[openIssue], pool, people] = await Promise.all([
+    db
+      .select()
+      .from(issues)
+      .where(and(eq(issues.groupId, group.id), eq(issues.status, "open")))
+      .orderBy(desc(issues.number))
+      .limit(1),
+    db
+      .select({ id: questions.id, text: questions.text })
+      .from(questions)
+      .where(and(eq(questions.groupId, group.id), eq(questions.active, true), isNull(questions.archivedAt)))
+      .orderBy(asc(questions.position)),
+    db
+      .select({ id: memberships.id, participation: memberships.participation })
+      .from(memberships)
+      .where(and(eq(memberships.groupId, group.id), isNull(memberships.revokedAt))),
+  ]);
 
   const progress = openIssue
     ? await db
@@ -70,17 +79,6 @@ export default async function LoopPage({
         .innerJoin(memberships, eq(memberships.id, replies.membershipId))
         .where(and(eq(replies.issueId, openIssue.id), eq(replies.status, "submitted")))
     : [];
-
-  const pool = await db
-    .select({ id: questions.id, text: questions.text })
-    .from(questions)
-    .where(and(eq(questions.groupId, group.id), eq(questions.active, true), isNull(questions.archivedAt)))
-    .orderBy(asc(questions.position));
-
-  const people = await db
-    .select({ id: memberships.id, participation: memberships.participation })
-    .from(memberships)
-    .where(and(eq(memberships.groupId, group.id), isNull(memberships.revokedAt)));
 
   const writers = people.filter((person) => person.participation === "contributor").length;
 
