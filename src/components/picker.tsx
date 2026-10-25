@@ -8,6 +8,7 @@ export type PickerOption = { value: string; label: string };
 type Props = {
   name: string;
   defaultValue: string;
+  value?: string;
   options: PickerOption[];
   ariaLabel: string;
   searchable?: boolean;
@@ -15,8 +16,9 @@ type Props = {
   disabled?: boolean;
 };
 
-export function Picker({ name, defaultValue, options, ariaLabel, searchable = false, onValueChange, disabled = false }: Props) {
-  const [value, setValue] = useState(defaultValue);
+export function Picker({ name, defaultValue, value: controlledValue, options, ariaLabel, searchable = false, onValueChange, disabled = false }: Props) {
+  const [uncontrolledValue, setUncontrolledValue] = useState(defaultValue);
+  const value = controlledValue ?? uncontrolledValue;
   const [open, setOpen] = useState(false);
   const [phoneLayout, setPhoneLayout] = useState(false);
   const [query, setQuery] = useState("");
@@ -110,7 +112,7 @@ export function Picker({ name, defaultValue, options, ariaLabel, searchable = fa
   };
 
   const choose = (option: PickerOption) => {
-    setValue(option.value);
+    if (controlledValue === undefined) setUncontrolledValue(option.value);
     if (hiddenInput.current) hiddenInput.current.value = option.value;
     onValueChange?.(option.value);
     closePicker();

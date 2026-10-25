@@ -66,11 +66,45 @@ test("WCAG AA · loop management, creation, and reply pages", async ({ page }) =
   const pickerSheet = page.getByRole("dialog", { name: "Timezone" });
   await expect(pickerSheet).toBeVisible();
   await audit(page, "/g/new?picker=phone", false);
-  await pickerSheet.getByRole("textbox", { name: "Search timezones…" }).fill("Tokyo");
+  const timezoneTrigger = page.getByRole("button", { name: /^Timezone:/ });
+  const closePicker = pickerSheet.getByRole("button", { name: "Close" });
+  const activeOption = pickerSheet.locator('[role="option"][aria-selected="true"]');
+  const searchBox = pickerSheet.getByRole("textbox", { name: "Search timezones…" });
+
+  // The sheet contains keyboard focus in both directions, including when the
+  // active option is the last focusable control.
+  await expect(searchBox).toBeFocused();
+  await page.keyboard.press("Shift+Tab");
+  await expect(closePicker).toBeFocused();
+  await page.keyboard.press("Shift+Tab");
+  await expect(activeOption).toBeFocused();
+  await page.keyboard.press("Tab");
+  await expect(closePicker).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(pickerSheet).toBeHidden();
+  await expect(timezoneTrigger).toBeFocused();
+
+  await timezoneTrigger.click();
+  await expect(pickerSheet).toBeVisible();
+  await closePicker.click();
+  await expect(pickerSheet).toBeHidden();
+  await expect(timezoneTrigger).toBeFocused();
+
+  await timezoneTrigger.click();
+  await expect(pickerSheet).toBeVisible();
+  await searchBox.fill("Tokyo");
   await pickerSheet.getByRole("option", { name: "Asia/Tokyo" }).click();
   await expect(page.locator('input[name="timezone"]')).toHaveValue("Asia/Tokyo");
   await expect(page.getByRole("button", { name: "Timezone: Asia/Tokyo" })).toBeVisible();
   await expect(pickerSheet).toBeHidden();
+  await expect(timezoneTrigger).toBeFocused();
+
+  // Updating a member role must preserve the trigger node and keyboard focus.
+  await page.goto(`/g/${loop.groupId}/members`);
+  const roleTrigger = page.getByRole("button", { name: /^Member type for .+:/ }).first();
+  await roleTrigger.click();
+  await page.getByRole("option", { name: "Admin" }).first().click();
+  await expect(roleTrigger).toBeFocused();
 });
 
 test("WCAG AA · delivered and shared issues", async ({ page }) => {

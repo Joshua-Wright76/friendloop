@@ -47,9 +47,9 @@ export function MemberRolePicker({ groupId, membershipId, memberName, current, c
     <div className="member-role-form">
       <div className="member-role-picker">
         <Picker
-          key={access}
           name="access"
           defaultValue={access}
+          value={access}
           options={options}
           ariaLabel={text(copy.members.roleAriaLabel, { name: memberName })}
           onValueChange={update}
