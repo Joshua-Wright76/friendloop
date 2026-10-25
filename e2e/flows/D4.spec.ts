@@ -21,6 +21,7 @@ test("D4 · typing is saved as a draft and survives a reload", async ({ page }) 
 
   const answer = page.getByLabel("What made you laugh this week?");
   await answer.fill("The dog, the baguette, the whole thing.");
+  await expect(page.getByText("Saved", { exact: true })).toBeVisible();
   await expect(page.getByText("Draft saved")).toBeVisible();
 
   await page.reload();

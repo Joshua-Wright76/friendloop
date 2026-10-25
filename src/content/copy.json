@@ -258,6 +258,12 @@
     "saving": "Saving…",
     "saved": "Saved",
     "draftSaved": "Draft saved",
+    "retry": "Retry",
+    "questionStates": {
+      "saving": "Saving…",
+      "saved": "Saved",
+      "error": "Not saved"
+    },
     "notSaved": "Not saved. check your connection",
     "privacy": "{displayName}, only the people in {loopName} will read this.",
     "sentState": "Sent",

@@ -288,3 +288,21 @@ body:has(.reply-actionbar) .theme-switch { bottom: calc(92px + env(safe-area-ins
   html { scroll-behavior: auto; }
   *, *::before, *::after { animation-duration: .001ms !important; transition-duration: .001ms !important; }
 }
+
+@keyframes reaction-select {
+  0% { transform: scale(1); }
+  55% { transform: scale(1.14); }
+  100% { transform: scale(1); }
+}
+
+@keyframes reaction-count-change {
+  0% { transform: translateY(2px); opacity: .55; }
+  100% { transform: translateY(0); opacity: 1; }
+}
+
+.reaction-selected { display: inline-block; animation: reaction-select 180ms ease-out; }
+.reaction-count { display: inline-block; animation: reaction-count-change 160ms ease-out; font-variant-numeric: tabular-nums; }
+
+@media (prefers-reduced-motion: reduce) {
+  .reaction-selected, .reaction-count { animation: none; }
+}

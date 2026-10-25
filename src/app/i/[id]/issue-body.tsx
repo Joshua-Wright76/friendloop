@@ -144,15 +144,15 @@ function AnswerCard({
                 });
               })
             }
-            className={`flex h-8 items-center gap-1.5 rounded-full border px-2.5 text-[13px] transition-colors disabled:opacity-50 ${
+            className={`reaction-chip flex h-8 items-center gap-1.5 rounded-full border px-2.5 text-[13px] transition-[color,background-color,transform] disabled:opacity-50 ${
               reaction.mine
                 ? "border-accent-line bg-accent-soft text-accent-ink"
                 : "border-line text-ink-soft hover:bg-field"
             }`}
           >
-            <span aria-hidden>{reaction.emoji}</span>
+            <span className={reaction.mine ? "reaction-selected" : ""} aria-hidden>{reaction.emoji}</span>
             {reaction.count > 0 ? (
-              <span className="numeric">{reaction.count}</span>
+              <span key={reaction.count} className="reaction-count numeric">{reaction.count}</span>
             ) : null}
           </button>
         ))}

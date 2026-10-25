@@ -36,6 +36,7 @@ type Props = {
 };
 
 type SaveStatus = "idle" | "saving" | "saved" | "error";
+type QuestionSaveStatus = "empty" | "saving" | "saved" | "error";
 
 export function ReplySheet({
   token,
@@ -49,11 +50,15 @@ export function ReplySheet({
     Object.fromEntries(questions.map((question) => [question.id, question.body])),
   );
   const [status, setStatus] = useState<SaveStatus>("idle");
+  const [questionStatuses, setQuestionStatuses] = useState<Record<string, QuestionSaveStatus>>(() =>
+    Object.fromEntries(questions.map((question) => [question.id, question.body.trim() ? "saved" : "empty"])),
+  );
   const [sent, setSent] = useState(() => questions.some((question) => question.submitted));
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const timers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
+  const revisions = useRef(new Map<string, number>());
   const fields = useRef(new Map<string, HTMLTextAreaElement>());
 
   const total = questions.length;
@@ -77,12 +82,20 @@ export function ReplySheet({
 
   const persist = useCallback(
     async (questionId: string, body: string) => {
-      setStatus("saving");
+      const revision = revisions.current.get(questionId) ?? 0;
+      const nonEmpty = body.trim().length > 0;
+      setQuestionStatuses((current) => ({ ...current, [questionId]: nonEmpty ? "saving" : "empty" }));
+      if (nonEmpty) setStatus("saving");
       const result = await post(token, { action: "draft", issueQuestionId: questionId, body });
+      if ((revisions.current.get(questionId) ?? 0) !== revision) return;
       if (result.ok) {
-        setStatus("saved");
-        setError(null);
+        setQuestionStatuses((current) => ({ ...current, [questionId]: nonEmpty ? "saved" : "empty" }));
+        if (nonEmpty) {
+          setStatus("saved");
+          setError(null);
+        }
       } else {
+        setQuestionStatuses((current) => ({ ...current, [questionId]: "error" }));
         setStatus("error");
         setError(result.error);
       }
@@ -92,7 +105,9 @@ export function ReplySheet({
 
   const onChange = useCallback(
     (questionId: string, value: string, element: HTMLTextAreaElement) => {
+      revisions.current.set(questionId, (revisions.current.get(questionId) ?? 0) + 1);
       setBodies((current) => ({ ...current, [questionId]: value }));
+      setQuestionStatuses((current) => ({ ...current, [questionId]: value.trim() ? "saving" : "empty" }));
       autosize(element);
 
       const existing = timers.current.get(questionId);
@@ -117,7 +132,17 @@ export function ReplySheet({
     for (const question of questions) {
       const body = bodies[question.id] ?? "";
       if (body.trim().length > 0) {
-        await post(token, { action: "draft", issueQuestionId: question.id, body });
+        revisions.current.set(question.id, (revisions.current.get(question.id) ?? 0) + 1);
+        const result = await post(token, { action: "draft", issueQuestionId: question.id, body });
+        if (!result.ok) {
+          setQuestionStatuses((current) => ({ ...current, [question.id]: "error" }));
+          setStatus("error");
+          setError(result.error);
+          setSending(false);
+          fields.current.get(question.id)?.focus();
+          return;
+        }
+        setQuestionStatuses((current) => ({ ...current, [question.id]: "saved" }));
       }
     }
 
@@ -172,11 +197,23 @@ export function ReplySheet({
 
         <div className="mt-7 flex flex-col gap-6">
           {questions.map((question, index) => (
-            <label key={question.id} className="card paper ride-in block p-5 pt-7">
+            <section key={question.id} className="card paper ride-in block p-5 pt-7">
               <Tape tone={(["dots", "stripe", "mint", "check"] as const)[index % 4]} position={index % 2 ? "right" : "left"} />
-              <span className="mb-3 block font-display text-[25px] font-bold leading-[1.15] text-ink">
-                {question.text}
-              </span>
+              <div className="mb-3 flex items-start justify-between gap-3">
+                <label htmlFor={`reply-${question.id}`} className="font-display text-[25px] font-bold leading-[1.15] text-ink">
+                  {question.text}
+                </label>
+                <span className="flex flex-none items-center gap-2 text-[12px] text-ink-muted" aria-live="polite">
+                  {questionStatuses[question.id] === "saving" ? <span>{copy.reply.questionStates.saving}</span> : null}
+                  {questionStatuses[question.id] === "saved" ? <span>{copy.reply.questionStates.saved}</span> : null}
+                  {questionStatuses[question.id] === "error" ? <span>{copy.reply.questionStates.error}</span> : null}
+                  {questionStatuses[question.id] === "error" ? (
+                    <button type="button" className="min-h-11 underline underline-offset-2" onClick={() => void persist(question.id, bodies[question.id] ?? "")}>
+                      {copy.reply.retry}
+                    </button>
+                  ) : null}
+                </span>
+              </div>
 
               <textarea
                 ref={(element) => {
@@ -186,6 +223,7 @@ export function ReplySheet({
                   }
                 }}
                 value={bodies[question.id] ?? ""}
+                id={`reply-${question.id}`}
                 onChange={(event) => onChange(question.id, event.target.value, event.currentTarget)}
                 onFocus={(event) => autosize(event.currentTarget)}
                 rows={2}
@@ -194,7 +232,7 @@ export function ReplySheet({
                 aria-label={question.text}
                 className="field lined-field mt-2"
               />
-            </label>
+            </section>
           ))}
         </div>
 
