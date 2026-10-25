@@ -21,14 +21,14 @@ export async function addAction(formData: FormData) {
 
   const text = String(formData.get("text") ?? "");
   await addQuestion(groupId, text, await getNow());
-  revalidatePath(`/g/${groupId}/questions`);
+  revalidatePath(`/g/${groupId}`, "layout");
   redirect(`/g/${groupId}/questions?added=1`);
 }
 
 export async function reorderQuestions(groupId: string, questionId: string, targetIndex: number): Promise<Array<{ id: string; text: string; skipNext: boolean }>> {
   await requireManager(groupId);
   await reorderQuestion(groupId, questionId, targetIndex);
-  revalidatePath(`/g/${groupId}/questions`);
+  revalidatePath(`/g/${groupId}`, "layout");
   const after = await db.select({ id: questions.id, text: questions.text, skipNext: questions.skipNext }).from(questions)
     .where(and(eq(questions.groupId, groupId), isNull(questions.archivedAt))).orderBy(asc(questions.position));
   return after;
@@ -40,7 +40,7 @@ export async function archiveAction(formData: FormData) {
 
   const questionId = String(formData.get("questionId") ?? "");
   await archiveQuestion(groupId, questionId, await getNow());
-  revalidatePath(`/g/${groupId}/questions`);
+  revalidatePath(`/g/${groupId}`, "layout");
   redirect(`/g/${groupId}/questions?archived=1`);
 }
 
@@ -50,6 +50,6 @@ export async function skipNextAction(formData: FormData) {
 
   const questionId = String(formData.get("questionId") ?? "");
   await toggleSkipNext(groupId, questionId);
-  revalidatePath(`/g/${groupId}/questions`);
+  revalidatePath(`/g/${groupId}`, "layout");
   redirect(`/g/${groupId}/questions`);
 }

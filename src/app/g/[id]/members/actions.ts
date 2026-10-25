@@ -38,7 +38,7 @@ export async function inviteAction(formData: FormData) {
       at: await getNow(),
     });
 
-    revalidatePath(`/g/${groupId}/members`);
+    revalidatePath(`/g/${groupId}`, "layout");
     return { ok: true as const, invited: result.invited, skipped: result.skipped };
   } catch {
     return { ok: false as const, message: "failed" as const };
@@ -56,7 +56,7 @@ export async function resendAction(formData: FormData) {
     actorName: viewer.user.name ?? viewer.user.email.split("@")[0],
   });
 
-  revalidatePath(`/g/${groupId}/members`);
+  revalidatePath(`/g/${groupId}`, "layout");
   redirect(`/g/${groupId}/members?resent=1`);
 }
 
@@ -66,7 +66,7 @@ export async function removeAction(formData: FormData) {
   await requireManager(groupId);
 
   await removeMember(groupId, membershipId, await getNow());
-  revalidatePath(`/g/${groupId}/members`);
+  revalidatePath(`/g/${groupId}`, "layout");
   redirect(`/g/${groupId}/members?removed=1`);
 }
 
@@ -77,7 +77,7 @@ export async function participationAction(formData: FormData) {
   await requireManager(groupId);
 
   await setParticipation(groupId, membershipId, participation);
-  revalidatePath(`/g/${groupId}/members`);
+  revalidatePath(`/g/${groupId}`, "layout");
   redirect(`/g/${groupId}/members`);
 }
 
@@ -88,7 +88,7 @@ export async function accessAction(formData: FormData) {
   await requireManager(groupId);
 
   await setAccess(groupId, membershipId, access);
-  revalidatePath(`/g/${groupId}/members`);
+  revalidatePath(`/g/${groupId}`, "layout");
   redirect(`/g/${groupId}/members`);
 }
 
@@ -103,7 +103,7 @@ export async function roleAction(formData: FormData) {
     if (viewer.membership.access !== "owner") return { ok: false as const };
     try {
       await transferOwnership(groupId, viewer.membership.id, membershipId);
-      revalidatePath(`/g/${groupId}/members`);
+      revalidatePath(`/g/${groupId}`, "layout");
     } catch {
       return { ok: false as const };
     }
@@ -113,7 +113,7 @@ export async function roleAction(formData: FormData) {
   try {
     const updated = await setAccess(groupId, membershipId, access === "admin" ? "admin" : "member");
     if (!updated) return { ok: false as const };
-    revalidatePath(`/g/${groupId}/members`);
+    revalidatePath(`/g/${groupId}`, "layout");
     return { ok: true as const, access: access === "admin" ? "admin" as const : "member" as const };
   } catch {
     return { ok: false as const };
@@ -127,6 +127,6 @@ export async function transferAction(formData: FormData) {
   if (!viewer || viewer.membership.access !== "owner") redirect(`/g/${groupId}`);
 
   await transferOwnership(groupId, viewer.membership.id, membershipId);
-  revalidatePath(`/g/${groupId}/members`);
+  revalidatePath(`/g/${groupId}`, "layout");
   redirect(`/g/${groupId}/members?transferred=1`);
 }

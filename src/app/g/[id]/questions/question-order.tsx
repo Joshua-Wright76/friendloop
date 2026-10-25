@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { copy, text } from "@/lib/copy";
 import { itemsInPreferredOrder, moveItem } from "@/lib/question-order";
 import { reorderQuestions } from "./actions";
@@ -9,6 +10,7 @@ import { archiveAction, skipNextAction } from "./actions";
 type Question = { id: string; text: string; skipNext: boolean };
 
 export function QuestionOrder({ groupId, questions: initial }: { groupId: string; questions: Question[] }) {
+  const router = useRouter();
   const [orderedIds, setOrderedIds] = useState(() => initial.map((question) => question.id));
   const items = itemsInPreferredOrder(orderedIds, initial);
   const [movingId, setMovingId] = useState<string | null>(null);
@@ -34,6 +36,7 @@ export function QuestionOrder({ groupId, questions: initial }: { groupId: string
       try {
         const authoritative = await reorderQuestions(groupId, questionId, targetIndex);
         setOrderedIds(authoritative.map((item) => item.id));
+        router.refresh();
       } catch {
         setOrderedIds(previousOrder);
         setMessage(copy.questions.orderError);

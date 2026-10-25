@@ -1,12 +1,14 @@
 "use client";
 
 import { useState, useTransition, type FormEvent, type KeyboardEvent } from "react";
+import { useRouter } from "next/navigation";
 import { copy, text } from "@/lib/copy";
 import { inviteAction } from "./actions";
 
 const validEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export function InviteForm({ groupId }: { groupId: string }) {
+  const router = useRouter();
   const [emails, setEmails] = useState<string[]>([]);
   const [input, setInput] = useState("");
   const [message, setMessage] = useState("");
@@ -57,6 +59,7 @@ export function InviteForm({ groupId }: { groupId: string }) {
               ? text(copy.members.inviteSkipped, { count: result.skipped })
               : copy.members.inviteSuccess,
         );
+        router.refresh();
       }
     });
   }

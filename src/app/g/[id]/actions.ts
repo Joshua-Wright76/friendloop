@@ -13,7 +13,7 @@ export async function sendNowAction(formData: FormData) {
 
   const at = await getNow();
   const issue = await openIssueNow(groupId, at);
-  revalidatePath(`/g/${groupId}`);
+  revalidatePath(`/g/${groupId}`, "layout");
   if (issue) redirect(`/g/${groupId}/issues?opened=${issue.number}`);
   redirect(`/g/${groupId}/issues`);
 }
@@ -25,6 +25,6 @@ export async function pauseAction(formData: FormData) {
   if (!viewer || viewer.membership.access === "member") redirect(`/g/${groupId}`);
 
   await setPaused(groupId, paused, await getNow());
-  revalidatePath(`/g/${groupId}`);
+  revalidatePath(`/g/${groupId}`, "layout");
   redirect(`/g/${groupId}`);
 }

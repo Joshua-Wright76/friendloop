@@ -40,7 +40,7 @@ export async function settingsAction(formData: FormData) {
     shareEnabled: formData.get("shareEnabled") === "on",
   });
 
-  revalidatePath(`/g/${groupId}`);
+  revalidatePath(`/g/${groupId}`, "layout");
   redirect(`/g/${groupId}/settings?saved=1`);
 }
 
@@ -49,7 +49,7 @@ export async function pauseHereAction(formData: FormData) {
   await requireOwner(groupId);
 
   await setPaused(groupId, formData.get("paused") === "1", await getNow());
-  revalidatePath(`/g/${groupId}`);
+  revalidatePath(`/g/${groupId}`, "layout");
   redirect(`/g/${groupId}/settings`);
 }
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { Picker, type PickerOption } from "@/components/picker";
 import { copy, text } from "@/lib/copy";
 import { roleAction } from "./actions";
@@ -9,6 +10,7 @@ type Access = "member" | "admin" | "owner";
 type Props = { groupId: string; membershipId: string; memberName: string; current: "member" | "admin"; canAssignOwner: boolean };
 
 export function MemberRolePicker({ groupId, membershipId, memberName, current, canAssignOwner }: Props) {
+  const router = useRouter();
   const [access, setAccess] = useState<Access>(current);
   const [message, setMessage] = useState("");
   const [pending, startTransition] = useTransition();
@@ -35,6 +37,7 @@ export function MemberRolePicker({ groupId, membershipId, memberName, current, c
           setMessage(copy.members.roleError);
         } else {
           setMessage(copy.members.roleUpdated);
+          router.refresh();
         }
       } catch {
         setAccess(previous);
