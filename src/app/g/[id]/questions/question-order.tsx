@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useTransition } from "react";
-import { copy } from "@/lib/copy";
+import { copy, text } from "@/lib/copy";
 import { moveItem } from "@/lib/question-order";
 import { reorderQuestions } from "./actions";
 import { archiveAction, skipNextAction } from "./actions";
@@ -56,7 +56,7 @@ export function QuestionOrder({ groupId, questions: initial }: { groupId: string
                 <p className="text-[15px] font-medium leading-snug text-ink">{question.text}</p>
                 {question.skipNext ? <p className="mt-1 text-[12px] font-medium text-ink-muted">{copy.questions.skipNextNote}</p> : null}
               </div>
-              <button type="button" draggable disabled={pending} aria-label={copy.questions.moveTitle} title={copy.questions.dragHandle}
+              <button type="button" draggable disabled={pending} aria-label={text(copy.questions.moveItemLabel, { question: question.text })} title={copy.questions.dragHandle}
                 onDragStart={(event) => { draggedId.current = question.id; event.dataTransfer.effectAllowed = "move"; event.dataTransfer.setData("text/plain", question.id); }}
                 onDragEnd={() => { draggedId.current = null; }} className="question-drag-handle btn btn-quiet h-10 w-10 min-h-10 p-0" onClick={() => setMovingId(question.id)}>
                 <svg viewBox="0 0 20 20" aria-hidden="true" className="h-5 w-5"><path d="M7 4h.01M13 4h.01M7 10h.01M13 10h.01M7 16h.01M13 16h.01" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" /></svg>
@@ -73,13 +73,13 @@ export function QuestionOrder({ groupId, questions: initial }: { groupId: string
         ))}
       </ol>
       {message ? <p role="status" className="mt-3 text-[14px] text-danger">{message}</p> : null}
-      <dialog ref={dialog} onClose={() => setMovingId(null)} className="move-sheet">
+      <dialog ref={dialog} aria-labelledby="question-move-title" aria-describedby="question-move-description" onClose={() => setMovingId(null)} className="move-sheet">
         <div className="move-sheet-content">
           <div className="mb-3 flex items-center justify-between gap-3">
-            <h2 className="text-[20px] font-bold text-ink">{copy.questions.moveTitle}</h2>
+            <h2 id="question-move-title" className="text-[20px] font-bold text-ink">{copy.questions.moveTitle}</h2>
             <button type="button" onClick={() => dialog.current?.close()} className="btn btn-quiet h-10 px-3 text-[13px]">{copy.common.close}</button>
           </div>
-          <p className="mb-3 text-[14px] text-ink-soft">{copy.questions.moveDescription}</p>
+          <p id="question-move-description" className="mb-3 text-[14px] text-ink-soft">{copy.questions.moveDescription}</p>
           <div className="flex max-h-[55dvh] flex-col gap-2 overflow-y-auto">
             {items.map((question, index) => <button key={question.id} type="button" disabled={pending || question.id === movingId}
               onClick={() => movingId && void move(movingId, index)} className="btn btn-quiet min-h-12 w-full justify-start whitespace-normal px-4 py-3 text-left text-[14px]">

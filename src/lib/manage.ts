@@ -16,6 +16,7 @@ import { sendPromptEmails } from "./notify";
 import { replyUrl, url } from "./urls";
 import { deliveryInstant } from "./schedule";
 import { INVITE_DAYS } from "./reply";
+import { reorderIds } from "./question-order";
 
 export function normalizeEmail(value: string): string {
   return value.trim().toLowerCase();
@@ -278,20 +279,28 @@ export async function addQuestion(groupId: string, text: string, at: Date) {
   return row.id;
 }
 
-export async function moveQuestion(groupId: string, questionId: string, direction: -1 | 1) {
-  const rows = await db
-    .select({ id: questions.id, position: questions.position })
-    .from(questions)
-    .where(and(eq(questions.groupId, groupId), isNull(questions.archivedAt)))
-    .orderBy(questions.position);
+export async function reorderQuestion(groupId: string, questionId: string, targetIndex: number) {
+  return db.transaction(async (tx) => {
+    // Serialize reorder requests for this group so each one applies to the latest order.
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${groupId}, 0))`);
+    const rows = await tx
+      .select({ id: questions.id })
+      .from(questions)
+      .where(and(eq(questions.groupId, groupId), isNull(questions.archivedAt)))
+      .orderBy(questions.position);
+    const orderedIds = reorderIds(rows.map((row) => row.id), questionId, targetIndex);
+    if (orderedIds.every((id, index) => id === rows[index]?.id)) return false;
 
-  const index = rows.findIndex((row) => row.id === questionId);
-  const swapWith = index + direction;
-  if (index < 0 || swapWith < 0 || swapWith >= rows.length) return false;
-
-  await db.update(questions).set({ position: rows[swapWith].position }).where(eq(questions.id, rows[index].id));
-  await db.update(questions).set({ position: rows[index].position }).where(eq(questions.id, rows[swapWith].id));
-  return true;
+    const cases = orderedIds.map((id, position) => sql`when ${id} then ${position}`);
+    await tx.update(questions).set({
+      position: sql`case ${questions.id} ${sql.join(cases, sql` `)} else ${questions.position} end`,
+    }).where(and(
+      eq(questions.groupId, groupId),
+      isNull(questions.archivedAt),
+      inArray(questions.id, orderedIds),
+    ));
+    return true;
+  });
 }
 
 export async function archiveQuestion(groupId: string, questionId: string, at: Date) {

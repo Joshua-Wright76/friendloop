@@ -206,6 +206,7 @@
     "dragHandle": "Drag to reorder questions",
     "move": "Move",
     "moveTitle": "Move question",
+    "moveItemLabel": "Move question: {question}",
     "moveDescription": "Choose its new place in the list.",
     "orderError": "The order couldn't be saved. Your previous order has been restored.",
     "addTitle": "Add a question",
