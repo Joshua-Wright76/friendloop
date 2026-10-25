@@ -4,19 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Deadline } from "@/lib/schedule";
 import { Cherries, Tape } from "@/components/stationery";
 import { copy, text } from "@/lib/copy";
-
-type SaveResult = { ok: true; savedAt: string } | { ok: false; error: string };
-
-async function post(token: string, payload: Record<string, unknown>): Promise<SaveResult> {
-  const response = await fetch(`/api/reply/${token}`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify(payload),
-  });
-  const data = (await response.json()) as { ok?: boolean; savedAt?: string; error?: string };
-  if (!response.ok || !data.ok) return { ok: false, error: data.error ?? copy.reply.genericError };
-  return { ok: true, savedAt: data.savedAt ?? "" };
-}
+import { createSerialDraftWriter, postReply } from "@/lib/reply-client";
 
 export type SheetQuestion = {
   id: string;
@@ -62,6 +50,14 @@ export function ReplySheet({
   const fields = useRef(new Map<string, HTMLTextAreaElement>());
 
   const total = questions.length;
+  const writeDraft = useMemo(
+    () => createSerialDraftWriter((questionId, body) => postReply(
+      token,
+      { action: "draft", issueQuestionId: questionId, body },
+      copy.reply.genericError,
+    )),
+    [token],
+  );
   const answered = useMemo(
     () => Object.values(bodies).filter((body) => body.trim().length > 0).length,
     [bodies],
@@ -84,9 +80,9 @@ export function ReplySheet({
     async (questionId: string, body: string) => {
       const revision = revisions.current.get(questionId) ?? 0;
       const nonEmpty = body.trim().length > 0;
-      setQuestionStatuses((current) => ({ ...current, [questionId]: nonEmpty ? "saving" : "empty" }));
+      setQuestionStatuses((current) => ({ ...current, [questionId]: "saving" }));
       if (nonEmpty) setStatus("saving");
-      const result = await post(token, { action: "draft", issueQuestionId: questionId, body });
+      const result = await writeDraft(questionId, body);
       if ((revisions.current.get(questionId) ?? 0) !== revision) return;
       if (result.ok) {
         setQuestionStatuses((current) => ({ ...current, [questionId]: nonEmpty ? "saved" : "empty" }));
@@ -100,14 +96,14 @@ export function ReplySheet({
         setError(result.error);
       }
     },
-    [token],
+    [writeDraft],
   );
 
   const onChange = useCallback(
     (questionId: string, value: string, element: HTMLTextAreaElement) => {
       revisions.current.set(questionId, (revisions.current.get(questionId) ?? 0) + 1);
       setBodies((current) => ({ ...current, [questionId]: value }));
-      setQuestionStatuses((current) => ({ ...current, [questionId]: value.trim() ? "saving" : "empty" }));
+      setQuestionStatuses((current) => ({ ...current, [questionId]: "saving" }));
       autosize(element);
 
       const existing = timers.current.get(questionId);
@@ -129,36 +125,44 @@ export function ReplySheet({
     setSending(true);
     setError(null);
 
-    for (const question of questions) {
-      const body = bodies[question.id] ?? "";
-      if (body.trim().length > 0) {
-        revisions.current.set(question.id, (revisions.current.get(question.id) ?? 0) + 1);
-        const result = await post(token, { action: "draft", issueQuestionId: question.id, body });
+    try {
+      for (const question of questions) {
+        const body = bodies[question.id] ?? "";
+        const revision = (revisions.current.get(question.id) ?? 0) + 1;
+        revisions.current.set(question.id, revision);
+        setQuestionStatuses((current) => ({ ...current, [question.id]: "saving" }));
+        const result = await writeDraft(question.id, body);
         if (!result.ok) {
-          setQuestionStatuses((current) => ({ ...current, [question.id]: "error" }));
+          if ((revisions.current.get(question.id) ?? 0) === revision) {
+            setQuestionStatuses((current) => ({ ...current, [question.id]: "error" }));
+          }
           setStatus("error");
           setError(result.error);
-          setSending(false);
           fields.current.get(question.id)?.focus();
           return;
         }
-        setQuestionStatuses((current) => ({ ...current, [question.id]: "saved" }));
+        if ((revisions.current.get(question.id) ?? 0) === revision) {
+          setQuestionStatuses((current) => ({ ...current, [question.id]: body.trim() ? "saved" : "empty" }));
+        }
       }
-    }
 
-    const result = await post(token, { action: "submit" });
+      const result = await postReply(token, { action: "submit" }, copy.reply.genericError);
 
-    setSending(false);
+      if (!result.ok) {
+        setError(result.error);
+        setStatus("error");
+        return;
+      }
 
-    if (!result.ok) {
-      setError(result.error);
+      setSent(true);
+      setStatus("saved");
+    } catch {
+      setError(copy.reply.genericError);
       setStatus("error");
-      return;
+    } finally {
+      setSending(false);
     }
-
-    setSent(true);
-    setStatus("saved");
-  }, [bodies, questions, token]);
+  }, [bodies, questions, token, writeDraft]);
 
   return (
     <>
@@ -226,6 +230,7 @@ export function ReplySheet({
                 id={`reply-${question.id}`}
                 onChange={(event) => onChange(question.id, event.target.value, event.currentTarget)}
                 onFocus={(event) => autosize(event.currentTarget)}
+                disabled={sending}
                 rows={2}
                 maxLength={8000}
                 placeholder={copy.reply.placeholder}
