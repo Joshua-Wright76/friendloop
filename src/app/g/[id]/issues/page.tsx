@@ -95,7 +95,8 @@ export default async function IssuesPage({
         ))}
         {rounds.length === 0 ? (
           <div className="card p-5 text-[14px] text-ink-muted">
-            {copy.rounds.emptyPrefix} <strong>{copy.rounds.emptyAction}</strong> {copy.rounds.emptySuffix}
+            <p>{copy.rounds.empty}</p>
+            {viewer.membership.access !== "member" ? <Link href={`/g/${id}`} className="btn btn-primary mt-4 inline-flex">{copy.rounds.firstRoundAction}</Link> : null}
           </div>
         ) : null}
       </div>

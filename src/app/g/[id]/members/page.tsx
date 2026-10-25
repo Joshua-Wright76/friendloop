@@ -52,6 +52,14 @@ export default async function MembersPage({
       {notices.removed ? <Notice>{copy.members.removedNotice}</Notice> : null}
       {notices.transferred ? <Notice>{copy.members.transferredNotice}</Notice> : null}
 
+      {manages && people.length === 1 ? (
+        <div className="card mt-5 p-5">
+          <h2 className="text-[18px] font-bold text-ink">{copy.members.firstPersonTitle}</h2>
+          <p className="mt-1 text-[14px] leading-relaxed text-ink-soft">{copy.members.firstPersonBody}</p>
+          <a href="#invite-people" className="btn btn-primary mt-4 inline-flex">{copy.members.firstPersonAction}</a>
+        </div>
+      ) : null}
+
       <div className="mt-5 flex flex-col gap-2.5">
         {people.map((person) => {
           const isYou = person.id === viewer.membership.id;

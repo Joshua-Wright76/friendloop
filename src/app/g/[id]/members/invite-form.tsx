@@ -62,7 +62,7 @@ export function InviteForm({ groupId }: { groupId: string }) {
   }
 
   return (
-    <form onSubmit={submit} className="card mt-5 p-5">
+    <form onSubmit={submit} id="invite-people" className="card mt-5 p-5">
       <input type="hidden" name="groupId" value={groupId} />
       <h2 className="text-[16px] font-semibold tracking-[-0.01em] text-ink">{copy.members.inviteTitle}</h2>
       <p className="mt-1 text-[13px] leading-relaxed text-ink-soft">{copy.members.inviteDescription}</p>

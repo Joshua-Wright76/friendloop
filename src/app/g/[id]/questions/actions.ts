@@ -2,6 +2,9 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { and, asc, eq, isNull } from "drizzle-orm";
+import { db } from "@/db";
+import { questions } from "@/db/schema";
 import { getNow } from "@/lib/clock";
 import { addQuestion, archiveQuestion, moveQuestion, toggleSkipNext } from "@/lib/manage";
 import { viewerFor } from "@/lib/permissions";
@@ -22,15 +25,24 @@ export async function addAction(formData: FormData) {
   redirect(`/g/${groupId}/questions?added=1`);
 }
 
-export async function moveAction(formData: FormData) {
-  const groupId = String(formData.get("groupId") ?? "");
+export async function reorderQuestions(groupId: string, questionId: string, targetIndex: number): Promise<Array<{ id: string; text: string; skipNext: boolean }>> {
   await requireManager(groupId);
-
-  const questionId = String(formData.get("questionId") ?? "");
-  const direction = formData.get("direction") === "up" ? -1 : 1;
-  await moveQuestion(groupId, questionId, direction);
+  const before = await db.select({ id: questions.id }).from(questions)
+    .where(and(eq(questions.groupId, groupId), isNull(questions.archivedAt))).orderBy(asc(questions.position));
+  const start = before.findIndex((question) => question.id === questionId);
+  const destination = Number.isFinite(targetIndex)
+    ? Math.max(0, Math.min(Math.trunc(targetIndex), before.length - 1))
+    : start;
+  if (start >= 0) {
+    const direction = start < destination ? 1 : -1;
+    for (let index = start; index !== destination; index += direction) {
+      await moveQuestion(groupId, questionId, direction);
+    }
+  }
   revalidatePath(`/g/${groupId}/questions`);
-  redirect(`/g/${groupId}/questions`);
+  const after = await db.select({ id: questions.id, text: questions.text, skipNext: questions.skipNext }).from(questions)
+    .where(and(eq(questions.groupId, groupId), isNull(questions.archivedAt))).orderBy(asc(questions.position));
+  return after;
 }
 
 export async function archiveAction(formData: FormData) {
