@@ -33,8 +33,6 @@ export function MemberRolePicker({ groupId, membershipId, memberName, current, c
         if (!result.ok) {
           setAccess(previous);
           setMessage(copy.members.roleError);
-        } else if (nextAccess === "owner") {
-          setMessage(copy.members.transferredNotice);
         } else {
           setMessage(copy.members.roleUpdated);
         }

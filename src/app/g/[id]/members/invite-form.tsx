@@ -50,7 +50,13 @@ export function InviteForm({ groupId }: { groupId: string }) {
       if (!result.ok) setMessage(result.message === "invalid" ? copy.members.invalidEmails : copy.members.inviteFailed);
       else {
         setEmails([]);
-        setMessage(result.skipped ? text(copy.members.inviteSkipped, { count: result.skipped }) : copy.members.inviteSuccess);
+        setMessage(
+          result.invited > 0 && result.skipped > 0
+            ? text(copy.members.invitePartial, { invited: result.invited, skipped: result.skipped })
+            : result.skipped > 0
+              ? text(copy.members.inviteSkipped, { count: result.skipped })
+              : copy.members.inviteSuccess,
+        );
       }
     });
   }

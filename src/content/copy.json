@@ -179,6 +179,7 @@
     "inviteFailed": "Invitations couldn't be sent. Please try again.",
     "inviteSuccess": "Invitations sent.",
     "inviteSkipped": "{count} already in the loop.",
+    "invitePartial": "{invited} invitations sent; {skipped} already in the loop.",
     "removeEmail": "Remove {email}",
     "roleSaving": "Updating member type…",
     "roleUpdated": "Member type updated.",

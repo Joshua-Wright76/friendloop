@@ -13,12 +13,12 @@ test("B3 · inviting three people sends three emails with their own links", asyn
 
   await page.goto(`/g/${loop.groupId}/members`);
   const emailInput = page.getByLabel("Email addresses");
-  await emailInput.fill("ana@friendloop.test, ben@friendloop.test; cleo@friendloop.test ana@friendloop.test");
+  await emailInput.fill("ana@friendloop.test, ben@friendloop.test; cleo@friendloop.test owner@friendloop.test ana@friendloop.test");
   await emailInput.press("Enter");
-  await expect(page.locator(".card").last().getByText(/@friendloop\.test/)).toHaveCount(3);
+  await expect(page.locator(".card").last().getByText(/@friendloop\.test/)).toHaveCount(4);
   await page.getByRole("button", { name: "Send invitations" }).click();
 
-  await expect(page.getByText("Invitations sent.")).toBeVisible();
+  await expect(page.getByText("3 invitations sent; 1 already in the loop.")).toBeVisible();
 
   const invited = await rows<{ email: string }>(
     "select email from memberships where group_id = $1 and email like '%@friendloop.test' and email in ($2,$3,$4) order by email",

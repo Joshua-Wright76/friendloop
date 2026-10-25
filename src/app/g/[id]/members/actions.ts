@@ -99,14 +99,20 @@ export async function roleAction(formData: FormData) {
   const viewer = await viewerFor(groupId);
   if (!viewer || viewer.membership.access === "member") redirect(`/g/${groupId}`);
 
-  try {
-    if (access === "owner") {
-      if (viewer.membership.access !== "owner") return { ok: false as const };
+  if (access === "owner") {
+    if (viewer.membership.access !== "owner") return { ok: false as const };
+    try {
       await transferOwnership(groupId, viewer.membership.id, membershipId);
       revalidatePath(`/g/${groupId}/members`);
-      return { ok: true as const, access: "owner" as const };
+    } catch {
+      return { ok: false as const };
     }
-    await setAccess(groupId, membershipId, access === "admin" ? "admin" : "member");
+    redirect(`/g/${groupId}/members?transferred=1`);
+  }
+
+  try {
+    const updated = await setAccess(groupId, membershipId, access === "admin" ? "admin" : "member");
+    if (!updated) return { ok: false as const };
     revalidatePath(`/g/${groupId}/members`);
     return { ok: true as const, access: access === "admin" ? "admin" as const : "member" as const };
   } catch {
