@@ -59,6 +59,18 @@ test("WCAG AA · loop management, creation, and reply pages", async ({ page }) =
   await page.goto("/g/new");
   await page.getByRole("button", { name: /^Timezone:/ }).click();
   await audit(page, "/g/new?picker=open", false);
+
+  await page.keyboard.press("Escape");
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.getByRole("button", { name: /^Timezone:/ }).click();
+  const pickerSheet = page.getByRole("dialog", { name: "Timezone" });
+  await expect(pickerSheet).toBeVisible();
+  await audit(page, "/g/new?picker=phone", false);
+  await pickerSheet.getByRole("textbox", { name: "Search timezones…" }).fill("Tokyo");
+  await pickerSheet.getByRole("option", { name: "Asia/Tokyo" }).click();
+  await expect(page.locator('input[name="timezone"]')).toHaveValue("Asia/Tokyo");
+  await expect(page.getByRole("button", { name: "Timezone: Asia/Tokyo" })).toBeVisible();
+  await expect(pickerSheet).toBeHidden();
 });
 
 test("WCAG AA · delivered and shared issues", async ({ page }) => {
