@@ -27,11 +27,7 @@ function sectionQuestion(title: string, description: string): string {
 }
 
 function IconClose() {
-  return (
-    <svg viewBox="0 0 20 20" aria-hidden="true" className="h-5 w-5">
-      <path d="m5 5 10 10M15 5 5 15" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-    </svg>
-  );
+  return <span aria-hidden="true" className="text-[26px] font-normal leading-none">×</span>;
 }
 
 function IconPlus() {
