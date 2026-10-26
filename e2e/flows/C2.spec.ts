@@ -14,13 +14,16 @@ test("C2 · moving a question changes the order the next round uses", async ({ p
   await page.goto(`/g/${loop.groupId}/questions`);
   await page.getByRole("button", { name: "Down" }).first().click();
 
+  // The list reorders optimistically, so the visible order can lead the write.
   await expect(page.locator("ol > li").first()).toContainText("What are you looking forward to?");
 
-  const order = await rows<{ text: string }>(
-    "select text from questions where group_id = $1 order by position",
-    [loop.groupId],
-  );
-  expect(order.map((row) => row.text)).toEqual([
+  const order = () =>
+    rows<{ text: string }>(
+      "select text from questions where group_id = $1 order by position",
+      [loop.groupId],
+    ).then((result) => result.map((row) => row.text));
+
+  await expect.poll(order).toEqual([
     "What are you looking forward to?",
     "What made you laugh this week?",
   ]);

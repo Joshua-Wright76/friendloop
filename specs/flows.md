@@ -17,7 +17,7 @@ Status: `todo` (not built) · `done` (built and covered).
 | ID | Flow | Acceptance criteria | Status |
 | --- | --- | --- | --- |
 | A1 | Request a magic link | Submitting a known email writes one `outbox` row of kind `signin` containing a `…/signin/confirm?token=` URL, and the UI says "check your inbox". | done |
-| A2 | Sign in with a valid link | Following that URL from the email sets a session cookie, redirects to `/you`, and the header shows the account's name. | done |
+| A2 | Sign in with a valid link | Following that URL from the email sets a session cookie, redirects to `/you`, and the header shows the address that just signed in. | done |
 | A3 | Expired or reused link | A second visit to the same confirm URL (or one past its 15-minute TTL) shows a recoverable "this link has expired" screen with a "send me a new one" action, never a 500. | done |
 | A4 | Unknown email | An address with no account gets the identical "check your inbox" screen and the same email; the account only comes into existence when the link is used. | done |
 | A5 | Sign out | Sign out clears the session, `/you` redirects to `/signin`, and the previous cookie no longer authenticates. | done |
@@ -56,6 +56,7 @@ Status: `todo` (not built) · `done` (built and covered).
 | D7 | Deliver the issue | With the clock past the delivery instant, the sweep sends one issue email per member containing every submitted answer, and the issue's status becomes `delivered`. | done |
 | D8 | Nothing to deliver | An issue reaching its delivery instant with zero submitted replies is marked `skipped`, sends no delivery email, and pauses the loop with an explanation to the owner. | done |
 | D9 | Nudge the stragglers | 48 hours before delivery, contributors with nothing submitted get exactly one reminder; anyone who submitted gets none, and a second sweep sends no duplicate. | done |
+| D10 | Nudge by hand | From the dashboard the owner sees who has not answered and can send one more reminder; anyone who already answered gets none, and each nudge is its own email rather than a duplicate. | done |
 
 ## E · Reading and reacting
 
@@ -76,6 +77,7 @@ Status: `todo` (not built) · `done` (built and covered).
 | F3 | Remove a member | Removing a member stops their emails and revokes their links; their past answers remain in delivered issues. | done |
 | F4 | Delete a loop | The owner confirms by typing the loop name; the loop, its issues, replies and outbox rows disappear and `/g/<id>` 404s. | done |
 | F5 | Non-owner is refused | A plain member visiting an owner route gets a 404/403 page, and the same request as a POST is rejected server-side. | done |
+| F6 | Reset share links | Resetting gives every delivered round a new share URL; a URL handed out before the reset 404s, and turning sharing off disables every existing link. | done |
 
 ## G · Roles and permissions
 
@@ -86,6 +88,9 @@ Status: `todo` (not built) · `done` (built and covered).
 | G5 | Transfer ownership | The owner transfers ownership, becomes an admin+contributor, and the new owner gains owner-only actions while the old owner loses them. | done |
 | G6 | `from_you` mode | In `from_you`, every non-owner is forced to reader on invite and cannot be made a contributor. | done |
 
+IDs are stable handles, not positions: a retired flow leaves its number out
+rather than renumbering the rest.
+
 ---
 
-**39 flows.** A flow is only `done` when its spec passes locally and in CI.
+**41 flows.** A flow is only `done` when its spec passes locally and in CI.

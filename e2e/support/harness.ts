@@ -62,6 +62,21 @@ export async function signIn(page: Page, email: string): Promise<void> {
 }
 
 /**
+ * Choose an option in the app's custom Picker: click the trigger, then the
+ * option. Triggers are labelled "Day: Friday", so match on the label prefix.
+ */
+export async function pickOption(
+  page: Page,
+  triggerLabel: string,
+  option: string,
+): Promise<void> {
+  await page.getByRole("button", { name: new RegExp(`^${triggerLabel}:`) }).click();
+  const sheet = page.locator(".picker-sheet");
+  const scope = (await sheet.count()) > 0 ? sheet : page;
+  await scope.getByRole("option", { name: option, exact: true }).click();
+}
+
+/**
  * WebKit finishes `load` before React hydrates, and a fill that lands first is
  * wiped by the first controlled render. The textareas get their inline height from
  * the hydration ref callback, so that is the "the sheet is live" signal.

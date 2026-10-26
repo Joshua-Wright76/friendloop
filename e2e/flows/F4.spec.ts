@@ -23,5 +23,5 @@ test("F4 · deleting a loop takes everything with it", async ({ page }) => {
   expect(members[0].count).toBe(0);
 
   await page.goto(`/g/${loop.groupId}`);
-  await expect(page.getByText("404")).toBeVisible();
+  await expect(page.getByText("This page isn't here")).toBeVisible();
 });

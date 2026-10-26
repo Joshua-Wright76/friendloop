@@ -13,18 +13,32 @@ test("B1 · creating a group loop saves its cadence and makes you its owner", as
   await signIn(page, email);
 
   await page.getByRole("link", { name: "New loop" }).click();
-  await expect(page.getByRole("progressbar", { name: "Loop setup progress" })).toHaveAttribute("aria-valuenow", "1");
+  const progress = page.getByRole("progressbar", { name: "Loop setup progress" });
+  await expect(progress).toHaveAttribute("aria-valuenow", "1");
+
+  // Step one holds its ground until the loop has a name.
   await page.getByRole("button", { name: NEXT }).click();
-  await expect(page.getByRole("progressbar", { name: "Loop setup progress" })).toHaveAttribute("aria-valuenow", "2");
-  await page.getByRole("button", { name: "Go to the previous setup step" }).click();
-  await expect(page.getByRole("progressbar", { name: "Loop setup progress" })).toHaveAttribute("aria-valuenow", "1");
+  await expect(progress).toHaveAttribute("aria-valuenow", "1");
+
   await page.getByLabel("Loop title").fill("The Sunday Loop");
   await page.getByRole("button", { name: "Quarterly (13 weeks)" }).click();
   await page.getByRole("button", { name: NEXT }).click();
+  await expect(progress).toHaveAttribute("aria-valuenow", "2");
+
+  await page.getByRole("button", { name: "Go to the previous setup step" }).click();
+  await expect(progress).toHaveAttribute("aria-valuenow", "1");
+  // The name is still there, so going back never costs anyone their typing.
+  await expect(page.getByLabel("Loop title")).toHaveValue("The Sunday Loop");
+
   await page.getByRole("button", { name: NEXT }).click();
+  await expect(progress).toHaveAttribute("aria-valuenow", "2");
   await page.getByRole("button", { name: NEXT }).click();
+  await expect(progress).toHaveAttribute("aria-valuenow", "3");
   await page.getByRole("button", { name: NEXT }).click();
-  await page.getByRole("button", { name: "Create this loop" }).click();
+  await expect(progress).toHaveAttribute("aria-valuenow", "4");
+  await page.getByRole("button", { name: NEXT }).click();
+  await expect(progress).toHaveAttribute("aria-valuenow", "5");
+  await page.getByRole("button", { name: "Create loop" }).click();
 
   await expect(page).toHaveURL(/\/g\/[0-9a-f-]+\?welcome=1/);
   await expect(page.getByRole("heading", { name: "The Sunday Loop" })).toBeVisible();

@@ -23,6 +23,7 @@ test("E1 · a delivered round shows every answer and marks your own", async ({ p
   await expect(page.getByText("The cat fist bump.")).toBeVisible();
   await expect(page.getByText("A very long lunch.")).toBeVisible();
   await expect(page.getByText("2 answers from the group.")).toBeVisible();
+  await expect(page.getByText("Delivered Friday 30 October.")).toBeVisible();
   await expect(page.getByText("You", { exact: true })).toBeVisible();
   await expect(page.getByText("Bob", { exact: true })).toBeVisible();
 });

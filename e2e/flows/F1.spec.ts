@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { resetDatabase, rows } from "../support/db";
 import { seedOpenIssue, seedLoop } from "../support/seed";
-import { AFTER_FIRST_SLOT, signIn } from "../support/harness";
+import { AFTER_FIRST_SLOT, pickOption, signIn } from "../support/harness";
 
 test.beforeEach(async () => {
   await resetDatabase();
@@ -13,8 +13,9 @@ test("F1 · a schedule change moves the next round and leaves an open one alone"
   await signIn(page, "owner@friendloop.test");
 
   await page.goto(`/g/${loop.groupId}/settings`);
-  await page.locator('select[name="weekday"]').selectOption("1"); // Monday
-  await page.locator('select[name="hour"]').selectOption("18");
+  // The schedule fields are Pickers, not native selects.
+  await pickOption(page, "Day", "Monday");
+  await pickOption(page, "Time", "18:00");
   await page.getByRole("button", { name: "Save changes" }).click();
   await expect(page.getByText("Saved.")).toBeVisible();
 

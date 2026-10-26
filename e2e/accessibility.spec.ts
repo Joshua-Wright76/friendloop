@@ -9,6 +9,11 @@ import { signIn } from "./support/harness";
 
 const TAGS = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"];
 
+// Entrance animations start at opacity 0, and axe blends the colors it reads
+// mid-fade into false contrast failures. Reduced motion ends them immediately,
+// so the audit measures the page a reader actually keeps looking at.
+test.use({ reducedMotion: "reduce" });
+
 async function audit(page: Page, path: string, navigate = true) {
   if (navigate) await page.goto(path);
   const result = await new AxeBuilder({ page }).withTags(TAGS).analyze();

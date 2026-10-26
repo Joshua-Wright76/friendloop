@@ -17,7 +17,17 @@ test("theme switch responds to taps and persists across reloads", async ({ page 
 
   await page.reload();
   await expect(root).toHaveAttribute("data-theme", "dark");
-  await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute("content", "#241a20");
+  // Exactly one tag: React re-hoists metadata while hydrating, so media-scoped
+  // copies would multiply. The toggle keeps the single tag on the chosen theme.
+  await expect
+    .poll(() =>
+      page.evaluate(() =>
+        Array.from(document.querySelectorAll('meta[name="theme-color"]')).map((meta) =>
+          meta.getAttribute("content"),
+        ),
+      ),
+    )
+    .toEqual(["#241a20"]);
 
   await page.getByRole("button", { name: /switch to light mode/ }).tap();
   await expect(root).toHaveAttribute("data-theme", "light");

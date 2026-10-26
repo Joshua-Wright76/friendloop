@@ -35,7 +35,7 @@ test("B2 · defaults and section prompts become the ordered question pool", asyn
   await expect(preview.getByText("Book Club")).toBeVisible();
   await expect(preview.getByText("Bright spots: What was one good moment from your week?")).toBeVisible();
   await preview.getByRole("button", { name: "Close issue preview" }).click();
-  await page.getByRole("button", { name: "Create this loop" }).click();
+  await page.getByRole("button", { name: "Create loop" }).click();
   await expect(page).toHaveURL(/\/g\/[0-9a-f-]+/);
 
   const pool = await rows<{ text: string; position: number }>(
@@ -62,7 +62,7 @@ test("B2 · the question bank can start with more than eight prompts", async ({ 
   await page.getByRole("button", { name: NEXT }).click();
   await page.getByRole("button", { name: NEXT }).click();
   await page.getByRole("button", { name: NEXT }).click();
-  await page.getByRole("button", { name: "Create this loop" }).click();
+  await page.getByRole("button", { name: "Create loop" }).click();
   await expect(page).toHaveURL(/\/g\/[0-9a-f-]+/);
 
   const count = await rows<{ count: number }>(

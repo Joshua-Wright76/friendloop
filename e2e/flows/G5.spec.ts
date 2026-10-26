@@ -17,9 +17,9 @@ test("G5 · transferring ownership hands over the owner-only keys", async ({ pag
   await card.getByRole("button", { name: /Member type for/ }).click();
   await card.getByRole("option", { name: "Owner", exact: true }).click();
   await expect(page).toHaveURL(new RegExp(`/g/${loop.groupId}/members\\?transferred=1`));
-  await expect(page.getByText(/the loop has a new owner/)).toBeVisible();
+  await expect(page.getByText(/the loop has a new owner/i)).toBeVisible();
   await page.reload();
-  await expect(page.getByText(/the loop has a new owner/)).toBeVisible();
+  await expect(page.getByText(/the loop has a new owner/i)).toBeVisible();
 
   const roles = await rows<{ email: string; access: string }>(
     "select email, access from memberships where group_id = $1 order by email",
