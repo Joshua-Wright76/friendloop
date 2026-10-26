@@ -112,6 +112,31 @@ test("WCAG AA · loop management, creation, and reply pages", async ({ page }) =
   await expect(roleTrigger).toBeFocused();
 });
 
+test("WCAG AA · a picker keeps focus across a save that disables it", async ({ page }) => {
+  test.setTimeout(60_000);
+  const loop = await seedLoop();
+  await signIn(page, "owner@friendloop.test");
+
+  // The browser blurs a control the instant it becomes disabled, and re-enabling
+  // does not give focus back. On a fast local machine the server action resolves
+  // before React commits that disabled state, so the bug stays invisible; CI's
+  // slower round trip exposes it. Holding the action open makes the disable cycle
+  // deterministic everywhere instead of timing-dependent.
+  await page.route(`**/g/${loop.groupId}/members`, async (route) => {
+    if (route.request().method() === "POST") await new Promise((r) => setTimeout(r, 1200));
+    await route.continue();
+  });
+
+  await page.goto(`/g/${loop.groupId}/members`);
+  const roleTrigger = page.getByRole("button", { name: /^Member type for .+:/ }).first();
+  await roleTrigger.click();
+  await page.getByRole("option", { name: "Admin" }).first().click();
+
+  await expect(roleTrigger).toHaveAccessibleName(/Member type for .+: Admin/);
+  await expect(roleTrigger).toBeEnabled();
+  await expect(roleTrigger).toBeFocused();
+});
+
 test("WCAG AA · delivered and shared issues", async ({ page }) => {
   test.setTimeout(90_000);
   const loop = await seedLoop();

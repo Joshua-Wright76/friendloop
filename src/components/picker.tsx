@@ -29,6 +29,7 @@ export function Picker({ name, defaultValue, value: controlledValue, options, ar
   const search = useRef<HTMLInputElement>(null);
   const optionElements = useRef(new Map<number, HTMLButtonElement>());
   const activeRef = useRef(active);
+  const focusLostToDisabled = useRef(false);
   const listId = useId();
 
   useEffect(() => {
@@ -97,6 +98,19 @@ export function Picker({ name, defaultValue, value: controlledValue, options, ar
   useEffect(() => {
     if (open) optionElements.current.get(active)?.scrollIntoView({ block: "nearest" });
   }, [active, open]);
+
+  /**
+   * The browser blurs a control the instant it becomes disabled, dropping focus
+   * to <body> — and re-enabling it does not give focus back. So a picker that
+   * disables during a save (role change, reorder) silently stole keyboard focus.
+   * Put it back, but only if nobody else has since taken it.
+   */
+  useEffect(() => {
+    if (disabled || !focusLostToDisabled.current) return;
+    focusLostToDisabled.current = false;
+    const active = document.activeElement;
+    if (!active || active === document.body) trigger.current?.focus();
+  }, [disabled]);
 
   const openPicker = () => {
     const selectedIndex = Math.max(0, allOptions.findIndex((option) => option.value === value));
@@ -173,6 +187,11 @@ export function Picker({ name, defaultValue, value: controlledValue, options, ar
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-controls={listId}
+        onFocus={() => { focusLostToDisabled.current = false; }}
+        onBlur={() => {
+          // Fires as the disabled attribute lands: the user did not leave.
+          if (trigger.current?.disabled) focusLostToDisabled.current = true;
+        }}
         onClick={() => open ? closePicker(false) : openPicker()}
         onKeyDown={(event) => {
           if (!open && (event.key === "ArrowDown" || event.key === "ArrowUp")) {
