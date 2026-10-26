@@ -129,7 +129,16 @@ function reset() {
 
 const command = process.argv[2] ?? "start";
 
-if (!hasBinary("initdb")) {
+// Only the commands that would actually stand up a cluster need the binaries.
+// With TEST_DATABASE_URL supplied (CI's service container, or your own) `run`
+// never touches Postgres, so demanding initdb there would fail on any runner
+// that does not have a local install.
+const needsCluster =
+  command === "start" ||
+  command === "reset" ||
+  (command === "run" && !process.env.TEST_DATABASE_URL);
+
+if (needsCluster && !hasBinary("initdb")) {
   console.error(
     "Postgres not found. Install it with `brew install postgresql@16`, point PG_BIN at a bin directory, or set TEST_DATABASE_URL.",
   );
