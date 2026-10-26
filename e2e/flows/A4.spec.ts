@@ -14,8 +14,9 @@ test("A4 · an unknown address leaves the same trace as a known one", async ({ p
   await page.goto("/signin");
   await page.getByLabel("Your email").fill(known);
   await page.getByRole("button", { name: "Email me a link" }).click();
+  await expect(page).toHaveURL(/\/signin\/check-email$/);
   const mail = await latestOutboxFor(known);
-  await page.goto(linkFrom(mail!.html, "/signin/confirm"));
+  await page.goto(linkFrom(mail.html, "/signin/confirm"));
   await page.getByRole("button", { name: "Sign in" }).click();
   await expect(page).toHaveURL(/\/you$/);
 
@@ -35,5 +36,5 @@ test("A4 · an unknown address leaves the same trace as a known one", async ({ p
   expect(accounts[0].count, "no account is created until the link is used").toBe(0);
 
   const sent = await latestOutboxFor(unknown);
-  expect(sent?.to).toBe(unknown);
+  expect(sent.to).toBe(unknown);
 });

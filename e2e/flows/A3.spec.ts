@@ -13,9 +13,12 @@ test("A3 · a second visit to the same link says it was used", async ({ page }) 
   await page.goto("/signin");
   await page.getByLabel("Your email").fill(email);
   await page.getByRole("button", { name: "Email me a link" }).click();
+  // Wait for the action to finish before reading what it wrote — A1 and A2
+  // wait for this URL, and reading before it landed is how A3 flaked in CI.
+  await expect(page).toHaveURL(/\/signin\/check-email$/);
 
   const mail = await latestOutbox("signin:");
-  const link = linkFrom(mail!.html, "/signin/confirm");
+  const link = linkFrom(mail.html, "/signin/confirm");
 
   await page.goto(link);
   await page.getByRole("button", { name: "Sign in" }).click();

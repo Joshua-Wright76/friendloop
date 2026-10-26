@@ -22,8 +22,8 @@ test("A1 · requesting a link sends exactly one and points at the inbox", async 
   expect(sent[0].count).toBe(1);
 
   const mail = await latestOutbox("signin:");
-  expect(mail?.to).toBe(email);
-  expect(mail?.html).toContain("/signin/confirm?token=");
+  expect(mail.to).toBe(email);
+  expect(mail.html).toContain("/signin/confirm?token=");
 });
 
 test("A1 · a malformed address never reaches the server", async ({ page }) => {

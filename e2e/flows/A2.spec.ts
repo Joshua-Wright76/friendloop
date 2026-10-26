@@ -15,7 +15,7 @@ test("A2 · the emailed link signs you in and puts you on your own page", async 
   await expect(page).toHaveURL(/\/signin\/check-email$/);
 
   const mail = await latestOutbox("signin:");
-  const link = linkFrom(mail!.html, "/signin/confirm");
+  const link = linkFrom(mail.html, "/signin/confirm");
 
   await page.goto(link);
   await expect(page.getByText(email)).toBeVisible();
