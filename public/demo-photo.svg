@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600" role="img" aria-label="A sunny picnic with cherries">
+  <defs>
+    <linearGradient id="sky" x2="0" y2="1"><stop stop-color="#bfe3ff"/><stop offset="1" stop-color="#fff0c9"/></linearGradient>
+    <linearGradient id="grass" x2="0" y2="1"><stop stop-color="#a8d8b0"/><stop offset="1" stop-color="#5b9c68"/></linearGradient>
+  </defs>
+  <rect width="800" height="600" fill="url(#sky)"/>
+  <circle cx="650" cy="110" r="65" fill="#ffd76d"/>
+  <path d="M0 350 Q170 220 360 350T800 340V600H0Z" fill="#9bcfa8"/>
+  <path d="M0 410 Q230 290 460 420T800 390V600H0Z" fill="url(#grass)"/>
+  <path d="M120 600 390 310l180 290" fill="#f5b3c3" opacity=".9"/>
+  <path d="m390 310 180 290H260z" fill="#fff3f5" opacity=".65"/>
+  <g transform="translate(320 340)">
+    <path d="M60 0c-10 38-34 66-52 84M60 0c8 35 24 60 46 74" fill="none" stroke="#5b8a4a" stroke-width="10" stroke-linecap="round"/>
+    <path d="M60 0c22-18 52-16 68 4-24 14-46 12-68-4z" fill="#7cb35f"/>
+    <circle cx="8" cy="106" r="40" fill="#e0405e"/>
+    <circle cx="106" cy="100" r="40" fill="#e0405e"/>
+    <circle cx="-4" cy="92" r="11" fill="#fff" opacity=".75"/>
+    <circle cx="94" cy="86" r="11" fill="#fff" opacity=".75"/>
+  </g>
+  <g fill="#fff" opacity=".85">
+    <circle cx="120" cy="450" r="24"/><circle cx="180" cy="520" r="20"/><circle cx="670" cy="470" r="26"/>
+  </g>
+</svg>

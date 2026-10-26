@@ -1,15 +1,17 @@
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { notFound } from "next/navigation";
 import { db } from "@/db";
 import {
   comments,
   groups,
   issueMoods,
+  issuePicks,
   issueQuestions,
   issues,
   magicLinks,
   memberships,
   questions,
+  reactions,
   replies,
   sessions,
   users,
@@ -171,6 +173,7 @@ export async function enableUiPreview(reset = false) {
         issueQuestionId: DELIVERED_QUESTION_IDS[index],
         membershipId: UI_PREVIEW.ownerMembershipId,
         body: OWNER_ANSWERS[index],
+        photoUrl: index === 0 ? "/demo-photo.svg" : null,
         status: "submitted" as const,
         submittedAt: new Date(now.getTime() - 86400000),
       },
@@ -193,6 +196,31 @@ export async function enableUiPreview(reset = false) {
     });
     await tx.insert(replies).values(replyRows).onConflictDoNothing();
 
+    const [featuredReply] = await tx
+      .select({ id: replies.id })
+      .from(replies)
+      .where(and(
+        eq(replies.issueId, UI_PREVIEW.deliveredIssueId),
+        eq(replies.issueQuestionId, DELIVERED_QUESTION_IDS[0]),
+        eq(replies.membershipId, UI_PREVIEW.ownerMembershipId),
+      ))
+      .limit(1);
+
+    if (featuredReply) {
+      await tx.insert(issuePicks).values({
+        id: "22222222-2222-4222-8222-222222222273",
+        issueId: UI_PREVIEW.deliveredIssueId,
+        replyId: featuredReply.id,
+        createdByMembershipId: UI_PREVIEW.ownerMembershipId,
+      }).onConflictDoNothing();
+      await tx.insert(reactions).values({
+        id: "22222222-2222-4222-8222-222222222274",
+        replyId: featuredReply.id,
+        membershipId: UI_PREVIEW.aliceMembershipId,
+        emoji: "❤️",
+      }).onConflictDoNothing();
+    }
+
     await tx.insert(comments).values({
       id: "22222222-2222-4222-8222-222222222270",
       issueId: UI_PREVIEW.deliveredIssueId,
@@ -200,12 +228,20 @@ export async function enableUiPreview(reset = false) {
       body: "This made my morning.",
     }).onConflictDoNothing();
 
-    await tx.insert(issueMoods).values({
-      id: "22222222-2222-4222-8222-222222222272",
-      issueId: UI_PREVIEW.deliveredIssueId,
-      membershipId: UI_PREVIEW.ownerMembershipId,
-      emoji: "🥳",
-    }).onConflictDoNothing();
+    await tx.insert(issueMoods).values([
+      {
+        id: "22222222-2222-4222-8222-222222222272",
+        issueId: UI_PREVIEW.deliveredIssueId,
+        membershipId: UI_PREVIEW.ownerMembershipId,
+        emoji: "🥳",
+      },
+      {
+        id: "22222222-2222-4222-8222-222222222275",
+        issueId: UI_PREVIEW.deliveredIssueId,
+        membershipId: UI_PREVIEW.aliceMembershipId,
+        emoji: "😌",
+      },
+    ]).onConflictDoNothing();
 
     await tx.insert(magicLinks).values({
       id: "22222222-2222-4222-8222-222222222271",
