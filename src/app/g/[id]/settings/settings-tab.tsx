@@ -63,6 +63,13 @@ export default function SettingsTab({ notices }: { notices: { saved?: string; er
             <span className="text-[13px] font-medium text-ink-soft">{copy.settings.every}</span>
             <Picker name="cadence" defaultValue={String(group.cadenceWeeks)} options={CADENCE_OPTIONS} ariaLabel={copy.settings.every} />
           </div>
+          <label className="col-span-2 flex flex-col gap-1.5">
+            <span className="text-[13px] font-medium text-ink-soft">{copy.themes.loopDefault}</span>
+            <select name="theme" defaultValue={group.theme} className="field h-[46px] py-0">
+              {copy.themes.packs.map((option) => <option key={option.value} value={option.value}>{option.emoji} {option.label}</option>)}
+            </select>
+            <span className="text-[12px] leading-relaxed text-ink-muted">{copy.themes.loopDefaultDescription}</span>
+          </label>
         </div>
 
         <label className="mt-4 flex items-start gap-2.5 text-[14px] leading-relaxed text-ink-soft">

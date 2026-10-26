@@ -6,6 +6,13 @@ import { TimezoneField } from "./timezone-field";
 import { Tape } from "@/components/stationery";
 import { Picker } from "@/components/picker";
 import { copy, text } from "@/lib/copy";
+import {
+  QUESTION_KINDS,
+  normalizeIssueTheme,
+  normalizeQuestionKind,
+  type IssueTheme,
+  type QuestionKind,
+} from "@/lib/issue-experience";
 
 const WEEKDAYS = copy.common.weekdays;
 const HOURS = Array.from({ length: 24 }, (_, hour) => hour);
@@ -19,7 +26,7 @@ const VALID_EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 type ModalKind = "name-ideas" | "question" | "section" | "preview" | null;
 type SectionPreset = (typeof copy.newLoop.wizard.sections.presets)[number];
-type CustomSection = { id: number; title: string; description: string };
+type CustomSection = { id: number; title: string; description: string; kind: QuestionKind };
 
 function sectionQuestion(title: string, description: string): string {
   return text(copy.newLoop.wizard.sections.questionFormat, { title, description });
@@ -111,6 +118,7 @@ export function NewLoopForm({ bank }: { bank: Array<{ group: string; questions: 
   const [weekday, setWeekday] = useState("5");
   const [hour, setHour] = useState("9");
   const [timezone, setTimezone] = useState("");
+  const [theme, setTheme] = useState<IssueTheme>("picnic");
   const [picked, setPicked] = useState<string[]>(() => bank.flatMap((group) => group.questions).slice(0, 2));
   const [customQuestions, setCustomQuestions] = useState<Array<{ id: number; value: string }>>([]);
   const [pickedPresets, setPickedPresets] = useState<string[]>([]);
@@ -123,6 +131,7 @@ export function NewLoopForm({ bank }: { bank: Array<{ group: string; questions: 
   const [questionDraft, setQuestionDraft] = useState("");
   const [sectionTitle, setSectionTitle] = useState("");
   const [sectionDescription, setSectionDescription] = useState("");
+  const [sectionKind, setSectionKind] = useState<QuestionKind>("standard");
   const [modalError, setModalError] = useState("");
   const [stepError, setStepError] = useState("");
   const [modal, setModal] = useState<ModalKind>(null);
@@ -132,15 +141,24 @@ export function NewLoopForm({ bank }: { bank: Array<{ group: string; questions: 
   const stepHeading = useRef<HTMLHeadingElement>(null);
 
   const presets = copy.newLoop.wizard.sections.presets;
-  const questions = [
-    ...picked,
-    ...customQuestions.map((question) => question.value.trim()).filter(Boolean),
+  const questionEntries: Array<{ text: string; kind: QuestionKind }> = [
+    ...picked.map((question) => ({ text: question, kind: "standard" as const })),
+    ...customQuestions
+      .map((question) => ({ text: question.value.trim(), kind: "standard" as const }))
+      .filter((question) => question.text.length > 0),
     ...pickedPresets.flatMap((id) => {
       const preset = presets.find((item) => item.id === id);
-      return preset ? [sectionQuestion(preset.title, preset.description)] : [];
+      return preset ? [{
+        text: sectionQuestion(preset.title, preset.description),
+        kind: normalizeQuestionKind(preset.kind),
+      }] : [];
     }),
-    ...customSections.map((section) => sectionQuestion(section.title, section.description)),
+    ...customSections.map((section) => ({
+      text: sectionQuestion(section.title, section.description),
+      kind: section.kind,
+    })),
   ];
+  const questions = questionEntries.map((question) => question.text);
   const selectedCadence = CADENCE_OPTIONS.find((option) => option.value === cadence) ?? CADENCE_OPTIONS[0];
   const currentStepLabel = copy.newLoop.wizard.steps[step];
 
@@ -173,9 +191,15 @@ export function NewLoopForm({ bank }: { bank: Array<{ group: string; questions: 
       setModalError(copy.newLoop.errors.section);
       return;
     }
-    setCustomSections((current) => [...current, { id: nextSectionId.current++, title, description }]);
+    setCustomSections((current) => [...current, {
+      id: nextSectionId.current++,
+      title,
+      description,
+      kind: sectionKind,
+    }]);
     setSectionTitle("");
     setSectionDescription("");
+    setSectionKind("standard");
     setModalError("");
     setModal(null);
   }
@@ -254,9 +278,15 @@ export function NewLoopForm({ bank }: { bank: Array<{ group: string; questions: 
       <input type="hidden" name="weekday" value={weekday} />
       <input type="hidden" name="hour" value={hour} />
       <input type="hidden" name="timezone" value={timezone} />
+      <input type="hidden" name="theme" value={theme} />
       <input type="hidden" name="participation" value="contributor" />
       <input type="hidden" name="personalNote" value={personalNote} />
-      {questions.map((question, index) => <input key={`${index}:${question}`} type="hidden" name="question" value={question} />)}
+      {questionEntries.map((question, index) => (
+        <span key={`${index}:${question.text}`} hidden>
+          <input type="hidden" name="question" value={question.text} />
+          <input type="hidden" name="questionKind" value={question.kind} />
+        </span>
+      ))}
       {emails.map((email) => <input key={email} type="hidden" name="email" value={email} />)}
 
       <div className="wizard-progress">
@@ -345,6 +375,25 @@ export function NewLoopForm({ bank }: { bank: Array<{ group: string; questions: 
                   <TimezoneField name="__timezone" value={timezone || undefined} onValueChange={setTimezone} />
                 </label>
               </div>
+
+              <fieldset className="mt-6">
+                <legend className="text-[14px] font-bold text-ink">{copy.themes.loopDefault}</legend>
+                <p className="mt-1 text-[13px] leading-relaxed text-ink-soft">{copy.themes.loopDefaultDescription}</p>
+                <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
+                  {copy.themes.packs.map((option) => (
+                    <button
+                      key={option.value}
+                      type="button"
+                      aria-pressed={theme === option.value}
+                      onClick={() => setTheme(normalizeIssueTheme(option.value))}
+                      className={`wizard-pill gap-2 ${theme === option.value ? "wizard-pill--selected" : ""}`}
+                    >
+                      <span aria-hidden="true">{option.emoji}</span>
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+              </fieldset>
             </div>
           </>
         ) : null}
@@ -460,6 +509,7 @@ export function NewLoopForm({ bank }: { bank: Array<{ group: string; questions: 
               onClick={() => {
                 setSectionTitle("");
                 setSectionDescription("");
+                setSectionKind("standard");
                 openModal("section");
               }}
               className="btn btn-quiet mt-3 min-h-11 justify-start gap-2 px-4 text-[14px]"
@@ -691,6 +741,15 @@ export function NewLoopForm({ bank }: { bank: Array<{ group: string; questions: 
           placeholder={copy.newLoop.wizard.sections.descriptionPlaceholder}
           className="field mt-1 resize-y"
         />
+        <label htmlFor="section-kind" className="mt-4 block text-[14px] font-bold text-ink">{copy.newLoop.wizard.sections.typeLabel}</label>
+        <select
+          id="section-kind"
+          value={sectionKind}
+          onChange={(event) => setSectionKind(normalizeQuestionKind(event.target.value))}
+          className="field mt-1 h-[48px] py-0"
+        >
+          {QUESTION_KINDS.map((kind) => <option key={kind} value={kind}>{copy.sections[kind].label}</option>)}
+        </select>
         {modalError ? <p role="alert" className="mt-2 text-[13px] text-danger">{modalError}</p> : null}
         <button type="button" onClick={addCustomSection} className="btn btn-primary mt-4 w-full min-h-12">
           {copy.newLoop.wizard.sections.save}
@@ -721,10 +780,10 @@ export function NewLoopForm({ bank }: { bank: Array<{ group: string; questions: 
           </p>
           <h4 className="mt-5 font-display text-[22px] font-bold text-ink">{copy.newLoop.wizard.note.previewQuestions}</h4>
           <ol className="mt-2 flex flex-col gap-2">
-            {questions.map((question, index) => (
-              <li key={`${index}:${question}`} className="wizard-newsletter-preview__question">
+            {questionEntries.map((question, index) => (
+              <li key={`${index}:${question.text}`} className="wizard-newsletter-preview__question">
                 <span className="question-number">{index + 1}</span>
-                <span>{question}</span>
+                <span>{question.text}<span className="ml-2 text-[12px] font-bold text-ink-muted">{copy.sections[question.kind].label}</span></span>
               </li>
             ))}
           </ol>

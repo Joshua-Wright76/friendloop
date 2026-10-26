@@ -6,6 +6,7 @@ import { describeDeadline } from "@/lib/schedule";
 import { resolveToken, sheetFor } from "@/lib/reply";
 import { ReplySheet } from "./reply-sheet";
 import { copy, text } from "@/lib/copy";
+import { resolveIssueTheme } from "@/lib/issue-experience";
 
 // One indexed query behind this page; a blocking route is faster than a skeleton.
 export const instant = false;
@@ -83,10 +84,13 @@ export default async function ReplyPage({ params }: { params: Promise<{ token: s
       roundNumber={issue.number}
       deadline={deadline}
       displayName={context.membership.name ?? context.membership.email.split("@")[0]}
+      theme={resolveIssueTheme(issue.theme, context.group.theme)}
+      mood={sheet.mood}
       questions={sheet.questions.map((question, index) => ({
         id: question.id,
         index: index + 1,
         text: question.text,
+        kind: question.kind,
         body: question.body,
         photoUrl: question.photoUrl,
         submitted: question.submitted,

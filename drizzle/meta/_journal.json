@@ -15,6 +15,13 @@
       "when": 1792702335449,
       "tag": "0001_question_skip_next",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1792979445513,
+      "tag": "0002_cloudy_catseye",
+      "breakpoints": true
     }
   ]
 }

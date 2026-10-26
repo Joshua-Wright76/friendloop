@@ -22,6 +22,8 @@ const TABLES = [
   "email_events",
   "outbox",
   "reactions",
+  "issue_picks",
+  "issue_moods",
   "comments",
   "replies",
   "issue_questions",

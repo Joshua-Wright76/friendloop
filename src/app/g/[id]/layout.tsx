@@ -60,6 +60,7 @@ async function LoadedGroupLayout({ children, params }: Props) {
     db.select({
       id: questions.id,
       text: questions.text,
+      kind: questions.kind,
       active: questions.active,
       skipNext: questions.skipNext,
       position: questions.position,

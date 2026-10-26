@@ -8,6 +8,7 @@ import { questions } from "@/db/schema";
 import { getNow } from "@/lib/clock";
 import { addQuestion, archiveQuestion, reorderQuestion, toggleSkipNext } from "@/lib/manage";
 import { viewerFor } from "@/lib/permissions";
+import { normalizeQuestionKind, type QuestionKind } from "@/lib/issue-experience";
 
 async function requireManager(groupId: string) {
   const viewer = await viewerFor(groupId);
@@ -20,16 +21,17 @@ export async function addAction(formData: FormData) {
   await requireManager(groupId);
 
   const text = String(formData.get("text") ?? "");
-  await addQuestion(groupId, text, await getNow());
+  const kind = normalizeQuestionKind(formData.get("kind"));
+  await addQuestion(groupId, text, await getNow(), kind);
   revalidatePath(`/g/${groupId}`, "layout");
   redirect(`/g/${groupId}/questions?added=1`);
 }
 
-export async function reorderQuestions(groupId: string, questionId: string, targetIndex: number): Promise<Array<{ id: string; text: string; skipNext: boolean }>> {
+export async function reorderQuestions(groupId: string, questionId: string, targetIndex: number): Promise<Array<{ id: string; text: string; kind: QuestionKind; skipNext: boolean }>> {
   await requireManager(groupId);
   await reorderQuestion(groupId, questionId, targetIndex);
   revalidatePath(`/g/${groupId}`, "layout");
-  const after = await db.select({ id: questions.id, text: questions.text, skipNext: questions.skipNext }).from(questions)
+  const after = await db.select({ id: questions.id, text: questions.text, kind: questions.kind, skipNext: questions.skipNext }).from(questions)
     .where(and(eq(questions.groupId, groupId), isNull(questions.archivedAt))).orderBy(asc(questions.position));
   return after;
 }

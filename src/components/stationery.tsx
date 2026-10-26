@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { copy } from "@/lib/copy";
+import type { IssueTheme } from "@/lib/issue-experience";
 
 export function Cherries({ className = "" }: { className?: string }) {
   return (
@@ -11,6 +12,16 @@ export function Cherries({ className = "" }: { className?: string }) {
       <circle cx="5.8" cy="19.8" r="1.7" fill="#fff" opacity=".75" />
       <circle cx="21.4" cy="18.8" r="1.7" fill="#fff" opacity=".75" />
     </svg>
+  );
+}
+
+export function ThemeMark({ theme, className = "" }: { theme: IssueTheme; className?: string }) {
+  if (theme === "picnic") return <Cherries className={className} />;
+  const pack = copy.themes.packs.find((option) => option.value === theme);
+  return (
+    <span aria-hidden="true" className={`theme-mark ${className}`}>
+      {pack?.emoji ?? copy.common.cherry}
+    </span>
   );
 }
 

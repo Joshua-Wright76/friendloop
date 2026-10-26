@@ -1,10 +1,11 @@
 import { and, asc, desc, eq, inArray, isNull } from "drizzle-orm";
 import { db } from "@/db";
-import { groups, issueQuestions, issues, memberships, replies } from "@/db/schema";
+import { groups, issueMoods, issueQuestions, issues, memberships, replies } from "@/db/schema";
 import { getNow } from "./clock";
 import { copy } from "./copy.ts";
 import { deleteStoredPhoto } from "./photo-storage";
 import { replyHasContentCondition } from "./reply-query";
+import { isMoodEmoji } from "./issue-experience";
 
 /** How long an unopened invitation stays good. */
 export const INVITE_DAYS = 14;
@@ -312,6 +313,40 @@ export async function saveDraftFor(input: {
   return { ok: true, savedAt: at.toISOString() };
 }
 
+/** Save or clear the contributor's optional mood without creating an empty answer. */
+export async function saveMoodFor(input: { token: string; emoji: string }): Promise<WriteResult> {
+  const gate = await ensureWritable(input.token);
+  if (!gate.ok) return gate.result;
+
+  const { context } = gate;
+  if (!context.issue) return { ok: false, status: 409, error: copy.reply.errors.nothingOpen };
+  const emoji = input.emoji.trim();
+  if (emoji && !isMoodEmoji(emoji)) {
+    return { ok: false, status: 409, error: copy.reply.errors.invalidMood };
+  }
+
+  const at = await getNow();
+  if (!emoji) {
+    await db.delete(issueMoods).where(and(
+      eq(issueMoods.issueId, context.issue.id),
+      eq(issueMoods.membershipId, context.membership.id),
+    ));
+  } else {
+    await db.insert(issueMoods).values({
+      issueId: context.issue.id,
+      membershipId: context.membership.id,
+      emoji,
+      updatedAt: at,
+    }).onConflictDoUpdate({
+      target: [issueMoods.issueId, issueMoods.membershipId],
+      set: { emoji, updatedAt: at },
+    });
+  }
+
+  await markAccepted(context.membership.id, context.membership.acceptedAt, at);
+  return { ok: true, savedAt: at.toISOString() };
+}
+
 /** One commitment point: every non-empty answer in the round becomes submitted. */
 export async function submitFor(token: string): Promise<WriteResult> {
   const gate = await ensureWritable(token);
@@ -352,23 +387,37 @@ export async function sheetFor(token: string) {
     .where(eq(issueQuestions.issueId, context.issue.id))
     .orderBy(asc(issueQuestions.position));
 
-  const existing = await db
-    .select()
-    .from(replies)
-    .where(
-      and(
-        eq(replies.issueId, context.issue.id),
-        eq(replies.membershipId, context.membership.id),
+  const [existing, moodRows] = await Promise.all([
+    db
+      .select()
+      .from(replies)
+      .where(
+        and(
+          eq(replies.issueId, context.issue.id),
+          eq(replies.membershipId, context.membership.id),
+        ),
       ),
-    );
+    db
+      .select()
+      .from(issueMoods)
+      .where(
+        and(
+          eq(issueMoods.issueId, context.issue.id),
+          eq(issueMoods.membershipId, context.membership.id),
+        ),
+      )
+      .limit(1),
+  ]);
 
   return {
     context,
+    mood: moodRows[0]?.emoji ?? null,
     questions: questions.map((question) => {
       const reply = existing.find((candidate) => candidate.issueQuestionId === question.id);
       return {
         id: question.id,
         text: question.text,
+        kind: question.kind,
         body: reply?.body ?? "",
         photoUrl: reply?.photoUrl ?? null,
         submitted: reply?.status === "submitted",

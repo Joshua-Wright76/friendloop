@@ -3,6 +3,7 @@ import { groups, issues, memberships, questions, users, replies, issueQuestions 
 import { and, eq, sql } from "drizzle-orm";
 import { newToken } from "@/lib/tokens";
 import { deliveryInstant } from "@/lib/schedule";
+import type { QuestionKind } from "@/lib/issue-experience";
 
 /**
  * Fixtures built with plain inserts rather than the UI: a test that drives the
@@ -25,6 +26,7 @@ export type SeedLoopInput = {
     access?: "owner" | "admin" | "member";
   }>;
   questions?: string[];
+  questionKinds?: QuestionKind[];
 };
 
 export type SeededLoop = {
@@ -103,7 +105,7 @@ export async function seedLoop(input: SeedLoopInput = {}): Promise<SeededLoop> {
   for (const [index, text] of texts.entries()) {
     const [row] = await db
       .insert(questions)
-      .values({ groupId: group.id, text, position: index })
+      .values({ groupId: group.id, text, kind: input.questionKinds?.[index] ?? "standard", position: index })
       .returning();
     questionIds.push(row.id);
   }
@@ -145,6 +147,7 @@ export async function seedOpenIssue(
         issueId: issue.id,
         questionId: question.id,
         text: question.text,
+        kind: question.kind,
         position: index,
       })),
     );
@@ -247,6 +250,7 @@ export async function seedDeliveredIssue(
         issueId: issue.id,
         questionId: question.id,
         text: question.text,
+        kind: question.kind,
         position: index,
       })),
     );

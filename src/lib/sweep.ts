@@ -106,6 +106,7 @@ async function openDueIssues(at: Date): Promise<number> {
           issueId: issue.id,
           questionId: question.id,
           text: question.text,
+          kind: question.kind,
           position: index,
         })),
       );

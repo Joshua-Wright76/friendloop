@@ -4,6 +4,7 @@ import { loadIssue } from "@/lib/issue-view";
 import { IssueBody } from "../../i/[id]/issue-body";
 import { Cherries } from "@/components/stationery";
 import { copy, text } from "@/lib/copy";
+import { resolveIssueTheme } from "@/lib/issue-experience";
 
 export const instant = false;
 
@@ -34,6 +35,12 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
         issueId={view.issue.id}
         viewerToken={null}
         canInteract={false}
+        canCurate={false}
+        groupName={view.group.name}
+        roundNumber={view.issue.number}
+        theme={resolveIssueTheme(view.issue.theme, view.group.theme)}
+        moods={view.moods}
+        picks={view.picks}
         blocks={view.blocks}
         comments={[]}
       />
