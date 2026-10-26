@@ -36,6 +36,9 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+# ...but the template must be committed: README tells you to copy it, and a
+# fresh clone had none until this exception was added.
+!.env.example
 
 # vercel
 .vercel

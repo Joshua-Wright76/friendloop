@@ -44,7 +44,6 @@ Vercel → Project → Settings → Environment Variables.
 | `RESEND_API_KEY` | Resend → API Keys |
 | `EMAIL_FROM` | `Friendloop <hello@friendloop.dev>` |
 | `EMAIL_TRANSPORT` | `outbox` to never call Resend (tests, offline dev) |
-| `AUTH_SECRET` | `openssl rand -base64 32` — signs session cookies |
 | `NEXT_PUBLIC_APP_URL` | `http://localhost:3000` locally; your domain in prod |
 | `CRON_SECRET` | `openssl rand -hex 32` — protects the sweep endpoint |
 | `BLOB_READ_WRITE_TOKEN` | Required for production photo uploads. Vercel → Storage → Blob |
@@ -143,7 +142,7 @@ average exceeds `NAV_BUDGET_MS`.
 ```sh
 npm run verify         # typecheck + lint + unit + flow matrix
 npm run e2e            # Playwright — starts its own Postgres if needed
-npm run check:flows -- --strict   # what the release workflow enforces
+npm run check:flows -- --strict   # what CI enforces on every run
 npx playwright test e2e/accessibility.spec.ts  # WCAG 2.2 AA axe checks, both themes
 ```
 
@@ -166,8 +165,8 @@ that is what CI does with a Neon branch. Tests truncate their tables between
 runs, so the cluster is safe to share with nothing else.
 
 Flow coverage is not a vibe: `specs/flows.md` lists every user-visible flow, each
-`done` flow must have `e2e/flows/<ID>.spec.ts`, and the release workflow refuses to
-ship while any flow is still `todo`.
+`done` flow must have `e2e/flows/<ID>.spec.ts`, and CI fails while any flow is still
+`todo`.
 
 ## Surfaces
 
@@ -198,8 +197,27 @@ ship while any flow is still `todo`.
 
 ## Release safety
 
-CI runs the suite on every PR; preview deployments run it again; a production probe
-runs the critical path against a synthetic loop and rolls back through
-`POST /v1/projects/{id}/rollback/{deploymentId}` on two consecutive failures.
-Migrations must be additive (`npm run check:migrations` fails CI on destructive
-DDL), because rollback reverts code, not the database.
+[`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs on every pull request and
+every push to `main`, in order:
+
+1. **Verify** — `npm run verify`: typegen, typecheck, lint, unit tests, the flow
+   matrix, and `check:migrations`.
+2. **Flow coverage (strict)** — `npm run check:flows -- --strict`: a `done` flow must
+   have its spec file, and no flow may still be `todo`.
+3. **End-to-end** — `npm run e2e`: the full Playwright suite on chromium and webkit
+   against a throwaway `postgres:16-alpine` service container.
+
+Migrations must be additive (`check:migrations` fails step 1 on destructive DDL),
+because reverting a deploy reverts code, not the database.
+
+What CI does **not** do, so nobody is surprised by a bad deploy:
+
+- **It does not block the deploy.** Vercel builds and ships `main` on push,
+  independently of this workflow; a red run tells you after the fact. Making the
+  check a merge gate needs branch protection plus pull requests, and this repo has
+  neither — its history is linear commits pushed straight to `main`. That is a
+  deliberate trade: fast to ship, not self-enforcing.
+- **No preview-deployment test run, and no production probe or automatic
+  rollback exist.** Vercel runs only `next build` (see `package.json`). An earlier
+  version of this section described a probe calling `POST /v1/projects/{id}/rollback`
+  on two consecutive failures; it was never written. Do not plan around it.
