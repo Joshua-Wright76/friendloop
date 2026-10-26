@@ -1,7 +1,5 @@
 import Link from "next/link";
-import { eq } from "drizzle-orm";
-import { db } from "@/db";
-import { users } from "@/db/schema";
+import type { Metadata } from "next";
 import { describeDeadline } from "@/lib/schedule";
 import { resolveToken, sheetFor } from "@/lib/reply";
 import { ReplySheet } from "./reply-sheet";
@@ -9,6 +7,14 @@ import { copy, text } from "@/lib/copy";
 
 // One indexed query behind this page; a blocking route is faster than a skeleton.
 export const instant = false;
+
+// A reply link is a credential. It must never appear in a search index, and it
+// must never leak through a Referer header if someone pastes it elsewhere.
+export const metadata: Metadata = {
+  title: copy.common.brand,
+  robots: { index: false, follow: false },
+  referrer: "no-referrer",
+};
 
 function Closed({ title, body }: { title: string; body: string }) {
   return (
@@ -69,20 +75,19 @@ export default async function ReplyPage({ params }: { params: Promise<{ token: s
     );
   }
 
-  const [viewer] = context.membership.userId
-    ? await db.select({ timezone: users.timezone }).from(users).where(eq(users.id, context.membership.userId)).limit(1)
-    : [];
-
   const issue = sheet.context.issue;
-  const deadline = describeDeadline(issue.deliversAt, context.group.timezone, viewer?.timezone);
+  const deadline = describeDeadline(issue.deliversAt, context.group.timezone);
 
   return (
     <ReplySheet
       token={token}
       loopName={context.group.name}
+      loopTimezone={context.group.timezone}
       roundNumber={issue.number}
       deadline={deadline}
+      deliversAtIso={issue.deliversAt.toISOString()}
       displayName={context.membership.name ?? context.membership.email.split("@")[0]}
+      initialName={context.membership.name}
       questions={sheet.questions.map((question, index) => ({
         id: question.id,
         index: index + 1,

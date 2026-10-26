@@ -1,14 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { pauseAction, sendNowAction } from "./actions";
+import { nudgeAction, pauseAction, sendNowAction } from "./actions";
 import { Cherries, Tape } from "@/components/stationery";
 import { LoopNav } from "@/components/loop-nav";
 import { copy, text } from "@/lib/copy";
 import { useLoopData } from "./loop-data";
 
-export default function OverviewTab({ welcome }: { welcome?: string }) {
-  const { group, membership, people, questions, openIssue, openProgress, nextRoundLabel, openIssueDeadlineLabel, weekdayLabel } = useLoopData();
+export default function OverviewTab({ welcome, nudged }: { welcome?: string; nudged?: string }) {
+  const { group, membership, people, questions, openIssue, openProgress, openWaiting, nextRoundLabel, openIssueDeadlineLabel, weekdayLabel } = useLoopData();
   const manages = membership.access !== "member";
   const isOwner = membership.access === "owner";
   const nextLabel = nextRoundLabel;
@@ -29,6 +29,16 @@ export default function OverviewTab({ welcome }: { welcome?: string }) {
       {welcome === "1" ? (
         <div role="status" className="notice settle mb-5 border bg-accent-soft px-4 py-3 text-[14px] leading-relaxed">
           {copy.loop.welcome}
+        </div>
+      ) : null}
+
+      {nudged ? (
+        <div role="status" className="notice settle mb-5 border bg-accent-soft px-4 py-3 text-[14px] leading-relaxed">
+          {nudged === "0"
+            ? copy.loop.everyoneIn
+            : nudged === "1"
+              ? copy.loop.nudgedOne
+              : text(copy.loop.nudged, { count: Number(nudged) })}
         </div>
       ) : null}
 
@@ -103,12 +113,43 @@ export default function OverviewTab({ welcome }: { welcome?: string }) {
               <span className="text-[13px] text-ink-muted">{copy.loop.nobody}</span>
             ) : null}
           </div>
-          <Link
-            href={`/g/${group.id}/issues`}
-            className="mt-3 inline-block text-[14px] font-medium text-accent hover:underline"
-          >
-            {copy.loop.seeRound}
-          </Link>
+
+          {writers > 0 ? (
+            openWaiting.length > 0 ? (
+              <div className="mt-3">
+                <p className="text-[12px] font-medium text-ink-muted">{copy.loop.waitingTitle}</p>
+                <div className="mt-1.5 flex flex-wrap gap-1.5">
+                  {openWaiting.map((person) => (
+                    <span
+                      key={person.id}
+                      className="rounded-full border border-line px-2.5 py-1 text-[12px] font-medium text-ink-soft"
+                    >
+                      {person.name ?? person.email.split("@")[0]}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <p className="mt-3 text-[13px] text-ink-muted">{copy.loop.everyoneIn}</p>
+            )
+          ) : null}
+
+          <div className="mt-4 flex flex-wrap items-center gap-3">
+            <Link
+              href={`/g/${group.id}/issues`}
+              className="text-[14px] font-medium text-accent hover:underline"
+            >
+              {copy.loop.seeRound}
+            </Link>
+            {manages && openWaiting.length > 0 ? (
+              <form action={nudgeAction}>
+                <input type="hidden" name="groupId" value={group.id} />
+                <button type="submit" className="btn btn-quiet h-9 min-h-9 px-3 text-[13px]">
+                  {copy.loop.nudge}
+                </button>
+              </form>
+            ) : null}
+          </div>
         </div>
       ) : null}
 

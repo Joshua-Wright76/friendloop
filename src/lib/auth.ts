@@ -5,11 +5,13 @@ import { db } from "@/db";
 import { magicLinks, memberships, sessions, users } from "@/db/schema";
 import { hashToken, newToken } from "./tokens";
 import { getNow } from "./clock";
+import { cleanDisplayName } from "./names";
+import { isValidTimezone } from "./timezone";
 import { signInEmail } from "./email/templates";
 import { sendEmail } from "./email/send";
 import { signInUrl } from "./urls";
 
-const SESSION_COOKIE = "fl_session";
+export const SESSION_COOKIE = "fl_session";
 const SESSION_DAYS = 30;
 const LINK_MINUTES = 15;
 
@@ -52,8 +54,23 @@ export type ConfirmResult =
   | { ok: true; user: CurrentUser }
   | { ok: false; reason: "expired" | "used" | "unknown" };
 
-/** Single use, 15 minutes. Called from a POST, never a GET — mail scanners fetch GETs. */
-export async function confirmMagicLink(token: string): Promise<ConfirmResult> {
+/** What the browser can tell us at sign-in, so we never have to ask later. */
+export type ConfirmProfile = {
+  name?: string | null;
+  timezone?: string | null;
+};
+
+/**
+ * Single use, 15 minutes. Called from a POST, never a GET — mail scanners fetch GETs.
+ *
+ * The two extra fields are the point of no return: this is the first moment a
+ * person is definitely a person, so the zone their browser reports and the name
+ * they typed are captured here and reused by every deadline and byline after.
+ */
+export async function confirmMagicLink(
+  token: string,
+  profile: ConfirmProfile = {},
+): Promise<ConfirmResult> {
   const at = await getNow();
   const [link] = await db
     .select()
@@ -72,10 +89,20 @@ export async function confirmMagicLink(token: string): Promise<ConfirmResult> {
     .returning({ id: magicLinks.id });
   if (claimed.length === 0) return { ok: false, reason: "used" };
 
+  const name = cleanDisplayName(profile.name);
+  const timezone = profile.timezone && isValidTimezone(profile.timezone) ? profile.timezone.trim() : null;
+
   const [user] = await db
     .insert(users)
-    .values({ email: link.email })
-    .onConflictDoUpdate({ target: users.email, set: { email: link.email } })
+    .values({ email: link.email, name: name ?? undefined, timezone: timezone ?? undefined })
+    .onConflictDoUpdate({
+      target: users.email,
+      set: {
+        email: link.email,
+        ...(name ? { name } : {}),
+        ...(timezone ? { timezone } : {}),
+      },
+    })
     .returning();
 
   // Attach any memberships that were waiting for this address to sign in.
@@ -83,6 +110,15 @@ export async function confirmMagicLink(token: string): Promise<ConfirmResult> {
     .update(memberships)
     .set({ userId: user.id, acceptedAt: sql`coalesce(${memberships.acceptedAt}, ${at.toISOString()})` })
     .where(and(eq(memberships.email, link.email), isNull(memberships.userId)));
+
+  // An invited person often arrives without a name. Take theirs for every loop
+  // that was still showing an email handle.
+  if (name) {
+    await db
+      .update(memberships)
+      .set({ name })
+      .where(and(eq(memberships.email, link.email), isNull(memberships.name)));
+  }
 
   await createSession(user.id, at);
   return { ok: true, user: toCurrentUser(user) };

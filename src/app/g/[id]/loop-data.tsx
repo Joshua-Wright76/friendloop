@@ -19,7 +19,7 @@ export type LoopQuestion = Pick<typeof questions.$inferSelect,
 >;
 
 export type LoopRound = Pick<typeof issues.$inferSelect,
-  "id" | "number" | "status" | "opensAt" | "deliversAt" | "shareToken"
+  "id" | "number" | "status" | "opensAt" | "deliversAt" | "deliveredAt" | "shareToken"
 > & { answers: number; shareUrl: string | null };
 
 export type LoopData = {
@@ -31,6 +31,7 @@ export type LoopData = {
   rounds: LoopRound[];
   openIssue: LoopRound | null;
   openProgress: Array<Pick<Membership, "id" | "name" | "email">>;
+  openWaiting: LoopPerson[];
   nextRoundLabel: Deadline;
   openIssueDeadlineLabel: string | null;
   weekdayLabel: string;

@@ -16,19 +16,20 @@ type Notices = {
   opened?: string;
   saved?: string;
   error?: string;
+  shares?: string;
 };
 
 type Props =
-  | { tab: "overview"; welcome?: string }
+  | { tab: "overview"; welcome?: string; nudged?: string }
   | { tab: "members"; notices: Pick<Notices, "invited" | "resent" | "removed" | "transferred"> }
   | { tab: "questions"; notices: Pick<Notices, "added" | "archived"> }
   | { tab: "issues"; notices: Pick<Notices, "opened"> }
-  | { tab: "settings"; notices: Pick<Notices, "saved" | "error"> };
+  | { tab: "settings"; notices: Pick<Notices, "saved" | "error" | "shares"> };
 
 export function LoopTabContent(props: Props) {
   switch (props.tab) {
     case "overview":
-      return <OverviewTab welcome={props.welcome} />;
+      return <OverviewTab welcome={props.welcome} nudged={props.nudged} />;
     case "members":
       return <MembersTab notices={props.notices} />;
     case "questions":

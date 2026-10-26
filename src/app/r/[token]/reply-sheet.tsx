@@ -2,15 +2,18 @@
 
 /* eslint-disable @next/next/no-img-element -- Uploaded photos use local URLs in development and Blob URLs in production. */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import type { Deadline } from "@/lib/schedule";
 import { Cherries, Tape } from "@/components/stationery";
 import { copy, text } from "@/lib/copy";
+import { formatTimeInZone } from "@/lib/format";
+import { MAX_DISPLAY_NAME } from "@/lib/names";
 import { MAX_PHOTO_BYTES, PHOTO_ACCEPT } from "@/lib/photo-validation";
 import {
   createSerialDraftWriter,
   postReply,
   removeReplyPhoto,
+  saveReplyName,
   uploadReplyPhoto,
 } from "@/lib/reply-client";
 
@@ -26,11 +29,34 @@ export type SheetQuestion = {
 type Props = {
   token: string;
   loopName: string;
+  loopTimezone: string;
   roundNumber: number;
   deadline: Deadline;
+  deliversAtIso: string;
   displayName: string;
+  initialName: string | null;
   questions: SheetQuestion[];
 };
+
+type NameStatus = "idle" | "saving" | "saved" | "error";
+
+function subscribeToNothing() {
+  return () => {};
+}
+
+/**
+ * The device's own clock, read the React way: no effect, no extra render, and
+ * nothing on the server, so hydration can never disagree.
+ */
+function viewerTimeLabel(deliversAtIso: string, loopTimezone: string): string | null {
+  try {
+    const zone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    if (!zone || zone === loopTimezone) return null;
+    return formatTimeInZone(new Date(deliversAtIso), zone);
+  } catch {
+    return null;
+  }
+}
 
 type SaveStatus = "idle" | "saving" | "saved" | "error";
 type QuestionSaveStatus = "empty" | "saving" | "saved" | "error";
@@ -39,13 +65,23 @@ type PhotoStatus = "idle" | "uploading" | "saved" | "removing" | "removed" | "up
 export function ReplySheet({
   token,
   loopName,
+  loopTimezone,
   roundNumber,
   deadline,
+  deliversAtIso,
   displayName,
+  initialName,
   questions,
 }: Props) {
   const [bodies, setBodies] = useState<Record<string, string>>(() =>
     Object.fromEntries(questions.map((question) => [question.id, question.body])),
+  );
+  const [name, setName] = useState(initialName ?? "");
+  const [nameStatus, setNameStatus] = useState<NameStatus>("idle");
+  const viewerTime = useSyncExternalStore(
+    subscribeToNothing,
+    () => viewerTimeLabel(deliversAtIso, loopTimezone),
+    () => null,
   );
   const [submitFailed, setSubmitFailed] = useState(false);
   const [questionStatuses, setQuestionStatuses] = useState<Record<string, QuestionSaveStatus>>(() =>
@@ -71,6 +107,11 @@ export function ReplySheet({
   const photoFiles = useRef(new Map<string, File>());
   const photoObjectUrls = useRef(new Map<string, string>());
   const photoLocks = useRef(new Set<string>());
+  const latestBodies = useRef<Record<string, string>>(
+    Object.fromEntries(questions.map((question) => [question.id, question.body])),
+  );
+  const dirty = useRef(new Set<string>());
+  const savedName = useRef(initialName ?? "");
 
   const total = questions.length;
   const writeDraft = useMemo(
@@ -106,6 +147,48 @@ export function ReplySheet({
       pending.clear();
     };
   }, []);
+
+  /**
+   * The last 550ms of typing used to die with the tab. On the way out, send every
+   * dirty answer once more with a beacon, which the browser delivers even as the
+   * page is torn down.
+   */
+  const flushDrafts = useCallback(() => {
+    if (dirty.current.size === 0) return;
+    for (const [questionId, timer] of timers.current) {
+      clearTimeout(timer);
+      timers.current.delete(questionId);
+    }
+    for (const questionId of dirty.current) {
+      const body = latestBodies.current[questionId] ?? "";
+      const payload = JSON.stringify({ action: "draft", issueQuestionId: questionId, body });
+      const beaconQueued = navigator.sendBeacon?.(
+        `/api/reply/${token}`,
+        new Blob([payload], { type: "application/json" }),
+      );
+      if (!beaconQueued) {
+        void fetch(`/api/reply/${token}`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: payload,
+          keepalive: true,
+        }).catch(() => undefined);
+      }
+    }
+    dirty.current.clear();
+  }, [token]);
+
+  useEffect(() => {
+    const onHidden = () => {
+      if (document.visibilityState === "hidden") flushDrafts();
+    };
+    window.addEventListener("pagehide", flushDrafts);
+    document.addEventListener("visibilitychange", onHidden);
+    return () => {
+      window.removeEventListener("pagehide", flushDrafts);
+      document.removeEventListener("visibilitychange", onHidden);
+    };
+  }, [flushDrafts]);
 
   useEffect(() => () => {
     for (const objectUrl of photoObjectUrls.current.values()) URL.revokeObjectURL(objectUrl);
@@ -226,6 +309,7 @@ export function ReplySheet({
       if ((revisions.current.get(questionId) ?? 0) !== revision) return;
       if (result.ok) {
         setQuestionStatuses((current) => ({ ...current, [questionId]: nonEmpty ? "saved" : "empty" }));
+        dirty.current.delete(questionId);
         setError(null);
       } else {
         setQuestionStatuses((current) => ({ ...current, [questionId]: "error" }));
@@ -238,6 +322,8 @@ export function ReplySheet({
   const onChange = useCallback(
     (questionId: string, value: string, element: HTMLTextAreaElement) => {
       revisions.current.set(questionId, (revisions.current.get(questionId) ?? 0) + 1);
+      dirty.current.add(questionId);
+      latestBodies.current[questionId] = value;
       setBodies((current) => ({ ...current, [questionId]: value }));
       setQuestionStatuses((current) => ({ ...current, [questionId]: "saving" }));
       autosize(element);
@@ -255,6 +341,22 @@ export function ReplySheet({
     [autosize, persist],
   );
 
+  const saveDisplayName = useCallback(async () => {
+    const trimmed = name.trim().slice(0, MAX_DISPLAY_NAME).trim();
+    if (!trimmed || trimmed === savedName.current) {
+      if (!trimmed) setNameStatus("idle");
+      return;
+    }
+    setNameStatus("saving");
+    const result = await saveReplyName(token, trimmed, copy.reply.nameError);
+    if (result.ok) {
+      savedName.current = trimmed;
+      setNameStatus("saved");
+    } else {
+      setNameStatus("error");
+    }
+  }, [name, token]);
+
   const onSend = useCallback(async () => {
     if (photoLocks.current.size > 0) return;
     for (const timer of timers.current.values()) clearTimeout(timer);
@@ -262,6 +364,16 @@ export function ReplySheet({
     setSending(true);
     setSubmitFailed(false);
     setError(null);
+
+    // A name is a nicety; never let it block the answers themselves.
+    const trimmedName = name.trim().slice(0, MAX_DISPLAY_NAME).trim();
+    if (trimmedName && trimmedName !== savedName.current) {
+      const nameResult = await saveReplyName(token, trimmedName, copy.reply.nameError);
+      if (nameResult.ok) {
+        savedName.current = trimmedName;
+        setNameStatus("saved");
+      }
+    }
 
     try {
       for (const question of questions) {
@@ -300,7 +412,7 @@ export function ReplySheet({
     } finally {
       setSending(false);
     }
-  }, [bodies, questions, token, writeDraft]);
+  }, [bodies, name, questions, token, writeDraft]);
 
   return (
     <>
@@ -318,13 +430,45 @@ export function ReplySheet({
       <main className="mx-auto w-full max-w-[600px] px-4 pb-36 pt-7">
         <div className="relative pr-16">
           <Cherries className="absolute -top-2 right-0 h-16 w-16 rotate-12" />
-          <p className="eyebrow">{text(copy.reply.hi, { name: displayName })}</p>
+          <p className="eyebrow">{text(copy.reply.hi, { name: name.trim() || displayName })}</p>
           <h1 className="mt-1 text-ink">{text(copy.reply.round, { number: roundNumber })}</h1>
         </div>
         <p className="mt-3 text-[15px] leading-relaxed text-ink-soft">
-          {text(copy.reply.closes, { deadline: deadline.inLoopZone })}{" "}
-          {deadline.inViewerZone ? text(copy.reply.viewerTimezone, { time: deadline.inViewerZone }) : ""}.
+          {text(copy.reply.closes, { deadline: deadline.inLoopZone })}
+          {viewerTime ? ` ${text(copy.reply.viewerTimezone, { time: viewerTime })}` : null}.
         </p>
+
+        <section className="card mt-5 p-4">
+          <label htmlFor="reply-name" className="block text-[13px] font-medium text-ink-soft">
+            {copy.reply.nameTitle}
+          </label>
+          <input
+            id="reply-name"
+            value={name}
+            onChange={(event) => {
+              setName(event.target.value);
+              if (nameStatus !== "saving") setNameStatus("idle");
+            }}
+            onBlur={() => void saveDisplayName()}
+            maxLength={MAX_DISPLAY_NAME}
+            autoComplete="given-name"
+            placeholder={copy.reply.namePlaceholder}
+            disabled={sending}
+            className="field mt-1.5 h-11 py-0"
+          />
+          <p
+            aria-live="polite"
+            className={`mt-1 text-[12px] leading-relaxed ${nameStatus === "error" ? "text-danger" : "text-ink-muted"}`}
+          >
+            {nameStatus === "saving"
+              ? copy.reply.nameSaving
+              : nameStatus === "saved"
+                ? copy.reply.nameSaved
+                : nameStatus === "error"
+                  ? copy.reply.nameError
+                  : copy.reply.nameHint}
+          </p>
+        </section>
 
         {sent ? (
           <div role="status" className="notice settle mt-6 flex items-start gap-3 border bg-accent-soft px-4 py-3">
@@ -467,14 +611,14 @@ export function ReplySheet({
           </p>
         ) : null}
 
-        <p aria-live="polite" className="mt-4 h-5 text-[13px] text-ink-muted">
+        <p aria-live="polite" data-save-status className="mt-4 h-5 text-[13px] text-ink-muted">
           {status === "saving" ? copy.reply.saving : null}
           {status === "saved" ? (sent ? copy.reply.saved : copy.reply.draftSaved) : null}
           {status === "error" ? copy.reply.notSaved : null}
         </p>
 
         <p className="mt-2 text-[13px] leading-relaxed text-ink-muted">
-          {text(copy.reply.privacy, { displayName, loopName })}
+          {text(copy.reply.privacy, { displayName: name.trim() || displayName, loopName })}
         </p>
       </main>
 

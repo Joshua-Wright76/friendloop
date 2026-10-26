@@ -1,0 +1,40 @@
+"use client";
+
+import { useEffect } from "react";
+import Link from "next/link";
+import { Brand, Tape } from "@/components/stationery";
+import { copy } from "@/lib/copy";
+
+/** Anything a page throws lands here instead of the framework's bare 500. */
+export default function ErrorPage({
+  error,
+  retry,
+}: {
+  error: Error & { digest?: string };
+  retry: () => void;
+}) {
+  useEffect(() => {
+    console.error(error);
+  }, [error]);
+
+  return (
+    <main className="mx-auto flex min-h-svh w-full max-w-[560px] flex-col justify-center px-4 py-10">
+      <div className="mb-8 self-start">
+        <Brand />
+      </div>
+      <div className="card p-6 pt-8">
+        <Tape tone="stripe" position="left" />
+        <h1 className="text-ink">{copy.common.errorPage.title}</h1>
+        <p className="mt-2 text-[15px] leading-relaxed text-ink-soft">{copy.common.errorPage.body}</p>
+        <div className="mt-5 flex flex-wrap gap-3">
+          <button type="button" onClick={() => retry()} className="btn btn-primary">
+            {copy.common.errorPage.retry}
+          </button>
+          <Link href="/" className="btn btn-quiet">
+            {copy.common.errorPage.home}
+          </Link>
+        </div>
+      </div>
+    </main>
+  );
+}

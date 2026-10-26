@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Gaegu, Nunito } from "next/font/google";
 import { ThemeSwitch } from "@/components/theme-switch";
 import { copy } from "@/lib/copy";
+import { THEME_COLORS } from "@/lib/theme";
 import "./globals.css";
 
 const nunito = Nunito({
@@ -26,7 +27,10 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
-  themeColor: "#fff3f5",
+  // One tag, not one per scheme: React re-hoists metadata during hydration and
+  // multiplies media-scoped copies. The inline script below rewrites this value
+  // to the scheme actually in use before first paint.
+  themeColor: THEME_COLORS.light,
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
@@ -38,9 +42,12 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       suppressHydrationWarning
     >
       <head>
+        {/* Sets the theme before paint. It deliberately leaves the theme-color
+            meta alone: rewriting a server-rendered tag here makes React insert a
+            second one during hydration. ThemeSwitch updates the tag instead. */}
         <script
           dangerouslySetInnerHTML={{
-            __html: `try{if(localStorage.getItem("friendloop-theme")==="dark"){document.documentElement.dataset.theme="dark";document.querySelector('meta[name="theme-color"]')?.setAttribute("content","#241a20")}}catch{}`,
+            __html: `try{var s=localStorage.getItem("friendloop-theme"),d=document.documentElement;d.dataset.theme=s==="dark"||s==="light"?s:(window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light")}catch(e){}`,
           }}
         />
       </head>

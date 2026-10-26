@@ -3,22 +3,14 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getNow } from "@/lib/clock";
-import { deleteLoop, setPaused, updateLoopSettings } from "@/lib/manage";
+import { deleteLoop, rotateShareLinks, setPaused, updateLoopSettings } from "@/lib/manage";
 import { viewerFor } from "@/lib/permissions";
+import { isValidTimezone } from "@/lib/timezone";
 
 async function requireOwner(groupId: string) {
   const viewer = await viewerFor(groupId);
   if (!viewer || viewer.membership.access !== "owner") redirect(`/g/${groupId}`);
   return viewer;
-}
-
-function validTimezone(value: string): boolean {
-  try {
-    new Intl.DateTimeFormat("en-US", { timeZone: value });
-    return true;
-  } catch {
-    return false;
-  }
 }
 
 export async function settingsAction(formData: FormData) {
@@ -27,7 +19,7 @@ export async function settingsAction(formData: FormData) {
 
   const name = String(formData.get("name") ?? "").trim();
   const timezone = String(formData.get("timezone") ?? "").trim();
-  if (name.length < 2 || !validTimezone(timezone)) {
+  if (name.length < 2 || !isValidTimezone(timezone)) {
     redirect(`/g/${groupId}/settings?error=1`);
   }
 
@@ -44,6 +36,16 @@ export async function settingsAction(formData: FormData) {
 
   revalidatePath(`/g/${groupId}`, "layout");
   redirect(`/g/${groupId}/settings?saved=1`);
+}
+
+/** New URLs for every delivered round; the ones already handed out 404. */
+export async function rotateSharesAction(formData: FormData) {
+  const groupId = String(formData.get("groupId") ?? "");
+  await requireOwner(groupId);
+
+  const rotated = await rotateShareLinks(groupId);
+  revalidatePath(`/g/${groupId}`, "layout");
+  redirect(`/g/${groupId}/settings?shares=${rotated}`);
 }
 
 export async function pauseHereAction(formData: FormData) {

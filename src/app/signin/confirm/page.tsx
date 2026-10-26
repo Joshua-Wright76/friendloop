@@ -1,10 +1,16 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 import { peekMagicLink } from "@/lib/auth";
-import { confirmLink } from "./actions";
+import { ConfirmForm } from "./confirm-form";
 import { Brand, Tape } from "@/components/stationery";
 import { copy, text } from "@/lib/copy";
 
 export const instant = false;
+
+export const metadata: Metadata = {
+  title: copy.confirm.submit,
+  robots: { index: false, follow: false },
+};
 
 const PROBLEMS: Record<string, { title: string; body: string }> = copy.confirm.problems;
 
@@ -43,12 +49,7 @@ export default async function ConfirmPage({
             <h1 className="text-[24px] font-semibold leading-tight tracking-[-0.022em] text-ink [overflow-wrap:anywhere]">
               {text(copy.confirm.title, { email: peek?.state === "valid" ? peek.email : copy.confirm.fallbackName })}
             </h1>
-            <form action={confirmLink} className="mt-4">
-              <input type="hidden" name="token" value={token ?? ""} />
-              <button type="submit" className="btn btn-primary w-full">
-                {copy.confirm.submit}
-              </button>
-            </form>
+            <ConfirmForm token={token ?? ""} />
           </>
         )}
       </div>

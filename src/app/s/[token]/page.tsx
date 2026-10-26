@@ -1,11 +1,19 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { loadIssue } from "@/lib/issue-view";
+import { formatDate } from "@/lib/format";
 import { IssueBody } from "../../i/[id]/issue-body";
 import { Cherries } from "@/components/stationery";
 import { copy, text } from "@/lib/copy";
 
 export const instant = false;
+
+// A secret link, by contract: never indexed, and never sent as a Referer.
+export const metadata: Metadata = {
+  robots: { index: false, follow: false, nocache: true },
+  referrer: "no-referrer",
+};
 
 export default async function SharePage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
@@ -27,6 +35,11 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
         <h1 className="mt-1 text-ink">{text(copy.share.round, { number: view.issue.number })}</h1>
         <p className="mt-2 text-[15px] leading-relaxed text-ink-soft">
           {view.answerCount === 1 ? copy.share.answer : text(copy.share.answers, { count: view.answerCount })}
+        </p>
+        <p className="mt-1 text-[13px] text-ink-muted">
+          {text(copy.share.deliveredOn, {
+            date: formatDate(view.issue.deliveredAt ?? view.issue.deliversAt, view.group.timezone),
+          })}
         </p>
       </div>
 

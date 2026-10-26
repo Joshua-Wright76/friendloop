@@ -1,7 +1,12 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 import { emailIsCaptured } from "@/lib/email/send";
 import { Brand, Envelope } from "@/components/stationery";
 import { copy } from "@/lib/copy";
+
+export const metadata: Metadata = {
+  robots: { index: false, follow: false },
+};
 
 export default function CheckEmailPage() {
   return (

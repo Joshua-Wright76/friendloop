@@ -5,19 +5,11 @@ import { currentUser } from "@/lib/auth";
 import { getNow } from "@/lib/clock";
 import { createLoop, inviteMembers } from "@/lib/manage";
 import { copy } from "@/lib/copy";
+import { isValidTimezone } from "@/lib/timezone";
 
 export type CreateState = { error?: string };
 
 const WEEKDAYS = copy.common.weekdays;
-
-function validTimezone(value: string): boolean {
-  try {
-    new Intl.DateTimeFormat("en-US", { timeZone: value });
-    return true;
-  } catch {
-    return false;
-  }
-}
 
 export async function createLoopAction(
   _previous: CreateState,
@@ -30,7 +22,7 @@ export async function createLoopAction(
   if (name.length < 2) return { error: copy.newLoop.errors.name };
 
   const timezone = String(formData.get("timezone") ?? "").trim();
-  if (!validTimezone(timezone)) return { error: copy.newLoop.errors.timezone };
+  if (!isValidTimezone(timezone)) return { error: copy.newLoop.errors.timezone };
 
   const promptWeekday = Number(formData.get("weekday") ?? 5);
   const promptHour = Number(formData.get("hour") ?? 9);

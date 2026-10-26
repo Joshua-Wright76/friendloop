@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { saveDraftFor, submitFor } from "@/lib/reply";
+import { saveDraftFor, saveNameFor, submitFor } from "@/lib/reply";
 import { copy } from "@/lib/copy";
 
 /**
@@ -9,7 +9,7 @@ import { copy } from "@/lib/copy";
 export async function POST(request: Request, { params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
 
-  let payload: { action?: string; issueQuestionId?: string; body?: string };
+  let payload: { action?: string; issueQuestionId?: string; body?: string; name?: string };
   try {
     payload = await request.json();
   } catch {
@@ -18,6 +18,16 @@ export async function POST(request: Request, { params }: { params: Promise<{ tok
 
   if (payload.action === "submit") {
     const result = await submitFor(token);
+    return result.ok
+      ? NextResponse.json({ ok: true, savedAt: result.savedAt })
+      : NextResponse.json({ error: result.error }, { status: result.status });
+  }
+
+  if (payload.action === "name") {
+    const result = await saveNameFor({
+      token,
+      name: typeof payload.name === "string" ? payload.name : "",
+    });
     return result.ok
       ? NextResponse.json({ ok: true, savedAt: result.savedAt })
       : NextResponse.json({ error: result.error }, { status: result.status });

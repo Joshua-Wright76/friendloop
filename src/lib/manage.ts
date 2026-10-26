@@ -339,6 +339,12 @@ export type LoopSettings = {
 };
 
 export async function updateLoopSettings(groupId: string, settings: LoopSettings) {
+  const [before] = await db
+    .select({ shareEnabled: groups.shareEnabled })
+    .from(groups)
+    .where(eq(groups.id, groupId))
+    .limit(1);
+
   await db
     .update(groups)
     .set({
@@ -351,6 +357,38 @@ export async function updateLoopSettings(groupId: string, settings: LoopSettings
       shareEnabled: settings.shareEnabled,
     })
     .where(eq(groups.id, groupId));
+
+  // Turning sharing on has to reach the rounds that already went out, or the
+  // setting only ever applies to the next delivery.
+  if (settings.shareEnabled && !before?.shareEnabled) {
+    await backfillShareTokens(groupId);
+  }
+}
+
+/** Give delivered rounds a share token they don't have yet. */
+export async function backfillShareTokens(groupId: string): Promise<number> {
+  const missing = await db
+    .select({ id: issues.id })
+    .from(issues)
+    .where(and(eq(issues.groupId, groupId), eq(issues.status, "delivered"), isNull(issues.shareToken)));
+
+  for (const issue of missing) {
+    await db.update(issues).set({ shareToken: newToken() }).where(eq(issues.id, issue.id));
+  }
+  return missing.length;
+}
+
+/** New links for every delivered round; anything already handed out stops working. */
+export async function rotateShareLinks(groupId: string): Promise<number> {
+  const rounds = await db
+    .select({ id: issues.id })
+    .from(issues)
+    .where(and(eq(issues.groupId, groupId), eq(issues.status, "delivered")));
+
+  for (const issue of rounds) {
+    await db.update(issues).set({ shareToken: newToken() }).where(eq(issues.id, issue.id));
+  }
+  return rounds.length;
 }
 
 export async function setPaused(groupId: string, paused: boolean, at: Date) {

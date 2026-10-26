@@ -1,8 +1,9 @@
 import { and, asc, desc, eq, inArray, isNull } from "drizzle-orm";
 import { db } from "@/db";
-import { groups, issueQuestions, issues, memberships, replies } from "@/db/schema";
+import { groups, issueQuestions, issues, memberships, replies, users } from "@/db/schema";
 import { getNow } from "./clock";
 import { copy } from "./copy.ts";
+import { cleanDisplayName } from "./names";
 import { deleteStoredPhoto } from "./photo-storage";
 import { replyHasContentCondition } from "./reply-query";
 
@@ -339,6 +340,39 @@ export async function submitFor(token: string): Promise<WriteResult> {
 async function markAccepted(membershipId: string, acceptedAt: Date | null, at: Date) {
   if (acceptedAt) return;
   await db.update(memberships).set({ acceptedAt: at }).where(eq(memberships.id, membershipId));
+}
+
+/**
+ * A name typed on the reply sheet. The reply token already proves who this is, so
+ * the same person is renamed in every loop they belong to: an email handle is a
+ * fallback, not a byline.
+ */
+export async function saveNameFor(input: { token: string; name: string }): Promise<WriteResult> {
+  const gate = await ensureWritable(input.token);
+  if (!gate.ok) return gate.result;
+
+  const { context } = gate;
+  const name = cleanDisplayName(input.name);
+  const at = await getNow();
+
+  await db.transaction(async (tx) => {
+    await tx.update(memberships).set({ name }).where(eq(memberships.id, context.membership.id));
+
+    if (name) {
+      if (context.membership.userId) {
+        await tx.update(users).set({ name }).where(eq(users.id, context.membership.userId));
+      }
+      // Other loops this same person is already in, but only where nobody has
+      // named them yet — this never overwrites a name someone chose elsewhere.
+      await tx
+        .update(memberships)
+        .set({ name })
+        .where(and(eq(memberships.email, context.membership.email), isNull(memberships.name)));
+    }
+  });
+
+  await markAccepted(context.membership.id, context.membership.acceptedAt, at);
+  return { ok: true, savedAt: at.toISOString() };
 }
 
 /** The sheet's payload: questions with this person's answers, in order. */

@@ -3,16 +3,17 @@
 import { useEffect, useSyncExternalStore } from "react";
 import { Picker } from "@/components/picker";
 import { copy } from "@/lib/copy";
+import { timezoneOptions } from "@/lib/timezone";
 
-const DEFAULT_TIMEZONE = copy.common.timezones[copy.common.timezones.length - 1];
-const OPTIONS = copy.common.timezones.map((timezone) => ({ value: timezone, label: timezone }));
+const OPTIONS = timezoneOptions().map((timezone) => ({ value: timezone, label: timezone }));
+const FALLBACK_TIMEZONE = copy.common.timezones[copy.common.timezones.length - 1];
 
 function browserTimezone(): string {
   if (typeof window === "undefined") return "";
   try {
-    return Intl.DateTimeFormat().resolvedOptions().timeZone || DEFAULT_TIMEZONE;
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || FALLBACK_TIMEZONE;
   } catch {
-    return DEFAULT_TIMEZONE;
+    return FALLBACK_TIMEZONE;
   }
 }
 
@@ -42,7 +43,7 @@ export function TimezoneField({
     <Picker
       key={initialValue || "timezone"}
       name={name}
-      defaultValue={initialValue || DEFAULT_TIMEZONE}
+      defaultValue={initialValue || FALLBACK_TIMEZONE}
       value={value}
       onValueChange={onValueChange}
       options={OPTIONS}

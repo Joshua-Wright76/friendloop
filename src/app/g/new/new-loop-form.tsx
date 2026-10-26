@@ -587,7 +587,6 @@ export function NewLoopForm({ bank }: { bank: Array<{ group: string; questions: 
           <button
             type="submit"
             disabled={pending}
-            aria-label={copy.newLoop.wizard.createAriaLabel}
             className="btn btn-primary min-h-12 flex-1 disabled:opacity-60"
           >
             {pending ? copy.newLoop.wizard.creating : copy.newLoop.wizard.create}

@@ -1,4 +1,5 @@
 import { Suspense, type ReactNode } from "react";
+import type { Metadata } from "next";
 import { and, asc, desc, eq, isNull, sql } from "drizzle-orm";
 import { notFound, redirect } from "next/navigation";
 import { db } from "@/db";
@@ -14,6 +15,12 @@ import { LoopDataProvider, type LoopData } from "./loop-data";
 type Props = {
   children: ReactNode;
   params: Promise<{ id: string }>;
+};
+
+// Every route under /g is somebody's private loop.
+export const metadata: Metadata = {
+  robots: { index: false, follow: false },
+  referrer: "no-referrer",
 };
 
 export default function GroupLayout(props: Props) {
@@ -73,6 +80,7 @@ async function LoadedGroupLayout({ children, params }: Props) {
       status: issues.status,
       opensAt: issues.opensAt,
       deliversAt: issues.deliversAt,
+      deliveredAt: issues.deliveredAt,
       shareToken: issues.shareToken,
       answers: sql<number>`(
         select count(*)::int from ${replies}
@@ -87,7 +95,8 @@ async function LoadedGroupLayout({ children, params }: Props) {
 
   const rounds: LoopData["rounds"] = roundRows.map((round) => ({
     ...round,
-    shareUrl: round.shareToken ? url(`/s/${round.shareToken}`) : null,
+    shareUrl:
+      group.shareEnabled && round.shareToken ? url(`/s/${round.shareToken}`) : null,
   }));
   const openIssue = rounds.find((round) => round.status === "open") ?? null;
   const openProgress = openIssue
@@ -96,6 +105,10 @@ async function LoadedGroupLayout({ children, params }: Props) {
         .from(replies)
         .innerJoin(memberships, eq(memberships.id, replies.membershipId))
         .where(and(eq(replies.issueId, openIssue.id), eq(replies.status, "submitted")))
+    : [];
+  const answered = new Set(openProgress.map((person) => person.id));
+  const openWaiting = openIssue
+    ? people.filter((person) => person.participation === "contributor" && !answered.has(person.id))
     : [];
 
   const next = nextSlot({
@@ -117,6 +130,7 @@ async function LoadedGroupLayout({ children, params }: Props) {
     rounds,
     openIssue,
     openProgress,
+    openWaiting,
     nextRoundLabel: describeDeadline(next, group.timezone, user.timezone),
     openIssueDeadlineLabel: openIssue
       ? describeDeadline(openIssue.deliversAt, group.timezone, user.timezone).inLoopZone

@@ -1,12 +1,19 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { currentUser } from "@/lib/auth";
 import { loadIssue, membershipForViewer } from "@/lib/issue-view";
+import { formatDate } from "@/lib/format";
 import { IssueBody } from "./issue-body";
 import { Cherries } from "@/components/stationery";
 import { copy, text } from "@/lib/copy";
 
 export const instant = false;
+
+export const metadata: Metadata = {
+  robots: { index: false, follow: false },
+  referrer: "no-referrer",
+};
 
 export default async function IssuePage({
   params,
@@ -46,6 +53,11 @@ export default async function IssuePage({
         <h1 className="mt-1 text-ink">{text(copy.issue.round, { number: view.issue.number })}</h1>
         <p className="mt-2 text-[15px] leading-relaxed text-ink-soft">
           {view.answerCount === 1 ? copy.issue.answer : text(copy.issue.answers, { count: view.answerCount })}
+        </p>
+        <p className="mt-1 text-[13px] text-ink-muted">
+          {text(copy.issue.deliveredOn, {
+            date: formatDate(view.issue.deliveredAt ?? view.issue.deliversAt, view.group.timezone),
+          })}
         </p>
       </div>
 

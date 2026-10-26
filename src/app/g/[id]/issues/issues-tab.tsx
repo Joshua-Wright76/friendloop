@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { LoopNav } from "@/components/loop-nav";
+import { CopyLink } from "@/components/copy-link";
+import { formatDate } from "@/lib/format";
 import { copy, text } from "@/lib/copy";
 import { useLoopData } from "../loop-data";
 
@@ -37,6 +39,11 @@ export default function IssuesTab({ notices }: { notices: { opened?: string } })
             <p className="mt-1 text-[13px] text-ink-muted numeric">
               {round.answers === 1 ? copy.rounds.answer : text(copy.rounds.answers, { count: round.answers })}
             </p>
+            {round.status !== "open" ? (
+              <p className="mt-0.5 text-[12px] text-ink-muted">
+                {formatDate(round.deliveredAt ?? round.deliversAt, group.timezone)}
+              </p>
+            ) : null}
 
             {round.status !== "open" ? (
               <Link
@@ -48,9 +55,12 @@ export default function IssuesTab({ notices }: { notices: { opened?: string } })
             ) : null}
 
             {round.shareUrl ? (
-              <p className="mt-2 break-all text-[12px] text-ink-muted">
-                {text(copy.rounds.shareLink, { url: round.shareUrl })}
-              </p>
+              <div className="mt-2 flex items-center justify-between gap-2 rounded-lg bg-field px-2.5 py-1.5">
+                <span className="min-w-0 truncate text-[12px] text-ink-muted">
+                  {round.shareUrl.replace(/^https?:\/\//, "")}
+                </span>
+                <CopyLink url={round.shareUrl} />
+              </div>
             ) : null}
           </div>
         ))}

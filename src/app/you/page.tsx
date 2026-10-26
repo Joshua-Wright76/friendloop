@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { and, eq, isNull } from "drizzle-orm";
 import { db } from "@/db";
@@ -7,12 +8,21 @@ import { currentUser } from "@/lib/auth";
 import { Brand, Cherries, Tape } from "@/components/stationery";
 import { copy } from "@/lib/copy";
 import { signOutAction } from "./actions";
+import { TimezoneSync } from "./timezone-sync";
 
 export const instant = false;
 
-export default async function YouPage() {
+export const metadata: Metadata = {
+  robots: { index: false, follow: false },
+};
+
+export default async function YouPage({ searchParams }: {
+  searchParams: Promise<{ deleted?: string }>;
+}) {
   const user = await currentUser();
   if (!user) redirect("/signin");
+
+  const { deleted } = await searchParams;
 
   const loops = await db
     .select({ id: groups.id, name: groups.name, access: memberships.access, participation: memberships.participation })
@@ -22,6 +32,7 @@ export default async function YouPage() {
 
   return (
     <main className="mx-auto w-full max-w-[720px] px-4 pb-16 pt-6 sm:px-6">
+      <TimezoneSync stored={user.timezone} />
       <header className="mb-10 flex items-start justify-between gap-3">
         <Brand href={null} />
         <div className="flex max-w-[58%] flex-col items-end gap-2">
@@ -36,6 +47,12 @@ export default async function YouPage() {
         <h1 className="text-ink">{copy.you.title}</h1>
         <Link href="/g/new" className="btn btn-primary">{copy.you.newLoop}</Link>
       </div>
+
+      {deleted ? (
+        <div role="status" className="notice settle mt-5 border bg-accent-soft px-4 py-3 text-[14px] leading-relaxed">
+          {copy.you.deletedNotice}
+        </div>
+      ) : null}
       {loops.length === 0 ? (
         <div className="card mt-8 p-6 pt-8">
           <Tape tone="mint" />

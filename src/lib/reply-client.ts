@@ -120,6 +120,16 @@ export async function removeReplyPhoto(
   }
 }
 
+/** The name shown next to this person's answers. Token-scoped, like everything else here. */
+export async function saveReplyName(
+  token: string,
+  name: string,
+  genericError: string,
+  fetcher: typeof fetch = fetch,
+): Promise<SaveResult> {
+  return postReply(token, { action: "name", name }, genericError, fetcher);
+}
+
 /** Keep writes for one question in request order, while allowing other questions to save independently. */
 export function createSerialDraftWriter<T>(write: (questionId: string, body: string) => Promise<T>) {
   const pending = new Map<string, Promise<unknown>>();

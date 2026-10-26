@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { TimezoneField } from "../../new/timezone-field";
-import { deleteAction, pauseHereAction, settingsAction } from "./actions";
+import { deleteAction, pauseHereAction, rotateSharesAction, settingsAction } from "./actions";
 import { LoopNav } from "@/components/loop-nav";
 import { Picker } from "@/components/picker";
 import { copy } from "@/lib/copy";
@@ -15,7 +15,7 @@ const WEEKDAY_OPTIONS = WEEKDAYS.map((day, index) => ({ value: String(index), la
 const HOUR_OPTIONS = HOURS.map((hour) => ({ value: String(hour), label: `${String(hour).padStart(2, "0")}:00` }));
 const CADENCE_OPTIONS = copy.newLoop.cadences;
 
-export default function SettingsTab({ notices }: { notices: { saved?: string; error?: string } }) {
+export default function SettingsTab({ notices }: { notices: { saved?: string; error?: string; shares?: string } }) {
   const { group, membership } = useLoopData();
   const id = group.id;
   const isOwner = membership.access === "owner";
@@ -34,6 +34,7 @@ export default function SettingsTab({ notices }: { notices: { saved?: string; er
       <h1 className="text-[28px] font-semibold leading-tight tracking-[-0.025em] text-ink">{copy.settings.title}</h1>
 
       {notices.saved ? <Notice>{copy.settings.savedNotice}</Notice> : null}
+      {notices.shares ? <Notice>{copy.settings.sharesResetNotice}</Notice> : null}
       {notices.error === "confirm" ? (
         <Notice tone="danger">{copy.settings.confirmError}</Notice>
       ) : null}
@@ -78,10 +79,23 @@ export default function SettingsTab({ notices }: { notices: { saved?: string; er
           </span>
         </label>
 
+        {group.shareEnabled ? null : (
+          <p className="mt-2 text-[12px] leading-relaxed text-ink-muted">{copy.settings.sharesOff}</p>
+        )}
+
         <button type="submit" className="btn btn-primary mt-5">
           {copy.settings.save}
         </button>
       </form>
+
+      {group.shareEnabled ? (
+        <form action={rotateSharesAction} className="card mt-3 p-5">
+          <input type="hidden" name="groupId" value={id} />
+          <h2 className="text-[16px] font-semibold tracking-[-0.01em] text-ink">{copy.settings.sharesTitle}</h2>
+          <p className="mt-1 text-[14px] leading-relaxed text-ink-soft">{copy.settings.sharesResetDescription}</p>
+          <button type="submit" className="btn btn-quiet mt-3">{copy.settings.sharesReset}</button>
+        </form>
+      ) : null}
 
       <div className="card mt-3 p-5">
         <h2 className="text-[16px] font-semibold tracking-[-0.01em] text-ink">

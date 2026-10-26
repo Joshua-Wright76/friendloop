@@ -2,8 +2,9 @@
 
 import { useEffect, useSyncExternalStore } from "react";
 import { copy } from "@/lib/copy";
+import { themeColorFor, type ThemeName } from "@/lib/theme";
 
-type Theme = "light" | "dark";
+type Theme = ThemeName;
 
 type ViewTransitionDocument = Document & {
   startViewTransition?: (update: () => void) => unknown;
@@ -11,7 +12,9 @@ type ViewTransitionDocument = Document & {
 
 function applyTheme(theme: Theme) {
   document.documentElement.dataset.theme = theme;
-  document.querySelector('meta[name="theme-color"]')?.setAttribute("content", theme === "dark" ? "#241a20" : "#fff3f5");
+  document
+    .querySelectorAll('meta[name="theme-color"]')
+    .forEach((meta) => meta.setAttribute("content", themeColorFor(theme)));
   try {
     localStorage.setItem("friendloop-theme", theme);
   } catch {
@@ -48,7 +51,9 @@ export function ThemeSwitch() {
   const theme = useSyncExternalStore(subscribe, currentTheme, () => "light" as const);
 
   useEffect(() => {
-    document.querySelector('meta[name="theme-color"]')?.setAttribute("content", theme === "dark" ? "#241a20" : "#fff3f5");
+    document
+      .querySelectorAll('meta[name="theme-color"]')
+      .forEach((meta) => meta.setAttribute("content", themeColorFor(theme)));
   }, [theme]);
 
   const toggle = () => transitionTheme(theme === "light" ? "dark" : "light");

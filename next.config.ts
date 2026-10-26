@@ -1,8 +1,14 @@
 import type { NextConfig } from "next";
 
+// A local tunnel changes hostname every time it starts, so it is configured per
+// machine instead of hardcoded: ALLOWED_DEV_ORIGINS="abc-123.trycloudflare.com".
+const devOrigins = (process.env.ALLOWED_DEV_ORIGINS ?? "")
+  .split(",")
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+
 const nextConfig: NextConfig = {
-  // Allow React hydration and HMR through the temporary local tunnel.
-  allowedDevOrigins: ["drawings-stopping-blvd-ran.trycloudflare.com"],
+  ...(devOrigins.length > 0 ? { allowedDevOrigins: devOrigins } : {}),
   // Preview deployments hold throwaway data — keep them out of search results.
   async headers() {
     if (process.env.VERCEL_ENV !== "preview") return [];

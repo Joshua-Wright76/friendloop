@@ -47,20 +47,25 @@ export async function loadIssue(input: {
   shareToken?: string;
   viewerMembershipId?: string | null;
 }): Promise<IssueView | null> {
-  const [issue] = await db
-    .select()
+  const [row] = await db
+    .select({ issue: issues, group: groups })
     .from(issues)
+    .innerJoin(groups, eq(groups.id, issues.groupId))
     .where(
       input.shareToken
-        ? and(eq(issues.shareToken, input.shareToken), eq(issues.status, "delivered"))
+        ? and(
+            eq(issues.shareToken, input.shareToken),
+            eq(issues.status, "delivered"),
+            // Turning sharing off has to mean something: a link handed out
+            // yesterday stops working the moment the owner unchecks the box.
+            eq(groups.shareEnabled, true),
+          )
         : eq(issues.id, input.issueId ?? ""),
     )
     .limit(1);
 
-  if (!issue) return null;
-
-  const [group] = await db.select().from(groups).where(eq(groups.id, issue.groupId)).limit(1);
-  if (!group) return null;
+  if (!row) return null;
+  const { issue, group } = row;
 
   const questions = await db
     .select()
