@@ -1,0 +1,90 @@
+name: CI
+
+# The gate README claims exists: typecheck, lint, unit tests, the flow matrix,
+# and the full Playwright suite — on every PR and on every push to main.
+#
+# Vercel deploys `main` independently of this workflow, so a push that breaks
+# the suite is still deployed; this run is what tells you. Blocking the deploy
+# itself would need PRs plus branch protection, which this repo does not use.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Verify
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # typegen first: LayoutProps/PageProps live in .next/types and are
+      # otherwise only produced by a full build, so a bare clone fails
+      # typecheck without it. `npm run verify` now does this itself.
+      - name: Verify (typegen, typecheck, lint, unit, flows, migrations)
+        run: npm run verify
+
+      # The release gate README promises: no flow may ship marked `todo`.
+      - name: Flow coverage (strict)
+        run: npm run check:flows -- --strict
+
+  e2e:
+    name: End-to-end
+    runs-on: ubuntu-latest
+    needs: verify
+    services:
+      # Deterministic and separate from any dev database. When
+      # TEST_DATABASE_URL is set, scripts/e2e-db.mjs stands down and uses this.
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: friendloop_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/friendloop_test
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # The `phone` project runs iPhone 13, which is WebKit — chromium alone
+      # is not enough.
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium webkit
+
+      - name: Run the suite
+        run: npm run e2e
+
+      - name: Upload report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7
