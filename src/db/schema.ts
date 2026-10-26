@@ -17,8 +17,6 @@ export const accessEnum = pgEnum("access", ["owner", "admin", "member"]);
 export const participationEnum = pgEnum("participation", ["contributor", "reader"]);
 export const modeEnum = pgEnum("mode", ["group", "from_you"]);
 export const issueStatusEnum = pgEnum("issue_status", ["open", "delivered", "skipped"]);
-export const questionKindEnum = pgEnum("question_kind", ["standard", "photo", "music", "shoutout", "recommendation"]);
-export const issueThemeEnum = pgEnum("issue_theme", ["picnic", "spring", "summer", "autumn", "winter", "birthday"]);
 export const replyStatusEnum = pgEnum("reply_status", ["draft", "submitted"]);
 export const outboxStatusEnum = pgEnum("outbox_status", ["pending", "sent", "failed"]);
 export const emailKindEnum = pgEnum("email_kind", [
@@ -84,7 +82,6 @@ export const groups = pgTable("groups", {
   /** Reply window length in days; delivery lands this long after opening. */
   windowDays: integer("window_days").default(7).notNull(),
   shareEnabled: boolean("share_enabled").default(false).notNull(),
-  theme: issueThemeEnum("theme").default("picnic").notNull(),
   pausedAt: timestamp("paused_at", { withTimezone: true }),
   /** Last slot that produced an issue, so pause/resume restarts cleanly. */
   lastSlotAt: timestamp("last_slot_at", { withTimezone: true }),
@@ -127,7 +124,6 @@ export const questions = pgTable(
       .references(() => groups.id, { onDelete: "cascade" })
       .notNull(),
     text: text("text").notNull(),
-    kind: questionKindEnum("kind").default("standard").notNull(),
     position: integer("position").default(0).notNull(),
     /** Whether it is offered when composing the next issue. */
     active: boolean("active").default(true).notNull(),
@@ -156,8 +152,6 @@ export const issues = pgTable(
     opensAt: timestamp("opens_at", { withTimezone: true }).notNull(),
     deliversAt: timestamp("delivers_at", { withTimezone: true }).notNull(),
     deliveredAt: timestamp("delivered_at", { withTimezone: true }),
-    /** Null inherits the loop default; a value is this issue's stationery override. */
-    theme: issueThemeEnum("theme"),
     /** Set when the loop had nothing to send and the issue was dropped. */
     skippedAt: timestamp("skipped_at", { withTimezone: true }),
     shareToken: text("share_token"),
@@ -179,12 +173,9 @@ export const issueQuestions = pgTable(
       .notNull(),
     questionId: uuid("question_id").references(() => questions.id, { onDelete: "set null" }),
     text: text("text").notNull(),
-    kind: questionKindEnum("kind").default("standard").notNull(),
     position: integer("position").default(0).notNull(),
   },
-  (t) => [
-    uniqueIndex("issue_questions_issue_question_idx").on(t.issueId, t.questionId),
-  ],
+  (t) => [uniqueIndex("issue_questions_issue_question_idx").on(t.issueId, t.questionId)],
 );
 
 export const replies = pgTable(
@@ -242,30 +233,6 @@ export const reactions = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => [uniqueIndex("reactions_unique_idx").on(t.replyId, t.membershipId, t.emoji)],
-);
-
-export const issueMoods = pgTable(
-  "issue_moods",
-  {
-    id: uuid("id").defaultRandom().primaryKey(),
-    issueId: uuid("issue_id").references(() => issues.id, { onDelete: "cascade" }).notNull(),
-    membershipId: uuid("membership_id").references(() => memberships.id, { onDelete: "cascade" }).notNull(),
-    emoji: text("emoji").notNull(),
-    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
-  },
-  (t) => [uniqueIndex("issue_moods_issue_membership_idx").on(t.issueId, t.membershipId)],
-);
-
-export const issuePicks = pgTable(
-  "issue_picks",
-  {
-    id: uuid("id").defaultRandom().primaryKey(),
-    issueId: uuid("issue_id").references(() => issues.id, { onDelete: "cascade" }).notNull(),
-    replyId: uuid("reply_id").references(() => replies.id, { onDelete: "cascade" }).notNull(),
-    createdByMembershipId: uuid("created_by_membership_id").references(() => memberships.id, { onDelete: "set null" }),
-    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-  },
-  (t) => [uniqueIndex("issue_picks_issue_reply_idx").on(t.issueId, t.replyId)],
 );
 
 /** Every outgoing email lands here first. Tests read this instead of a mailbox. */

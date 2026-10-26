@@ -17,12 +17,6 @@ import { replyUrl, url } from "./urls";
 import { deliveryInstant } from "./schedule";
 import { INVITE_DAYS } from "./reply";
 import { reorderIds } from "./question-order";
-import {
-  normalizeIssueTheme,
-  normalizeQuestionKind,
-  type IssueTheme,
-  type QuestionKind,
-} from "./issue-experience";
 
 export function normalizeEmail(value: string): string {
   return value.trim().toLowerCase();
@@ -42,8 +36,7 @@ export type CreateLoopInput = {
   promptWeekday: number;
   promptHour: number;
   cadenceWeeks: number;
-  questions: Array<string | { text: string; kind?: QuestionKind }>;
-  theme?: IssueTheme;
+  questions: string[];
   at: Date;
 };
 
@@ -58,7 +51,6 @@ export async function createLoop(input: CreateLoopInput): Promise<string> {
       promptWeekday: input.promptWeekday,
       promptHour: input.promptHour,
       cadenceWeeks: input.cadenceWeeks,
-      theme: normalizeIssueTheme(input.theme),
       createdAt: input.at,
     })
     .returning({ id: groups.id });
@@ -74,18 +66,10 @@ export async function createLoop(input: CreateLoopInput): Promise<string> {
     acceptedAt: input.at,
   });
 
-  const questionRows = input.questions
-    .map((question) => typeof question === "string" ? { text: question, kind: "standard" as const } : question)
-    .map((question) => ({ text: question.text.trim(), kind: normalizeQuestionKind(question.kind) }))
-    .filter((question) => question.text.length > 0);
-  if (questionRows.length > 0) {
+  const texts = input.questions.map((text) => text.trim()).filter(Boolean);
+  if (texts.length > 0) {
     await db.insert(questions).values(
-      questionRows.map((question, index) => ({
-        groupId: group.id,
-        text: question.text,
-        kind: question.kind,
-        position: index,
-      })),
+      texts.map((text, index) => ({ groupId: group.id, text, position: index })),
     );
   }
 
@@ -283,7 +267,7 @@ export async function transferOwnership(groupId: string, fromId: string, toId: s
     .where(and(eq(memberships.id, toId), eq(memberships.groupId, groupId)));
 }
 
-export async function addQuestion(groupId: string, text: string, at: Date, kind: QuestionKind = "standard") {
+export async function addQuestion(groupId: string, text: string, at: Date) {
   const trimmed = text.trim();
   if (!trimmed) return null;
 
@@ -294,7 +278,7 @@ export async function addQuestion(groupId: string, text: string, at: Date, kind:
 
   const [row] = await db
     .insert(questions)
-    .values({ groupId, text: trimmed, kind, position: maxPosition + 1, createdAt: at })
+    .values({ groupId, text: trimmed, position: maxPosition + 1, createdAt: at })
     .returning({ id: questions.id });
   return row.id;
 }
@@ -352,7 +336,6 @@ export type LoopSettings = {
   promptHour: number;
   cadenceWeeks: number;
   shareEnabled: boolean;
-  theme?: IssueTheme;
 };
 
 export async function updateLoopSettings(groupId: string, settings: LoopSettings) {
@@ -366,7 +349,6 @@ export async function updateLoopSettings(groupId: string, settings: LoopSettings
       promptHour: settings.promptHour,
       cadenceWeeks: settings.cadenceWeeks,
       shareEnabled: settings.shareEnabled,
-      ...(settings.theme ? { theme: settings.theme } : {}),
     })
     .where(eq(groups.id, groupId));
 }
@@ -432,7 +414,6 @@ export async function openIssueNow(groupId: string, at: Date): Promise<{ issueId
         issueId: issue.id,
         questionId: question.id,
         text: question.text,
-        kind: question.kind,
         position: index,
       })),
     );

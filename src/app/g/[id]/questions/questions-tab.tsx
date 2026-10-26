@@ -29,9 +29,9 @@ export default function QuestionsTab({ notices }: { notices: { added?: string; a
       {notices.added ? <Notice>{copy.questions.addedNotice}</Notice> : null}
       {notices.archived ? <Notice>{copy.questions.archivedNotice}</Notice> : null}
 
-      {manages && pool.length ? <QuestionOrder groupId={id} questions={pool.map(({ id: questionId, text, kind, skipNext }) => ({ id: questionId, text, kind, skipNext }))} /> : (
+      {manages && pool.length ? <QuestionOrder groupId={id} questions={pool.map(({ id: questionId, text, skipNext }) => ({ id: questionId, text, skipNext }))} /> : (
         <ol className="mt-5 flex flex-col gap-2.5" aria-label={copy.questions.listLabel}>
-          {pool.map((question, index) => <li key={question.id} className="card paper p-4"><div className="flex items-start gap-3"><span className="question-number">{index + 1}</span><div><p className="text-[15px] font-medium leading-snug text-ink">{question.text}<span className="section-kind-badge ml-2">{copy.sections[question.kind].label}</span></p>{question.skipNext ? <p className="mt-1 text-[12px] font-medium text-ink-muted">{copy.questions.skipNextNote}</p> : null}</div></div></li>)}
+          {pool.map((question, index) => <li key={question.id} className="card paper p-4"><div className="flex items-start gap-3"><span className="question-number">{index + 1}</span><div><p className="text-[15px] font-medium leading-snug text-ink">{question.text}</p>{question.skipNext ? <p className="mt-1 text-[12px] font-medium text-ink-muted">{copy.questions.skipNextNote}</p> : null}</div></div></li>)}
           {pool.length === 0 ? <li className="card p-5 text-[14px] text-ink-muted"><p>{copy.questions.empty}</p>{manages ? <a href="#question-form" className="btn btn-primary mt-4 inline-flex">{copy.questions.firstQuestionAction}</a> : null}</li> : null}
         </ol>
       )}
@@ -48,12 +48,6 @@ export default function QuestionsTab({ notices }: { notices: { added?: string; a
             aria-label={copy.questions.newQuestionAriaLabel}
             className="field mt-3 h-[46px] py-0"
           />
-          <label className="mt-3 flex flex-col gap-1.5 text-[13px] font-medium text-ink-soft">
-            {copy.questions.kindLabel}
-            <select name="kind" defaultValue="standard" className="field h-[46px] py-0">
-              {Object.entries(copy.sections).map(([kind, section]) => <option key={kind} value={kind}>{section.label}</option>)}
-            </select>
-          </label>
           <button type="submit" className="btn btn-primary mt-3">
             {copy.questions.add}
           </button>

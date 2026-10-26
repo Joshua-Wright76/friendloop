@@ -4,7 +4,6 @@ import { db } from "@/db";
 import {
   comments,
   groups,
-  issueMoods,
   issueQuestions,
   issues,
   magicLinks,
@@ -48,7 +47,6 @@ const DELIVERED_QUESTION_IDS = [
   "22222222-2222-4222-8222-222222222262",
   "22222222-2222-4222-8222-222222222263",
 ];
-const QUESTION_KIND_VALUES = ["photo", "music", "shoutout", "recommendation"] as const;
 const QUESTION_TEXT = [
   "What made you laugh this week?",
   "What are you looking forward to?",
@@ -133,7 +131,6 @@ export async function enableUiPreview(reset = false) {
       id: QUESTION_IDS[index],
       groupId: UI_PREVIEW.groupId,
       text,
-      kind: QUESTION_KIND_VALUES[index],
       position: index,
     }))).onConflictDoNothing();
 
@@ -161,8 +158,8 @@ export async function enableUiPreview(reset = false) {
     ]).onConflictDoNothing();
 
     await tx.insert(issueQuestions).values(QUESTION_TEXT.flatMap((text, index) => [
-      { id: OPEN_QUESTION_IDS[index], issueId: UI_PREVIEW.openIssueId, questionId: QUESTION_IDS[index], text, kind: QUESTION_KIND_VALUES[index], position: index },
-      { id: DELIVERED_QUESTION_IDS[index], issueId: UI_PREVIEW.deliveredIssueId, questionId: QUESTION_IDS[index], text, kind: QUESTION_KIND_VALUES[index], position: index },
+      { id: OPEN_QUESTION_IDS[index], issueId: UI_PREVIEW.openIssueId, questionId: QUESTION_IDS[index], text, position: index },
+      { id: DELIVERED_QUESTION_IDS[index], issueId: UI_PREVIEW.deliveredIssueId, questionId: QUESTION_IDS[index], text, position: index },
     ])).onConflictDoNothing();
 
     const replyRows: Array<typeof replies.$inferInsert> = QUESTION_TEXT.flatMap((_, index) => [
@@ -198,13 +195,6 @@ export async function enableUiPreview(reset = false) {
       issueId: UI_PREVIEW.deliveredIssueId,
       membershipId: UI_PREVIEW.aliceMembershipId,
       body: "This made my morning.",
-    }).onConflictDoNothing();
-
-    await tx.insert(issueMoods).values({
-      id: "22222222-2222-4222-8222-222222222272",
-      issueId: UI_PREVIEW.deliveredIssueId,
-      membershipId: UI_PREVIEW.ownerMembershipId,
-      emoji: "🥳",
     }).onConflictDoNothing();
 
     await tx.insert(magicLinks).values({

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { saveDraftFor, saveMoodFor, submitFor } from "@/lib/reply";
+import { saveDraftFor, submitFor } from "@/lib/reply";
 import { copy } from "@/lib/copy";
 
 /**
@@ -9,7 +9,7 @@ import { copy } from "@/lib/copy";
 export async function POST(request: Request, { params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
 
-  let payload: { action?: string; issueQuestionId?: string; body?: string; emoji?: string };
+  let payload: { action?: string; issueQuestionId?: string; body?: string };
   try {
     payload = await request.json();
   } catch {
@@ -18,16 +18,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ tok
 
   if (payload.action === "submit") {
     const result = await submitFor(token);
-    return result.ok
-      ? NextResponse.json({ ok: true, savedAt: result.savedAt })
-      : NextResponse.json({ error: result.error }, { status: result.status });
-  }
-
-  if (payload.action === "mood") {
-    const result = await saveMoodFor({
-      token,
-      emoji: typeof payload.emoji === "string" ? payload.emoji : "",
-    });
     return result.ok
       ? NextResponse.json({ ok: true, savedAt: result.savedAt })
       : NextResponse.json({ error: result.error }, { status: result.status });

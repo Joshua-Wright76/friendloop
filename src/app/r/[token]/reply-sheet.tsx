@@ -4,10 +4,9 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Deadline } from "@/lib/schedule";
-import { Cherries, Tape, ThemeMark } from "@/components/stationery";
+import { Cherries, Tape } from "@/components/stationery";
 import { copy, text } from "@/lib/copy";
 import { MAX_PHOTO_BYTES, PHOTO_ACCEPT } from "@/lib/photo-validation";
-import type { IssueTheme, QuestionKind } from "@/lib/issue-experience";
 import {
   createSerialDraftWriter,
   postReply,
@@ -19,7 +18,6 @@ export type SheetQuestion = {
   id: string;
   index: number;
   text: string;
-  kind: QuestionKind;
   body: string;
   photoUrl: string | null;
   submitted: boolean;
@@ -31,8 +29,6 @@ type Props = {
   roundNumber: number;
   deadline: Deadline;
   displayName: string;
-  theme: IssueTheme;
-  mood: string | null;
   questions: SheetQuestion[];
 };
 
@@ -46,21 +42,14 @@ export function ReplySheet({
   roundNumber,
   deadline,
   displayName,
-  theme,
-  mood: initialMood,
   questions,
 }: Props) {
   const [bodies, setBodies] = useState<Record<string, string>>(() =>
     Object.fromEntries(questions.map((question) => [question.id, question.body])),
   );
-  const [mood, setMood] = useState(initialMood ?? "");
-  const [moodStatus, setMoodStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [submitFailed, setSubmitFailed] = useState(false);
   const [questionStatuses, setQuestionStatuses] = useState<Record<string, QuestionSaveStatus>>(() =>
-    Object.fromEntries(questions.map((question) => [
-      question.id,
-      question.body.trim() || question.photoUrl ? "saved" : "empty",
-    ])),
+    Object.fromEntries(questions.map((question) => [question.id, question.body.trim() ? "saved" : "empty"])),
   );
   const [photoUrls, setPhotoUrls] = useState<Record<string, string | null>>(() =>
     Object.fromEntries(questions.map((question) => [question.id, question.photoUrl])),
@@ -89,14 +78,6 @@ export function ReplySheet({
       token,
       { action: "draft", issueQuestionId: questionId, body },
       copy.reply.genericError,
-    )),
-    [token],
-  );
-  const writeMood = useMemo(
-    () => createSerialDraftWriter((_key, emoji) => postReply(
-      token,
-      { action: "mood", emoji },
-      copy.reply.moodError,
     )),
     [token],
   );
@@ -274,13 +255,6 @@ export function ReplySheet({
     [autosize, persist],
   );
 
-  const chooseMood = useCallback(async (emoji: string) => {
-    setMood(emoji);
-    setMoodStatus("saving");
-    const result = await writeMood("round", emoji);
-    setMoodStatus(result.ok ? "saved" : "error");
-  }, [writeMood]);
-
   const onSend = useCallback(async () => {
     if (photoLocks.current.size > 0) return;
     for (const timer of timers.current.values()) clearTimeout(timer);
@@ -329,7 +303,7 @@ export function ReplySheet({
   }, [bodies, questions, token, writeDraft]);
 
   return (
-    <div className="theme-pack min-h-dvh" data-theme-pack={theme}>
+    <>
       <header className="reply-topbar stitched sticky top-0 z-20 border-b bg-page/85 backdrop-blur-md">
         <div className="mx-auto flex h-16 w-full max-w-[600px] items-center justify-between gap-3 px-4">
           <span className="flex min-w-0 items-center gap-2 font-display text-[23px] font-bold text-ink">
@@ -343,7 +317,7 @@ export function ReplySheet({
 
       <main className="mx-auto w-full max-w-[600px] px-4 pb-36 pt-7">
         <div className="relative pr-16">
-          <ThemeMark theme={theme} className="absolute -top-2 right-0 h-16 w-16 rotate-12" />
+          <Cherries className="absolute -top-2 right-0 h-16 w-16 rotate-12" />
           <p className="eyebrow">{text(copy.reply.hi, { name: displayName })}</p>
           <h1 className="mt-1 text-ink">{text(copy.reply.round, { number: roundNumber })}</h1>
         </div>
@@ -363,45 +337,42 @@ export function ReplySheet({
           </div>
         ) : null}
 
-        <section className="card mood-picker mt-6 p-5" aria-labelledby="mood-picker-title">
-          <h2 id="mood-picker-title" className="text-ink">{copy.reply.moodTitle}</h2>
-          <p className="mt-1 text-[13px] leading-relaxed text-ink-soft">{copy.reply.moodDescription}</p>
-          <div className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-6" role="group" aria-label={copy.reply.moodAriaLabel}>
-            {copy.moods.options.map((option) => (
-              <button
-                key={option.emoji}
-                type="button"
-                aria-pressed={mood === option.emoji}
-                aria-label={option.label}
-                onClick={() => void chooseMood(mood === option.emoji ? "" : option.emoji)}
-                disabled={sending}
-                className={`mood-option ${mood === option.emoji ? "mood-option--selected" : ""}`}
-              >
-                <span aria-hidden="true" className="text-[22px]">{option.emoji}</span>
-                <span className="text-[11px] font-bold leading-tight">{option.label}</span>
-              </button>
-            ))}
-          </div>
-          <div className="mt-2 flex min-h-6 items-center justify-between gap-3">
-            <p aria-live="polite" role={moodStatus === "error" ? "alert" : "status"} className={`text-[12px] ${moodStatus === "error" ? "text-danger" : "text-ink-muted"}`}>
-              {moodStatus === "saving" ? copy.reply.moodSaving : null}
-              {moodStatus === "saved" ? copy.reply.moodSaved : null}
-              {moodStatus === "error" ? copy.reply.moodError : null}
-            </p>
-            {mood ? (
-              <button type="button" className="min-h-11 text-[12px] font-bold text-ink-soft underline underline-offset-2" onClick={() => void chooseMood("")} disabled={sending}>
-                {copy.reply.clearMood}
-              </button>
-            ) : null}
-          </div>
-        </section>
-
         <div className="mt-7 flex flex-col gap-6">
           {questions.map((question, index) => {
             const photoState = photoStates[question.id] ?? "idle";
             const photoUrl = photoUrls[question.id];
             const preview = photoPreviews[question.id];
-            const writing = (
+            const photoBusyForCard = photoState === "uploading" || photoState === "removing";
+            const showRemove = Boolean(photoUrl || preview || photoState === "uploadError" || photoState === "removeError");
+            const photoStatusText = photoState === "uploading"
+              ? copy.reply.photoUploading
+              : photoState === "removing"
+                ? copy.reply.photoRemoving
+                : photoState === "saved"
+                  ? copy.reply.photoSaved
+                  : photoState === "removed"
+                    ? copy.reply.photoRemoved
+                    : photoErrors[question.id];
+
+            return (
+            <section key={question.id} className="card paper ride-in block p-5 pt-7">
+              <Tape tone={(["dots", "stripe", "mint", "check"] as const)[index % 4]} position={index % 2 ? "right" : "left"} />
+              <div className="mb-3 flex items-start justify-between gap-3">
+                <label htmlFor={`reply-${question.id}`} className="font-display text-[25px] font-bold leading-[1.15] text-ink">
+                  {question.text}
+                </label>
+                <span className="flex flex-none items-center gap-2 text-[12px] text-ink-muted" aria-live="polite">
+                  {questionStatuses[question.id] === "saving" ? <span>{copy.reply.questionStates.saving}</span> : null}
+                  {questionStatuses[question.id] === "saved" ? <span>{copy.reply.questionStates.saved}</span> : null}
+                  {questionStatuses[question.id] === "error" ? <span>{copy.reply.questionStates.error}</span> : null}
+                  {questionStatuses[question.id] === "error" ? (
+                    <button type="button" className="min-h-11 underline underline-offset-2" onClick={() => void persist(question.id, bodies[question.id] ?? "")}>
+                      {copy.reply.retry}
+                    </button>
+                  ) : null}
+                </span>
+              </div>
+
               <textarea
                 ref={(element) => {
                   if (element) {
@@ -416,51 +387,76 @@ export function ReplySheet({
                 disabled={sending}
                 rows={2}
                 maxLength={8000}
-                placeholder={copy.sections[question.kind].placeholder}
+                placeholder={copy.reply.placeholder}
                 aria-label={question.text}
-                aria-describedby={`hint-${question.id}`}
-                className={`field lined-field ${question.kind === "photo" ? "mt-4" : "mt-2"}`}
+                className="field lined-field mt-2"
               />
-            );
-            const photo = (
-              <PhotoAnswerControls
-                questionId={question.id}
-                photoUrl={photoUrl}
-                preview={preview}
-                photoState={photoState}
-                photoError={photoErrors[question.id]}
-                retryable={Boolean(retryablePhotos[question.id])}
-                sending={sending}
-                onSelect={(file) => selectPhoto(question.id, file)}
-                onRemove={() => void removePhoto(question.id)}
-                onRetry={() => retryPhoto(question.id)}
-              />
-            );
 
-            return (
-              <section key={question.id} data-kind={question.kind} className={`card paper ride-in reply-kind-${question.kind} block p-5 pt-7`}>
-                <Tape tone={(["dots", "stripe", "mint", "check"] as const)[index % 4]} position={index % 2 ? "right" : "left"} />
-                <div className="mb-3 flex items-start justify-between gap-3">
-                  <label htmlFor={`reply-${question.id}`} className="font-display text-[25px] font-bold leading-[1.15] text-ink">
-                    {question.text}
-                    <span className="section-kind-badge mt-1 block w-fit font-body">{copy.sections[question.kind].label}</span>
-                  </label>
-                  <span className="flex flex-none items-center gap-2 text-[12px] text-ink-muted" aria-live="polite">
-                    {questionStatuses[question.id] === "saving" ? <span>{copy.reply.questionStates.saving}</span> : null}
-                    {questionStatuses[question.id] === "saved" ? <span>{copy.reply.questionStates.saved}</span> : null}
-                    {questionStatuses[question.id] === "error" ? <span>{copy.reply.questionStates.error}</span> : null}
-                    {questionStatuses[question.id] === "error" ? (
-                      <button type="button" className="min-h-11 underline underline-offset-2" onClick={() => void persist(question.id, bodies[question.id] ?? "")}>
-                        {copy.reply.retry}
-                      </button>
-                    ) : null}
-                  </span>
-                </div>
-                <p id={`hint-${question.id}`} className="mb-2 text-[13px] leading-relaxed text-ink-soft">
-                  {copy.sections[question.kind].replyHint}
+              {(preview || photoUrl) ? (
+                <img
+                  src={preview ?? photoUrl ?? ""}
+                  alt={copy.reply.photoPreview}
+                  className="mt-4 max-h-[320px] w-full rounded-md border border-line object-cover"
+                />
+              ) : null}
+
+              <div className="mt-4 flex flex-wrap items-center gap-3">
+                <input
+                  id={`photo-${question.id}`}
+                  type="file"
+                  accept={PHOTO_ACCEPT}
+                  className="peer sr-only"
+                  disabled={sending || photoBusyForCard}
+                  aria-label={photoUrl ? copy.reply.replacePhoto : copy.reply.addPhoto}
+                  aria-describedby={`photo-help-${question.id}`}
+                  onChange={(event) => {
+                    const file = event.currentTarget.files?.[0];
+                    event.currentTarget.value = "";
+                    if (file) selectPhoto(question.id, file);
+                  }}
+                />
+                <label
+                  htmlFor={`photo-${question.id}`}
+                  className="btn btn-quiet min-h-11 px-4 text-[13px] peer-disabled:pointer-events-none peer-disabled:opacity-45 peer-focus-visible:outline peer-focus-visible:outline-3 peer-focus-visible:outline-accent peer-focus-visible:outline-offset-2"
+                >
+                  {photoUrl ? copy.reply.replacePhoto : copy.reply.addPhoto}
+                </label>
+                {showRemove ? (
+                  <button
+                    type="button"
+                    className="btn btn-quiet min-h-11 px-4 text-[13px]"
+                    onClick={() => void removePhoto(question.id)}
+                    disabled={sending || photoBusyForCard}
+                  >
+                    {copy.reply.removePhoto}
+                  </button>
+                ) : null}
+                <span id={`photo-help-${question.id}`} className="text-[12px] leading-relaxed text-ink-muted">
+                  {copy.reply.photoFormats}
+                </span>
+              </div>
+              {photoStatusText ? (
+                <p
+                  id={`photo-status-${question.id}`}
+                  role={photoState === "uploadError" || photoState === "removeError" ? "alert" : "status"}
+                  aria-live={photoState === "uploadError" || photoState === "removeError" ? "assertive" : "polite"}
+                  aria-atomic="true"
+                  className={`mt-2 text-[13px] leading-relaxed ${photoState === "uploadError" || photoState === "removeError" ? "text-danger" : "text-ink-muted"}`}
+                >
+                  {photoStatusText}
                 </p>
-                {question.kind === "photo" ? <>{photo}{writing}</> : <>{writing}{photo}</>}
-              </section>
+              ) : null}
+              {(photoState === "removeError" || (photoState === "uploadError" && retryablePhotos[question.id])) ? (
+                <button
+                  type="button"
+                  className="mt-1 min-h-11 text-[13px] font-bold text-ink underline underline-offset-2"
+                  onClick={() => retryPhoto(question.id)}
+                  disabled={sending || photoBusyForCard}
+                >
+                  {photoState === "removeError" ? copy.reply.retryPhotoRemove : copy.reply.retryPhotoUpload}
+                </button>
+              ) : null}
+            </section>
             );
           })}
         </div>
@@ -500,112 +496,6 @@ export function ReplySheet({
           </button>
         </div>
       </div>
-    </div>
-  );
-}
-
-function PhotoAnswerControls({
-  questionId,
-  photoUrl,
-  preview,
-  photoState,
-  photoError,
-  retryable,
-  sending,
-  onSelect,
-  onRemove,
-  onRetry,
-}: {
-  questionId: string;
-  photoUrl: string | null | undefined;
-  preview: string | null | undefined;
-  photoState: PhotoStatus;
-  photoError: string | null | undefined;
-  retryable: boolean;
-  sending: boolean;
-  onSelect: (file: File) => void;
-  onRemove: () => void;
-  onRetry: () => void;
-}) {
-  const busy = photoState === "uploading" || photoState === "removing";
-  const failed = photoState === "uploadError" || photoState === "removeError";
-  const showRemove = Boolean(photoUrl || preview || failed);
-  const statusText = photoState === "uploading"
-    ? copy.reply.photoUploading
-    : photoState === "removing"
-      ? copy.reply.photoRemoving
-      : photoState === "saved"
-        ? copy.reply.photoSaved
-        : photoState === "removed"
-          ? copy.reply.photoRemoved
-          : photoError;
-
-  return (
-    <div className="reply-photo-controls">
-      {(preview || photoUrl) ? (
-        <img
-          src={preview ?? photoUrl ?? ""}
-          alt={copy.reply.photoPreview}
-          className="mt-4 max-h-[320px] w-full rounded-md border border-line object-cover"
-        />
-      ) : null}
-
-      <div className="mt-4 flex flex-wrap items-center gap-3">
-        <input
-          id={`photo-${questionId}`}
-          type="file"
-          accept={PHOTO_ACCEPT}
-          className="peer sr-only"
-          disabled={sending || busy}
-          aria-label={photoUrl ? copy.reply.replacePhoto : copy.reply.addPhoto}
-          aria-describedby={`photo-help-${questionId}`}
-          onChange={(event) => {
-            const file = event.currentTarget.files?.[0];
-            event.currentTarget.value = "";
-            if (file) onSelect(file);
-          }}
-        />
-        <label
-          htmlFor={`photo-${questionId}`}
-          className="btn btn-quiet min-h-11 px-4 text-[13px] peer-disabled:pointer-events-none peer-disabled:opacity-45 peer-focus-visible:outline peer-focus-visible:outline-3 peer-focus-visible:outline-accent peer-focus-visible:outline-offset-2"
-        >
-          {photoUrl ? copy.reply.replacePhoto : copy.reply.addPhoto}
-        </label>
-        {showRemove ? (
-          <button
-            type="button"
-            className="btn btn-quiet min-h-11 px-4 text-[13px]"
-            onClick={onRemove}
-            disabled={sending || busy}
-          >
-            {copy.reply.removePhoto}
-          </button>
-        ) : null}
-        <span id={`photo-help-${questionId}`} className="text-[12px] leading-relaxed text-ink-muted">
-          {copy.reply.photoFormats}
-        </span>
-      </div>
-      {statusText ? (
-        <p
-          id={`photo-status-${questionId}`}
-          role={failed ? "alert" : "status"}
-          aria-live={failed ? "assertive" : "polite"}
-          aria-atomic="true"
-          className={`mt-2 text-[13px] leading-relaxed ${failed ? "text-danger" : "text-ink-muted"}`}
-        >
-          {statusText}
-        </p>
-      ) : null}
-      {(photoState === "removeError" || (photoState === "uploadError" && retryable)) ? (
-        <button
-          type="button"
-          className="mt-1 min-h-11 text-[13px] font-bold text-ink underline underline-offset-2"
-          onClick={onRetry}
-          disabled={sending || busy}
-        >
-          {photoState === "removeError" ? copy.reply.retryPhotoRemove : copy.reply.retryPhotoUpload}
-        </button>
-      ) : null}
-    </div>
+    </>
   );
 }

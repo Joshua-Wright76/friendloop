@@ -5,7 +5,6 @@ import { redirect } from "next/navigation";
 import { getNow } from "@/lib/clock";
 import { deleteLoop, setPaused, updateLoopSettings } from "@/lib/manage";
 import { viewerFor } from "@/lib/permissions";
-import { normalizeIssueTheme } from "@/lib/issue-experience";
 
 async function requireOwner(groupId: string) {
   const viewer = await viewerFor(groupId);
@@ -41,7 +40,6 @@ export async function settingsAction(formData: FormData) {
       ? Number(formData.get("cadence") ?? 1)
       : 1,
     shareEnabled: formData.get("shareEnabled") === "on",
-    theme: normalizeIssueTheme(formData.get("theme")),
   });
 
   revalidatePath(`/g/${groupId}`, "layout");

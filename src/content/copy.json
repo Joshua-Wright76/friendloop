@@ -51,57 +51,6 @@
     "description": "Weekly newsletters written by your friends!",
     "startLoop": "Start a loop"
   },
-  "themes": {
-    "label": "Theme pack",
-    "loopDefault": "Default issue theme",
-    "loopDefaultDescription": "Choose the stationery for this loop. You can override it on any issue.",
-    "issueDefault": "Use loop default",
-    "packs": [
-      { "value": "picnic", "label": "Picnic", "emoji": "🍒" },
-      { "value": "spring", "label": "Spring", "emoji": "🌱" },
-      { "value": "summer", "label": "Summer", "emoji": "☀️" },
-      { "value": "autumn", "label": "Autumn", "emoji": "🍂" },
-      { "value": "winter", "label": "Winter", "emoji": "❄️" },
-      { "value": "birthday", "label": "Birthday", "emoji": "🎂" }
-    ]
-  },
-  "sections": {
-    "standard": {
-      "label": "Standard",
-      "replyHint": "Write as much or as little as you like. A photo is optional.",
-      "placeholder": "Write a little or a lot"
-    },
-    "photo": {
-      "label": "Photo",
-      "replyHint": "Start with a photo, then add a caption if you like.",
-      "placeholder": "Add a caption (optional)"
-    },
-    "music": {
-      "label": "Music",
-      "replyHint": "Share a song, artist, album, or link you've had on repeat.",
-      "placeholder": "What are you listening to?"
-    },
-    "shoutout": {
-      "label": "Shoutout",
-      "replyHint": "Give someone a little credit and say why they deserve it.",
-      "placeholder": "Who deserves a shoutout?"
-    },
-    "recommendation": {
-      "label": "Recommendation",
-      "replyHint": "Pass along something you think the loop would enjoy.",
-      "placeholder": "What should we read, watch, try, or visit?"
-    }
-  },
-  "moods": {
-    "options": [
-      { "emoji": "😊", "label": "Good" },
-      { "emoji": "🥳", "label": "Celebrating" },
-      { "emoji": "😌", "label": "Calm" },
-      { "emoji": "🤩", "label": "Excited" },
-      { "emoji": "😴", "label": "Tired" },
-      { "emoji": "😢", "label": "Having a hard week" }
-    ]
-  },
   "signIn": {
     "eyebrow": "Hello again,",
     "title": "Sign in",
@@ -230,8 +179,7 @@
       },
       "sections": {
         "title": "Add a few prompts",
-        "description": "Choose a prompt or write your own. Each section keeps its own answer layout.",
-        "typeLabel": "Section type",
+        "description": "Choose a prompt or write your own. Each one becomes a regular text question.",
         "custom": "Write a custom prompt",
         "questionFormat": "{title}: {description}",
         "customTitle": "Write a prompt",
@@ -245,12 +193,11 @@
         "customBadge": "Your prompt",
         "closeCustom": "Close prompt editor",
         "presets": [
-          { "id": "bright-spots", "kind": "standard", "emoji": "☀️", "title": "Bright spots", "description": "What was one good moment from your week?" },
-          { "id": "photo-wall", "kind": "photo", "emoji": "📷", "title": "Photo wall", "description": "What photo from your week would you like to share?" },
-          { "id": "currently", "kind": "music", "emoji": "🎧", "title": "Currently into", "description": "What have you been listening to lately?" },
-          { "id": "little-wins", "kind": "shoutout", "emoji": "🌱", "title": "Little wins", "description": "Who or what deserves a shoutout this week?" },
-          { "id": "good-recommendation", "kind": "recommendation", "emoji": "📚", "title": "Pass it along", "description": "What would you recommend to a friend?" },
-          { "id": "on-your-mind", "kind": "standard", "emoji": "💭", "title": "On your mind", "description": "What has been taking up space in your thoughts?" }
+          { "id": "bright-spots", "emoji": "☀️", "title": "Bright spots", "description": "What was one good moment from your week?" },
+          { "id": "currently", "emoji": "🎧", "title": "Currently into", "description": "What have you been enjoying lately?" },
+          { "id": "little-wins", "emoji": "🌱", "title": "Little wins", "description": "What is something small you are proud of?" },
+          { "id": "good-recommendation", "emoji": "📚", "title": "Pass it along", "description": "What would you recommend to a friend?" },
+          { "id": "on-your-mind", "emoji": "💭", "title": "On your mind", "description": "What has been taking up space in your thoughts?" }
         ]
       },
       "readers": {
@@ -380,7 +327,6 @@
     "moveDescription": "Choose its new place in the list.",
     "orderError": "The order couldn't be saved. Your previous order has been restored.",
     "addTitle": "Add a question",
-    "kindLabel": "Section type",
     "newQuestionPlaceholder": "What did you learn this week?",
     "newQuestionAriaLabel": "New question",
     "add": "Add question"
@@ -409,7 +355,6 @@
     "every": "Every",
     "sharing": "Anyone with an issue's share link can read it.",
     "sharingDefault": "Off by default.",
-    "themeSavedNotice": "Theme saved.",
     "save": "Save changes",
     "pausedTitle": "The loop is paused",
     "pauseTitle": "Pause this loop",
@@ -438,13 +383,6 @@
     "viewerTimezone": "({time} where you are)",
     "sent": "Sent. You can change these until {deadline}.",
     "placeholder": "Write a little or a lot",
-    "moodTitle": "How are you feeling this round?",
-    "moodDescription": "Optional. Your mood appears with this issue.",
-    "moodAriaLabel": "Choose your mood for this round",
-    "clearMood": "Clear mood",
-    "moodSaving": "Saving mood…",
-    "moodSaved": "Mood saved",
-    "moodError": "Your mood couldn't be saved. Try again.",
     "saving": "Saving…",
     "saved": "Saved",
     "draftSaved": "Draft saved",
@@ -486,8 +424,7 @@
       "expired": "This invitation has expired, ask for a new link.",
       "reader": "Readers don't answer questions.",
       "nothingOpen": "Nothing is open right now.",
-      "wrongQuestion": "That question isn't in this round.",
-      "invalidMood": "Choose one of the available moods."
+      "wrongQuestion": "That question isn't in this round."
     }
   },
   "issue": {
@@ -500,37 +437,6 @@
     "noComments": "Nothing yet.",
     "addedLater": "added after the round went out",
     "photoAlt": "Photo from {author}",
-    "moodTitle": "This round's moods",
-    "photoWall": "Photo wall",
-    "photoWallPhoto": "1 photo from this round.",
-    "photoWallPhotos": "{count} photos from this round.",
-    "openPhoto": "Open photo {number} of {count} from {author}",
-    "photoDialogTitle": "{author}'s photo",
-    "photoPosition": "Photo {current} of {total}",
-    "previousPhoto": "Previous photo",
-    "nextPhoto": "Next photo",
-    "closePhoto": "Close photo",
-    "picksTitle": "Round picks",
-    "picksDescription": "Editor choices, plus the answers everyone loved most.",
-    "editorPick": "Editor's pick",
-    "mostLoved": "Most loved",
-    "addPick": "Add editor's pick",
-    "removePick": "Remove editor's pick",
-    "addPickAriaLabel": "Add editor's pick: {author}'s answer",
-    "removePickAriaLabel": "Remove editor's pick: {author}'s answer",
-    "issueTheme": "Issue theme",
-    "themeSaving": "Saving theme…",
-    "themeSaved": "Theme saved.",
-    "downloadPostcard": "Download postcard",
-    "downloadingPostcard": "Making postcard…",
-    "postcardError": "We couldn't make the postcard. Try again.",
-    "postcardReady": "Postcard downloaded.",
-    "postcardMood": "Round mood",
-    "postcardPicks": "Our picks",
-    "postcardPhotos": "Photo wall",
-    "postcardEmptyMood": "No moods shared this round.",
-    "postcardEmptyPicks": "No picks yet.",
-    "postcardEmptyPhotos": "No photos this round.",
     "reactAriaLabel": "React with {emoji}",
     "writeFirst": "Write something first.",
     "postError": "Could not post that.",
@@ -541,14 +447,7 @@
     "errors": {
       "tooLong": "That comment is too long.",
       "commentMembersOnly": "Only members of this loop can comment.",
-      "reactMembersOnly": "Only members of this loop can react.",
-      "editorsOnly": "Only owners and admins can edit this issue.",
-      "pickUnavailable": "That answer can't be picked.",
-      "invalidTheme": "Choose one of the available theme packs.",
-      "pickError": "The editor pick couldn't be saved. Try again.",
-      "replyUnavailable": "That answer isn't available.",
-      "invalidReaction": "Choose one of the available reactions.",
-      "themeError": "The issue theme couldn't be saved. Try again."
+      "reactMembersOnly": "Only members of this loop can react."
     }
   },
   "share": {

@@ -5,7 +5,6 @@ import { loadIssue, membershipForViewer } from "@/lib/issue-view";
 import { IssueBody } from "./issue-body";
 import { Cherries } from "@/components/stationery";
 import { copy, text } from "@/lib/copy";
-import { resolveIssueTheme } from "@/lib/issue-experience";
 
 export const instant = false;
 
@@ -54,14 +53,12 @@ export default async function IssuePage({
         issueId={view.issue.id}
         viewerToken={m ?? null}
         canInteract={Boolean(membership)}
-        canCurate={membership?.access === "owner" || membership?.access === "admin"}
-        groupName={view.group.name}
-        roundNumber={view.issue.number}
-        theme={resolveIssueTheme(view.issue.theme, view.group.theme)}
-        moods={view.moods}
-        picks={view.picks}
         blocks={view.blocks}
-        comments={view.comments}
+        comments={view.comments.map((comment) => ({
+          id: comment.id,
+          author: comment.author,
+          body: comment.body,
+        }))}
       />
 
       <p className="mt-8 text-center text-[13px] text-ink-muted">

@@ -5,7 +5,6 @@ import { currentUser } from "@/lib/auth";
 import { getNow } from "@/lib/clock";
 import { createLoop, inviteMembers } from "@/lib/manage";
 import { copy } from "@/lib/copy";
-import { normalizeIssueTheme, normalizeQuestionKind } from "@/lib/issue-experience";
 
 export type CreateState = { error?: string };
 
@@ -49,11 +48,6 @@ export async function createLoopAction(
 
   const texts = formData.getAll("question").map(String).map((question) => question.trim()).filter(Boolean);
   if (texts.length === 0) return { error: copy.newLoop.errors.noQuestions };
-  const kinds = formData.getAll("questionKind");
-  const questionEntries = texts.map((question, index) => ({
-    text: question,
-    kind: normalizeQuestionKind(kinds[index]),
-  }));
 
   const rawEmails = formData.getAll("email").map((value) => String(value).trim().toLowerCase()).filter(Boolean);
   if (rawEmails.some((email) => !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))) {
@@ -73,8 +67,7 @@ export async function createLoopAction(
     promptWeekday: Number.isFinite(promptWeekday) ? promptWeekday : 5,
     promptHour: Number.isFinite(promptHour) ? promptHour : 9,
     cadenceWeeks,
-    questions: questionEntries,
-    theme: normalizeIssueTheme(formData.get("theme")),
+    questions: texts,
     at,
   });
 

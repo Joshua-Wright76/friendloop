@@ -6,9 +6,8 @@ import { copy, text } from "@/lib/copy";
 import { itemsInPreferredOrder, moveItem } from "@/lib/question-order";
 import { reorderQuestions } from "./actions";
 import { archiveAction, skipNextAction } from "./actions";
-import type { QuestionKind } from "@/lib/issue-experience";
 
-type Question = { id: string; text: string; kind: QuestionKind; skipNext: boolean };
+type Question = { id: string; text: string; skipNext: boolean };
 
 export function QuestionOrder({ groupId, questions: initial }: { groupId: string; questions: Question[] }) {
   const router = useRouter();
@@ -58,7 +57,7 @@ export function QuestionOrder({ groupId, questions: initial }: { groupId: string
             <div className="flex items-start gap-3">
               <span className="mt-0.5 flex h-5 w-5 flex-none items-center justify-center rounded-full bg-field text-[11px] font-semibold text-ink-muted numeric">{index + 1}</span>
               <div className="min-w-0 flex-1">
-                <p className="text-[15px] font-medium leading-snug text-ink">{question.text}<span className="section-kind-badge ml-2">{copy.sections[question.kind].label}</span></p>
+                <p className="text-[15px] font-medium leading-snug text-ink">{question.text}</p>
                 {question.skipNext ? <p className="mt-1 text-[12px] font-medium text-ink-muted">{copy.questions.skipNextNote}</p> : null}
               </div>
               <button type="button" draggable disabled={pending} aria-label={text(copy.questions.moveItemLabel, { question: question.text })} title={copy.questions.dragHandle}
