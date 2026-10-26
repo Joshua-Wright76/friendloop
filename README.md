@@ -48,7 +48,7 @@ Vercel → Project → Settings → Environment Variables.
 | `NEXT_PUBLIC_APP_URL` | `http://localhost:3000` locally; your domain in prod |
 | `CRON_SECRET` | `openssl rand -hex 32` — protects the sweep endpoint |
 | `BLOB_READ_WRITE_TOKEN` | Required for production photo uploads. Vercel → Storage → Blob |
-| `TEST_DATABASE_URL` | a throwaway Postgres for e2e (Neon branch or local container) |
+| `TEST_DATABASE_URL` | Optional: your own throwaway Postgres for e2e (a Neon branch). If unset, `npm run e2e` starts a local one. |
 
 ## Environments
 
@@ -142,13 +142,28 @@ average exceeds `NAV_BUDGET_MS`.
 
 ```sh
 npm run verify         # typecheck + lint + unit + flow matrix
-npm run e2e            # Playwright, needs TEST_DATABASE_URL
-docker run -d --name friendloop-test -e POSTGRES_PASSWORD=postgres \
-  -e POSTGRES_DB=friendloop_test -p 55432:5432 postgres:16-alpine
-export TEST_DATABASE_URL="postgresql://postgres:postgres@localhost:55432/friendloop_test"
+npm run e2e            # Playwright — starts its own Postgres if needed
 npm run check:flows -- --strict   # what the release workflow enforces
 npx playwright test e2e/accessibility.spec.ts  # WCAG 2.2 AA axe checks, both themes
 ```
+
+### The e2e database
+
+`npm run e2e` needs a throwaway Postgres, and starts one for you. It finds a
+local install (`brew install postgresql@16`, or `PG_BIN`), keeps the cluster in
+your OS cache directory — outside the repo, so the build never watches its
+Unix socket — and listens on loopback port 55432 only.
+
+```sh
+npm run e2e:db         # start it, and print the URL
+npm run e2e:db:status  # running | stopped
+npm run e2e:db:reset   # wipe and rebuild
+npm run e2e:db:stop    # stop (the data is kept)
+```
+
+Set `TEST_DATABASE_URL` to skip all of that and use your own database instead —
+that is what CI does with a Neon branch. Tests truncate their tables between
+runs, so the cluster is safe to share with nothing else.
 
 Flow coverage is not a vibe: `specs/flows.md` lists every user-visible flow, each
 `done` flow must have `e2e/flows/<ID>.spec.ts`, and the release workflow refuses to
