@@ -21,7 +21,7 @@ if (!existsSync(FLOW_DOC)) {
 const rows = readFileSync(FLOW_DOC, "utf8")
   .split("\n")
   .map((line) => line.trim())
-  .filter((line) => /^\|\s*[A-G]\d+\s*\|/.test(line))
+  .filter((line) => /^\|\s*[A-Z]\d+\s*\|/.test(line))
   .map((line) => {
     const cells = line.split("|").map((cell) => cell.trim());
     return { id: cells[1], name: cells[2], criteria: cells[3], status: cells[4] };

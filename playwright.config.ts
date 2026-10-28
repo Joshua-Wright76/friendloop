@@ -17,6 +17,7 @@ process.env.CRON_SECRET ??= "e2e-cron-secret";
 if (!isProd) {
   process.env.E2E ??= "1";
   process.env.EMAIL_TRANSPORT ??= "outbox";
+  process.env.UI_PREVIEW_SECRET ??= "e2e-preview-secret";
   if (process.env.TEST_DATABASE_URL) process.env.DATABASE_URL ??= process.env.TEST_DATABASE_URL;
 }
 
@@ -61,6 +62,7 @@ export default defineConfig({
         env: {
           E2E: "1",
           EMAIL_TRANSPORT: "outbox",
+          UI_PREVIEW_SECRET: process.env.UI_PREVIEW_SECRET ?? "e2e-preview-secret",
           CRON_SECRET: process.env.CRON_SECRET ?? "e2e-cron-secret",
           DATABASE_URL: process.env.TEST_DATABASE_URL ?? process.env.DATABASE_URL ?? "",
           NEXT_PUBLIC_APP_URL: `http://localhost:${TEST_PORT}`,

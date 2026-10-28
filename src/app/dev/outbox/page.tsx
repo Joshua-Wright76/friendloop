@@ -1,20 +1,20 @@
 import { desc } from "drizzle-orm";
-import { notFound } from "next/navigation";
 import { db } from "@/db";
 import { outbox } from "@/db/schema";
 import { copy } from "@/lib/copy";
+import { requireUiPreview } from "@/lib/ui-preview";
 
 export const instant = false;
 
 /**
- * Dev-only inbox.
+ * The captured inbox.
  *
- * Preview deployments run with EMAIL_TRANSPORT=outbox, so nothing is sent — which
- * would make sign-in impossible. This lists what would have gone out so a magic
- * link can be clicked. It does not exist in production.
+ * Every send is recorded before it leaves, so this lists real mail: sign-in
+ * links included. That makes it useful and dangerous in equal measure, so it
+ * sits behind the same /dev key as the rest of the preview.
  */
 export default async function DevOutboxPage() {
-  if (process.env.VERCEL_ENV !== "preview") notFound();
+  await requireUiPreview();
 
   const rows = await db
     .select({
@@ -36,6 +36,9 @@ export default async function DevOutboxPage() {
       </h1>
       <p className="mt-1.5 text-[14px] leading-relaxed text-ink-soft">
         {copy.devOutbox.description}
+      </p>
+      <p role="note" className="notice mt-3 rounded-xl border border-danger/40 bg-danger/10 px-4 py-3 text-[13px] leading-relaxed text-danger">
+        {copy.devOutbox.warning}
       </p>
 
       <div className="mt-5 flex flex-col gap-2.5">

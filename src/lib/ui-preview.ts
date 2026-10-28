@@ -1,3 +1,4 @@
+import { cookies } from "next/headers";
 import { eq } from "drizzle-orm";
 import { notFound } from "next/navigation";
 import { db } from "@/db";
@@ -14,7 +15,68 @@ import {
   users,
 } from "@/db/schema";
 import { createSession } from "./auth";
-import { hashToken } from "./tokens";
+import { hashToken, safeEqual } from "./tokens";
+
+const PREVIEW_COOKIE = "fl_preview";
+const PREVIEW_COOKIE_MAX_AGE = 30 * 24 * 60 * 60;
+
+/** Local development is open; anything deployed needs the shared key. */
+export function isLocalUiPreview(): boolean {
+  return process.env.NODE_ENV === "development" && !process.env.VERCEL_ENV;
+}
+
+export function previewSecret(): string | null {
+  return process.env.UI_PREVIEW_SECRET?.trim() || null;
+}
+
+export function previewCookieName(): string {
+  return PREVIEW_COOKIE;
+}
+
+/** The value the cookie carries: the hashed secret, never the secret itself. */
+export function previewCookieValue(): string | null {
+  const secret = previewSecret();
+  return secret ? hashToken(secret) : null;
+}
+
+export function previewKeyMatches(key: string | null | undefined): boolean {
+  const secret = previewSecret();
+  return Boolean(key && secret && safeEqual(hashToken(key), hashToken(secret)));
+}
+
+export function previewCookieMatches(value: string | undefined): boolean {
+  const expected = previewCookieValue();
+  return Boolean(value && expected && safeEqual(value, expected));
+}
+
+/**
+ * The one door into /dev: local development walks in, everywhere else needs
+ * `?key=<UI_PREVIEW_SECRET>` once and then a cookie scoped to /dev.
+ * Returns false when the request may not use the preview at all.
+ */
+export async function grantUiPreviewAccess(key: string | null): Promise<boolean> {
+  if (isLocalUiPreview()) return true;
+  const expected = previewCookieValue();
+  if (!expected) return false;
+  const jar = await cookies();
+  const existing = jar.get(PREVIEW_COOKIE)?.value;
+  const keyMatches = previewKeyMatches(key);
+  const cookieMatches = previewCookieMatches(existing);
+  if (!keyMatches && !cookieMatches) return false;
+
+  if (!cookieMatches) {
+    jar.set(PREVIEW_COOKIE, expected, {
+      httpOnly: true,
+      sameSite: "lax",
+      // Fail closed over plain HTTP: a self-hosted deployment without TLS keeps
+      // /dev locked instead of leaking the cookie across the network.
+      secure: process.env.NODE_ENV === "production",
+      path: "/dev",
+      maxAge: PREVIEW_COOKIE_MAX_AGE,
+    });
+  }
+  return true;
+}
 
 export const UI_PREVIEW = {
   groupId: "22222222-2222-4222-8222-222222222222",
@@ -66,12 +128,14 @@ const ALICE_ANSWERS = [
   "Homemade dumplings on a rainy evening.",
 ];
 
-export function requireUiPreview() {
-  if (process.env.NODE_ENV !== "development" || process.env.VERCEL_ENV) notFound();
+export async function requireUiPreview() {
+  if (isLocalUiPreview()) return;
+  const jar = await cookies();
+  if (!previewCookieMatches(jar.get(PREVIEW_COOKIE)?.value)) notFound();
 }
 
 export async function enableUiPreview(reset = false) {
-  requireUiPreview();
+  await requireUiPreview();
   const now = new Date();
 
   await db.transaction(async (tx) => {

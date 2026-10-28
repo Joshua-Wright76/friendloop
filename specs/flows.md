@@ -90,9 +90,15 @@ Status: `todo` (not built) · `done` (built and covered).
 | G5 | Transfer ownership | The owner transfers ownership, becomes an admin+contributor, and the new owner gains owner-only actions while the old owner loses them. | done |
 | G6 | `from_you` mode | In `from_you`, every non-owner is forced to reader on invite and cannot be made a contributor. | done |
 
+## H · Preview
+
+| ID | Flow | Acceptance criteria | Status |
+| --- | --- | --- | --- |
+| H1 | Preview screens and emails | With `UI_PREVIEW_SECRET` set, `/dev/ui` 404s without a matching key and opens the seeded screens with one; the screens link to every email template rendered with sample data and to the captured inbox, and every preview route 404s for a visitor without the key. | done |
+
 IDs are stable handles, not positions: a retired flow leaves its number out
 rather than renumbering the rest.
 
 ---
 
-**43 flows.** A flow is only `done` when its spec passes locally and in CI.
+**44 flows.** A flow is only `done` when its spec passes locally and in CI.

@@ -5,7 +5,7 @@ Recurring questions go out by email, everyone answers through a private link, an
 the answers become a shared issue delivered back to the group.
 
 - Product truth: [`PRODUCT.md`](./PRODUCT.md)
-- Flow inventory (43 flows, the e2e checklist): [`specs/flows.md`](./specs/flows.md)
+- Flow inventory (44 flows, the e2e checklist): [`specs/flows.md`](./specs/flows.md)
 - Why the code looks like this: [`specs/architecture.md`](./specs/architecture.md)
 
 **Cost to run: $0/month** on free tiers (Vercel Hobby + Neon + Resend).
@@ -46,6 +46,7 @@ Vercel → Project → Settings → Environment Variables.
 | `EMAIL_TRANSPORT` | `outbox` to never call Resend (tests, offline dev) |
 | `NEXT_PUBLIC_APP_URL` | `http://localhost:3000` locally; your domain in prod |
 | `CRON_SECRET` | `openssl rand -hex 32` — protects the sweep endpoint |
+| `UI_PREVIEW_SECRET` | `openssl rand -hex 32` — the key that opens `/dev/ui` outside local development |
 | `BLOB_READ_WRITE_TOKEN` | Required for production photo uploads. Vercel → Storage → Blob |
 | `TEST_DATABASE_URL` | Optional: your own throwaway Postgres for e2e (a Neon branch). If unset, `npm run e2e` starts a local one. |
 
@@ -73,8 +74,8 @@ A direct push to `dev` still deploys only the dev environment.
 A push to `dev` builds a preview deployment and the domain follows it
 (`gitBranch: dev`). Dev sends real mail through Resend, from the same verified
 sender, with links pointing at `dev.friendloop.dev`. Every email is also recorded:
-**`/dev/outbox`** is the fastest way to grab a sign-in link, and it 404s in
-production.
+**`/dev/outbox`** is the fastest way to grab a sign-in link, and it needs the
+preview key outside local development.
 
 Set `EMAIL_TRANSPORT=outbox` in any environment to stop real sending there; the
 code then records emails without calling Resend at all.
@@ -104,14 +105,23 @@ npm run db:push        # create tables
 npm run dev
 ```
 
-### Local UI preview
+### UI preview
 
-Open **http://localhost:3000/dev/ui** (or the **UI preview** link on the local
-landing page). This creates an isolated demo user and loop, starts a local test
+Open **http://localhost:3000/dev/ui** locally (or the **UI preview** link on the
+local landing page). This creates an isolated demo user and loop, starts a test
 session, and opens `/dev/screens`, where every public, management, reply, and
-issue screen is one click away. Use **Reset demo data** to restore the fixtures.
-The preview never touches existing loops and returns 404 outside local
-development.
+issue screen is one click away. `/dev/emails` renders every email template with
+sample data and its plain-text twin, and `/dev/outbox` lists the captured mail.
+Use **Reset demo data** to restore the fixtures. The preview never touches
+existing loops.
+
+Anywhere else the preview stays 404 until `UI_PREVIEW_SECRET` is set. Then
+`https://friendloop.dev/dev/ui?key=<secret>` opens it once and remembers the key
+in a cookie scoped to `/dev`. Treat that URL as a password and give each
+environment its own secret: the captured inbox holds live sign-in links, so
+anyone with the key can sign in as anyone who has mail in it. The keyed URL
+stays in browser history and in access logs, so rotate the secret when the
+group of people holding it changes; rotating locks everyone out immediately.
 
 ## Site and email copy
 

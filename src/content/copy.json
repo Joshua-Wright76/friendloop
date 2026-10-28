@@ -775,6 +775,7 @@
     "publicHeading": "Public and authentication",
     "loopHeading": "Loop management",
     "issueHeading": "Replies and issues",
+    "emailHeading": "Email",
     "screens": {
       "home": "Landing page",
       "signIn": "Sign in",
@@ -790,12 +791,32 @@
       "reply": "Reply sheet",
       "issue": "Delivered issue",
       "shared": "Shared issue",
-      "invalid": "Expired or invalid reply link"
+      "invalid": "Expired or invalid reply link",
+      "emails": "Email templates",
+      "outbox": "Captured email"
+    }
+  },
+  "devEmails": {
+    "title": "Email templates",
+    "description": "Every email Friendloop sends, rendered with sample data. The plain-text twin sits under each one.",
+    "back": "← Back to screens",
+    "subject": "Subject: {subject}",
+    "plainText": "Show plain text",
+    "previews": {
+      "signIn": "Sign-in link",
+      "inviteContributor": "Invitation, as a contributor",
+      "inviteReader": "Invitation, as a reader",
+      "prompt": "Round prompt",
+      "reminder": "Reminder",
+      "delivery": "Delivered issue",
+      "deliveryShared": "Delivered issue with a share link",
+      "paused": "Empty round, loop paused"
     }
   },
   "devOutbox": {
     "title": "Captured email",
     "description": "Every email the app produces on this deployment, whether it was really sent or only captured. Handy for grabbing a sign-in link without leaving the tab.",
+    "warning": "These are real emails with live sign-in links. Anyone who can open this page can sign in as the people below.",
     "empty": "Nothing yet. Request a sign-in link and it shows up here.",
     "kinds": {
       "signin": "sign in",

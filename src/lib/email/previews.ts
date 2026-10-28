@@ -1,0 +1,107 @@
+import {
+  deliveryEmail,
+  inviteEmail,
+  pausedEmail,
+  promptEmail,
+  reminderEmail,
+  signInEmail,
+  type AnswerBlock,
+  type RenderedEmail,
+} from "./templates";
+
+export type EmailPreview = { id: string; email: RenderedEmail };
+
+const ANSWERS: AnswerBlock[] = [
+  {
+    question: "What made you laugh this week?",
+    author: "Alex",
+    body: "A group of geese has decided my bus stop belongs to them. They have a schedule now. I respect it.",
+  },
+  {
+    question: "What made you laugh this week?",
+    author: "Alice",
+    body: "My dad sent a four-minute voice memo of himself trying to find the record button.",
+    addedLater: true,
+  },
+  {
+    question: "What are you looking forward to?",
+    author: "Alex",
+    body: "Three hours in a bookshop and I regret nothing.",
+  },
+];
+
+/** Every email Friendloop sends, rendered with sample data. */
+export function emailPreviews(): EmailPreview[] {
+  return [
+    {
+      id: "signIn",
+      email: signInEmail("https://friendloop.dev/signin/confirm?token=preview-token"),
+    },
+    {
+      id: "inviteContributor",
+      email: inviteEmail({
+        groupName: "Saturday Club",
+        inviterName: "Alex",
+        url: "https://friendloop.dev/r/preview-token",
+        isReader: false,
+        personalNote: "We're giving this a go. Answer whatever feels easy.",
+      }),
+    },
+    {
+      id: "inviteReader",
+      email: inviteEmail({
+        groupName: "Saturday Club",
+        inviterName: "Alex",
+        url: "https://friendloop.dev/r/preview-token",
+        isReader: true,
+      }),
+    },
+    {
+      id: "prompt",
+      email: promptEmail({
+        groupName: "Saturday Club",
+        memberName: "Alice",
+        issueNumber: 12,
+        questionCount: 3,
+        url: "https://friendloop.dev/r/preview-token",
+        deadlineLabel: "Friday at 9:00 AM",
+      }),
+    },
+    {
+      id: "reminder",
+      email: reminderEmail({
+        groupName: "Saturday Club",
+        memberName: "Alice",
+        url: "https://friendloop.dev/r/preview-token",
+        deadlineLabel: "Friday at 9:00 AM",
+        remaining: 2,
+      }),
+    },
+    {
+      id: "delivery",
+      email: deliveryEmail({
+        groupName: "Saturday Club",
+        issueNumber: 11,
+        url: "https://friendloop.dev/i/preview",
+        answers: ANSWERS,
+      }),
+    },
+    {
+      id: "deliveryShared",
+      email: deliveryEmail({
+        groupName: "Saturday Club",
+        issueNumber: 11,
+        url: "https://friendloop.dev/i/preview",
+        answers: ANSWERS,
+        shareUrl: "https://friendloop.dev/s/preview-share-token",
+      }),
+    },
+    {
+      id: "paused",
+      email: pausedEmail({
+        groupName: "Saturday Club",
+        url: "https://friendloop.dev/g/preview",
+      }),
+    },
+  ];
+}

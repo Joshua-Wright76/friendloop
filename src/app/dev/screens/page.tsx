@@ -3,8 +3,10 @@ import { Brand, Tape } from "@/components/stationery";
 import { copy } from "@/lib/copy";
 import { requireUiPreview, UI_PREVIEW } from "@/lib/ui-preview";
 
-export default function UiScreensPage() {
-  requireUiPreview();
+export const instant = false;
+
+export default async function UiScreensPage() {
+  await requireUiPreview();
 
   const screens = copy.devUi.screens;
   const groups = [
@@ -36,6 +38,13 @@ export default function UiScreensPage() {
         [screens.reply, `/r/${UI_PREVIEW.ownerToken}`],
         [screens.issue, `/i/${UI_PREVIEW.deliveredIssueId}?m=${UI_PREVIEW.ownerToken}`],
         [screens.shared, `/s/${UI_PREVIEW.shareToken}`],
+      ],
+    },
+    {
+      title: copy.devUi.emailHeading,
+      links: [
+        [screens.emails, "/dev/emails"],
+        [screens.outbox, "/dev/outbox"],
       ],
     },
   ];

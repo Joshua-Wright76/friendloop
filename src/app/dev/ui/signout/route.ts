@@ -8,7 +8,7 @@ import { hashToken } from "@/lib/tokens";
 import { requireUiPreview } from "@/lib/ui-preview";
 
 export async function GET() {
-  requireUiPreview();
+  await requireUiPreview();
   const jar = await cookies();
   const token = jar.get("fl_session")?.value;
   if (token) {

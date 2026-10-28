@@ -1,8 +1,11 @@
 import { redirect } from "next/navigation";
-import { enableUiPreview } from "@/lib/ui-preview";
+import { enableUiPreview, grantUiPreviewAccess } from "@/lib/ui-preview";
 
 export async function GET(request: Request) {
-  const reset = new URL(request.url).searchParams.get("reset") === "1";
-  await enableUiPreview(reset);
+  const url = new URL(request.url);
+  if (!(await grantUiPreviewAccess(url.searchParams.get("key")))) {
+    return new Response(null, { status: 404 });
+  }
+  await enableUiPreview(url.searchParams.get("reset") === "1");
   redirect("/dev/screens");
 }
