@@ -16,6 +16,7 @@ import { replyUrl, url } from "./urls";
 import { deliveryInstant } from "./schedule";
 import { INVITE_DAYS } from "./reply";
 import { reorderIds } from "./question-order";
+import { newQuestionTexts } from "./question-packs";
 import { snapshotQuestionsForIssue } from "./round-questions";
 
 export function normalizeEmail(value: string): string {
@@ -281,6 +282,31 @@ export async function addQuestion(groupId: string, text: string, at: Date) {
     .values({ groupId, text: trimmed, position: maxPosition + 1, createdAt: at })
     .returning({ id: questions.id });
   return row.id;
+}
+
+/** Add several library questions at once, skipping any already in the pool. */
+export async function addQuestionTexts(groupId: string, texts: string[], at: Date): Promise<number> {
+  const existing = await db
+    .select({ text: questions.text })
+    .from(questions)
+    .where(and(eq(questions.groupId, groupId), isNull(questions.archivedAt)));
+  const fresh = newQuestionTexts(texts, existing.map((row) => row.text));
+  if (fresh.length === 0) return 0;
+
+  const [{ maxPosition }] = await db
+    .select({ maxPosition: sql<number>`coalesce(max(${questions.position}), -1)::int` })
+    .from(questions)
+    .where(eq(questions.groupId, groupId));
+
+  await db.insert(questions).values(
+    fresh.map((question, index) => ({
+      groupId,
+      text: question,
+      position: maxPosition + 1 + index,
+      createdAt: at,
+    })),
+  );
+  return fresh.length;
 }
 
 export async function reorderQuestion(groupId: string, questionId: string, targetIndex: number) {

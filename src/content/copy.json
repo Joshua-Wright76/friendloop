@@ -26,6 +26,7 @@
     },
     "yourLoops": "Your loops",
     "backToLoop": "← Back to loop",
+  "selectedCount": "{count} selected",
     "weekdays": ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"],
     "timezones": ["Europe/Amsterdam", "Europe/London", "Europe/Berlin", "Europe/Lisbon", "America/New_York", "America/Chicago", "America/Denver", "America/Los_Angeles", "America/Sao_Paulo", "Asia/Tokyo", "Asia/Singapore", "Australia/Sydney", "Pacific/Auckland", "UTC"],
     "week": "week",
@@ -254,23 +255,205 @@
         "newsletterCardTitle": "Your first issue",
         "newsletterCardDescription": "Preview the title, schedule, and prompts before creating the loop."
       }
-    },
-    "questionBank": [
-      { "group": "Small", "text": "What made you laugh this week?" },
-      { "group": "Small", "text": "What are you looking forward to?" },
-      { "group": "Small", "text": "What's something small you're proud of?" },
-      { "group": "Small", "text": "What did you eat that was worth remembering?" },
-      { "group": "Small", "text": "What's the last thing that surprised you?" },
-      { "group": "People", "text": "Who did you talk to this week that you want to see again?" },
-      { "group": "People", "text": "Who's someone you've been thinking about lately?" },
-      { "group": "People", "text": "What's something you'd like to thank someone for?" },
-      { "group": "Place", "text": "Where did you go that was worth the trip?" },
-      { "group": "Place", "text": "What's a place you keep meaning to visit?" },
-      { "group": "Inner", "text": "What's been on your mind?" },
-      { "group": "Inner", "text": "What did you change your mind about recently?" },
-      { "group": "Inner", "text": "What's something you're bad at and enjoying anyway?" }
-    ]
+    }
   },
+  "questionPacks": [
+    {
+      "id": "everyday",
+      "name": "Everyday",
+      "questions": [
+        "What made you laugh this week?",
+        "What are you looking forward to?",
+        "What's something small you're proud of?",
+        "What did you eat that was worth remembering?",
+        "What's the last thing that surprised you?",
+        "Who did you talk to this week that you want to see again?",
+        "Who's someone you've been thinking about lately?",
+        "What's something you'd like to thank someone for?",
+        "Where did you go that was worth the trip?",
+        "What's a place you keep meaning to visit?",
+        "What's been on your mind?",
+        "What did you change your mind about recently?",
+        "What's something you're bad at and enjoying anyway?"
+      ]
+    },
+    {
+      "id": "travel",
+      "name": "Travel",
+      "questions": [
+        "What's a trip you still think about?",
+        "Where would you go with a free week and no plan?",
+        "What's the best thing you've eaten in another city?",
+        "What's a place near home that feels like a holiday?",
+        "Window seat or aisle, and why?",
+        "What did a trip teach you that stuck?",
+        "What's the worst travel day you'd happily repeat?",
+        "Which city would you move to for a month?",
+        "What do you always pack and never use?",
+        "Who would you take on a road trip tomorrow?"
+      ]
+    },
+    {
+      "id": "food",
+      "name": "Food",
+      "questions": [
+        "What did you cook that you'd make again?",
+        "What's your comfort meal after a long day?",
+        "What food did you hate as a kid and love now?",
+        "What's the best thing you ate this week?",
+        "What would your last meal on earth be?",
+        "What snack disappears fastest in your house?",
+        "What's a restaurant you keep going back to?",
+        "What food reminds you of someone you love?",
+        "What should the group cook together one day?",
+        "What did you eat standing up and still enjoy?"
+      ]
+    },
+    {
+      "id": "childhood",
+      "name": "Childhood",
+      "questions": [
+        "What did you want to be when you grew up?",
+        "What's a smell that takes you straight back?",
+        "What was your favorite thing to do after school?",
+        "What's a family tradition you'd keep forever?",
+        "What song did you play to death as a kid?",
+        "What did you believe that turned out to be wrong?",
+        "What's a small memory from childhood that still makes you smile?",
+        "What did you collect, and where is it now?",
+        "Who was your best friend at ten, and what made them great?",
+        "What would you tell your younger self on a Monday morning?"
+      ]
+    },
+    {
+      "id": "friendship",
+      "name": "Friendship",
+      "questions": [
+        "What did a friend do recently that meant a lot?",
+        "How do you show someone you're glad they exist?",
+        "What's the earliest memory you have with someone in this group?",
+        "Who makes you laugh the hardest?",
+        "What did friendship look like when you were twenty?",
+        "What do you want friends to ask you more often?",
+        "What's a tiny tradition you'd like to start with this group?",
+        "When did you last meet someone new and click right away?",
+        "What have you learned about being a friend lately?",
+        "What does a good catch-up look like for you?"
+      ]
+    },
+    {
+      "id": "hot-takes",
+      "name": "Hot takes",
+      "questions": [
+        "What's a harmless hill you'll die on?",
+        "Which everyday thing is wildly overrated?",
+        "What do you love that everyone else finds boring?",
+        "What's a food opinion that would upset a chef?",
+        "What's a small luxury worth every penny?",
+        "What's something popular you've never understood?",
+        "What's a rule you'd delete from the world?",
+        "What's your most stubborn take about breakfast?",
+        "What would you ban if you were briefly in charge?",
+        "What's the most overrated way to spend a weekend?"
+      ]
+    },
+    {
+      "id": "books-films",
+      "name": "Books and films",
+      "questions": [
+        "What did you read or watch recently that stayed with you?",
+        "What's a film you've seen more than twice?",
+        "Which character did you want to be as a kid?",
+        "What's a book you'd press into someone's hands?",
+        "What did you abandon halfway through, and why?",
+        "What's a comfort rewatch for a rainy day?",
+        "What song belongs in the soundtrack of your week?",
+        "Which fictional world would you visit for a day?",
+        "What did you love as a teenager and still defend?",
+        "What should the group's first watch party be?"
+      ]
+    },
+    {
+      "id": "weekend",
+      "name": "Weekend plans",
+      "questions": [
+        "What did last weekend actually look like?",
+        "What does a perfect Saturday morning look like?",
+        "What are you doing this weekend that you're looking forward to?",
+        "What's your favorite way to waste a Sunday?",
+        "What's a tiny plan that made a weekend better?",
+        "Who did you spend your weekend with, and what did you do?",
+        "What's a local thing everyone should do once?",
+        "What does your ideal doing-nothing day look like?",
+        "What did you put off last weekend and still didn't do?",
+        "What's the next thing you want to plan with friends?"
+      ]
+    },
+    {
+      "id": "tiny-joys",
+      "name": "Tiny joys",
+      "questions": [
+        "What tiny thing made you unreasonably happy this week?",
+        "What small thing are you grateful for today?",
+        "What made you smile on your way somewhere?",
+        "What's the best thing that happened in your kitchen this week?",
+        "What's a little ritual that makes a normal day nicer?",
+        "What did you notice this week that you'd normally miss?",
+        "What song, snack, or moment lifted the week?",
+        "What's the nicest thing you saw someone else do?",
+        "What did you do slowly and enjoy more for it?",
+        "What tiny victory should we celebrate?"
+      ]
+    },
+    {
+      "id": "creature-comforts",
+      "name": "Creature comforts",
+      "questions": [
+        "If your pet could text you once, what would it say?",
+        "What animal would be your spirit roommate?",
+        "What's an animal you relate to on Mondays?",
+        "What's the cutest thing you've seen this week?",
+        "What animal fact do you love telling people?",
+        "If you could be any animal for a day, which and why?",
+        "What's a creature you'd protect at all costs?",
+        "What does your ideal cozy night in look like?",
+        "What's the softest thing in your home?",
+        "What animal would win your group's talent show?"
+      ]
+    },
+    {
+      "id": "friendship-lore",
+      "name": "Friendship lore",
+      "questions": [
+        "Who in the group is most likely to befriend a pigeon?",
+        "What's a story about this group that deserves retelling?",
+        "What did this group teach you about yourself?",
+        "What was your first impression of someone here, and how wrong was it?",
+        "Which group trip or day out should we relive?",
+        "What's a tradition this group accidentally started?",
+        "What would this group's theme song be?",
+        "What do you want us to remember about this year?",
+        "What's a compliment someone here gave you that stuck?",
+        "What should we do together that we haven't yet?"
+      ]
+    },
+    {
+      "id": "silly",
+      "name": "Silly hypotheticals",
+      "questions": [
+        "Which household object would be your nemesis if it came alive?",
+        "If you had to replace your hands with something, what would you pick?",
+        "What would you name a boat if you had one tomorrow?",
+        "If your week were a weather forecast, what would it say?",
+        "What's the worst superpower you could be given?",
+        "If you could only eat one color of food, which color?",
+        "What would you put in a time capsule for this group?",
+        "If animals could talk, which would be the rudest?",
+        "What's a completely useless skill you'd love to have?",
+        "If tomorrow became a public holiday in your honor, what would it celebrate?"
+      ]
+    }
+  ],
   "loop": {
     "eyebrow": "The rhythm of your group",
     "schedule": "Every {cadence} on {weekday} at {hour}:00, {timezone}.",
@@ -332,6 +515,18 @@
   "questions": {
     "title": "Questions",
     "description": "Use every question, or rotate a few at a time in this order.",
+    "packsTitle": "Question packs",
+    "packsDescription": "Browse the library and add questions to the pool from any packs. Questions already in the pool are skipped.",
+    "filterAll": "All packs",
+    "filterLabel": "Filter question packs",
+    "packAddAll": "Add all",
+    "packRemoveAll": "Remove all",
+    "packAddAllLabel": "Add every question in {pack}",
+    "packRemoveAllLabel": "Remove every question in {pack}",
+    "addToPool": "Add to the pool",
+    "fromPacksAddedOne": "1 question added.",
+    "fromPacksAdded": "{count} questions added.",
+    "fromPacksNone": "Those questions are already in your pool.",
     "rotationTitle": "Questions per round",
     "rotationDescription": "Pick a number to rotate through the pool. Changing the count starts again at the top.",
     "allQuestions": "All questions",

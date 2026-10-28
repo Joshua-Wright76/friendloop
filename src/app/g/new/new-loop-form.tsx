@@ -6,6 +6,8 @@ import { TimezoneField } from "./timezone-field";
 import { Tape } from "@/components/stationery";
 import { Picker } from "@/components/picker";
 import { copy, text } from "@/lib/copy";
+import type { QuestionPack } from "@/lib/question-packs";
+import { QuestionPackPicker } from "@/components/question-pack-picker";
 
 const WEEKDAYS = copy.common.weekdays;
 const HOURS = Array.from({ length: 24 }, (_, hour) => hour);
@@ -103,7 +105,7 @@ function AccessibleDialog({
   );
 }
 
-export function NewLoopForm({ bank }: { bank: Array<{ group: string; questions: string[] }> }) {
+export function NewLoopForm({ packs }: { packs: QuestionPack[] }) {
   const [state, action, pending] = useActionState(createLoopAction, {} as CreateState);
   const [step, setStep] = useState(0);
   const [name, setName] = useState("");
@@ -111,7 +113,7 @@ export function NewLoopForm({ bank }: { bank: Array<{ group: string; questions: 
   const [weekday, setWeekday] = useState("5");
   const [hour, setHour] = useState("9");
   const [timezone, setTimezone] = useState("");
-  const [picked, setPicked] = useState<string[]>(() => bank.flatMap((group) => group.questions).slice(0, 2));
+  const [picked, setPicked] = useState<string[]>(() => packs.flatMap((pack) => pack.questions).slice(0, 2));
   const [customQuestions, setCustomQuestions] = useState<Array<{ id: number; value: string }>>([]);
   const [pickedPresets, setPickedPresets] = useState<string[]>([]);
   const [customSections, setCustomSections] = useState<CustomSection[]>([]);
@@ -152,6 +154,12 @@ export function NewLoopForm({ bank }: { bank: Array<{ group: string; questions: 
     setPicked((current) => current.includes(question)
       ? current.filter((item) => item !== question)
       : [...current, question]);
+  }
+
+  function togglePack(questions: string[], select: boolean) {
+    setPicked((current) => select
+      ? [...current, ...questions.filter((question) => !current.includes(question))]
+      : current.filter((question) => !questions.includes(question)));
   }
 
   function addCustomQuestion() {
@@ -361,24 +369,13 @@ export function NewLoopForm({ bank }: { bank: Array<{ group: string; questions: 
               </span>
             </div>
             <div className="mt-5 flex flex-col gap-3">
-              {bank.map((group) => (
-                <fieldset key={group.group} className="card p-3 sm:p-4">
-                  <legend className="px-2 font-display text-[20px] font-bold text-ink">{group.group}</legend>
-                  <div className="flex flex-col">
-                    {group.questions.map((question) => (
-                      <label key={question} className="wizard-question-row">
-                        <input
-                          type="checkbox"
-                          checked={picked.includes(question)}
-                          onChange={() => toggleQuestion(question)}
-                          className="mt-1 h-4 w-4 flex-none accent-[var(--accent)]"
-                        />
-                        <span className="text-[15px] leading-snug text-ink">{question}</span>
-                      </label>
-                    ))}
-                  </div>
-                </fieldset>
-              ))}
+              <QuestionPackPicker
+                packs={packs}
+                selected={picked}
+                onToggleQuestion={toggleQuestion}
+                onTogglePack={togglePack}
+                ariaLabel={copy.newLoop.wizard.questions.title}
+              />
 
               {customQuestions.map((question, index) => (
                 <div key={question.id} className="wizard-saved-prompt">

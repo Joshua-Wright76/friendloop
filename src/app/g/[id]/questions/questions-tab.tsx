@@ -1,11 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { addAction, rotationAction } from "./actions";
+import { useState } from "react";
+import { addAction, addFromPacksAction, rotationAction } from "./actions";
 import { QuestionOrder } from "./question-order";
 import { LoopNav } from "@/components/loop-nav";
 import { Picker } from "@/components/picker";
-import { copy } from "@/lib/copy";
+import { QuestionPackPicker } from "@/components/question-pack-picker";
+import { QUESTION_PACKS, newQuestionTexts } from "@/lib/question-packs";
+import { copy, text } from "@/lib/copy";
 import { useLoopData } from "../loop-data";
 
 const ROTATION_OPTIONS = [
@@ -13,10 +16,24 @@ const ROTATION_OPTIONS = [
   ...Array.from({ length: 10 }, (_, index) => ({ value: String(index + 1), label: String(index + 1) })),
 ];
 
-export default function QuestionsTab({ notices }: { notices: { added?: string; archived?: string; rotation?: string } }) {
+export default function QuestionsTab({ notices }: { notices: { added?: string; archived?: string; rotation?: string; fromPacks?: string } }) {
   const { group, membership, questions: pool } = useLoopData();
   const id = group.id;
   const manages = membership.access !== "member";
+  const [picked, setPicked] = useState<string[]>([]);
+  const poolTexts = pool.map((question) => question.text);
+
+  const toggleQuestion = (question: string) => {
+    setPicked((current) => current.includes(question)
+      ? current.filter((item) => item !== question)
+      : [...current, question]);
+  };
+  const togglePack = (questions: string[], select: boolean) => {
+    setPicked((current) => select
+      ? [...current, ...questions.filter((question) => !current.includes(question))]
+      : current.filter((question) => !questions.includes(question)));
+  };
+  const addable = newQuestionTexts(picked, poolTexts).length;
 
   return (
     <main className="mx-auto w-full max-w-[680px] px-4 pb-16 pt-5 sm:px-6">
@@ -36,6 +53,14 @@ export default function QuestionsTab({ notices }: { notices: { added?: string; a
       {notices.archived ? <Notice>{copy.questions.archivedNotice}</Notice> : null}
       {notices.rotation === "1" ? <Notice>{copy.questions.rotationSaved}</Notice> : null}
       {notices.rotation === "invalid" ? <Notice>{copy.questions.rotationInvalid}</Notice> : null}
+      {notices.fromPacks === "0" ? <Notice>{copy.questions.fromPacksNone}</Notice> : null}
+      {notices.fromPacks && notices.fromPacks !== "0" ? (
+        <Notice>
+          {Number(notices.fromPacks) === 1
+            ? copy.questions.fromPacksAddedOne
+            : text(copy.questions.fromPacksAdded, { count: notices.fromPacks })}
+        </Notice>
+      ) : null}
 
       {manages ? (
         <form action={rotationAction} className="card mt-5 p-5">
@@ -78,6 +103,32 @@ export default function QuestionsTab({ notices }: { notices: { added?: string; a
           <button type="submit" className="btn btn-primary mt-3">
             {copy.questions.add}
           </button>
+        </form>
+      ) : null}
+
+      {manages ? (
+        <form action={addFromPacksAction} className="card mt-5 p-5">
+          <input type="hidden" name="groupId" value={id} />
+          <h2 className="text-[16px] font-semibold tracking-[-0.01em] text-ink">{copy.questions.packsTitle}</h2>
+          <p className="mt-1 text-[14px] leading-relaxed text-ink-soft">{copy.questions.packsDescription}</p>
+          <QuestionPackPicker
+            packs={QUESTION_PACKS}
+            selected={picked}
+            onToggleQuestion={toggleQuestion}
+            onTogglePack={togglePack}
+            ariaLabel={copy.questions.packsTitle}
+          />
+          {picked.map((question) => (
+            <input key={question} type="hidden" name="question" value={question} />
+          ))}
+          <div className="mt-4 flex items-center gap-3">
+            <span className="chip border bg-card px-2.5 py-1 text-[12px] font-bold text-ink-soft numeric">
+              {text(copy.common.selectedCount, { count: picked.length })}
+            </span>
+            <button type="submit" disabled={addable === 0} className="btn btn-primary">
+              {copy.questions.addToPool}
+            </button>
+          </div>
         </form>
       ) : null}
     </main>

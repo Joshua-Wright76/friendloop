@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { currentUser } from "@/lib/auth";
-import { bankByGroup } from "@/lib/question-bank";
+import { QUESTION_PACKS } from "@/lib/question-packs";
 import { NewLoopForm } from "./new-loop-form";
 import { Brand } from "@/components/stationery";
 import { copy } from "@/lib/copy";
@@ -19,7 +19,7 @@ export default async function NewLoopPage() {
         <Link href="/you" className="text-[13px] font-bold text-ink-soft hover:text-ink">← {copy.common.yourLoops}</Link>
       </header>
 
-      <NewLoopForm bank={bankByGroup()} />
+      <NewLoopForm packs={QUESTION_PACKS} />
     </main>
   );
 }

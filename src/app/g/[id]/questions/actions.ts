@@ -6,7 +6,7 @@ import { and, asc, eq, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { groups, questions } from "@/db/schema";
 import { getNow } from "@/lib/clock";
-import { addQuestion, archiveQuestion, reorderQuestion, toggleSkipNext } from "@/lib/manage";
+import { addQuestion, addQuestionTexts, archiveQuestion, reorderQuestion, toggleSkipNext } from "@/lib/manage";
 import { viewerFor } from "@/lib/permissions";
 
 async function requireManager(groupId: string) {
@@ -34,6 +34,16 @@ export async function rotationAction(formData: FormData) {
     .where(eq(groups.id, groupId));
   revalidatePath(`/g/${groupId}`, "layout");
   redirect(`/g/${groupId}/questions?rotation=1`);
+}
+
+export async function addFromPacksAction(formData: FormData) {
+  const groupId = String(formData.get("groupId") ?? "");
+  await requireManager(groupId);
+
+  const texts = formData.getAll("question").map((value) => String(value));
+  const added = await addQuestionTexts(groupId, texts, await getNow());
+  revalidatePath(`/g/${groupId}`, "layout");
+  redirect(`/g/${groupId}/questions?fromPacks=${added}`);
 }
 
 export async function addAction(formData: FormData) {

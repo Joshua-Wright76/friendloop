@@ -1,6 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { resetDatabase, rows } from "../support/db";
 import { signIn, uniqueEmail } from "../support/harness";
+import { QUESTION_PACKS } from "@/lib/question-packs";
 
 const NEXT = "Continue to the next setup step";
 
@@ -56,8 +57,21 @@ test("B2 · the question bank can start with more than eight prompts", async ({ 
   await moveToDetails(page, "Long Table");
 
   const questions = page.getByRole("checkbox");
-  await expect(questions).toHaveCount(13);
-  for (let index = 0; index < 9; index += 1) await questions.nth(index).check();
+  const total = QUESTION_PACKS.reduce((count, pack) => count + pack.questions.length, 0);
+  await expect(questions).toHaveCount(total);
+  await questions.nth(0).uncheck();
+  await questions.nth(1).uncheck();
+
+  // Questions can be picked across packs without leaving the filter.
+  await page.getByRole("button", { name: "Tiny joys", exact: true }).click();
+  const tiny = page.getByRole("group", { name: "Tiny joys", exact: true });
+  await expect(questions).toHaveCount(QUESTION_PACKS.find((pack) => pack.name === "Tiny joys")!.questions.length);
+  for (let index = 0; index < 4; index += 1) await tiny.getByRole("checkbox").nth(index).check();
+
+  await page.getByRole("button", { name: "Food", exact: true }).click();
+  const food = page.getByRole("group", { name: "Food", exact: true });
+  for (let index = 0; index < 5; index += 1) await food.getByRole("checkbox").nth(index).check();
+
   await expect(page.getByText("9 selected")).toBeVisible();
   await page.getByRole("button", { name: NEXT }).click();
   await page.getByRole("button", { name: NEXT }).click();

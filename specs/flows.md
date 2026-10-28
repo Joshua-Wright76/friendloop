@@ -43,6 +43,7 @@ Status: `todo` (not built) · `done` (built and covered).
 | C3 | Archive a question | Archiving removes it from the pool's active list and from future issues, while past issues still render its original text. | done |
 | C4 | Choose the next issue's questions | Deselecting a question excludes it from the next issue only; the question stays in the pool. | done |
 | C5 | Rotate questions | Setting a count of two selects questions 1–2, then 3–4, then wraps to 5 and 1. "Send now" uses the same cursor, while "All questions" preserves the original behavior. | done |
+| C6 | Add questions from packs | The library is browsable by pack; several packs can be filtered at once, questions can be picked across them or added a whole pack at a time, and questions already in the pool are skipped. | done |
 
 ## D · The issue cycle
 
@@ -94,4 +95,4 @@ rather than renumbering the rest.
 
 ---
 
-**42 flows.** A flow is only `done` when its spec passes locally and in CI.
+**43 flows.** A flow is only `done` when its spec passes locally and in CI.

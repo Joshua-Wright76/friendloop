@@ -57,7 +57,7 @@ Confirmed for v1:
   makes every non-owner a reader.
 - Contributors reply through a tokenized link with no account. Management actions
   require a signed-in session.
-- Question pool: a preset bank plus custom questions written by the owner. The owner can include every question or rotate a set number through the pool in order.
+- Question pool: themed packs of starter questions plus custom questions written by the owner. The owner can include every question or rotate a set number through the pool in order.
 - One photo per reply.
 - Delivered issues have comments and reactions. Polls are out of scope for v1.
 - A delivered issue can be shared by secret link, off by default.
