@@ -57,7 +57,7 @@ test("C6 · a whole pack adds at once and questions already in the pool are skip
   await signIn(page, "owner@friendloop.test");
   await page.goto(`/g/${loop.groupId}/questions`);
 
-  await page.getByRole("button", { name: "Add every question in Travel" }).click();
+  await page.getByRole("button", { name: "Add all questions in Travel" }).click();
   await expect(page.getByText(`${pack("Travel").questions.length} selected`)).toBeVisible();
   await page.getByRole("button", { name: "Add to the pool" }).click();
   await expect(page.getByText(`${pack("Travel").questions.length} questions added.`)).toBeVisible();
@@ -68,7 +68,7 @@ test("C6 · a whole pack adds at once and questions already in the pool are skip
   ]);
 
   // Re-select the whole pack plus one question the pool does not have yet.
-  await page.getByRole("button", { name: "Add every question in Travel" }).click();
+  await page.getByRole("button", { name: "Add all questions in Travel" }).click();
   const fresh = pack("Everyday").questions[2];
   await page.getByRole("group", { name: "Everyday", exact: true }).getByText(fresh).click();
   await page.getByRole("button", { name: "Add to the pool" }).click();
