@@ -147,3 +147,16 @@ expire, and re-inviting resurrects the membership with a fresh token.
 `/r/<token>` resolves the token to a membership on every request; the token is the
 credential, and management actions never accept it. GET only renders — every write
 is a Server Action, because mail scanners prefetch every URL in an email.
+
+## 13 · Question rotation uses one cursor
+
+`groups.questions_per_round` is nullable. Null preserves the original behavior:
+every active, unskipped question goes into the issue. A positive count rotates
+through the ordered pool, wrapping at the end. `groups.question_cursor` points to
+the next pool position after the last selected question. Skipped questions do not
+count toward the round's total.
+
+`src/lib/round-questions.ts` is the only code that snapshots questions and advances
+the cursor. Scheduled rounds and "Send now" both call it, so the two paths cannot
+drift. Changing the count resets the cursor to the top. Issue question snapshots
+remain unchanged when the pool or rotation setting changes later.

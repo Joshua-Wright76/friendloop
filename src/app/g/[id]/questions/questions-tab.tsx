@@ -1,13 +1,19 @@
 "use client";
 
 import Link from "next/link";
-import { addAction } from "./actions";
+import { addAction, rotationAction } from "./actions";
 import { QuestionOrder } from "./question-order";
 import { LoopNav } from "@/components/loop-nav";
+import { Picker } from "@/components/picker";
 import { copy } from "@/lib/copy";
 import { useLoopData } from "../loop-data";
 
-export default function QuestionsTab({ notices }: { notices: { added?: string; archived?: string } }) {
+const ROTATION_OPTIONS = [
+  { value: "", label: copy.questions.allQuestions },
+  ...Array.from({ length: 10 }, (_, index) => ({ value: String(index + 1), label: String(index + 1) })),
+];
+
+export default function QuestionsTab({ notices }: { notices: { added?: string; archived?: string; rotation?: string } }) {
   const { group, membership, questions: pool } = useLoopData();
   const id = group.id;
   const manages = membership.access !== "member";
@@ -28,6 +34,27 @@ export default function QuestionsTab({ notices }: { notices: { added?: string; a
 
       {notices.added ? <Notice>{copy.questions.addedNotice}</Notice> : null}
       {notices.archived ? <Notice>{copy.questions.archivedNotice}</Notice> : null}
+      {notices.rotation === "1" ? <Notice>{copy.questions.rotationSaved}</Notice> : null}
+      {notices.rotation === "invalid" ? <Notice>{copy.questions.rotationInvalid}</Notice> : null}
+
+      {manages ? (
+        <form action={rotationAction} className="card mt-5 p-5">
+          <input type="hidden" name="groupId" value={id} />
+          <h2 className="text-[16px] font-semibold tracking-[-0.01em] text-ink">{copy.questions.rotationTitle}</h2>
+          <p className="mt-1 text-[14px] leading-relaxed text-ink-soft">{copy.questions.rotationDescription}</p>
+          <div className="mt-3 flex flex-wrap items-center gap-3">
+            <div className="min-w-44 flex-1">
+              <Picker
+                name="questionsPerRound"
+                defaultValue={group.questionsPerRound?.toString() ?? ""}
+                options={ROTATION_OPTIONS}
+                ariaLabel={copy.questions.rotationTitle}
+              />
+            </div>
+            <button type="submit" className="btn btn-quiet">{copy.questions.saveRotation}</button>
+          </div>
+        </form>
+      ) : null}
 
       {manages && pool.length ? <QuestionOrder groupId={id} questions={pool.map(({ id: questionId, text, skipNext }) => ({ id: questionId, text, skipNext }))} /> : (
         <ol className="mt-5 flex flex-col gap-2.5" aria-label={copy.questions.listLabel}>

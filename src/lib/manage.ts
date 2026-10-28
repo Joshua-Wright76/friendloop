@@ -2,7 +2,6 @@ import { and, count, eq, inArray, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
 import {
   groups,
-  issueQuestions,
   issues,
   memberships,
   outbox,
@@ -17,6 +16,7 @@ import { replyUrl, url } from "./urls";
 import { deliveryInstant } from "./schedule";
 import { INVITE_DAYS } from "./reply";
 import { reorderIds } from "./question-order";
+import { snapshotQuestionsForIssue } from "./round-questions";
 
 export function normalizeEmail(value: string): string {
   return value.trim().toLowerCase();
@@ -433,42 +433,16 @@ export async function openIssueNow(groupId: string, at: Date): Promise<{ issueId
 
   if (!issue) return null;
 
-  const selected = await db
-    .select()
-    .from(questions)
-    .where(
-      and(
-        eq(questions.groupId, groupId),
-        eq(questions.active, true),
-        isNull(questions.archivedAt),
-        eq(questions.skipNext, false),
-      ),
-    )
-    .orderBy(questions.position);
-
-  if (selected.length > 0) {
-    await db.insert(issueQuestions).values(
-      selected.map((question, index) => ({
-        issueId: issue.id,
-        questionId: question.id,
-        text: question.text,
-        position: index,
-      })),
-    );
-  }
+  const questionCount = await snapshotQuestionsForIssue({ group, issueId: issue.id });
 
   await db.update(groups).set({ lastSlotAt: at }).where(eq(groups.id, groupId));
-  await db
-    .update(questions)
-    .set({ skipNext: false })
-    .where(and(eq(questions.groupId, groupId), eq(questions.skipNext, true)));
 
   await sendPromptEmails({
     group,
     issueId: issue.id,
     issueNumber: issue.number,
     deliversAt,
-    questionCount: selected.length,
+    questionCount,
   });
 
   return { issueId: issue.id, number: issue.number };

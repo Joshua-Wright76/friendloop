@@ -79,6 +79,10 @@ export const groups = pgTable("groups", {
   /** Local hour the prompt goes out, 0–23. */
   promptHour: integer("prompt_hour").default(9).notNull(),
   cadenceWeeks: integer("cadence_weeks").default(1).notNull(),
+  /** Null keeps every active question in each round; a number rotates the pool. */
+  questionsPerRound: integer("questions_per_round"),
+  /** Zero-based position after the last question selected for a round. */
+  questionCursor: integer("question_cursor").default(0).notNull(),
   /** Reply window length in days; delivery lands this long after opening. */
   windowDays: integer("window_days").default(7).notNull(),
   shareEnabled: boolean("share_enabled").default(false).notNull(),

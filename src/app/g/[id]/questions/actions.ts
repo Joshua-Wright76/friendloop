@@ -2,9 +2,9 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { and, asc, eq, isNull } from "drizzle-orm";
+import { and, asc, eq, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { questions } from "@/db/schema";
+import { groups, questions } from "@/db/schema";
 import { getNow } from "@/lib/clock";
 import { addQuestion, archiveQuestion, reorderQuestion, toggleSkipNext } from "@/lib/manage";
 import { viewerFor } from "@/lib/permissions";
@@ -13,6 +13,27 @@ async function requireManager(groupId: string) {
   const viewer = await viewerFor(groupId);
   if (!viewer || viewer.membership.access === "member") redirect(`/g/${groupId}`);
   return viewer;
+}
+
+export async function rotationAction(formData: FormData) {
+  const groupId = String(formData.get("groupId") ?? "");
+  await requireManager(groupId);
+
+  const raw = String(formData.get("questionsPerRound") ?? "");
+  const questionsPerRound = raw === "" ? null : Number(raw);
+  if (questionsPerRound !== null && (!Number.isInteger(questionsPerRound) || questionsPerRound < 1 || questionsPerRound > 20)) {
+    redirect(`/g/${groupId}/questions?rotation=invalid`);
+  }
+
+  await db
+    .update(groups)
+    .set({
+      questionsPerRound,
+      questionCursor: sql`case when ${groups.questionsPerRound} is not distinct from ${questionsPerRound} then ${groups.questionCursor} else 0 end`,
+    })
+    .where(eq(groups.id, groupId));
+  revalidatePath(`/g/${groupId}`, "layout");
+  redirect(`/g/${groupId}/questions?rotation=1`);
 }
 
 export async function addAction(formData: FormData) {

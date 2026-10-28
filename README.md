@@ -5,7 +5,7 @@ Recurring questions go out by email, everyone answers through a private link, an
 the answers become a shared issue delivered back to the group.
 
 - Product truth: [`PRODUCT.md`](./PRODUCT.md)
-- Flow inventory (41 flows, the e2e checklist): [`specs/flows.md`](./specs/flows.md)
+- Flow inventory (42 flows, the e2e checklist): [`specs/flows.md`](./specs/flows.md)
 - Why the code looks like this: [`specs/architecture.md`](./specs/architecture.md)
 
 **Cost to run: $0/month** on free tiers (Vercel Hobby + Neon + Resend).

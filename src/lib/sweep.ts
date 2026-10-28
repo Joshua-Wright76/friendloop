@@ -5,7 +5,6 @@ import {
   issueQuestions,
   issues,
   memberships,
-  questions,
   replies,
   users,
 } from "@/db/schema";
@@ -15,6 +14,7 @@ import { sendPromptEmails } from "./notify";
 import { deliveryEmail, reminderEmail, pausedEmail, type AnswerBlock } from "./email/templates";
 import { issueUrl, replyUrl, url } from "./urls";
 import { newToken } from "./tokens";
+import { snapshotQuestionsForIssue } from "./round-questions";
 
 export type SweepReport = {
   opened: number;
@@ -87,43 +87,15 @@ async function openDueIssues(at: Date): Promise<number> {
     }
 
     const issue = inserted[0];
-    const selected = await db
-      .select()
-      .from(questions)
-      .where(
-        and(
-          eq(questions.groupId, group.id),
-          eq(questions.active, true),
-          isNull(questions.archivedAt),
-          eq(questions.skipNext, false),
-        ),
-      )
-      .orderBy(questions.position);
-
-    if (selected.length > 0) {
-      await db.insert(issueQuestions).values(
-        selected.map((question, index) => ({
-          issueId: issue.id,
-          questionId: question.id,
-          text: question.text,
-          position: index,
-        })),
-      );
-    }
+    const questionCount = await snapshotQuestionsForIssue({ group, issueId: issue.id });
 
     await sendPromptEmails({
       group,
       issueId: issue.id,
       issueNumber: issue.number,
       deliversAt,
-      questionCount: selected.length,
+      questionCount,
     });
-
-    // "Skip next round" only ever skips one round.
-    await db
-      .update(questions)
-      .set({ skipNext: false })
-      .where(and(eq(questions.groupId, group.id), eq(questions.skipNext, true)));
 
     await db.update(groups).set({ lastSlotAt: slot }).where(eq(groups.id, group.id));
     opened += 1;
