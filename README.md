@@ -5,7 +5,7 @@ Recurring questions go out by email, everyone answers through a private link, an
 the answers become a shared issue delivered back to the group.
 
 - Product truth: [`PRODUCT.md`](./PRODUCT.md)
-- Flow inventory (42 flows, the e2e checklist): [`specs/flows.md`](./specs/flows.md)
+- Flow inventory (41 flows, the e2e checklist): [`specs/flows.md`](./specs/flows.md)
 - Why the code looks like this: [`specs/architecture.md`](./specs/architecture.md)
 
 **Cost to run: $0/month** on free tiers (Vercel Hobby + Neon + Resend).
@@ -46,8 +46,6 @@ Vercel → Project → Settings → Environment Variables.
 | `EMAIL_TRANSPORT` | `outbox` to never call Resend (tests, offline dev) |
 | `NEXT_PUBLIC_APP_URL` | `http://localhost:3000` locally; your domain in prod |
 | `CRON_SECRET` | `openssl rand -hex 32` — protects the sweep endpoint |
-| `EMAIL_REPLY_DOMAIN` | Resend receiving domain, such as the account's `<id>.resend.app` address. Enables reply-by-email comments. |
-| `RESEND_WEBHOOK_SECRET` | Signing secret for the `email.received` webhook pointing to `/api/email/inbound`. |
 | `BLOB_READ_WRITE_TOKEN` | Required for production photo uploads. Vercel → Storage → Blob |
 | `TEST_DATABASE_URL` | Optional: your own throwaway Postgres for e2e (a Neon branch). If unset, `npm run e2e` starts a local one. |
 
@@ -166,13 +164,6 @@ Set `TEST_DATABASE_URL` to skip all of that and use your own database instead �
 that is what CI does with a Neon branch. Tests truncate their tables between
 runs, so the cluster is safe to share with nothing else.
 
-To enable email replies, configure a receiving domain in Resend, then create an
-`email.received` webhook for `https://friendloop.dev/api/email/inbound`. Put that
-domain and the webhook's signing secret in the environment. If no reply domain is
-configured, delivery emails direct readers to comment on the web instead. Leave
-`EMAIL_REPLY_DOMAIN` unset on dev unless you configure a separate inbound route to
-the dev database. The production webhook cannot create comments in dev.
-
 Flow coverage is not a vibe: `specs/flows.md` lists every user-visible flow, each
 `done` flow must have `e2e/flows/<ID>.spec.ts`, and CI fails while any flow is still
 `todo`.
@@ -202,8 +193,7 @@ Flow coverage is not a vibe: `specs/flows.md` lists every user-visible flow, eac
    and marks it `delivered`. Nothing submitted → the round is skipped and the loop
    pauses rather than sending an empty email.
 5. The web issue is canonical: replies stay editable after delivery, and comments
-   and reactions live there. Members can comment on the web or reply to the delivery
-   email; an emailed reply becomes a comment on the same issue.
+   and reactions live there.
 
 ## Release safety
 

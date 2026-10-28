@@ -17,9 +17,6 @@ process.env.CRON_SECRET ??= "e2e-cron-secret";
 if (!isProd) {
   process.env.E2E ??= "1";
   process.env.EMAIL_TRANSPORT ??= "outbox";
-  process.env.EMAIL_REPLY_DOMAIN ??= "inbound.friendloop.test";
-  process.env.RESEND_WEBHOOK_SECRET ??= "whsec_ZnJpZW5kbG9vcC1pbmJvdW5kLXRlc3Qtc2VjcmV0";
-  process.env.RESEND_API_KEY ??= "re_e2e_friendloop";
   if (process.env.TEST_DATABASE_URL) process.env.DATABASE_URL ??= process.env.TEST_DATABASE_URL;
 }
 
@@ -64,9 +61,6 @@ export default defineConfig({
         env: {
           E2E: "1",
           EMAIL_TRANSPORT: "outbox",
-          EMAIL_REPLY_DOMAIN: process.env.EMAIL_REPLY_DOMAIN ?? "inbound.friendloop.test",
-          RESEND_WEBHOOK_SECRET: process.env.RESEND_WEBHOOK_SECRET ?? "whsec_ZnJpZW5kbG9vcC1pbmJvdW5kLXRlc3Qtc2VjcmV0",
-          RESEND_API_KEY: process.env.RESEND_API_KEY ?? "re_e2e_friendloop",
           CRON_SECRET: process.env.CRON_SECRET ?? "e2e-cron-secret",
           DATABASE_URL: process.env.TEST_DATABASE_URL ?? process.env.DATABASE_URL ?? "",
           NEXT_PUBLIC_APP_URL: `http://localhost:${TEST_PORT}`,

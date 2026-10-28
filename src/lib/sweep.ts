@@ -13,7 +13,6 @@ import { deliveryInstant, describeDeadline, dueSlot, type LoopSchedule } from ".
 import { sendEmail, flushOutbox } from "./email/send";
 import { sendPromptEmails } from "./notify";
 import { deliveryEmail, reminderEmail, pausedEmail, type AnswerBlock } from "./email/templates";
-import { configuredReplyDomain } from "./email/reply-address";
 import { issueUrl, replyUrl, url } from "./urls";
 import { newToken } from "./tokens";
 
@@ -198,7 +197,6 @@ async function deliverDueIssues(at: Date): Promise<{ delivered: number; skipped:
       url: issueUrl(issue.id),
       answers,
       shareUrl: shareToken ? url(`/s/${shareToken}`) : null,
-      replyByEmail: configuredReplyDomain() !== null,
     });
 
     for (const member of everyone) {

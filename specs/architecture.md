@@ -147,18 +147,3 @@ expire, and re-inviting resurrects the membership with a fresh token.
 `/r/<token>` resolves the token to a membership on every request; the token is the
 credential, and management actions never accept it. GET only renders — every write
 is a Server Action, because mail scanners prefetch every URL in an email.
-
-## 13 · Email replies use a delivery-specific credential
-
-Each delivery outbox row gets its own random `reply_token`. Resend sends that
-recipient a `Reply-To` address containing the token at `EMAIL_REPLY_DOMAIN`.
-`/api/email/inbound` verifies the webhook signature, resolves the token to the
-original delivery, and checks that the sender matches the membership. A removed
-member's old delivery links no longer work.
-
-The webhook contains metadata only, so the handler retrieves the received message
-through Resend's API. It keeps the new plain-text content, strips quoted history
-and signatures, and inserts into `comments` with the existing membership
-attribution. `comments.inbound_email_id` is unique, making webhook retries a no-op.
-Without `EMAIL_REPLY_DOMAIN`, delivery copy points members to the web comment form
-instead of promising a reply path that is not configured.

@@ -15,13 +15,6 @@
       "when": 1792702335449,
       "tag": "0001_question_skip_next",
       "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "7",
-      "when": 1793172455378,
-      "tag": "0002_bored_bloodstrike",
-      "breakpoints": true
     }
   ]
 }

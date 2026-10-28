@@ -4,8 +4,6 @@ import { db } from "@/db";
 import { outbox } from "@/db/schema";
 import type { RenderedEmail } from "./templates";
 import { copy } from "../copy.ts";
-import { newToken } from "../tokens.ts";
-import { replyAddress } from "./reply-address.ts";
 
 export type EmailKind = (typeof outbox.$inferInsert)["kind"];
 
@@ -56,8 +54,7 @@ function resend(): Resend {
  */
 export async function queueEmail(
   input: QueueInput,
-): Promise<{ id: string | null; deduped: boolean; replyToken: string | null }> {
-  const replyToken = input.kind === "delivery" ? newToken() : null;
+): Promise<{ id: string | null; deduped: boolean }> {
   const inserted = await db
     .insert(outbox)
     .values({
@@ -70,19 +67,18 @@ export async function queueEmail(
       groupId: input.groupId ?? null,
       issueId: input.issueId ?? null,
       membershipId: input.membershipId ?? null,
-      replyToken,
     })
     .onConflictDoNothing({ target: outbox.dedupeKey })
-    .returning({ id: outbox.id, replyToken: outbox.replyToken });
+    .returning({ id: outbox.id });
 
-  if (inserted.length > 0) return { id: inserted[0].id, deduped: false, replyToken: inserted[0].replyToken };
+  if (inserted.length > 0) return { id: inserted[0].id, deduped: false };
 
   const existing = await db
-    .select({ id: outbox.id, replyToken: outbox.replyToken })
+    .select({ id: outbox.id })
     .from(outbox)
     .where(eq(outbox.dedupeKey, input.dedupeKey))
     .limit(1);
-  return { id: existing[0]?.id ?? null, deduped: true, replyToken: existing[0]?.replyToken ?? null };
+  return { id: existing[0]?.id ?? null, deduped: true };
 }
 
 async function dispatch(row: {
@@ -91,8 +87,6 @@ async function dispatch(row: {
   subject: string;
   html: string;
   text: string;
-  kind: EmailKind;
-  replyToken: string | null;
   fromName?: string | null;
 }): Promise<void> {
   if (transport() === "outbox") {
@@ -103,8 +97,6 @@ async function dispatch(row: {
     return;
   }
 
-  const replyTo = row.kind === "delivery" && row.replyToken ? replyAddress(row.replyToken) : null;
-
   try {
     const { data, error } = await resend().emails.send({
       from: addressBook(row.fromName),
@@ -112,7 +104,6 @@ async function dispatch(row: {
       subject: row.subject,
       html: row.html,
       text: row.text,
-      ...(replyTo ? { replyTo } : {}),
     });
     if (error) throw new Error(error.message ?? "resend rejected the message");
     await db
@@ -133,9 +124,9 @@ async function dispatch(row: {
  * stays `failed` in the outbox and the next sweep retries it.
  */
 export async function sendEmail(input: QueueInput): Promise<{ queued: boolean; emailId: string | null }> {
-  const { id, deduped, replyToken } = await queueEmail(input);
+  const { id, deduped } = await queueEmail(input);
   if (deduped || !id) return { queued: false, emailId: id };
-  await dispatch({ ...input, id, replyToken, fromName: input.fromName });
+  await dispatch({ ...input, id, fromName: input.fromName });
   return { queued: true, emailId: id };
 }
 
@@ -148,8 +139,6 @@ export async function flushOutbox(limit = 25): Promise<number> {
       subject: outbox.subject,
       html: outbox.html,
       text: outbox.text,
-      kind: outbox.kind,
-      replyToken: outbox.replyToken,
     })
     .from(outbox)
     .where(inArray(outbox.status, ["pending", "failed"]))
