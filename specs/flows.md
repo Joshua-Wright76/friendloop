@@ -67,6 +67,7 @@ Status: `todo` (not built) · `done` (built and covered).
 | E3 | Comment on an issue | A member posts a comment, it appears for other members immediately, and an empty comment is rejected. | done |
 | E4 | React to an answer | A member adds a reaction to someone's answer, the count updates for everyone, and toggling removes it. | done |
 | E5 | Browse the archive | The archive lists delivered issues newest-first; opening an older one renders without needing the current issue to exist. | done |
+| E6 | Reply to an issue by email | Replying to a delivery email creates one comment under the sender's membership; webhook retries do not duplicate it, quoted history is removed, and bad signatures, wrong senders, unknown tokens, and revoked memberships write nothing. | done |
 
 ## F · Loop settings
 
@@ -93,4 +94,4 @@ rather than renumbering the rest.
 
 ---
 
-**41 flows.** A flow is only `done` when its spec passes locally and in CI.
+**42 flows.** A flow is only `done` when its spec passes locally and in CI.

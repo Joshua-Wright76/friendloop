@@ -56,3 +56,19 @@ test("invite email includes a personal note without treating it as markup", () =
   assert.ok(email.html.includes("A note from Dev: A short hello &lt;from me&gt;"));
   assert.ok(email.text.includes(`A note from Dev: ${note}`));
 });
+
+test("delivery copy only promises email replies when the reply domain is configured", () => {
+  const input = {
+    groupName: "Friday Loop",
+    issueNumber: 2,
+    url: "https://friendloop.dev/i/123",
+    answers: [{ question: "What made you laugh?", author: "Dev", body: "The cat fist bump." }],
+  };
+
+  assert.match(deliveryEmail({ ...input, replyByEmail: true }).html, /reply to this email to talk about it/);
+  assert.match(deliveryEmail(input).html, /open the issue to read and comment/);
+
+  const shared = deliveryEmail({ ...input, replyByEmail: true, shareUrl: "https://friendloop.dev/s/secret" });
+  assert.match(shared.html, /reply to this email to talk about it/);
+  assert.match(shared.html, /shareable link: https:\/\/friendloop.dev\/s\/secret/);
+});

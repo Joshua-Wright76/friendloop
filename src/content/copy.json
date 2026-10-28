@@ -550,7 +550,9 @@
       "body": "Here's what everyone wrote.",
       "cta": "Read it on the web",
       "shareFooter": "{groupName} · shareable link: {shareUrl}",
+      "shareReplyFooter": "{groupName} · reply to this email to talk about it · shareable link: {shareUrl}",
       "replyFooter": "{groupName} · reply to this email to talk about it",
+      "webReplyFooter": "{groupName} · open the issue to read and comment",
       "text": "{groupName} · round {issueNumber}\n\n{url}\n\n{answers}",
       "textAnswer": "{question}\n{author}: {body}"
     },

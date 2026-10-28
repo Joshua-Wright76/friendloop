@@ -213,10 +213,15 @@ export const comments = pgTable(
       .references(() => memberships.id, { onDelete: "cascade" })
       .notNull(),
     body: text("body").notNull(),
+    /** Resend's received email ID. Null for comments written on the web. */
+    inboundEmailId: text("inbound_email_id"),
     deletedAt: timestamp("deleted_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   },
-  (t) => [index("comments_issue_idx").on(t.issueId)],
+  (t) => [
+    index("comments_issue_idx").on(t.issueId),
+    uniqueIndex("comments_inbound_email_idx").on(t.inboundEmailId),
+  ],
 );
 
 export const reactions = pgTable(
@@ -250,6 +255,8 @@ export const outbox = pgTable(
     groupId: uuid("group_id").references(() => groups.id, { onDelete: "cascade" }),
     issueId: uuid("issue_id").references(() => issues.id, { onDelete: "cascade" }),
     membershipId: uuid("membership_id").references(() => memberships.id, { onDelete: "cascade" }),
+    /** Per-recipient credential used only in a delivery email's Reply-To address. */
+    replyToken: text("reply_token"),
     status: outboxStatusEnum("status").default("pending").notNull(),
     providerId: text("provider_id"),
     error: text("error"),
@@ -259,6 +266,7 @@ export const outbox = pgTable(
   },
   (t) => [
     uniqueIndex("outbox_dedupe_idx").on(t.dedupeKey),
+    uniqueIndex("outbox_reply_token_idx").on(t.replyToken),
     index("outbox_status_idx").on(t.status),
     index("outbox_group_idx").on(t.groupId),
   ],

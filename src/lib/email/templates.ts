@@ -202,8 +202,9 @@ export function deliveryEmail(input: {
   url: string;
   answers: AnswerBlock[];
   shareUrl?: string | null;
+  replyByEmail?: boolean;
 }): RenderedEmail {
-  const { groupName, issueNumber, url, answers, shareUrl } = input;
+  const { groupName, issueNumber, url, answers, shareUrl, replyByEmail = false } = input;
   const content = copy.emails.delivery;
   const values = {
     groupName,
@@ -224,7 +225,16 @@ export function deliveryEmail(input: {
       body: [content.body],
       answers,
       cta: { label: content.cta, url },
-      footer: text(shareUrl ? content.shareFooter : content.replyFooter, values),
+      footer: text(
+        shareUrl
+          ? replyByEmail
+            ? content.shareReplyFooter
+            : content.shareFooter
+          : replyByEmail
+            ? content.replyFooter
+            : content.webReplyFooter,
+        values,
+      ),
     }),
     text: text(content.text, { ...values, answers: answerText }),
   };
