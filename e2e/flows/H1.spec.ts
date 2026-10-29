@@ -2,16 +2,9 @@ import { test, expect } from "@playwright/test";
 
 const SECRET = process.env.UI_PREVIEW_SECRET ?? "e2e-preview-secret";
 
-test("H1 · the key opens the screens, the email previews, and the captured inbox", async ({ page }) => {
-  const denied = await page.goto("/dev/ui");
-  expect(denied?.status()).toBe(404);
-
-  const wrong = await page.goto("/dev/ui?key=not-the-key");
-  expect(wrong?.status()).toBe(404);
-
-  const allowed = await page.goto(`/dev/ui?key=${SECRET}`);
-  expect(allowed?.status()).toBe(200);
-  await expect(page).toHaveURL(/\/dev\/screens$/);
+test("H1 · the screens and email previews open at their routes", async ({ page }) => {
+  const screens = await page.goto("/dev/screens");
+  expect(screens?.status()).toBe(200);
   await expect(page.getByRole("heading", { name: "UI preview" })).toBeVisible();
 
   await page.getByRole("link", { name: "Email templates" }).click();
@@ -20,6 +13,19 @@ test("H1 · the key opens the screens, the email previews, and the captured inbo
   await expect(page.getByRole("heading", { name: "Sign-in link" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Delivered issue with a share link" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Empty round, loop paused" })).toBeVisible();
+
+  // The captured inbox holds live sign-in links and stays locked without the key.
+  const locked = await page.goto("/dev/outbox");
+  expect(locked?.status(), "the inbox must not open without the key").toBe(404);
+});
+
+test("H1 · the key unlocks the captured inbox", async ({ page }) => {
+  const locked = await page.goto("/dev/outbox");
+  expect(locked?.status()).toBe(404);
+
+  const allowed = await page.goto(`/dev/ui?key=${SECRET}`);
+  expect(allowed?.status()).toBe(200);
+  await expect(page).toHaveURL(/\/dev\/screens$/);
 
   await page.goto("/dev/outbox");
   await expect(page.getByRole("heading", { name: "Captured email" })).toBeVisible();
@@ -32,9 +38,8 @@ test("H1 · the key opens the screens, the email previews, and the captured inbo
   expect(previewCookie.value).not.toContain(SECRET);
 });
 
-test("H1 · without the key every preview route is gone", async ({ page }) => {
-  for (const path of ["/dev/screens", "/dev/emails", "/dev/outbox", "/dev/ui/signout"]) {
-    const response = await page.goto(path);
-    expect(response?.status(), `${path} must not open without the key`).toBe(404);
-  }
+test("H1 · a wrong key keeps the inbox locked", async ({ page }) => {
+  await page.goto("/dev/ui?key=not-the-key");
+  const locked = await page.goto("/dev/outbox");
+  expect(locked?.status()).toBe(404);
 });

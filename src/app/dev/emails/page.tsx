@@ -1,13 +1,10 @@
 import { emailPreviews } from "@/lib/email/previews";
-import { requireUiPreview } from "@/lib/ui-preview";
 import { copy, text } from "@/lib/copy";
 
 export const instant = false;
 
 /** Every email template, rendered with sample data and its plain-text twin. */
 export default async function DevEmailsPage() {
-  await requireUiPreview();
-
   return (
     <main className="mx-auto w-full max-w-[760px] px-4 pb-16 pt-5 sm:px-6">
       <header className="stitched mb-8 flex items-center justify-between gap-3 border-b pb-4">

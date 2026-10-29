@@ -1,13 +1,11 @@
 import Link from "next/link";
 import { Brand, Tape } from "@/components/stationery";
 import { copy } from "@/lib/copy";
-import { requireUiPreview, UI_PREVIEW } from "@/lib/ui-preview";
+import { UI_PREVIEW } from "@/lib/ui-preview";
 
 export const instant = false;
 
 export default async function UiScreensPage() {
-  await requireUiPreview();
-
   const screens = copy.devUi.screens;
   const groups = [
     {

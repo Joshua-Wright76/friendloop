@@ -94,7 +94,7 @@ Status: `todo` (not built) · `done` (built and covered).
 
 | ID | Flow | Acceptance criteria | Status |
 | --- | --- | --- | --- |
-| H1 | Preview screens and emails | With `UI_PREVIEW_SECRET` set, `/dev/ui` 404s without a matching key and opens the seeded screens with one; the screens link to every email template rendered with sample data and to the captured inbox, and every preview route 404s for a visitor without the key. | done |
+| H1 | Preview screens and emails | Every preview screen and the email templates open at their `/dev` routes on any environment without being linked from the site. The captured inbox stays locked without `UI_PREVIEW_SECRET`: it answers 404 until a keyed visit to `/dev/ui`, and a wrong key keeps it locked. | done |
 
 IDs are stable handles, not positions: a retired flow leaves its number out
 rather than renumbering the rest.

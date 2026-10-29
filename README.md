@@ -46,7 +46,7 @@ Vercel → Project → Settings → Environment Variables.
 | `EMAIL_TRANSPORT` | `outbox` to never call Resend (tests, offline dev) |
 | `NEXT_PUBLIC_APP_URL` | `http://localhost:3000` locally; your domain in prod |
 | `CRON_SECRET` | `openssl rand -hex 32` — protects the sweep endpoint |
-| `UI_PREVIEW_SECRET` | `openssl rand -hex 32` — the key that opens `/dev/ui` outside local development |
+| `UI_PREVIEW_SECRET` | `openssl rand -hex 32` — the key that unlocks `/dev/outbox` outside local development |
 | `BLOB_READ_WRITE_TOKEN` | Required for production photo uploads. Vercel → Storage → Blob |
 | `TEST_DATABASE_URL` | Optional: your own throwaway Postgres for e2e (a Neon branch). If unset, `npm run e2e` starts a local one. |
 
@@ -115,13 +115,15 @@ sample data and its plain-text twin, and `/dev/outbox` lists the captured mail.
 Use **Reset demo data** to restore the fixtures. The preview never touches
 existing loops.
 
-Anywhere else the preview stays 404 until `UI_PREVIEW_SECRET` is set. Then
-`https://friendloop.dev/dev/ui?key=<secret>` opens it once and remembers the key
-in a cookie scoped to `/dev`. Treat that URL as a password and give each
-environment its own secret: the captured inbox holds live sign-in links, so
-anyone with the key can sign in as anyone who has mail in it. The keyed URL
-stays in browser history and in access logs, so rotate the secret when the
-group of people holding it changes; rotating locks everyone out immediately.
+On dev and prod the screens and email previews work the same way at their `/dev`
+routes. Nothing links to them from the site, so only people who know the path
+find them. The one exception is `/dev/outbox`: it lists captured mail, sign-in
+links included, so anyone with that page can sign in as anyone who has mail in
+it. It stays 404 until `UI_PREVIEW_SECRET` is set and `/dev/ui?key=<secret>` is
+opened once on the environment being unlocked, which remembers the key in a
+cookie scoped to `/dev`. Give each environment its own secret. The
+keyed URL stays in browser history and in access logs, so rotate the secret when
+the group of people holding it changes; rotating locks everyone out immediately.
 
 ## Site and email copy
 

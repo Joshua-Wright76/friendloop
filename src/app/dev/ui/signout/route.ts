@@ -5,10 +5,8 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { sessions } from "@/db/schema";
 import { hashToken } from "@/lib/tokens";
-import { requireUiPreview } from "@/lib/ui-preview";
 
 export async function GET() {
-  await requireUiPreview();
   const jar = await cookies();
   const token = jar.get("fl_session")?.value;
   if (token) {

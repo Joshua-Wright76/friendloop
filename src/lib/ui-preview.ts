@@ -50,32 +50,24 @@ export function previewCookieMatches(value: string | undefined): boolean {
 }
 
 /**
- * The one door into /dev: local development walks in, everywhere else needs
- * `?key=<UI_PREVIEW_SECRET>` once and then a cookie scoped to /dev.
- * Returns false when the request may not use the preview at all.
+ * The preview itself is open at its /dev routes; the key only unlocks the
+ * captured inbox, whose emails hold live sign-in links. Visiting /dev/ui with
+ * `?key=<UI_PREVIEW_SECRET>` once sets a cookie scoped to /dev.
  */
-export async function grantUiPreviewAccess(key: string | null): Promise<boolean> {
-  if (isLocalUiPreview()) return true;
+export async function unlockUiInbox(key: string | null): Promise<void> {
   const expected = previewCookieValue();
-  if (!expected) return false;
   const jar = await cookies();
-  const existing = jar.get(PREVIEW_COOKIE)?.value;
-  const keyMatches = previewKeyMatches(key);
-  const cookieMatches = previewCookieMatches(existing);
-  if (!keyMatches && !cookieMatches) return false;
+  if (!expected || !previewKeyMatches(key) || previewCookieMatches(jar.get(PREVIEW_COOKIE)?.value)) return;
 
-  if (!cookieMatches) {
-    jar.set(PREVIEW_COOKIE, expected, {
-      httpOnly: true,
-      sameSite: "lax",
-      // Fail closed over plain HTTP: a self-hosted deployment without TLS keeps
-      // /dev locked instead of leaking the cookie across the network.
-      secure: process.env.NODE_ENV === "production",
-      path: "/dev",
-      maxAge: PREVIEW_COOKIE_MAX_AGE,
-    });
-  }
-  return true;
+  jar.set(PREVIEW_COOKIE, expected, {
+    httpOnly: true,
+    sameSite: "lax",
+    // Fail closed over plain HTTP: a self-hosted deployment without TLS keeps
+    // /dev locked instead of leaking the cookie across the network.
+    secure: process.env.NODE_ENV === "production",
+    path: "/dev",
+    maxAge: PREVIEW_COOKIE_MAX_AGE,
+  });
 }
 
 export const UI_PREVIEW = {
@@ -128,6 +120,7 @@ const ALICE_ANSWERS = [
   "Homemade dumplings on a rainy evening.",
 ];
 
+/** The captured inbox is the one /dev page that needs the unlock. */
 export async function requireUiPreview() {
   if (isLocalUiPreview()) return;
   const jar = await cookies();
@@ -135,7 +128,6 @@ export async function requireUiPreview() {
 }
 
 export async function enableUiPreview(reset = false) {
-  await requireUiPreview();
   const now = new Date();
 
   await db.transaction(async (tx) => {
