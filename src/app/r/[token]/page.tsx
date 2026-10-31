@@ -95,6 +95,8 @@ export default async function ReplyPage({ params }: { params: Promise<{ token: s
         text: question.text,
         body: question.body,
         photoUrl: question.photoUrl,
+        audioUrl: question.audioUrl,
+        audioDurationMs: question.audioDurationMs,
         submitted: question.submitted,
       }))}
     />

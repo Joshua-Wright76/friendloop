@@ -756,9 +756,32 @@
       "expired": "This invitation has expired, ask for a new link.",
       "reader": "Readers don't answer questions.",
       "nothingOpen": "Nothing is open right now.",
-      "wrongQuestion": "That question isn't in this round."
+      "wrongQuestion": "That question isn't in this round.",
+      "missingAudio": "Choose a recording to upload.",
+      "invalidAudio": "That file isn't a supported recording. m4a, mp3, webm, or ogg work.",
+      "voiceTooLarge": "That recording is too big. A 3-minute note fits easily, so try again.",
+      "voiceTooLong": "Voice notes run up to 3 minutes. Try recording a shorter one.",
+      "audioSaveFailed": "We couldn't save that recording. Try again.",
+      "audioRemoveFailed": "We couldn't remove that recording. Try again."
     },
-    "suggestLink": "Have a question for the group? Suggest one"
+    "suggestLink": "Have a question for the group? Suggest one",
+    "voiceRecord": "Record a voice note",
+    "voiceStop": "Stop recording",
+    "voiceRecording": "Recording… {elapsed}",
+    "voiceReplace": "Record again",
+    "voiceRemove": "Remove voice note",
+    "voiceUploading": "Saving your recording…",
+    "voiceSaved": "Voice note saved.",
+    "voiceRemoved": "Voice note removed.",
+    "voiceRemoving": "Removing…",
+    "voiceRetryUpload": "Try saving again",
+    "voiceRetryRemove": "Try removing again",
+    "voiceTooLong": "Voice notes run up to 3 minutes. Try recording a shorter one.",
+    "voiceTooLarge": "That recording is too big. A 3-minute note fits easily, so try again.",
+    "voicePick": "Choose an audio file",
+    "voiceNoRecorder": "This browser can't record here — you can attach an audio file instead.",
+    "voiceDurationLabel": "Voice note, {duration}",
+    "voiceFormats": "m4a, mp3, webm, or ogg, up to 3 minutes."
   },
   "issue": {
     "eyebrow": "Fresh from the loop",
@@ -783,7 +806,8 @@
       "commentMembersOnly": "Only members of this loop can comment.",
       "reactMembersOnly": "Only members of this loop can react."
     },
-    "askedBy": "asked by {name}"
+    "askedBy": "asked by {name}",
+    "voiceLabel": "Voice note, {duration}"
   },
   "share": {
     "eyebrow": "Fresh from the loop",
@@ -864,7 +888,9 @@
       "cta": "Open the loop",
       "footer": "{groupName} · sent by Friendloop",
       "text": "Nobody answered, so {groupName} skipped this round and paused.\n\n{url}"
-    }
+    },
+    "voiceNote": "Voice note · {duration}",
+    "voiceNoteListen": "Listen on the web issue"
   },
   "devUi": {
     "title": "UI preview",

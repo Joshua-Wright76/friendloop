@@ -229,6 +229,9 @@ export const replies = pgTable(
       .notNull(),
     body: text("body").default("").notNull(),
     photoUrl: text("photo_url"),
+    /** A recorded voice note riding alongside the text and photo. */
+    audioUrl: text("audio_url"),
+    audioDurationMs: integer("audio_duration_ms"),
     status: replyStatusEnum("status").default("draft").notNull(),
     submittedAt: timestamp("submitted_at", { withTimezone: true }),
     addedAfterDelivery: boolean("added_after_delivery").default(false).notNull(),

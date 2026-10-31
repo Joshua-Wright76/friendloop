@@ -123,6 +123,8 @@ async function deliverDueIssues(at: Date): Promise<{ delivered: number; skipped:
         position: issueQuestions.position,
         body: replies.body,
         photoUrl: replies.photoUrl,
+        audioUrl: replies.audioUrl,
+        audioDurationMs: replies.audioDurationMs,
         authorName: memberships.name,
         authorEmail: memberships.email,
         addedAfterDelivery: replies.addedAfterDelivery,
@@ -144,6 +146,8 @@ async function deliverDueIssues(at: Date): Promise<{ delivered: number; skipped:
       author: row.authorName ?? row.authorEmail.split("@")[0],
       body: row.body,
       photoUrl: row.photoUrl,
+      audioUrl: row.audioUrl,
+      audioDurationMs: row.audioDurationMs,
       addedLater: row.addedAfterDelivery,
     }));
 
