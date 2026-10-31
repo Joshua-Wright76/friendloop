@@ -3,6 +3,7 @@
 /* eslint-disable @next/next/no-img-element -- Uploaded photos use local URLs in development and Blob URLs in production. */
 
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import Link from "next/link";
 import type { Deadline } from "@/lib/schedule";
 import { Cherries, Tape } from "@/components/stationery";
 import { copy, text } from "@/lib/copy";
@@ -28,6 +29,8 @@ export type SheetQuestion = {
 
 type Props = {
   token: string;
+  /** from_you loops have one writer who already owns the questions. */
+  canSuggest: boolean;
   loopName: string;
   loopTimezone: string;
   roundNumber: number;
@@ -64,6 +67,7 @@ type PhotoStatus = "idle" | "uploading" | "saved" | "removing" | "removed" | "up
 
 export function ReplySheet({
   token,
+  canSuggest,
   loopName,
   loopTimezone,
   roundNumber,
@@ -620,6 +624,17 @@ export function ReplySheet({
         <p className="mt-2 text-[13px] leading-relaxed text-ink-muted">
           {text(copy.reply.privacy, { displayName: name.trim() || displayName, loopName })}
         </p>
+
+        {canSuggest ? (
+          <p className="mt-3 text-[13px] leading-relaxed text-ink-muted">
+            <Link
+              href={`/r/${token}/suggest`}
+              className="font-medium text-ink underline decoration-line-strong underline-offset-4"
+            >
+              {copy.reply.suggestLink}
+            </Link>
+          </p>
+        ) : null}
       </main>
 
       <div

@@ -4,6 +4,7 @@ import { and, asc, desc, eq, isNull, sql } from "drizzle-orm";
 import { notFound, redirect } from "next/navigation";
 import { db } from "@/db";
 import { groups, issues, memberships, questions, replies } from "@/db/schema";
+import { pendingSuggestions } from "@/lib/suggestions";
 import { currentUser } from "@/lib/auth";
 import { getNow } from "@/lib/clock";
 import { membersOf } from "@/lib/manage";
@@ -62,7 +63,7 @@ async function LoadedGroupLayout({ children, params }: Props) {
   if (!row) notFound();
 
   const { group, membership } = row;
-  const [people, questionRows, roundRows, at] = await Promise.all([
+  const [people, questionRows, roundRows, suggestionRows, at] = await Promise.all([
     membersOf(group.id),
     db.select({
       id: questions.id,
@@ -90,6 +91,7 @@ async function LoadedGroupLayout({ children, params }: Props) {
       .from(issues)
       .where(eq(issues.groupId, group.id))
       .orderBy(desc(issues.number)),
+    pendingSuggestions(group.id),
     getNow(),
   ]);
 
@@ -127,6 +129,13 @@ async function LoadedGroupLayout({ children, params }: Props) {
     user,
     people,
     questions: questionRows,
+    suggestions: suggestionRows.map((suggestion) => ({
+      id: suggestion.id,
+      text: suggestion.text,
+      authorDisplay: suggestion.authorDisplay,
+      authorName: suggestion.authorName,
+      authorEmail: suggestion.authorEmail,
+    })),
     rounds,
     openIssue,
     openProgress,

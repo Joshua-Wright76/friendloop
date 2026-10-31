@@ -81,6 +81,7 @@ export default async function ReplyPage({ params }: { params: Promise<{ token: s
   return (
     <ReplySheet
       token={token}
+      canSuggest={context.group.mode !== "from_you"}
       loopName={context.group.name}
       loopTimezone={context.group.timezone}
       roundNumber={issue.number}

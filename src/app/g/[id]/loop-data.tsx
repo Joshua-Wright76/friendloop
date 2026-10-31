@@ -18,6 +18,14 @@ export type LoopQuestion = Pick<typeof questions.$inferSelect,
   "id" | "text" | "active" | "skipNext" | "position"
 >;
 
+export type LoopSuggestion = {
+  id: string;
+  text: string;
+  authorDisplay: "name" | "anonymous";
+  authorName: string | null;
+  authorEmail: string;
+};
+
 export type LoopRound = Pick<typeof issues.$inferSelect,
   "id" | "number" | "status" | "opensAt" | "deliversAt" | "deliveredAt" | "shareToken"
 > & { answers: number; shareUrl: string | null };
@@ -28,6 +36,7 @@ export type LoopData = {
   user: CurrentUser;
   people: LoopPerson[];
   questions: LoopQuestion[];
+  suggestions: LoopSuggestion[];
   rounds: LoopRound[];
   openIssue: LoopRound | null;
   openProgress: Array<Pick<Membership, "id" | "name" | "email">>;

@@ -178,8 +178,40 @@ export const issueQuestions = pgTable(
     questionId: uuid("question_id").references(() => questions.id, { onDelete: "set null" }),
     text: text("text").notNull(),
     position: integer("position").default(0).notNull(),
+    /** Frozen at snapshot time: the name an accepted suggestion credits, null when anonymous. */
+    suggestedBy: text("suggested_by"),
   },
   (t) => [uniqueIndex("issue_questions_issue_question_idx").on(t.issueId, t.questionId)],
+);
+
+/** How a suggested question credits its author on the delivered issue. */
+export const suggestionAuthorEnum = pgEnum("suggestion_author", ["name", "anonymous"]);
+/** A suggested question's life: waiting for the owner, in the pool, or turned down. */
+export const suggestionStatusEnum = pgEnum("suggestion_status", ["pending", "accepted", "declined"]);
+
+/** A question pitched by a contributor, waiting for the owner's decision. */
+export const questionSuggestions = pgTable(
+  "question_suggestions",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    groupId: uuid("group_id")
+      .references(() => groups.id, { onDelete: "cascade" })
+      .notNull(),
+    membershipId: uuid("membership_id")
+      .references(() => memberships.id, { onDelete: "cascade" })
+      .notNull(),
+    text: text("text").notNull(),
+    /** Whether the delivered issue credits the author by name. The owner always sees the true author. */
+    authorDisplay: suggestionAuthorEnum("author_display").default("name").notNull(),
+    status: suggestionStatusEnum("status").default("pending").notNull(),
+    /** Set when accepted: the pool question this suggestion became. */
+    acceptedQuestionId: uuid("accepted_question_id").references(() => questions.id, {
+      onDelete: "set null",
+    }),
+    decidedAt: timestamp("decided_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [index("question_suggestions_group_status_idx").on(t.groupId, t.status)],
 );
 
 export const replies = pgTable(

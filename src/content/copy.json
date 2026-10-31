@@ -26,9 +26,32 @@
     },
     "yourLoops": "Your loops",
     "backToLoop": "← Back to loop",
-  "selectedCount": "{count} selected",
-    "weekdays": ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"],
-    "timezones": ["Europe/Amsterdam", "Europe/London", "Europe/Berlin", "Europe/Lisbon", "America/New_York", "America/Chicago", "America/Denver", "America/Los_Angeles", "America/Sao_Paulo", "Asia/Tokyo", "Asia/Singapore", "Australia/Sydney", "Pacific/Auckland", "UTC"],
+    "selectedCount": "{count} selected",
+    "weekdays": [
+      "Sunday",
+      "Monday",
+      "Tuesday",
+      "Wednesday",
+      "Thursday",
+      "Friday",
+      "Saturday"
+    ],
+    "timezones": [
+      "Europe/Amsterdam",
+      "Europe/London",
+      "Europe/Berlin",
+      "Europe/Lisbon",
+      "America/New_York",
+      "America/Chicago",
+      "America/Denver",
+      "America/Los_Angeles",
+      "America/Sao_Paulo",
+      "Asia/Tokyo",
+      "Asia/Singapore",
+      "Australia/Sydney",
+      "Pacific/Auckland",
+      "UTC"
+    ],
     "week": "week",
     "twoWeeks": "2 weeks",
     "roles": {
@@ -146,10 +169,22 @@
       "section": "Add a title and a prompt for this section."
     },
     "cadences": [
-      { "value": "1", "label": "Weekly" },
-      { "value": "2", "label": "Every 2 weeks" },
-      { "value": "4", "label": "Monthly (4 weeks)" },
-      { "value": "13", "label": "Quarterly (13 weeks)" }
+      {
+        "value": "1",
+        "label": "Weekly"
+      },
+      {
+        "value": "2",
+        "label": "Every 2 weeks"
+      },
+      {
+        "value": "4",
+        "label": "Monthly (4 weeks)"
+      },
+      {
+        "value": "13",
+        "label": "Quarterly (13 weeks)"
+      }
     ],
     "wizard": {
       "back": "Back",
@@ -160,7 +195,13 @@
       "progressValue": "Step {current} of {total}: {label}",
       "backAriaLabel": "Back, go to the previous setup step",
       "nextAriaLabel": "Next, continue to the next setup step",
-      "steps": ["Name and rhythm", "Choose questions", "Add prompts", "Add readers", "Your note"],
+      "steps": [
+        "Name and rhythm",
+        "Choose questions",
+        "Add prompts",
+        "Add readers",
+        "Your note"
+      ],
       "details": {
         "title": "Give your loop a name and rhythm",
         "description": "You can change these details later.",
@@ -173,9 +214,30 @@
         "ideasTitle": "Name ideas",
         "ideasDescription": "Choose a starting point, then make it yours.",
         "ideasGroups": [
-          { "title": "For your people", "ideas": ["Letters from our crew", "The Sunday Loop", "Notes from the neighborhood"] },
-          { "title": "For a shared season", "ideas": ["The Little Updates", "Our Week in Notes", "The Good Things Letter"] },
-          { "title": "For a class or team", "ideas": ["The Friday Roundup", "Notes from the team", "The Week Ahead"] }
+          {
+            "title": "For your people",
+            "ideas": [
+              "Letters from our crew",
+              "The Sunday Loop",
+              "Notes from the neighborhood"
+            ]
+          },
+          {
+            "title": "For a shared season",
+            "ideas": [
+              "The Little Updates",
+              "Our Week in Notes",
+              "The Good Things Letter"
+            ]
+          },
+          {
+            "title": "For a class or team",
+            "ideas": [
+              "The Friday Roundup",
+              "Notes from the team",
+              "The Week Ahead"
+            ]
+          }
         ],
         "useIdea": "Use this name",
         "closeIdeas": "Close name ideas"
@@ -212,11 +274,36 @@
         "customBadge": "Your prompt",
         "closeCustom": "Close prompt editor",
         "presets": [
-          { "id": "bright-spots", "emoji": "☀️", "title": "Bright spots", "description": "What was one good moment from your week?" },
-          { "id": "currently", "emoji": "🎧", "title": "Currently into", "description": "What have you been enjoying lately?" },
-          { "id": "little-wins", "emoji": "🌱", "title": "Little wins", "description": "What is something small you are proud of?" },
-          { "id": "good-recommendation", "emoji": "📚", "title": "Pass it along", "description": "What would you recommend to a friend?" },
-          { "id": "on-your-mind", "emoji": "💭", "title": "On your mind", "description": "What has been taking up space in your thoughts?" }
+          {
+            "id": "bright-spots",
+            "emoji": "☀️",
+            "title": "Bright spots",
+            "description": "What was one good moment from your week?"
+          },
+          {
+            "id": "currently",
+            "emoji": "🎧",
+            "title": "Currently into",
+            "description": "What have you been enjoying lately?"
+          },
+          {
+            "id": "little-wins",
+            "emoji": "🌱",
+            "title": "Little wins",
+            "description": "What is something small you are proud of?"
+          },
+          {
+            "id": "good-recommendation",
+            "emoji": "📚",
+            "title": "Pass it along",
+            "description": "What would you recommend to a friend?"
+          },
+          {
+            "id": "on-your-mind",
+            "emoji": "💭",
+            "title": "On your mind",
+            "description": "What has been taking up space in your thoughts?"
+          }
         ]
       },
       "readers": {
@@ -553,7 +640,18 @@
     "addTitle": "Add a question",
     "newQuestionPlaceholder": "What did you learn this week?",
     "newQuestionAriaLabel": "New question",
-    "add": "Add question"
+    "add": "Add question",
+    "suggestionsTitle": "Suggested questions",
+    "suggestionsDescription": "Members pitched these. Add the good ones to your pool, with any edits you like.",
+    "suggestionsEmpty": "No suggestions right now. Members can pitch one from their reply sheet.",
+    "suggestionAuthor": "from {name}",
+    "suggestionAnonymous": "anonymous",
+    "suggestionTextLabel": "Suggested question",
+    "suggestionSave": "Add to pool",
+    "suggestionDecline": "Decline",
+    "suggestionAddedNotice": "Suggestion added to the pool.",
+    "suggestionDeclinedNotice": "Suggestion declined.",
+    "suggestionGoneNotice": "That suggestion was already handled."
   },
   "rounds": {
     "title": "Rounds",
@@ -659,7 +757,8 @@
       "reader": "Readers don't answer questions.",
       "nothingOpen": "Nothing is open right now.",
       "wrongQuestion": "That question isn't in this round."
-    }
+    },
+    "suggestLink": "Have a question for the group? Suggest one"
   },
   "issue": {
     "eyebrow": "Fresh from the loop",
@@ -683,7 +782,8 @@
       "tooLong": "That comment is too long.",
       "commentMembersOnly": "Only members of this loop can comment.",
       "reactMembersOnly": "Only members of this loop can react."
-    }
+    },
+    "askedBy": "asked by {name}"
   },
   "share": {
     "eyebrow": "Fresh from the loop",
@@ -825,6 +925,34 @@
       "reminder": "reminder",
       "delivery": "issue",
       "nudge": "reminder"
+    }
+  },
+  "suggest": {
+    "title": "Suggest a question",
+    "description": "Something you wish the group would answer? Pitch it here and the person who runs the loop decides whether it joins the pool.",
+    "fieldLabel": "Your question",
+    "placeholder": "What should we ask everyone?",
+    "creditTitle": "How should your name show?",
+    "creditName": "Ask by name",
+    "creditNameHint": "The issue says “asked by {name}”.",
+    "creditAnonymous": "Keep me anonymous",
+    "creditAnonymousHint": "Only the loop's owner sees who asked.",
+    "submit": "Send suggestion",
+    "sending": "Sending…",
+    "doneTitle": "Suggestion sent",
+    "doneBody": "Thank you. It's in the queue now — if it joins the pool, you'll see it in a future issue.",
+    "backToSheet": "Back to your answers",
+    "unavailableTitle": "Not available here",
+    "unavailableBody": "Suggestions are for members of a group loop.",
+    "errors": {
+      "text": "Write a question first, or shorten it a little.",
+      "authorDisplay": "Choose how your name should show.",
+      "invalidLink": "This link doesn't work anymore.",
+      "expired": "This invitation has expired.",
+      "reader": "Readers don't suggest questions.",
+      "unavailable": "Suggestions are off for this loop.",
+      "generic": "The suggestion couldn't be saved. Try again.",
+      "notPending": "That suggestion was already handled."
     }
   }
 }
