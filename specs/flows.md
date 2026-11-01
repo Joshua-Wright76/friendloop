@@ -168,6 +168,14 @@ Status: `todo` (not built) · `done` (built and covered).
 | O3 | Birthdays recur | A birthday places exactly one section per year, in the one round whose window holds the date (loop timezone), however many rounds open around it or however often the sweep runs; a window shorter than the cadence still catches a date between two rounds, a window crossing New Year catches both sides, and 29 February keeps to 28 February in years without one. | done |
 | O4 | Past truth | A round keeps the title, emoji and place of the event section it was given even if the event is later edited or deleted or the member is renamed; replies already written stay with it. | done |
 
+## P · The Album
+
+| ID | Flow | Acceptance criteria | Status |
+| --- | --- | --- | --- |
+| P1 | Browse the album | A member opens the Album — a tab of the loop, or a link on any delivered round for people who read from their inbox — and sees every photo and voice note from delivered rounds (answers, photo walls and section photos), newest round first and grouped under the round's name; voice notes play in place, photos open in a keyboard-and-touch-usable fullscreen viewer, and "view in the round" lands on that very answer. Nothing from an open round, a draft, or an admin-only section the viewer cannot read is shown. | done |
+| P2 | Filter and search | Choosing one person and searching a word (matched against answer text, photo captions, and the question or section it answered; every word must turn up) each narrow the Album, alone or together; the URL carries the filters, a long album grows a page at a time without losing them, and an empty result says so plainly with a way out. | done |
+| P3 | Privacy holds | Share-link visitors get no Album route, link or data; strangers, revoked members, other loops' members and bad tokens get the plain not-found page with nothing of the loop in it; the media addresses stay content-hashed and unguessable. | done |
+
 IDs are stable handles, not positions: a retired flow leaves its number out
 rather than renumbering the rest.
 

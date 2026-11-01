@@ -58,9 +58,38 @@ collects nothing new.
 
 | ID | Flow | Acceptance criteria | Status |
 | --- | --- | --- | --- |
-| P1 | Browse the album | A member opens the Album and sees all media from delivered issues newest-first, grouped, with a fullscreen viewer and "view in issue" deep links. | todo |
-| P2 | Filter and search | Filtering to one member and searching a word in answers/captions/questions both narrow the gallery correctly; an empty state says so plainly. | todo |
-| P3 | Privacy holds | Share-link visitors get no Album route or data; media URLs already content-hashed remain unguessable. | todo |
+| P1 | Browse the album | A member opens the Album and sees all media from delivered issues newest-first, grouped, with a fullscreen viewer and "view in issue" deep links. | done |
+| P2 | Filter and search | Filtering to one member and searching a word in answers/captions/questions both narrow the gallery correctly; an empty state says so plainly. | done |
+| P3 | Privacy holds | Share-link visitors get no Album route or data; media URLs already content-hashed remain unguessable. | done |
+
+Design notes (shipped)
+
+- No migration: the Album is one read-only query (`src/lib/album.ts`) over what is
+  already stored — `replies.photo_url`/`audio_url` and `section_media` — joined to
+  delivered issues of the one loop. See `specs/architecture.md` §18.
+- Two doors, one page. Signed-in members get the **Album** tab at `/g/<id>/album`;
+  anyone who reads from their inbox opens `/album/<id>?m=<reply token>` (the same
+  viewer check as `/i/<id>`: a session or the token, never revoked). Every delivered
+  round links to it ("See the album") for people who recognise themselves. Share links
+  open nothing here, and `/s/<token>` carries no link to it.
+- Grouped by round, newest first, then in the order the round shows them (questions,
+  then sections). Paged by growing the page count in the URL (`?pages=2`, 24 at a time,
+  capped at 40 pages): server-rendered, no script until someone opens a photo.
+- Filters are a plain GET form: **From** (one member, including anyone who has since
+  left) and **Search** (every word must match somewhere in the answer text, the photo
+  caption, or the question / section title; wildcard characters are literal). Voice
+  notes match by their written words only.
+- Included: answer photos, voice notes, photo-wall and section photos from submitted
+  answers of delivered rounds, late additions too. Left out on purpose: comment photos,
+  profile photos, the header picture (not reply media), anything from an open round,
+  drafts, and admin-only sections for anyone but owner and admins (as in the round itself).
+- The viewer is a native modal `<dialog>`: focus trap, Escape, inert page and focus return
+  come with it; arrow keys and visible previous/next buttons move between photos. "View in
+  the round" links to `/i/<id>#answer-<id>` (`#section-reply-<id>` for sections); those
+  anchors are new on the web issue.
+- Media files are served as before — `/uploads/<64 hex>.<ext>` locally, public content-hashed
+  Blob URLs in production. The Album never lists a file the member could not already see in
+  the round, and adds no way to enumerate files without it.
 
 ## Part Q · Keepsake export
 
