@@ -15,6 +15,8 @@ import { deliveryEmail, reminderEmail, pausedEmail, type AnswerBlock } from "./e
 import { issueUrl, replyUrl, url } from "./urls";
 import { newToken } from "./tokens";
 import { snapshotQuestionsForIssue } from "./round-questions";
+import { snapshotSectionsForIssue } from "./sections";
+import { issueSections, sectionMedia, sectionReplies } from "@/db/schema";
 
 export type SweepReport = {
   opened: number;
@@ -99,6 +101,7 @@ async function openDueIssues(at: Date): Promise<number> {
 
     const issue = inserted[0];
     const questionCount = await snapshotQuestionsForIssue({ group, issueId: issue.id });
+    await snapshotSectionsForIssue({ group, issueId: issue.id });
 
     await sendPromptEmails({
       group,
@@ -134,6 +137,8 @@ async function deliverDueIssues(at: Date): Promise<{ delivered: number; skipped:
         position: issueQuestions.position,
         body: replies.body,
         photoUrl: replies.photoUrl,
+        audioUrl: replies.audioUrl,
+        audioDurationMs: replies.audioDurationMs,
         authorName: memberships.name,
         authorEmail: memberships.email,
         addedAfterDelivery: replies.addedAfterDelivery,
@@ -144,7 +149,29 @@ async function deliverDueIssues(at: Date): Promise<{ delivered: number; skipped:
       .where(and(eq(replies.issueId, issue.id), eq(replies.status, "submitted")))
       .orderBy(issueQuestions.position, memberships.createdAt);
 
-    if (rows.length === 0) {
+    // Section answers are content too, but a truly empty issue stays skipped.
+    const sectionRows = await db
+      .select()
+      .from(issueSections)
+      .where(eq(issueSections.issueId, issue.id))
+      .orderBy(issueSections.position);
+    const sectionReplyRows = sectionRows.length
+      ? await db
+          .select({
+            replyId: sectionReplies.id,
+            issueSectionId: sectionReplies.issueSectionId,
+            body: sectionReplies.body,
+            linkUrl: sectionReplies.linkUrl,
+            authorName: memberships.name,
+            authorEmail: memberships.email,
+            addedAfterDelivery: sectionReplies.addedAfterDelivery,
+          })
+          .from(sectionReplies)
+          .innerJoin(memberships, eq(memberships.id, sectionReplies.membershipId))
+          .where(and(eq(sectionReplies.issueId, issue.id), eq(sectionReplies.status, "submitted")))
+      : [];
+
+    if (rows.length === 0 && sectionReplyRows.length === 0) {
       await skipIssue({ issue, group, at });
       skipped += 1;
       continue;
@@ -155,7 +182,33 @@ async function deliverDueIssues(at: Date): Promise<{ delivered: number; skipped:
       author: row.authorName ?? row.authorEmail.split("@")[0],
       body: row.body,
       photoUrl: row.photoUrl,
+      audioUrl: row.audioUrl,
+      audioDurationMs: row.audioDurationMs,
       addedLater: row.addedAfterDelivery,
+    }));
+
+    const sectionMediaCounts = new Map<string, number>();
+    if (sectionReplyRows.length > 0) {
+      const mediaRows = await db
+        .select({ sectionReplyId: sectionMedia.sectionReplyId })
+        .from(sectionMedia)
+        .where(inArray(sectionMedia.sectionReplyId, sectionReplyRows.map((row) => row.replyId)));
+      for (const row of mediaRows) {
+        sectionMediaCounts.set(row.sectionReplyId, (sectionMediaCounts.get(row.sectionReplyId) ?? 0) + 1);
+      }
+    }
+    const sections = sectionRows.map((section) => ({
+      title: section.title,
+      emoji: section.emoji,
+      answers: sectionReplyRows
+        .filter((row) => row.issueSectionId === section.id)
+        .map((row) => ({
+          author: row.authorName ?? row.authorEmail.split("@")[0],
+          body: row.body,
+          linkUrl: row.linkUrl,
+          addedLater: row.addedAfterDelivery,
+          photoCount: row.replyId ? sectionMediaCounts.get(row.replyId) ?? 0 : 0,
+        })),
     }));
 
     let shareToken = issue.shareToken;
@@ -179,6 +232,7 @@ async function deliverDueIssues(at: Date): Promise<{ delivered: number; skipped:
       issueNumber: issue.number,
       url: issueUrl(issue.id),
       answers,
+      sections,
       shareUrl: shareToken ? url(`/s/${shareToken}`) : null,
     });
 

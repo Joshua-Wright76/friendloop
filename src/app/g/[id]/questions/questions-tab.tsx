@@ -2,7 +2,17 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { addAction, addFromPacksAction, acceptSuggestionAction, declineSuggestionAction, rotationAction } from "./actions";
+import {
+  acceptSuggestionAction,
+  addAction,
+  addFromPacksAction,
+  archiveSectionAction,
+  createSectionAction,
+  declineSuggestionAction,
+  moveSectionAction,
+  rotationAction,
+  updateSectionAction,
+} from "./actions";
 import { QuestionOrder } from "./question-order";
 import { LoopNav } from "@/components/loop-nav";
 import { Picker } from "@/components/picker";
@@ -16,8 +26,8 @@ const ROTATION_OPTIONS = [
   ...Array.from({ length: 10 }, (_, index) => ({ value: String(index + 1), label: String(index + 1) })),
 ];
 
-export default function QuestionsTab({ notices }: { notices: { added?: string; archived?: string; rotation?: string; fromPacks?: string; suggestion?: string } }) {
-  const { group, membership, questions: pool, suggestions } = useLoopData();
+export default function QuestionsTab({ notices }: { notices: { added?: string; archived?: string; rotation?: string; fromPacks?: string; suggestion?: string; section?: string } }) {
+  const { group, membership, questions: pool, suggestions, sections } = useLoopData();
   const id = group.id;
   const manages = membership.access !== "member";
   const [picked, setPicked] = useState<string[]>([]);
@@ -54,6 +64,11 @@ export default function QuestionsTab({ notices }: { notices: { added?: string; a
       {notices.suggestion === "added" ? <Notice>{copy.questions.suggestionAddedNotice}</Notice> : null}
       {notices.suggestion === "declined" ? <Notice>{copy.questions.suggestionDeclinedNotice}</Notice> : null}
       {notices.suggestion === "gone" ? <Notice>{copy.questions.suggestionGoneNotice}</Notice> : null}
+      {notices.section === "created" ? <Notice>{copy.questions.sectionCreatedNotice}</Notice> : null}
+      {notices.section === "saved" ? <Notice>{copy.questions.sectionSavedNotice}</Notice> : null}
+      {notices.section === "archived" ? <Notice>{copy.questions.sectionArchivedNotice}</Notice> : null}
+      {notices.section === "moved" ? <Notice>{copy.questions.sectionMovedNotice}</Notice> : null}
+      {notices.section === "invalid" ? <Notice>{copy.reply.errors.sectionSaveFailed}</Notice> : null}
       {notices.rotation === "1" ? <Notice>{copy.questions.rotationSaved}</Notice> : null}
       {notices.rotation === "invalid" ? <Notice>{copy.questions.rotationInvalid}</Notice> : null}
       {notices.fromPacks === "0" ? <Notice>{copy.questions.fromPacksNone}</Notice> : null}
@@ -154,6 +169,93 @@ export default function QuestionsTab({ notices }: { notices: { added?: string; a
             {copy.questions.add}
           </button>
         </form>
+      ) : null}
+
+      {manages ? (
+        <section className="card mt-5 p-5" aria-label={copy.questions.sectionsTitle}>
+          <h2 className="text-[16px] font-semibold tracking-[-0.01em] text-ink">{copy.questions.sectionsTitle}</h2>
+          <p className="mt-1 text-[14px] leading-relaxed text-ink-soft">{copy.questions.sectionsDescription}</p>
+
+          {sections.length > 0 ? (
+            <ol className="mt-4 flex flex-col gap-2.5" aria-label={copy.questions.sectionListLabel}>
+              {sections.map((section, index) => (
+                <li key={section.id} className="card border p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <p className="text-[15px] font-medium leading-snug text-ink">
+                      {section.emoji ? <span className="mr-2">{section.emoji}</span> : null}
+                      {section.title}
+                      {!section.active ? <span className="ml-2 text-[12px] font-medium text-ink-muted">({copy.questions.sectionActive}: off)</span> : null}
+                    </p>
+                    <div className="flex flex-none gap-1">
+                      <form action={moveSectionAction}>
+                        <input type="hidden" name="groupId" value={id} />
+                        <input type="hidden" name="sectionId" value={section.id} />
+                        <input type="hidden" name="targetIndex" value={index - 1} />
+                        <button type="submit" aria-label={copy.questions.sectionUpLabel} disabled={index === 0} className="btn btn-quiet min-h-11 px-3 text-[13px]">{copy.questions.sectionUp}</button>
+                      </form>
+                      <form action={moveSectionAction}>
+                        <input type="hidden" name="groupId" value={id} />
+                        <input type="hidden" name="sectionId" value={section.id} />
+                        <input type="hidden" name="targetIndex" value={index + 1} />
+                        <button type="submit" aria-label={copy.questions.sectionDownLabel} disabled={index === sections.length - 1} className="btn btn-quiet min-h-11 px-3 text-[13px]">{copy.questions.sectionDown}</button>
+                      </form>
+                    </div>
+                  </div>
+                  <p className="mt-0.5 text-[12px] font-medium text-ink-muted">
+                    {section.kind === "photo_wall" ? copy.questions.sectionKindPhotoWall : section.kind === "music" ? copy.questions.sectionKindMusic : copy.questions.sectionKindStandard}
+                    {section.adminOnly ? ` · ${copy.questions.sectionAdminOnly}` : ""}
+                  </p>
+                  {section.description ? <p className="mt-1 text-[13px] leading-relaxed text-ink-soft">{section.description}</p> : null}
+                  <details className="mt-2">
+                    <summary className="min-h-11 cursor-pointer text-[13px] font-bold text-ink leading-[44px]">{copy.questions.sectionEdit}</summary>
+                    <form action={updateSectionAction} className="mt-2 flex flex-col gap-2">
+                      <input type="hidden" name="groupId" value={id} />
+                      <input type="hidden" name="sectionId" value={section.id} />
+                      <input name="title" defaultValue={section.title} maxLength={80} required aria-label={copy.questions.sectionTitleLabel} className="field h-[46px] py-0" />
+                      <input name="emoji" defaultValue={section.emoji ?? ""} maxLength={8} aria-label={copy.questions.sectionEmojiLabel} className="field h-[46px] py-0" />
+                      <input name="description" defaultValue={section.description ?? ""} maxLength={200} placeholder={copy.questions.sectionDescriptionPlaceholder} aria-label={copy.questions.sectionDescriptionLabel} className="field h-[46px] py-0" />
+                      <label className="flex items-center gap-2 text-[13px] text-ink">
+                        <input type="checkbox" name="adminOnly" defaultChecked={section.adminOnly} className="accent-accent" /> {copy.questions.sectionAdminOnly}
+                      </label>
+                      <label className="flex items-center gap-2 text-[13px] text-ink">
+                        <input type="checkbox" name="active" defaultChecked={section.active} className="accent-accent" /> {copy.questions.sectionActive}
+                      </label>
+                      <div className="flex gap-2">
+                        <button type="submit" className="btn btn-primary min-h-11 px-4 text-[13px]">{copy.questions.sectionSaveEdit}</button>
+                      </div>
+                    </form>
+                  </details>
+                  <form action={archiveSectionAction} className="mt-2">
+                    <input type="hidden" name="groupId" value={id} />
+                    <input type="hidden" name="sectionId" value={section.id} />
+                    <button type="submit" className="btn btn-quiet min-h-11 px-4 text-[13px]">{copy.questions.sectionArchive}</button>
+                  </form>
+                </li>
+              ))}
+            </ol>
+          ) : (
+            <p className="mt-3 text-[14px] text-ink-muted">{copy.questions.sectionsEmpty}</p>
+          )}
+
+          <form action={createSectionAction} className="mt-4 border-t border-line pt-4">
+            <input type="hidden" name="groupId" value={id} />
+            <h3 className="text-[14px] font-semibold text-ink">{copy.questions.sectionAddTitle}</h3>
+            <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-[1fr_5rem]">
+              <input name="title" required maxLength={80} placeholder={copy.questions.sectionTitlePlaceholder} aria-label={copy.questions.sectionTitleLabel} className="field h-[46px] py-0" />
+              <input name="emoji" maxLength={8} aria-label={copy.questions.sectionEmojiLabel} className="field h-[46px] py-0" />
+            </div>
+            <select name="kind" aria-label={copy.questions.sectionKindLabel} className="field mt-2 h-[46px] py-0" defaultValue="standard">
+              <option value="standard">{copy.questions.sectionKindStandard}</option>
+              <option value="photo_wall">{copy.questions.sectionKindPhotoWall}</option>
+              <option value="music">{copy.questions.sectionKindMusic}</option>
+            </select>
+            <input name="description" maxLength={200} placeholder={copy.questions.sectionDescriptionPlaceholder} aria-label={copy.questions.sectionDescriptionLabel} className="field mt-2 h-[46px] py-0" />
+            <label className="mt-2 flex items-center gap-2 text-[13px] text-ink">
+              <input type="checkbox" name="adminOnly" className="accent-accent" /> {copy.questions.sectionAdminOnly}
+            </label>
+            <button type="submit" className="btn btn-primary mt-3">{copy.questions.sectionCreate}</button>
+          </form>
+        </section>
       ) : null}
 
       {manages ? (

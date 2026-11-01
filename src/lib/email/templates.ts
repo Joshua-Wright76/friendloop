@@ -4,6 +4,7 @@
  */
 
 import { copy, text } from "../copy.ts";
+import { formatAudioDuration } from "../audio-validation.ts";
 
 type LayoutInput = {
   preheader: string;
@@ -12,6 +13,21 @@ type LayoutInput = {
   cta?: { label: string; url: string };
   footer?: string;
   answers?: AnswerBlock[];
+  sections?: SectionEmailBlock[];
+  /** Where "listen on the web issue" points for voice notes. */
+  answersUrl?: string;
+};
+
+export type SectionEmailBlock = {
+  title: string;
+  emoji: string | null;
+  answers: Array<{
+    author: string;
+    body: string;
+    linkUrl?: string | null;
+    addedLater?: boolean;
+    photoCount?: number;
+  }>;
 };
 
 export type AnswerBlock = {
@@ -19,6 +35,8 @@ export type AnswerBlock = {
   author: string;
   body: string;
   photoUrl?: string | null;
+  audioUrl?: string | null;
+  audioDurationMs?: number | null;
   addedLater?: boolean;
 };
 
@@ -56,11 +74,39 @@ function paragraphs(lines: string[]): string {
     .join("");
 }
 
-function answersHtml(answers: AnswerBlock[]): string {
+function sectionsHtml(sections: SectionEmailBlock[]): string {
+  if (sections.length === 0) return "";
+  return sections
+    .map((section) => {
+      const rows = section.answers
+        .map((answer) => {
+          const link = answer.linkUrl
+            ? ` <a href="${escapeHtml(answer.linkUrl)}" style="color:${COLORS.accent}">${escapeHtml(copy.emails.voiceNoteListen)}</a>`
+            : "";
+          const photos =
+            answer.photoCount && answer.photoCount > 0
+              ? ` <span style="color:${COLORS.muted}">${escapeHtml(copy.emails.photosAdded.replace("{count}", String(answer.photoCount)))}</span>`
+              : "";
+          return `<div style="margin:10px 0 0;font:400 15px/1.6 ${BODY_FONT};color:${COLORS.ink}"><span style="font:800 13px/1.5 ${BODY_FONT};color:${COLORS.soft}">${escapeHtml(answer.author)}</span> ${escapeHtml(answer.body)}${link}${photos}</div>`;
+        })
+        .join("");
+      return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 18px;background:${COLORS.card};border:1px dashed ${COLORS.lineStrong};border-radius:6px"><tr><td style="padding:20px 22px">
+  <div style="font:700 20px/1.2 ${DISPLAY_FONT};color:${COLORS.ink}">${escapeHtml(`${section.emoji ?? ""} ${section.title}`.trim())}</div>
+  ${rows || `<div style="margin:10px 0 0;font:400 14px/1.5 ${BODY_FONT};color:${COLORS.muted}">${escapeHtml(copy.emails.sectionEmpty)}</div>`}
+</td></tr></table>`;
+    })
+    .join("");
+}
+
+function answersHtml(answers: AnswerBlock[], url: string): string {
   return answers
     .map((answer) => {
       const photo = answer.photoUrl
         ? `<img src="${escapeHtml(answer.photoUrl)}" alt="" width="520" style="display:block;width:100%;max-width:520px;border:1px solid ${COLORS.line};border-radius:6px;margin:14px 0 0" />`
+        : "";
+      // Email never attempts to play audio; the web issue is the canonical player.
+      const voice = answer.audioUrl
+        ? `<div style="margin:14px 0 0;border:1px dashed ${COLORS.lineStrong};border-radius:6px;padding:10px 12px;font:400 13px/1.5 ${BODY_FONT};color:${COLORS.soft}">${escapeHtml(copy.emails.voiceNote.replace("{duration}", formatAudioDuration(answer.audioDurationMs ?? 0)))} — <a href="${escapeHtml(url)}" style="color:${COLORS.accent}">${escapeHtml(copy.emails.voiceNoteListen)}</a></div>`
         : "";
       const note = answer.addedLater
         ? `<div style="font:400 12px/1.5 ${BODY_FONT};color:${COLORS.muted};margin-top:10px">${escapeHtml(copy.emails.addedLater)}</div>`
@@ -69,13 +115,13 @@ function answersHtml(answers: AnswerBlock[]): string {
   <div style="font:700 24px/1.2 ${DISPLAY_FONT};color:${COLORS.ink}">${escapeHtml(answer.question)}</div>
   <div style="font:800 14px/1.5 ${BODY_FONT};color:${COLORS.soft};margin:16px 0 4px">${escapeHtml(answer.author)}</div>
   <div style="font:400 16px/1.65 ${BODY_FONT};color:${COLORS.ink};white-space:pre-wrap">${escapeHtml(answer.body)}</div>
-  ${photo}${note}
+  ${photo}${voice}${note}
 </td></tr></table>`;
     })
     .join("");
 }
 
-export function layout({ preheader, heading, body, cta, footer, answers }: LayoutInput): string {
+export function layout({ preheader, heading, body, cta, footer, answers, sections, answersUrl }: LayoutInput): string {
   const ctaHtml = cta
     ? `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:8px 0 8px"><tr><td style="border-radius:999px;background:${COLORS.accent}"><a href="${escapeHtml(
         cta.url,
@@ -98,7 +144,8 @@ export function layout({ preheader, heading, body, cta, footer, answers }: Layou
 ${paragraphs(body)}${ctaHtml}
 </td></tr></table>
 </td></tr>
-${answers ? `<tr><td style="padding-top:20px">${answersHtml(answers)}</td></tr>` : ""}
+${answers ? `<tr><td style="padding-top:20px">${answersHtml(answers, answersUrl ?? "#")}</td></tr>` : ""}
+${sections && sections.length > 0 ? `<tr><td style="padding-top:20px">${sectionsHtml(sections)}</td></tr>` : ""}
 <tr><td style="padding:24px 10px 0"><p style="margin:0;font:400 13px/1.6 ${BODY_FONT};color:${COLORS.muted};text-align:center">${escapeHtml(
     footer ?? copy.emails.defaultFooter,
   )}</p></td></tr>
@@ -201,9 +248,10 @@ export function deliveryEmail(input: {
   issueNumber: number;
   url: string;
   answers: AnswerBlock[];
+  sections?: SectionEmailBlock[];
   shareUrl?: string | null;
 }): RenderedEmail {
-  const { groupName, issueNumber, url, answers, shareUrl } = input;
+  const { groupName, issueNumber, url, answers, sections, shareUrl } = input;
   const content = copy.emails.delivery;
   const values = {
     groupName,
@@ -223,6 +271,8 @@ export function deliveryEmail(input: {
       heading: text(content.heading, values),
       body: [content.body],
       answers,
+      sections,
+      answersUrl: url,
       cta: { label: content.cta, url },
       footer: text(shareUrl ? content.shareFooter : content.replyFooter, values),
     }),

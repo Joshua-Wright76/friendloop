@@ -1,0 +1,44 @@
+import { test, expect } from "@playwright/test";
+import { resetDatabase, rows } from "../support/db";
+import { seedLoop } from "../support/seed";
+import { runSweep, signIn } from "../support/harness";
+
+test.beforeEach(async () => {
+  await resetDatabase();
+});
+
+test("K7 · admin-only sections stay invisible to regular members", async ({ page }) => {
+  const loop = await seedLoop();
+
+  await signIn(page, "owner@friendloop.test");
+  await page.goto(`/g/${loop.groupId}/questions`);
+  await page.getByPlaceholder("The potluck corner").fill("Committee notes");
+  await page.getByRole("checkbox", { name: "Owner and admins only" }).check();
+  await page.getByRole("button", { name: "Add section" }).click();
+  await expect(page.getByText("Section added.")).toBeVisible();
+  await runSweep(new Date("2026-01-02T08:00:00Z"));
+  const [section] = await rows<{ id: string }>("select id from issue_sections limit 1");
+
+  // Drop the owner's session before reading as Alice.
+  await page.context().clearCookies();
+  const alice = loop.members.find((member) => member.email.startsWith("alice"))!;
+  await page.goto(`/r/${alice.token}`);
+  await expect(page.getByText("Committee notes")).toHaveCount(0);
+
+  // The API refuses a member writing to a section it cannot even see.
+  const refused = await page.request.post(`/api/reply/${alice.token}`, {
+    data: { action: "sectionDraft", issueSectionId: section.id, body: "sneaky" },
+  });
+  expect(refused.status()).toBe(403);
+
+  await runSweep(new Date("2026-01-09T09:00:00Z"));
+  const [issue] = await rows<{ id: string }>("select id from issues order by number asc limit 1");
+  await page.goto(`/i/${issue.id}?m=${alice.token}`);
+  await expect(page.getByText("Committee notes")).toHaveCount(0);
+
+  // The owner, who contributes, still sees and answers it.
+  await page.goto(`/r/${loop.ownerToken}`);
+  await expect(page.getByText("Committee notes")).toBeVisible();
+  await page.goto(`/i/${issue.id}?m=${loop.ownerToken}`);
+  await expect(page.getByText("Committee notes")).toBeVisible();
+});

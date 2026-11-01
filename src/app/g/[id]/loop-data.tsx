@@ -18,6 +18,17 @@ export type LoopQuestion = Pick<typeof questions.$inferSelect,
   "id" | "text" | "active" | "skipNext" | "position"
 >;
 
+export type LoopSection = {
+  id: string;
+  kind: "standard" | "photo_wall" | "music";
+  title: string;
+  emoji: string | null;
+  description: string | null;
+  adminOnly: boolean;
+  active: boolean;
+  position: number;
+};
+
 export type LoopSuggestion = {
   id: string;
   text: string;
@@ -36,6 +47,7 @@ export type LoopData = {
   user: CurrentUser;
   people: LoopPerson[];
   questions: LoopQuestion[];
+  sections: LoopSection[];
   suggestions: LoopSuggestion[];
   rounds: LoopRound[];
   openIssue: LoopRound | null;

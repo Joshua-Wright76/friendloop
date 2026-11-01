@@ -11,12 +11,22 @@ import { formatTimeInZone } from "@/lib/format";
 import { MAX_DISPLAY_NAME } from "@/lib/names";
 import { MAX_PHOTO_BYTES, PHOTO_ACCEPT } from "@/lib/photo-validation";
 import {
+  MAX_AUDIO_BYTES,
+  MAX_AUDIO_DURATION_MS,
+  AUDIO_ACCEPT,
+  formatAudioDuration,
+} from "@/lib/audio-validation";
+import {
   createSerialDraftWriter,
   postReply,
+  removeReplyAudio,
   removeReplyPhoto,
   saveReplyName,
+  uploadReplyAudio,
   uploadReplyPhoto,
 } from "@/lib/reply-client";
+import { removeReplySectionMedia, uploadReplySectionPhoto } from "@/lib/section-client";
+import type { SheetSection } from "@/lib/sections";
 
 export type SheetQuestion = {
   id: string;
@@ -24,6 +34,8 @@ export type SheetQuestion = {
   text: string;
   body: string;
   photoUrl: string | null;
+  audioUrl: string | null;
+  audioDurationMs: number | null;
   submitted: boolean;
 };
 
@@ -31,6 +43,7 @@ type Props = {
   token: string;
   /** from_you loops have one writer who already owns the questions. */
   canSuggest: boolean;
+  sections: SheetSection[];
   loopName: string;
   loopTimezone: string;
   roundNumber: number;
@@ -64,10 +77,12 @@ function viewerTimeLabel(deliversAtIso: string, loopTimezone: string): string | 
 type SaveStatus = "idle" | "saving" | "saved" | "error";
 type QuestionSaveStatus = "empty" | "saving" | "saved" | "error";
 type PhotoStatus = "idle" | "uploading" | "saved" | "removing" | "removed" | "uploadError" | "removeError";
+type AudioStatus = "idle" | "recording" | "uploading" | "saved" | "removing" | "removed" | "uploadError" | "removeError";
 
 export function ReplySheet({
   token,
   canSuggest,
+  sections,
   loopName,
   loopTimezone,
   roundNumber,
@@ -100,6 +115,27 @@ export function ReplySheet({
   );
   const [photoErrors, setPhotoErrors] = useState<Record<string, string | null>>({});
   const [retryablePhotos, setRetryablePhotos] = useState<Record<string, boolean>>({});
+  const [audioUrls, setAudioUrls] = useState<Record<string, string | null>>(() =>
+    Object.fromEntries(questions.map((question) => [question.id, question.audioUrl])),
+  );
+  const [audioDurations, setAudioDurations] = useState<Record<string, number | null>>(() =>
+    Object.fromEntries(questions.map((question) => [question.id, question.audioDurationMs])),
+  );
+  const [audioStates, setAudioStates] = useState<Record<string, AudioStatus>>(() =>
+    Object.fromEntries(questions.map((question) => [question.id, "idle"])),
+  );
+  const [audioErrors, setAudioErrors] = useState<Record<string, string | null>>({});
+  const [retryableAudio, setRetryableAudio] = useState<Record<string, boolean>>({});
+  const [audioPreviews, setAudioPreviews] = useState<Record<string, string | null>>({});
+  const [recording, setRecording] = useState<{ questionId: string; startedAt: number } | null>(null);
+  const [recordingElapsed, setRecordingElapsed] = useState(0);
+  // Server snapshot stays false so the sheet renders identically on the server;
+  // recording affordances appear once the browser says it can.
+  const canRecord = useSyncExternalStore(
+    subscribeToNothing,
+    () => typeof MediaRecorder !== "undefined" && Boolean(navigator.mediaDevices?.getUserMedia),
+    () => false,
+  );
   const [sent, setSent] = useState(() => questions.some((question) => question.submitted));
   const [animateSentStamp, setAnimateSentStamp] = useState(false);
   const [sending, setSending] = useState(false);
@@ -111,11 +147,36 @@ export function ReplySheet({
   const photoFiles = useRef(new Map<string, File>());
   const photoObjectUrls = useRef(new Map<string, string>());
   const photoLocks = useRef(new Set<string>());
+  const audioPending = useRef(new Map<string, { blob: Blob; filename: string; durationMs: number }>());
+  const audioObjectUrls = useRef(new Map<string, string>());
+  const audioLocks = useRef(new Set<string>());
+  const recorder = useRef<MediaRecorder | null>(null);
+  const recordingChunks = useRef<Blob[]>([]);
+  const recordingTimer = useRef<ReturnType<typeof setInterval> | null>(null);
   const latestBodies = useRef<Record<string, string>>(
     Object.fromEntries(questions.map((question) => [question.id, question.body])),
   );
   const dirty = useRef(new Set<string>());
   const savedName = useRef(initialName ?? "");
+
+  const [sectionBodies, setSectionBodies] = useState<Record<string, string>>(() =>
+    Object.fromEntries(sections.map((section) => [section.id, section.body])),
+  );
+  const [sectionLinks, setSectionLinks] = useState<Record<string, string>>(() =>
+    Object.fromEntries(sections.map((section) => [section.id, section.linkUrl])),
+  );
+  const [sectionCaptions, setSectionCaptions] = useState<Record<string, string>>(() =>
+    Object.fromEntries(sections.map((section) => [section.id, section.body])),
+  );
+  const [sectionMediaLists, setSectionMediaLists] = useState(() =>
+    Object.fromEntries(sections.map((section) => [section.id, section.media])),
+  );
+  const [sectionSaveStates, setSectionSaveStates] = useState<Record<string, "idle" | "saving" | "saved" | "error">>(() =>
+    Object.fromEntries(sections.map((section) => [section.id, "idle" as const])),
+  );
+  const [sectionErrors, setSectionErrors] = useState<Record<string, string | null>>({});
+  const [sectionNotices, setSectionNotices] = useState<Record<string, string | null>>({});
+  const sectionUploadLocks = useRef(new Set<string>());
 
   const total = questions.length;
   const writeDraft = useMemo(
@@ -126,11 +187,34 @@ export function ReplySheet({
     )),
     [token],
   );
+  const writeSectionDraft = useMemo(
+    () => createSerialDraftWriter((issueSectionId, body) => postReply(
+      token,
+      { action: "sectionDraft", issueSectionId, body },
+      copy.reply.errors.sectionSaveFailed,
+    )),
+    [token],
+  );
   const answered = useMemo(
     () => questions.filter((question) =>
-      (bodies[question.id] ?? "").trim().length > 0 || Boolean(photoUrls[question.id]),
+      (bodies[question.id] ?? "").trim().length > 0 ||
+      Boolean(photoUrls[question.id]) ||
+      Boolean(audioUrls[question.id]),
     ).length,
-    [bodies, photoUrls, questions],
+    [audioUrls, bodies, photoUrls, questions],
+  );
+  // Section answers count toward the action bar, so a section-only round sends.
+  const sectionAnswered = useMemo(
+    () => sections.some((section) =>
+      (sectionBodies[section.id] ?? "").trim().length > 0 ||
+      (sectionLinks[section.id] ?? "").trim().length > 0 ||
+      (sectionMediaLists[section.id] ?? []).length > 0,
+    ),
+    [sectionBodies, sectionLinks, sectionMediaLists, sections],
+  );
+  const audioBusy = useMemo(
+    () => Object.values(audioStates).some((state) => state === "uploading" || state === "removing"),
+    [audioStates],
   );
   const photoBusy = useMemo(
     () => Object.values(photoStates).some((state) => state === "uploading" || state === "removing"),
@@ -303,6 +387,244 @@ export function ReplySheet({
       void removePhoto(questionId);
     }
   }, [photoStates, removePhoto, uploadPhoto]);
+
+  const clearAudioPreview = useCallback((questionId: string) => {
+    const objectUrl = audioObjectUrls.current.get(questionId);
+    if (objectUrl) URL.revokeObjectURL(objectUrl);
+    audioObjectUrls.current.delete(questionId);
+    setAudioPreviews((current) => ({ ...current, [questionId]: null }));
+  }, []);
+
+  const uploadAudio = useCallback(async (questionId: string, blob: Blob, filename: string, durationMs: number) => {
+    if (audioLocks.current.has(questionId)) return;
+    audioLocks.current.add(questionId);
+    setAudioStates((current) => ({ ...current, [questionId]: "uploading" }));
+    setAudioErrors((current) => ({ ...current, [questionId]: null }));
+
+    const result = await uploadReplyAudio(token, questionId, blob, filename, durationMs, copy.reply.errors.audioSaveFailed);
+    audioLocks.current.delete(questionId);
+
+    if (result.ok) {
+      setAudioUrls((current) => ({ ...current, [questionId]: result.audioUrl }));
+      setAudioDurations((current) => ({ ...current, [questionId]: result.audioDurationMs }));
+      audioPending.current.delete(questionId);
+      setRetryableAudio((current) => ({ ...current, [questionId]: false }));
+      setAudioStates((current) => ({ ...current, [questionId]: "saved" }));
+      setAudioErrors((current) => ({ ...current, [questionId]: null }));
+    } else {
+      audioPending.current.set(questionId, { blob, filename, durationMs });
+      setRetryableAudio((current) => ({ ...current, [questionId]: true }));
+      setAudioStates((current) => ({ ...current, [questionId]: "uploadError" }));
+      setAudioErrors((current) => ({ ...current, [questionId]: result.error }));
+    }
+    clearAudioPreview(questionId);
+  }, [clearAudioPreview, token]);
+
+  const stopRecording = useCallback((questionId: string, discard: boolean) => {
+    const active = recorder.current;
+    if (!active || active.state === "inactive") {
+      setRecording(null);
+      setRecordingElapsed(0);
+      return;
+    }
+    const startedAt = recording?.startedAt ?? Date.now();
+    active.onstop = () => {
+      const durationMs = Date.now() - startedAt;
+      const type = active.mimeType || "audio/webm";
+      const blob = new Blob(recordingChunks.current, { type });
+      recordingChunks.current = [];
+      for (const track of active.stream.getTracks()) track.stop();
+      recorder.current = null;
+      if (recordingTimer.current) {
+        clearInterval(recordingTimer.current);
+        recordingTimer.current = null;
+      }
+      setRecording(null);
+      setRecordingElapsed(0);
+
+      if (discard || durationMs > MAX_AUDIO_DURATION_MS) {
+        setAudioStates((current) => ({ ...current, [questionId]: "uploadError" }));
+        setAudioErrors((current) => ({ ...current, [questionId]: copy.reply.voiceTooLong }));
+        return;
+      }
+      const extension = type.includes("mp4") ? "m4a" : type.includes("ogg") ? "ogg" : "webm";
+      void uploadAudio(questionId, blob, `voice-note.${extension}`, durationMs);
+    };
+    active.stop();
+  }, [recording, uploadAudio]);
+
+  const startRecording = useCallback(async (questionId: string) => {
+    if (recording || audioLocks.current.has(questionId)) return;
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mime = [
+        "audio/webm;codecs=opus",
+        "audio/webm",
+        "audio/mp4",
+      ].find((candidate) => typeof MediaRecorder !== "undefined" && MediaRecorder.isTypeSupported(candidate));
+      const active = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined);
+      recordingChunks.current = [];
+      active.ondataavailable = (event) => {
+        if (event.data.size > 0) recordingChunks.current.push(event.data);
+      };
+      const startedAt = Date.now();
+      active.start(250);
+      recorder.current = active;
+      setRecording({ questionId, startedAt });
+      setAudioStates((current) => ({ ...current, [questionId]: "recording" }));
+      setAudioErrors((current) => ({ ...current, [questionId]: null }));
+      recordingTimer.current = setInterval(() => {
+        const elapsed = Date.now() - startedAt;
+        if (elapsed >= MAX_AUDIO_DURATION_MS) {
+          // The hard stop: over three minutes discards the take with a warm error.
+          stopRecording(questionId, true);
+          return;
+        }
+        setRecordingElapsed(elapsed);
+      }, 200);
+    } catch {
+      setAudioStates((current) => ({ ...current, [questionId]: "uploadError" }));
+      setAudioErrors((current) => ({ ...current, [questionId]: copy.reply.voiceNoRecorder }));
+    }
+  }, [recording, stopRecording]);
+
+  const pickAudioFile = useCallback((questionId: string, file: File) => {
+    if (audioLocks.current.has(questionId)) return;
+    if (file.size > MAX_AUDIO_BYTES) {
+      setAudioStates((current) => ({ ...current, [questionId]: "uploadError" }));
+      setAudioErrors((current) => ({ ...current, [questionId]: copy.reply.voiceTooLarge }));
+      return;
+    }
+    const objectUrl = URL.createObjectURL(file);
+    const probe = new Audio();
+    probe.preload = "metadata";
+    const cleanup = () => URL.revokeObjectURL(objectUrl);
+    probe.onloadedmetadata = () => {
+      cleanup();
+      const durationMs = Number.isFinite(probe.duration) ? probe.duration * 1000 : NaN;
+      if (!Number.isFinite(durationMs) || durationMs > MAX_AUDIO_DURATION_MS) {
+        setAudioStates((current) => ({ ...current, [questionId]: "uploadError" }));
+        setAudioErrors((current) => ({ ...current, [questionId]: copy.reply.voiceTooLong }));
+        return;
+      }
+      const oldObjectUrl = audioObjectUrls.current.get(questionId);
+      if (oldObjectUrl) URL.revokeObjectURL(oldObjectUrl);
+      audioObjectUrls.current.set(questionId, objectUrl);
+      setAudioPreviews((current) => ({ ...current, [questionId]: objectUrl }));
+      void uploadAudio(questionId, file, file.name, durationMs);
+    };
+    probe.onerror = () => {
+      cleanup();
+      setAudioStates((current) => ({ ...current, [questionId]: "uploadError" }));
+      setAudioErrors((current) => ({ ...current, [questionId]: copy.reply.errors.invalidAudio }));
+    };
+    probe.src = objectUrl;
+  }, [uploadAudio]);
+
+  const removeAudio = useCallback(async (questionId: string) => {
+    if (audioLocks.current.has(questionId)) return;
+    audioPending.current.delete(questionId);
+    setRetryableAudio((current) => ({ ...current, [questionId]: false }));
+    clearAudioPreview(questionId);
+    setAudioErrors((current) => ({ ...current, [questionId]: null }));
+
+    if (!audioUrls[questionId]) {
+      setAudioStates((current) => ({ ...current, [questionId]: "removed" }));
+      return;
+    }
+
+    audioLocks.current.add(questionId);
+    setAudioStates((current) => ({ ...current, [questionId]: "removing" }));
+    const result = await removeReplyAudio(token, questionId, copy.reply.errors.audioRemoveFailed);
+    audioLocks.current.delete(questionId);
+
+    if (result.ok) {
+      setAudioUrls((current) => ({ ...current, [questionId]: null }));
+      setAudioDurations((current) => ({ ...current, [questionId]: null }));
+      setAudioStates((current) => ({ ...current, [questionId]: "removed" }));
+    } else {
+      setAudioStates((current) => ({ ...current, [questionId]: "removeError" }));
+      setAudioErrors((current) => ({ ...current, [questionId]: result.error }));
+    }
+  }, [audioUrls, clearAudioPreview, token]);
+
+  const retryAudio = useCallback((questionId: string) => {
+    if (audioStates[questionId] === "uploadError") {
+      const pending = audioPending.current.get(questionId);
+      if (pending) void uploadAudio(questionId, pending.blob, pending.filename, pending.durationMs);
+    } else if (audioStates[questionId] === "removeError") {
+      void removeAudio(questionId);
+    }
+  }, [audioStates, removeAudio, uploadAudio]);
+
+  const saveSection = useCallback(async (issueSectionId: string) => {
+    setSectionSaveStates((current) => ({ ...current, [issueSectionId]: "saving" }));
+    const url = sectionLinks[issueSectionId] ?? "";
+    const caption = sectionCaptions[issueSectionId] ?? "";
+    const result = await postReply(
+      token,
+      { action: "sectionMusic", issueSectionId, url, caption },
+      copy.reply.errors.sectionSaveFailed,
+    );
+    if (result.ok) {
+      setSectionSaveStates((current) => ({ ...current, [issueSectionId]: "saved" }));
+      setSectionErrors((current) => ({ ...current, [issueSectionId]: null }));
+    } else {
+      setSectionSaveStates((current) => ({ ...current, [issueSectionId]: "error" }));
+      setSectionErrors((current) => ({ ...current, [issueSectionId]: result.error }));
+    }
+  }, [sectionCaptions, sectionLinks, token]);
+
+  const saveSectionText = useCallback((issueSectionId: string) => {
+    setSectionSaveStates((current) => ({ ...current, [issueSectionId]: "saving" }));
+    void writeSectionDraft(issueSectionId, sectionBodies[issueSectionId] ?? "")
+      .then((result) => {
+        setSectionSaveStates((current) => ({ ...current, [issueSectionId]: result.ok ? "saved" : "error" }));
+        if (!result.ok) setSectionErrors((current) => ({ ...current, [issueSectionId]: result.error }));
+      });
+  }, [sectionBodies, writeSectionDraft]);
+
+  const uploadSectionPhoto = useCallback(async (issueSectionId: string, kind: SheetSection["kind"], file: File, caption: string, position: number) => {
+    const lockKey = `${issueSectionId}:${position}`;
+    if (sectionUploadLocks.current.has(lockKey)) return;
+    sectionUploadLocks.current.add(lockKey);
+    const result = await uploadReplySectionPhoto(token, issueSectionId, file, caption, position, copy.reply.errors.photoUploadFailed);
+    sectionUploadLocks.current.delete(lockKey);
+    if (result.ok) {
+      setSectionMediaLists((current) => ({
+        ...current,
+        [issueSectionId]: [
+          ...(current[issueSectionId] ?? []),
+          { id: result.mediaId, url: result.url, caption: kind === "photo_wall" ? caption || null : null },
+        ],
+      }));
+      setSectionSaveStates((current) => ({ ...current, [issueSectionId]: "saved" }));
+      setSectionNotices((current) => ({ ...current, [issueSectionId]: copy.reply.sectionUploaded }));
+      setSectionErrors((current) => ({ ...current, [issueSectionId]: null }));
+    } else {
+      setSectionErrors((current) => ({ ...current, [issueSectionId]: result.error }));
+    }
+  }, [token]);
+
+  const removeSectionPhoto = useCallback(async (issueSectionId: string, mediaId: string) => {
+    const result = await removeReplySectionMedia(token, issueSectionId, mediaId, copy.reply.errors.photoRemoveFailed);
+    if (result.ok) {
+      setSectionMediaLists((current) => ({
+        ...current,
+        [issueSectionId]: (current[issueSectionId] ?? []).filter((item) => item.id !== mediaId),
+      }));
+      setSectionNotices((current) => ({ ...current, [issueSectionId]: copy.reply.sectionRemoved }));
+    } else {
+      setSectionErrors((current) => ({ ...current, [issueSectionId]: result.error }));
+    }
+  }, [token]);
+
+  useEffect(() => () => {
+    if (recordingTimer.current) clearInterval(recordingTimer.current);
+    recorder.current?.stream.getTracks().forEach((track) => track.stop());
+    for (const objectUrl of audioObjectUrls.current.values()) URL.revokeObjectURL(objectUrl);
+    audioObjectUrls.current.clear();
+  }, []);
 
   const persist = useCallback(
     async (questionId: string, body: string) => {
@@ -501,8 +823,28 @@ export function ReplySheet({
                   : photoState === "removed"
                     ? copy.reply.photoRemoved
                     : photoErrors[question.id];
+            const audioState = audioStates[question.id] ?? "idle";
+            const audioUrl = audioUrls[question.id];
+            const audioPreview = audioPreviews[question.id];
+            const voiceBusyForCard = audioState === "uploading" || audioState === "removing";
+            const showVoiceRemove = Boolean(
+              audioUrl ||
+                audioPreview ||
+                (audioState === "uploadError" && retryableAudio[question.id]) ||
+                audioState === "removeError",
+            );
+            const audioStatusText = audioState === "uploading"
+              ? copy.reply.voiceUploading
+              : audioState === "removing"
+                ? copy.reply.voiceRemoving
+                : audioState === "saved"
+                  ? copy.reply.voiceSaved
+                  : audioState === "removed"
+                    ? copy.reply.voiceRemoved
+                    : audioErrors[question.id];
 
             return (
+            <>
             <section key={question.id} className="card paper ride-in block p-5 pt-7">
               <Tape tone={(["dots", "stripe", "mint", "check"] as const)[index % 4]} position={index % 2 ? "right" : "left"} />
               <div className="mb-3 flex items-start justify-between gap-3">
@@ -605,9 +947,245 @@ export function ReplySheet({
                 </button>
               ) : null}
             </section>
+
+            <section aria-label={copy.reply.voiceRecord} className="mt-4 border-t border-line pt-4">
+              {recording?.questionId === question.id ? (
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-[13px] font-medium text-ink numeric" role="status">
+                    {text(copy.reply.voiceRecording, { elapsed: formatAudioDuration(recordingElapsed) })}
+                  </p>
+                  <button
+                    type="button"
+                    className="btn btn-primary min-h-11 px-4 text-[13px]"
+                    onClick={() => stopRecording(question.id, false)}
+                  >
+                    {copy.reply.voiceStop}
+                  </button>
+                </div>
+              ) : (
+                <div className="flex flex-wrap items-center gap-2">
+                  {canRecord ? (
+                    <button
+                      type="button"
+                      className="btn btn-quiet min-h-11 px-4 text-[13px]"
+                      onClick={() => void startRecording(question.id)}
+                      disabled={sending || voiceBusyForCard || Boolean(recording)}
+                    >
+                      {audioUrl ? copy.reply.voiceReplace : copy.reply.voiceRecord}
+                    </button>
+                  ) : null}
+                  <input
+                    id={`audio-${question.id}`}
+                    type="file"
+                    accept={AUDIO_ACCEPT}
+                    className="peer sr-only"
+                    disabled={sending || voiceBusyForCard || Boolean(recording)}
+                    onChange={(event) => {
+                      const file = event.target.files?.[0];
+                      if (file) pickAudioFile(question.id, file);
+                      event.target.value = "";
+                    }}
+                  />
+                  <label
+                    htmlFor={`audio-${question.id}`}
+                    className="btn btn-quiet min-h-11 px-4 text-[13px] peer-disabled:pointer-events-none peer-disabled:opacity-45 peer-focus-visible:outline peer-focus-visible:outline-3 peer-focus-visible:outline-accent peer-focus-visible:outline-offset-2"
+                  >
+                    {copy.reply.voicePick}
+                  </label>
+                  {showVoiceRemove ? (
+                    <button
+                      type="button"
+                      className="btn btn-quiet min-h-11 px-4 text-[13px]"
+                      onClick={() => void removeAudio(question.id)}
+                      disabled={sending || voiceBusyForCard}
+                    >
+                      {copy.reply.voiceRemove}
+                    </button>
+                  ) : null}
+                  {!canRecord && !audioUrl ? (
+                    <span className="text-[12px] leading-relaxed text-ink-muted">{copy.reply.voiceNoRecorder}</span>
+                  ) : null}
+                </div>
+              )}
+              {(audioPreview || audioUrl) ? (
+                <audio
+                  controls
+                  preload="none"
+                  src={audioPreview ?? audioUrl ?? ""}
+                  aria-label={text(copy.reply.voiceDurationLabel, { duration: formatAudioDuration(audioDurations[question.id] ?? 0) })}
+                  className="mt-2 w-full"
+                />
+              ) : null}
+              {audioStatusText ? (
+                <p
+                  id={`audio-status-${question.id}`}
+                  role={audioState === "uploadError" || audioState === "removeError" ? "alert" : "status"}
+                  aria-live={audioState === "uploadError" || audioState === "removeError" ? "assertive" : "polite"}
+                  aria-atomic="true"
+                  className={`mt-2 text-[13px] leading-relaxed ${audioState === "uploadError" || audioState === "removeError" ? "text-danger" : "text-ink-muted"}`}
+                >
+                  {audioStatusText}
+                </p>
+              ) : null}
+              {(audioState === "removeError" || (audioState === "uploadError" && retryableAudio[question.id] && !recording)) ? (
+                <button
+                  type="button"
+                  className="mt-1 min-h-11 text-[13px] font-bold text-ink underline underline-offset-2"
+                  onClick={() => retryAudio(question.id)}
+                  disabled={sending || voiceBusyForCard}
+                >
+                  {audioState === "removeError" ? copy.reply.voiceRetryRemove : copy.reply.voiceRetryUpload}
+                </button>
+              ) : null}
+              <p className="mt-1 text-[12px] leading-relaxed text-ink-muted">{copy.reply.voiceFormats}</p>
+            </section>
+            </>
             );
           })}
         </div>
+
+        {sections.length > 0 ? (
+          <section className="mt-8" aria-label={copy.reply.sectionsHeading}>
+            <h2 className="font-display text-[25px] font-bold leading-[1.15] text-ink">{copy.reply.sectionsHeading}</h2>
+            {sections.map((section) => {
+              const media = sectionMediaLists[section.id] ?? [];
+              const saveState = sectionSaveStates[section.id] ?? "idle";
+              const cap = section.kind === "photo_wall" ? 6 : 1;
+              return (
+                <div key={section.id} className="card paper ride-in mt-4 block p-5 pt-6">
+                  <h3 className="font-display text-[22px] font-bold leading-tight text-ink">
+                    {section.emoji ? <span className="mr-2">{section.emoji}</span> : null}
+                    {section.title}
+                  </h3>
+                  {section.description ? (
+                    <p className="mt-1 text-[13.5px] leading-relaxed text-ink-soft">{section.description}</p>
+                  ) : null}
+
+                  {section.kind === "music" ? (
+                    <div className="mt-3 flex flex-col gap-2">
+                      <input
+                        value={sectionLinks[section.id] ?? ""}
+                        onChange={(event) => setSectionLinks((current) => ({ ...current, [section.id]: event.target.value }))}
+                        placeholder={copy.reply.sectionMusicPlaceholder}
+                        aria-label={copy.reply.sectionMusicLabel}
+                        maxLength={500}
+                        disabled={sending}
+                        className="field h-[46px] py-0"
+                      />
+                      <input
+                        value={sectionCaptions[section.id] ?? ""}
+                        onChange={(event) => setSectionCaptions((current) => ({ ...current, [section.id]: event.target.value }))}
+                        placeholder={copy.reply.sectionCaptionPlaceholder}
+                        aria-label={copy.reply.sectionCaptionLabel}
+                        maxLength={120}
+                        disabled={sending}
+                        className="field h-[46px] py-0"
+                      />
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          className="btn btn-primary min-h-11 px-4 text-[13px]"
+                          onClick={() => void saveSection(section.id)}
+                          disabled={sending}
+                        >
+                          {copy.reply.sectionMusicSave}
+                        </button>
+                        {(sectionLinks[section.id] ?? "") ? (
+                          <button
+                            type="button"
+                            className="btn btn-quiet min-h-11 px-4 text-[13px]"
+                            onClick={() => {
+                              setSectionLinks((current) => ({ ...current, [section.id]: "" }));
+                              void saveSection(section.id);
+                            }}
+                            disabled={sending}
+                          >
+                            {copy.reply.sectionMusicClear}
+                          </button>
+                        ) : null}
+                        <span aria-live="polite" className="text-[12.5px] text-ink-muted">
+                          {saveState === "saving" ? copy.reply.sectionSaving : saveState === "saved" ? copy.reply.sectionDraftSaved : null}
+                        </span>
+                      </div>
+                      {sectionErrors[section.id] ? (
+                        <p role="alert" className="text-[13px] leading-relaxed text-danger">
+                          {sectionErrors[section.id]}
+                        </p>
+                      ) : null}
+                    </div>
+                  ) : null}
+
+                  {section.kind === "standard" ? (
+                    <div className="mt-3">
+                      <textarea
+                        value={sectionBodies[section.id] ?? ""}
+                        onChange={(event) => setSectionBodies((current) => ({ ...current, [section.id]: event.target.value }))}
+                        onBlur={() => saveSectionText(section.id)}
+                        placeholder={copy.reply.placeholder}
+                        aria-label={section.title}
+                        rows={3}
+                        maxLength={2000}
+                        disabled={sending}
+                        className="field lined-field w-full py-2"
+                      />
+                      <p aria-live="polite" className="mt-1 text-[12px] text-ink-muted">
+                        {saveState === "saving" ? copy.reply.sectionSaving : saveState === "saved" ? copy.reply.sectionDraftSaved : null}
+                      </p>
+                      {sectionErrors[section.id] ? (
+                        <p role="alert" className="text-[13px] leading-relaxed text-danger">
+                          {sectionErrors[section.id]}
+                        </p>
+                      ) : null}
+                    </div>
+                  ) : null}
+
+                  {(section.kind === "standard" || section.kind === "photo_wall") ? (
+                    <div className="mt-3">
+                      {media.map((item, index) => (
+                        <div key={item.id} className="mt-2 flex items-start gap-3">
+                          <img src={item.url} alt={item.caption ?? ""} className="h-16 w-16 flex-none rounded-md border border-line object-cover" />
+                          <div className="min-w-0 flex-1">
+                            {item.caption ? (
+                              <p className="truncate text-[13px] text-ink">{item.caption}</p>
+                            ) : null}
+                            <button
+                              type="button"
+                              className="mt-1 min-h-11 text-[13px] font-bold text-ink underline underline-offset-2"
+                              onClick={() => void removeSectionPhoto(section.id, item.id)}
+                              disabled={sending}
+                            >
+                              {copy.reply.sectionRemovePhoto}
+                            </button>
+                          </div>
+                          <span className="text-[12px] text-ink-muted numeric">{index + 1}/{cap}</span>
+                        </div>
+                      ))}
+                      {media.length < cap ? (
+                        <PhotoSlot
+                          sectionId={section.id}
+                          kind={section.kind}
+                          position={media.length}
+                          disabled={sending}
+                          onPick={(file, caption) => void uploadSectionPhoto(section.id, section.kind, file, caption, media.length)}
+                        />
+                      ) : null}
+                      {sectionNotices[section.id] ? (
+                        <p aria-live="polite" className="mt-2 text-[13px] text-ink-muted">
+                          {sectionNotices[section.id]}
+                        </p>
+                      ) : null}
+                      {sectionErrors[section.id] ? (
+                        <p role="alert" className="mt-2 text-[13px] leading-relaxed text-danger">
+                          {sectionErrors[section.id]}
+                        </p>
+                      ) : null}
+                    </div>
+                  ) : null}
+                </div>
+              );
+            })}
+          </section>
+        ) : null}
 
         {error ? (
           <p role="alert" className="mt-4 text-[14px] leading-relaxed text-danger">
@@ -648,7 +1226,7 @@ export function ReplySheet({
           <button
             type="button"
             onClick={onSend}
-            disabled={sending || photoBusy || (!sent && answered === 0)}
+            disabled={sending || photoBusy || audioBusy || (!sent && answered === 0 && !sectionAnswered)}
             className="btn btn-primary"
           >
             {sending ? copy.reply.sending : sent ? copy.reply.saveChanges : copy.reply.sendAnswers}
@@ -656,5 +1234,57 @@ export function ReplySheet({
         </div>
       </div>
     </>
+  );
+}
+
+/** One photo slot on a standard section or photo wall. Photo walls require a caption. */
+function PhotoSlot({
+  sectionId,
+  kind,
+  position,
+  disabled,
+  onPick,
+}: {
+  sectionId: string;
+  kind: "standard" | "photo_wall";
+  position: number;
+  disabled: boolean;
+  onPick: (file: File, caption: string) => void;
+}) {
+  const id = `section-photo-${sectionId}-${position}`;
+  const [caption, setCaption] = useState("");
+  return (
+    <div className="mt-2 flex flex-wrap items-center gap-2">
+      <input
+        id={id}
+        type="file"
+        accept={PHOTO_ACCEPT}
+        className="peer sr-only"
+        disabled={disabled}
+        onChange={(event) => {
+          const file = event.target.files?.[0];
+          if (file) onPick(file, caption);
+          setCaption("");
+          event.target.value = "";
+        }}
+      />
+      <label
+        htmlFor={id}
+        className="btn btn-quiet min-h-11 px-4 text-[13px] peer-disabled:pointer-events-none peer-disabled:opacity-45"
+      >
+        {kind === "photo_wall" ? copy.reply.sectionAddPhoto : copy.reply.sectionAddPhoto}
+      </label>
+      {kind === "photo_wall" ? (
+        <input
+          value={caption}
+          onChange={(event) => setCaption(event.target.value)}
+          placeholder={copy.reply.sectionPhotoCaptionPlaceholder}
+          aria-label={copy.reply.sectionCaptionLabel}
+          maxLength={200}
+          disabled={disabled}
+          className="field h-[46px] min-w-44 flex-1 py-0"
+        />
+      ) : null}
+    </div>
   );
 }

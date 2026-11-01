@@ -109,9 +109,33 @@ Status: `todo` (not built) · `done` (built and covered).
 | I4 | Readers are walled off | A reader has no suggest link, and a suggest URL reached by a reader (or a revoked/expired token) shows the standard no-access screen with no data leak. | done |
 | I5 | from_you stays quiet | No suggest affordance appears in prompt email, reply sheet, or dashboard in `from_you` mode. | done |
 
+## K · Sections (and music picks)
+
+| ID | Flow | Acceptance criteria | Status |
+| --- | --- | --- | --- |
+| K1 | Manage sections | Owner creates, edits, reorders, and archives sections; archived sections leave future issues while past issues keep their snapshot. | done |
+| K2 | Sections reach an issue | The sweep snapshots active sections into the new issue alongside questions; the reply sheet shows them in position; readers see them in the delivered issue but are never asked to reply. | done |
+| K3 | Standard section reply | Contributors answer a Standard section with text + one photo, under the same media rules and caps as question answers. | done |
+| K4 | Photo wall reply | Contributors add up to six photos to a Photo Wall section, each with a one-line caption; the delivered issue lays them edge-to-edge with their captions. | done |
+| K5 | Paste a music link | A music section accepts a Spotify, Bandcamp, or Qobuz link, with an optional caption; a non-music URL gets the plain-language error and nothing is saved until it is fixed or cleared. | done |
+| K6 | Music renders | The delivered web issue renders every music pick as a card (artwork when the metadata provides it, title, provider badge) that opens the provider page; the delivery email renders title + link. Playable Spotify/Bandcamp embeds are stretch. | done |
+| K7 | Admin-only sections | A section can be restricted to owner/admin contributors; other members don't see it on the sheet, in prompts, or in the delivered issue. | done |
+| K8 | Snapshot truth | Editing a section after an issue opens changes future issues only; the open issue keeps its copy, mirroring question behavior (C3). | done |
+
+## J · Voice replies
+
+| ID | Flow | Acceptance criteria | Status |
+| --- | --- | --- | --- |
+| J1 | Record an answer | On the reply sheet a question offers "record a voice note"; record, stop, preview with duration, attach. Draft autosave persists the audio; reloading keeps it. | done |
+| J2 | Replace and remove | A member can re-record over an attached note or delete it, before and after delivery; post-delivery replacement keeps the `added_after_delivery` truth on the web issue. | done |
+| J3 | Limits, plainly | Duration cap (target 2 minutes, hard stop 3) and size cap produce the same warm plain-language error, never a 500. | done |
+| J4 | Where recording isn't possible | A browser without MediaRecorder sees "your browser can't record here" plus a file-picker fallback accepting m4a/mp3/webm/ogg within the same caps. | done |
+| J5 | Reading and the email snapshot | The web issue renders a styled audio player; the delivery email renders a "voice note — listen on the web issue" card (email never attempts to embed audio). | done |
+| J6 | Media parity | Audio files are content-hashed and stored exactly like photos (local in dev, Blob in prod); share-link visitors can hear a shared issue's notes under the same rules as photos. | done |
+
 IDs are stable handles, not positions: a retired flow leaves its number out
 rather than renumbering the rest.
 
 ---
 
-**49 flows.** A flow is only `done` when its spec passes locally and in CI.
+**63 flows.** A flow is only `done` when its spec passes locally and in CI.

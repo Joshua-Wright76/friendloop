@@ -2,7 +2,8 @@
 
 import { useOptimistic, useState, useTransition } from "react";
 import { addComment, toggleReaction } from "./actions";
-import type { IssueAnswer, IssueBlock } from "@/lib/issue-view";
+import { formatAudioDuration } from "@/lib/audio-validation";
+import type { IssueAnswer, IssueBlock, IssueSectionBlock } from "@/lib/issue-view";
 import { Tape } from "@/components/stationery";
 import { copy, text } from "@/lib/copy";
 
@@ -13,6 +14,7 @@ type Props = {
   viewerToken: string | null;
   canInteract: boolean;
   blocks: IssueBlock[];
+  sections: IssueSectionBlock[];
   comments: Comment[];
 };
 
@@ -21,8 +23,10 @@ export function IssueBody({
   viewerToken,
   canInteract,
   blocks,
+  sections,
   comments,
 }: Props) {
+  const sectionOffset = blocks.filter((block) => block.answers.length > 0).length;
   return (
     <div className="mt-8 flex flex-col gap-7">
       {blocks
@@ -53,6 +57,80 @@ export function IssueBody({
             </div>
           </section>
         ))}
+
+      {sections.map((section, sectionIndex) => (
+        <section key={section.id} className="card paper ride-in p-5 pt-7">
+          <Tape tone={(["mint", "check", "dots", "stripe"] as const)[sectionIndex % 4]} position="left" />
+          <h2 className="issue-question flex items-start gap-3 text-ink">
+            <span className="question-number mt-0.5 numeric">{sectionOffset + 1 + sectionIndex}</span>
+            {section.emoji ? <span className="mr-1">{section.emoji}</span> : null}
+            {section.title}
+          </h2>
+          {section.description ? (
+            <p className="mt-1.5 pl-8 text-[13px] leading-relaxed text-ink-muted">{section.description}</p>
+          ) : null}
+          <div className="mt-3">
+            {section.kind === "photo_wall" ? (
+              <div className="grid grid-cols-2 gap-2">
+                {section.replies.flatMap((reply) =>
+                  reply.media.map((item) => (
+                    <figure key={item.url} className="m-0">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={item.url} alt={item.caption ?? ""} className="w-full rounded-lg border border-line object-cover" />
+                      {item.caption ? (
+                        <figcaption className="mt-1 text-[12.5px] leading-snug text-ink-soft">
+                          <span className="font-bold">{reply.author}</span> — {item.caption}
+                        </figcaption>
+                      ) : null}
+                    </figure>
+                  )),
+                )}
+              </div>
+            ) : (
+              section.replies.map((reply) => (
+                <div key={reply.replyId} className="mt-4 border-t border-line pt-4 first:border-t-0">
+                  <div className="flex items-center gap-2.5">
+                    <span className="avatar" aria-hidden="true">{reply.author.charAt(0)}</span>
+                    <p className="m-0 text-[14px] font-extrabold text-ink-soft">{reply.author}</p>
+                  </div>
+                  {reply.body ? (
+                    <p className="mt-2 whitespace-pre-wrap text-[16px] leading-relaxed text-ink">{reply.body}</p>
+                  ) : null}
+                  {reply.linkUrl ? (
+                    <a
+                      href={reply.linkUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="mt-3 flex items-center gap-3 rounded-lg border border-line bg-accent-soft p-3 text-ink no-underline"
+                    >
+                      {reply.linkArtwork ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={reply.linkArtwork} alt="" className="h-12 w-12 flex-none rounded-md object-cover" />
+                      ) : (
+                        <span aria-hidden="true" className="font-display text-[24px] leading-none">&#9836;</span>
+                      )}
+                      <span className="min-w-0">
+                        <span className="block truncate text-[14px] font-bold">{reply.linkTitle ?? reply.linkUrl}</span>
+                        <span className="block text-[12px] font-medium text-ink-soft capitalize">{reply.linkProvider}</span>
+                      </span>
+                    </a>
+                  ) : null}
+                  {reply.media.map((item) => (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img key={item.url} src={item.url} alt={item.caption ?? ""} className="mt-3 w-full rounded-lg border border-line object-cover" />
+                  ))}
+                  {reply.addedLater ? (
+                    <p className="mt-2 text-[12px] text-ink-muted">{copy.issue.addedLater}</p>
+                  ) : null}
+                </div>
+              ))
+            )}
+            {section.replies.length === 0 ? (
+              <p className="mt-2 text-[13.5px] text-ink-muted">{copy.issue.sectionEmpty}</p>
+            ) : null}
+          </div>
+        </section>
+      ))}
 
       <section className="card mt-2 p-5">
         <h2 className="text-ink">{copy.issue.comments}</h2>
@@ -123,6 +201,20 @@ function AnswerCard({
           alt={answer.body || text(copy.issue.photoAlt, { author: answer.author })}
           className="mt-3 w-full rounded-lg border border-line object-cover"
         />
+      ) : null}
+      {answer.audioUrl ? (
+        <figure className="mt-3">
+          <audio
+            controls
+            preload="none"
+            src={answer.audioUrl}
+            aria-label={text(copy.issue.voiceLabel, { duration: formatAudioDuration(answer.audioDurationMs ?? 0) })}
+            className="w-full"
+          />
+          <figcaption className="mt-1 text-[12px] text-ink-muted numeric">
+            {text(copy.issue.voiceLabel, { duration: formatAudioDuration(answer.audioDurationMs ?? 0) })}
+          </figcaption>
+        </figure>
       ) : null}
       {answer.addedLater ? (
         <p className="mt-2 text-[12px] text-ink-muted">

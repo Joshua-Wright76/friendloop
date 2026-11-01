@@ -3,8 +3,10 @@ import assert from "node:assert/strict";
 import {
   createSerialDraftWriter,
   postReply,
+  removeReplyAudio,
   removeReplyPhoto,
   saveReplyName,
+  uploadReplyAudio,
   uploadReplyPhoto,
 } from "./reply-client.ts";
 
@@ -167,4 +169,63 @@ test("a rejected write does not stall the next one for that question", async () 
 
   // And a later, non-overlapping write starts from a clean slate.
   assert.equal(await writer("q1", "much later"), "much later");
+});
+
+test("an audio upload posts multipart and returns what the app stored", async () => {
+  const audio = new Blob([Uint8Array.from([0x1a, 0x45, 0xdf, 0xa3])], { type: "audio/webm" });
+  let capturedUrl = "";
+  let capturedMethod = "";
+  let capturedBody!: FormData;
+
+  const result = await uploadReplyAudio("reply-token", "question-id", audio, "note.webm", 1234.6, "Could not upload", async (input, init) => {
+    capturedUrl = String(input);
+    capturedMethod = init?.method ?? "";
+    capturedBody = init?.body as FormData;
+    return {
+      ok: true,
+      json: async () => ({ ok: true, savedAt: "now", audioUrl: "/uploads/note.webm", audioDurationMs: 1235 }),
+    } as unknown as Response;
+  });
+
+  assert.deepEqual(result, { ok: true, savedAt: "now", audioUrl: "/uploads/note.webm", audioDurationMs: 1235 });
+  assert.equal(capturedUrl, "/api/reply/reply-token/audio");
+  assert.equal(capturedMethod, "POST");
+  assert.equal(capturedBody.get("issueQuestionId"), "question-id");
+  assert.equal(capturedBody.get("durationMs"), "1235");
+});
+
+test("audio upload failures carry the server's words or the fallback", async () => {
+  const audio = new Blob([Uint8Array.from([0x1a, 0x45, 0xdf, 0xa3])], { type: "audio/webm" });
+
+  const refused = await uploadReplyAudio("reply-token", "q", audio, "note.webm", 100, "fallback", async () =>
+    ({ ok: false, json: async () => ({ error: "3 minutes max." }) }) as unknown as Response,
+  );
+  assert.deepEqual(refused, { ok: false, error: "3 minutes max." });
+
+  const malformed = await uploadReplyAudio("reply-token", "q", audio, "note.webm", 100, "fallback", async () =>
+    ({ ok: true, json: async () => ({ ok: true }) }) as unknown as Response,
+  );
+  assert.deepEqual(malformed, { ok: false, error: "fallback" });
+
+  const offline = await uploadReplyAudio("reply-token", "q", audio, "note.webm", 100, "fallback", async () => {
+    throw new Error("offline");
+  });
+  assert.deepEqual(offline, { ok: false, error: "fallback" });
+});
+
+test("audio removal reports failures and survives a network error", async () => {
+  const refused = await removeReplyAudio("reply-token", "q", "fallback", async () =>
+    ({ ok: false, json: async () => ({ error: "Not your answer." }) }) as unknown as Response,
+  );
+  assert.deepEqual(refused, { ok: false, error: "Not your answer." });
+
+  const offline = await removeReplyAudio("reply-token", "q", "fallback", async () => {
+    throw new Error("offline");
+  });
+  assert.deepEqual(offline, { ok: false, error: "fallback" });
+
+  const saved = await removeReplyAudio("reply-token", "q", "fallback", async () =>
+    ({ ok: true, json: async () => ({ ok: true, savedAt: "now" }) }) as unknown as Response,
+  );
+  assert.deepEqual(saved, { ok: true, savedAt: "now" });
 });

@@ -5,6 +5,8 @@ import { getNow } from "./clock";
 import { copy } from "./copy.ts";
 import { cleanDisplayName } from "./names";
 import { deleteStoredPhoto } from "./photo-storage";
+import { deleteStoredAudio } from "./media-storage.ts";
+import { sectionReplies } from "@/db/schema";
 import { replyHasContentCondition } from "./reply-query";
 
 /** How long an unopened invitation stays good. */
@@ -333,6 +335,22 @@ export async function submitFor(token: string): Promise<WriteResult> {
       ),
     );
 
+  // Section answers ride the same submission as the questions.
+  await db
+    .update(sectionReplies)
+    .set({
+      status: "submitted",
+      submittedAt: at,
+      addedAfterDelivery: context.issue.status === "delivered" || at > context.issue.deliversAt,
+      updatedAt: at,
+    })
+    .where(
+      and(
+        eq(sectionReplies.issueId, context.issue.id),
+        eq(sectionReplies.membershipId, context.membership.id),
+      ),
+    );
+
   await markAccepted(context.membership.id, context.membership.acceptedAt, at);
   return { ok: true, savedAt: at.toISOString() };
 }
@@ -405,8 +423,142 @@ export async function sheetFor(token: string) {
         text: question.text,
         body: reply?.body ?? "",
         photoUrl: reply?.photoUrl ?? null,
+        audioUrl: reply?.audioUrl ?? null,
+        audioDurationMs: reply?.audioDurationMs ?? null,
         submitted: reply?.status === "submitted",
       };
     }),
   };
+}
+
+export type AudioWriteResult =
+  | { ok: true; savedAt: string; audioUrl: string; audioDurationMs: number }
+  | { ok: false; status: 403 | 404 | 409 | 413; error: string };
+
+/** Delete a stored voice note only after no reply row points at it. */
+export async function deleteAudioIfUnreferenced(audioUrl: string): Promise<void> {
+  const [reference] = await db
+    .select({ issueQuestionId: replies.issueQuestionId })
+    .from(replies)
+    .where(eq(replies.audioUrl, audioUrl))
+    .limit(1);
+  if (!reference) await deleteStoredAudio(audioUrl);
+}
+
+/** Save a voice note without changing the existing text answer. */
+export async function saveAudioFor(input: {
+  token: string;
+  issueQuestionId: string;
+  audioUrl: string;
+  audioDurationMs: number;
+}): Promise<AudioWriteResult> {
+  const gate = await ensureWritableQuestion(input.token, input.issueQuestionId);
+  if (!gate.ok) return gate.result;
+
+  const { context, question } = gate;
+  const audioOwners = await db
+    .select({ issueId: replies.issueId, issueQuestionId: replies.issueQuestionId, membershipId: replies.membershipId })
+    .from(replies)
+    .where(eq(replies.audioUrl, input.audioUrl));
+  if (audioOwners.some((owner) =>
+    owner.issueId !== context.issue.id ||
+    owner.issueQuestionId !== question.id ||
+    owner.membershipId !== context.membership.id
+  )) {
+    return { ok: false, status: 409, error: copy.reply.errors.audioSaveFailed };
+  }
+
+  const at = await getNow();
+  const afterDelivery = context.issue.status === "delivered" || at > context.issue.deliversAt;
+  const [existing] = await db.transaction(async (tx) => {
+    const [previous] = await tx
+      .select({ audioUrl: replies.audioUrl })
+      .from(replies)
+      .where(
+        and(
+          eq(replies.issueId, context.issue.id),
+          eq(replies.issueQuestionId, question.id),
+          eq(replies.membershipId, context.membership.id),
+        ),
+      )
+      .limit(1);
+
+    await tx
+      .insert(replies)
+      .values({
+        issueId: context.issue.id,
+        issueQuestionId: question.id,
+        membershipId: context.membership.id,
+        body: "",
+        audioUrl: input.audioUrl,
+        audioDurationMs: input.audioDurationMs,
+        status: "draft",
+        addedAfterDelivery: afterDelivery,
+      })
+      .onConflictDoUpdate({
+        target: [replies.issueId, replies.issueQuestionId, replies.membershipId],
+        set: {
+          audioUrl: input.audioUrl,
+          audioDurationMs: input.audioDurationMs,
+          updatedAt: at,
+          addedAfterDelivery: afterDelivery,
+        },
+      });
+
+    if (!context.membership.acceptedAt) {
+      await tx.update(memberships).set({ acceptedAt: at }).where(eq(memberships.id, context.membership.id));
+    }
+    return [previous] as const;
+  });
+
+  if (existing?.audioUrl && existing.audioUrl !== input.audioUrl) {
+    await deleteAudioIfUnreferenced(existing.audioUrl).catch((error: unknown) => {
+      console.error("Unable to remove replaced reply voice note", error);
+    });
+  }
+
+  return { ok: true, savedAt: at.toISOString(), audioUrl: input.audioUrl, audioDurationMs: input.audioDurationMs };
+}
+
+/** Remove a voice note while leaving the text, photo, and submission state alone. */
+export async function removeAudioFor(input: {
+  token: string;
+  issueQuestionId: string;
+}): Promise<WriteResult> {
+  const gate = await ensureWritableQuestion(input.token, input.issueQuestionId);
+  if (!gate.ok) return gate.result;
+
+  const { context, question } = gate;
+  const [existing] = await db
+    .select({ audioUrl: replies.audioUrl })
+    .from(replies)
+    .where(
+      and(
+        eq(replies.issueId, context.issue.id),
+        eq(replies.issueQuestionId, question.id),
+        eq(replies.membershipId, context.membership.id),
+      ),
+    )
+    .limit(1);
+
+  const at = await getNow();
+  if (!existing?.audioUrl) return { ok: true, savedAt: at.toISOString() };
+
+  await db
+    .update(replies)
+    .set({ audioUrl: null, audioDurationMs: null, updatedAt: at })
+    .where(
+      and(
+        eq(replies.issueId, context.issue.id),
+        eq(replies.issueQuestionId, question.id),
+        eq(replies.membershipId, context.membership.id),
+      ),
+    );
+
+  await deleteAudioIfUnreferenced(existing.audioUrl).catch((error: unknown) => {
+    console.error("Unable to remove reply voice note", error);
+  });
+
+  await markAccepted(context.membership.id, context.membership.acceptedAt, at);
+  return { ok: true, savedAt: at.toISOString() };
 }

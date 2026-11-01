@@ -5,6 +5,7 @@ import { notFound, redirect } from "next/navigation";
 import { db } from "@/db";
 import { groups, issues, memberships, questions, replies } from "@/db/schema";
 import { pendingSuggestions } from "@/lib/suggestions";
+import { sectionsOf } from "@/lib/sections";
 import { currentUser } from "@/lib/auth";
 import { getNow } from "@/lib/clock";
 import { membersOf } from "@/lib/manage";
@@ -63,7 +64,7 @@ async function LoadedGroupLayout({ children, params }: Props) {
   if (!row) notFound();
 
   const { group, membership } = row;
-  const [people, questionRows, roundRows, suggestionRows, at] = await Promise.all([
+  const [people, questionRows, roundRows, suggestionRows, sectionRows, at] = await Promise.all([
     membersOf(group.id),
     db.select({
       id: questions.id,
@@ -92,6 +93,7 @@ async function LoadedGroupLayout({ children, params }: Props) {
       .where(eq(issues.groupId, group.id))
       .orderBy(desc(issues.number)),
     pendingSuggestions(group.id),
+    sectionsOf(group.id),
     getNow(),
   ]);
 
@@ -129,6 +131,16 @@ async function LoadedGroupLayout({ children, params }: Props) {
     user,
     people,
     questions: questionRows,
+    sections: sectionRows.map((section) => ({
+      id: section.id,
+      kind: section.kind,
+      title: section.title,
+      emoji: section.emoji,
+      description: section.description,
+      adminOnly: section.adminOnly,
+      active: section.active,
+      position: section.position,
+    })),
     suggestions: suggestionRows.map((suggestion) => ({
       id: suggestion.id,
       text: suggestion.text,

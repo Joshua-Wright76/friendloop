@@ -18,6 +18,8 @@ export const participationEnum = pgEnum("participation", ["contributor", "reader
 export const modeEnum = pgEnum("mode", ["group", "from_you"]);
 export const issueStatusEnum = pgEnum("issue_status", ["open", "delivered", "skipped"]);
 export const replyStatusEnum = pgEnum("reply_status", ["draft", "submitted"]);
+/** The three kinds of recurring content area an issue can carry besides questions. */
+export const sectionKindEnum = pgEnum("section_kind", ["standard", "photo_wall", "music"]);
 export const outboxStatusEnum = pgEnum("outbox_status", ["pending", "sent", "failed"]);
 export const emailKindEnum = pgEnum("email_kind", [
   "signin",
@@ -229,6 +231,9 @@ export const replies = pgTable(
       .notNull(),
     body: text("body").default("").notNull(),
     photoUrl: text("photo_url"),
+    /** A recorded voice note riding alongside the text and photo. */
+    audioUrl: text("audio_url"),
+    audioDurationMs: integer("audio_duration_ms"),
     status: replyStatusEnum("status").default("draft").notNull(),
     submittedAt: timestamp("submitted_at", { withTimezone: true }),
     addedAfterDelivery: boolean("added_after_delivery").default(false).notNull(),
@@ -270,6 +275,102 @@ export const reactions = pgTable(
   },
   (t) => [uniqueIndex("reactions_unique_idx").on(t.replyId, t.membershipId, t.emoji)],
 );
+
+/** A recurring content area a loop can carry in every issue besides questions. */
+export const sections = pgTable(
+  "sections",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    groupId: uuid("group_id")
+      .references(() => groups.id, { onDelete: "cascade" })
+      .notNull(),
+    kind: sectionKindEnum("kind").notNull(),
+    title: text("title").notNull(),
+    emoji: text("emoji"),
+    description: text("description"),
+    /** Replies restricted to the owner and admins who contribute. */
+    adminOnly: boolean("admin_only").default(false).notNull(),
+    position: integer("position").default(0).notNull(),
+    /** Whether future issues keep carrying it. */
+    active: boolean("active").default(true).notNull(),
+    archivedAt: timestamp("archived_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [index("sections_group_idx").on(t.groupId)],
+);
+
+/** Sections are snapshotted per issue, exactly like questions. */
+export const issueSections = pgTable(
+  "issue_sections",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    issueId: uuid("issue_id")
+      .references(() => issues.id, { onDelete: "cascade" })
+      .notNull(),
+    sectionId: uuid("section_id").references(() => sections.id, { onDelete: "set null" }),
+    kind: sectionKindEnum("kind").notNull(),
+    title: text("title").notNull(),
+    emoji: text("emoji"),
+    description: text("description"),
+    adminOnly: boolean("admin_only").default(false).notNull(),
+    position: integer("position").default(0).notNull(),
+  },
+  (t) => [uniqueIndex("issue_sections_issue_section_idx").on(t.issueId, t.sectionId)],
+);
+
+/** One section answer per member per snapshotted section. */
+export const sectionReplies = pgTable(
+  "section_replies",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    issueId: uuid("issue_id")
+      .references(() => issues.id, { onDelete: "cascade" })
+      .notNull(),
+    issueSectionId: uuid("issue_section_id")
+      .references(() => issueSections.id, { onDelete: "cascade" })
+      .notNull(),
+    membershipId: uuid("membership_id")
+      .references(() => memberships.id, { onDelete: "cascade" })
+      .notNull(),
+    /** Standard section text, or the one-line caption on a music pick. */
+    body: text("body").default("").notNull(),
+    /** Music sections only: the pasted link and who it belongs to. */
+    linkUrl: text("link_url"),
+    linkProvider: text("link_provider"),
+    status: replyStatusEnum("status").default("draft").notNull(),
+    submittedAt: timestamp("submitted_at", { withTimezone: true }),
+    addedAfterDelivery: boolean("added_after_delivery").default(false).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [uniqueIndex("section_replies_unique_idx").on(t.issueId, t.issueSectionId, t.membershipId)],
+);
+
+/** Photos attached to a section answer; photo walls carry several with captions. */
+export const sectionMedia = pgTable(
+  "section_media",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    sectionReplyId: uuid("section_reply_id")
+      .references(() => sectionReplies.id, { onDelete: "cascade" })
+      .notNull(),
+    url: text("url").notNull(),
+    /** Required on photo walls; standard sections attach a single photo without one. */
+    caption: text("caption"),
+    position: integer("position").default(0).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [index("section_media_reply_idx").on(t.sectionReplyId)],
+);
+
+/** Cached metadata for pasted music links; render falls back to a plain card on a miss. */
+export const musicLinks = pgTable("music_links", {
+  url: text("url").primaryKey(),
+  provider: text("provider").notNull(),
+  title: text("title"),
+  artworkUrl: text("artwork_url"),
+  fetchedAt: timestamp("fetched_at", { withTimezone: true }).defaultNow().notNull(),
+});
 
 /** Every outgoing email lands here first. Tests read this instead of a mailbox. */
 export const outbox = pgTable(
