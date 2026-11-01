@@ -1,0 +1,325 @@
+import { test, beforeEach } from "node:test";
+import assert from "node:assert/strict";
+import path from "node:path";
+import { existsSync } from "node:fs";
+import { getNow, nowFromEnv } from "../../src/lib/clock.ts";
+import { e2eSeamsAllowed } from "../../src/lib/e2e.ts";
+import { emailPreviews } from "../../src/lib/email/previews.ts";
+import { deleteStoredPhoto, isManagedBlobPhotoUrl, storePhoto } from "../../src/lib/photo-storage.ts";
+import {
+  enableUiPreview,
+  isLocalUiPreview,
+  previewCookieMatches,
+  previewCookieName,
+  previewCookieValue,
+  previewKeyMatches,
+  previewSecret,
+  requireUiPreview,
+  UI_PREVIEW,
+  unlockUiInbox,
+} from "../../src/lib/ui-preview.ts";
+import { resetDatabase, rows, setEnv } from "../support/app.ts";
+import { E2E_NOW } from "../../e2e/support/clock.ts";
+import {
+  clearRequest,
+  cookieEntries,
+  setRequestBroken,
+  setRequestCookies,
+  setRequestHeaders,
+} from "../stubs/request.mjs";
+import { calls as blobCalls, reset as resetBlob } from "../stubs/vercel-blob.mjs";
+
+const JPEG = Uint8Array.from([0xff, 0xd8, 0xff, 0x00, 0x01]);
+const JPEG_FORMAT = { contentType: "image/jpeg", extension: "jpg" } as const;
+
+beforeEach(async () => {
+  await resetDatabase();
+  resetBlob();
+  clearRequest();
+  setRequestBroken(false);
+  setRequestHeaders({ "x-e2e-now": E2E_NOW.toISOString() });
+});
+
+// ── clock ────────────────────────────────────────────────────
+
+test("the clock survives being read outside a request", async () => {
+  (globalThis as { __CONNECTION_BROKEN__?: boolean }).__CONNECTION_BROKEN__ = true;
+  setRequestBroken(true);
+  try {
+    const at = await getNow();
+    assert.ok(Math.abs(at.getTime() - Date.now()) < 5_000);
+  } finally {
+    (globalThis as { __CONNECTION_BROKEN__?: boolean }).__CONNECTION_BROKEN__ = false;
+    setRequestBroken(false);
+  }
+});
+
+test("the clock override is refused on a production deployment", async () => {
+  const original = process.env.VERCEL_ENV;
+  try {
+    process.env.VERCEL_ENV = "production";
+    assert.equal(e2eSeamsAllowed(), false);
+    setRequestHeaders({ "x-e2e-now": "2020-01-01T00:00:00.000Z" });
+    const at = await getNow();
+    assert.ok(at.getFullYear() > 2020, "the header is ignored where it would matter");
+  } finally {
+    if (original === undefined) delete process.env.VERCEL_ENV;
+    else process.env.VERCEL_ENV = original;
+  }
+});
+
+test("scripts can pin the clock through the environment", () => {
+  const original = process.env.E2E_NOW;
+  try {
+    process.env.E2E_NOW = "2026-01-02T08:05:00.000Z";
+    assert.equal(nowFromEnv().toISOString(), E2E_NOW.toISOString());
+
+    process.env.E2E_NOW = "not-a-date";
+    assert.ok(Math.abs(nowFromEnv().getTime() - Date.now()) < 5_000);
+
+    delete process.env.E2E_NOW;
+    assert.ok(Math.abs(nowFromEnv().getTime() - Date.now()) < 5_000);
+  } finally {
+    if (original === undefined) delete process.env.E2E_NOW;
+    else process.env.E2E_NOW = original;
+  }
+});
+
+// ── email previews ───────────────────────────────────────────
+
+test("every email the product sends has a preview", () => {
+  const previews = emailPreviews();
+  assert.deepEqual(
+    previews.map((preview) => preview.id).sort(),
+    [
+      "delivery",
+      "deliveryShared",
+      "inviteContributor",
+      "inviteReader",
+      "paused",
+      "prompt",
+      "reminder",
+      "signIn",
+    ],
+  );
+  for (const preview of previews) {
+    assert.ok(preview.email.subject.length > 0, `${preview.id} has a subject`);
+    assert.ok(preview.email.html.includes("<!doctype html>"), `${preview.id} is a document`);
+    assert.ok(preview.email.text.length > 0, `${preview.id} has a plain-text body`);
+  }
+});
+
+// ── photo storage ────────────────────────────────────────────
+
+test("development photos are written to the public folder", async () => {
+  const url = await storePhoto(JPEG, JPEG_FORMAT);
+  assert.match(url, /^http:\/\/localhost:3100\/uploads\/[a-f0-9]{64}\.jpg$/);
+  const filename = path.join(process.cwd(), "public", "uploads", url.split("/").at(-1)!);
+  assert.equal(existsSync(filename), true);
+
+  await deleteStoredPhoto(url);
+  assert.equal(existsSync(filename), false);
+});
+
+test("production photos go to the blob store, and need its token", async (t) => {
+  const originalEnv = process.env.NODE_ENV;
+  const originalToken = process.env.BLOB_READ_WRITE_TOKEN;
+  t.after(() => {
+    setEnv("NODE_ENV", originalEnv);
+    if (originalToken === undefined) delete process.env.BLOB_READ_WRITE_TOKEN;
+    else process.env.BLOB_READ_WRITE_TOKEN = originalToken;
+  });
+
+  setEnv("NODE_ENV", "production");
+  delete process.env.BLOB_READ_WRITE_TOKEN;
+  await assert.rejects(storePhoto(JPEG, JPEG_FORMAT), /BLOB_READ_WRITE_TOKEN/);
+
+  process.env.BLOB_READ_WRITE_TOKEN = "vercel_blob_rw_test";
+  const url = await storePhoto(JPEG, JPEG_FORMAT);
+  assert.match(url, /^https:\/\/.+\.public\.blob\.vercel-storage\.com\/reply-photos\/[a-f0-9]{64}\.jpg$/);
+  const [upload] = blobCalls.put as Array<{
+    options: { contentType: string; addRandomSuffix: boolean };
+  }>;
+  assert.equal(blobCalls.put.length, 1);
+  assert.equal(upload.options.contentType, "image/jpeg");
+  assert.equal(upload.options.addRandomSuffix, false);
+
+  await deleteStoredPhoto(url);
+  assert.equal(blobCalls.del.length, 1);
+
+  // Without a token there is no way to remove a production photo.
+  delete process.env.BLOB_READ_WRITE_TOKEN;
+  await assert.rejects(deleteStoredPhoto(url), /BLOB_READ_WRITE_TOKEN/);
+});
+
+test("deleting a photo ignores anything that is not ours", async () => {
+  await deleteStoredPhoto("not a url at all");
+  await deleteStoredPhoto("https://example.com/somebody-elses.jpg");
+  await deleteStoredPhoto("http://localhost:3100/uploads/not-a-hash.jpg");
+  assert.deepEqual(blobCalls.del, []);
+});
+
+test("managed blob urls are recognised, and lookalikes are not", () => {
+  assert.equal(
+    isManagedBlobPhotoUrl(
+      "https://store123.public.blob.vercel-storage.com/reply-photos/" + "a".repeat(64) + ".jpg",
+    ),
+    true,
+  );
+  assert.equal(isManagedBlobPhotoUrl("https://evil.example/reply-photos/" + "a".repeat(64) + ".jpg"), false);
+  assert.equal(isManagedBlobPhotoUrl("not a url"), false);
+});
+
+// ── ui preview ───────────────────────────────────────────────
+
+test("the preview gate opens in local development and needs a key anywhere else", (t) => {
+  const originalEnv = process.env.NODE_ENV;
+  const originalVercel = process.env.VERCEL_ENV;
+  t.after(() => {
+    setEnv("NODE_ENV", originalEnv);
+    if (originalVercel === undefined) delete process.env.VERCEL_ENV;
+    else process.env.VERCEL_ENV = originalVercel;
+  });
+
+  setEnv("NODE_ENV", "development");
+  delete process.env.VERCEL_ENV;
+  assert.equal(isLocalUiPreview(), true);
+
+  setEnv("NODE_ENV", "production");
+  assert.equal(isLocalUiPreview(), false);
+
+  setEnv("NODE_ENV", "development");
+  process.env.VERCEL_ENV = "preview";
+  assert.equal(isLocalUiPreview(), false);
+});
+
+test("the preview key is compared hashed, and a missing secret locks everything", () => {
+  const original = process.env.UI_PREVIEW_SECRET;
+  try {
+    delete process.env.UI_PREVIEW_SECRET;
+    assert.equal(previewSecret(), null);
+    assert.equal(previewCookieValue(), null);
+    assert.equal(previewKeyMatches("anything"), false);
+    assert.equal(previewCookieMatches("anything"), false);
+
+    process.env.UI_PREVIEW_SECRET = "  s3cret  ";
+    assert.equal(previewSecret(), "s3cret");
+    assert.equal(previewKeyMatches("s3cret"), true);
+    assert.equal(previewKeyMatches("wrong"), false);
+    assert.equal(previewKeyMatches(null), false);
+
+    const cookie = previewCookieValue()!;
+    assert.notEqual(cookie, "s3cret", "the cookie never carries the secret");
+    assert.equal(previewCookieMatches(cookie), true);
+    assert.equal(previewCookieMatches("wrong"), false);
+    assert.equal(previewCookieMatches(undefined), false);
+  } finally {
+    if (original === undefined) delete process.env.UI_PREVIEW_SECRET;
+    else process.env.UI_PREVIEW_SECRET = original;
+  }
+});
+
+test("unlocking the inbox sets a scoped cookie only for the right key", async (t) => {
+  const original = process.env.UI_PREVIEW_SECRET;
+  t.after(() => {
+    if (original === undefined) delete process.env.UI_PREVIEW_SECRET;
+    else process.env.UI_PREVIEW_SECRET = original;
+  });
+  process.env.UI_PREVIEW_SECRET = "s3cret";
+
+  await unlockUiInbox("wrong");
+  assert.equal(cookieEntries().length, 0);
+
+  await unlockUiInbox("s3cret");
+  const cookies = cookieEntries();
+  assert.equal(cookies.length, 1);
+  assert.equal(cookies[0].name, previewCookieName());
+  assert.equal(cookies[0].value, previewCookieValue());
+
+  // Already unlocked: nothing is written twice.
+  setRequestCookies({ [previewCookieName()]: previewCookieValue()! });
+  await unlockUiInbox("s3cret");
+  assert.equal(cookieEntries().length, 1);
+
+  delete process.env.UI_PREVIEW_SECRET;
+  await unlockUiInbox("s3cret");
+  assert.equal(cookieEntries().length, 1, "no secret, no unlock");
+});
+
+test("the inbox gate answers 404 unless the cookie matches", async (t) => {
+  const originalEnv = process.env.NODE_ENV;
+  const originalSecret = process.env.UI_PREVIEW_SECRET;
+  t.after(() => {
+    setEnv("NODE_ENV", originalEnv);
+    if (originalSecret === undefined) delete process.env.UI_PREVIEW_SECRET;
+    else process.env.UI_PREVIEW_SECRET = originalSecret;
+  });
+
+  setEnv("NODE_ENV", "development");
+  delete process.env.VERCEL_ENV;
+  await requireUiPreview();
+
+  setEnv("NODE_ENV", "production");
+  process.env.UI_PREVIEW_SECRET = "s3cret";
+  clearRequest();
+  await assert.rejects(requireUiPreview(), (error: Error & { digest?: string }) => {
+    assert.equal(error.digest, "NEXT_HTTP_ERROR_FALLBACK;404");
+    return true;
+  });
+
+  setRequestCookies({ [previewCookieName()]: previewCookieValue()! });
+  await requireUiPreview();
+});
+
+test("the preview seeds one loop, and can rebuild it from scratch", async () => {
+  await enableUiPreview();
+  const afterFirst = await rows<{ count: number }>("select count(*)::int as count from groups");
+  assert.equal(afterFirst[0].count, 1);
+
+  const loops = await rows<{ id: string; is_synthetic: boolean }>("select id, is_synthetic from groups");
+  assert.equal(loops[0].id, UI_PREVIEW.groupId);
+  assert.equal(loops[0].is_synthetic, true);
+
+  // A signed-in preview session is part of the seed.
+  const cookies = cookieEntries();
+  assert.equal(cookies.length, 1);
+
+  const issues = await rows<{ status: string }>("select status from issues order by status");
+  assert.deepEqual(issues.map((row) => row.status).sort(), ["delivered", "open"]);
+
+  // Running it again is idempotent; resetting rebuilds it.
+  await enableUiPreview();
+  assert.equal((await rows<{ count: number }>("select count(*)::int as count from groups"))[0].count, 1);
+
+  await enableUiPreview(true);
+  assert.equal((await rows<{ count: number }>("select count(*)::int as count from groups"))[0].count, 1);
+  assert.equal((await rows<{ count: number }>("select count(*)::int as count from memberships"))[0].count, 2);
+});
+
+test("a local photo that cannot be unlinked is an error worth hearing about", async () => {
+  const { mkdir, rmdir } = await import("node:fs/promises");
+  const filename = path.join(process.cwd(), "public", "uploads", "d".repeat(64) + ".jpg");
+  // A directory where a file is expected: unlink fails with something other
+  // than ENOENT, and that is not silently swallowed.
+  await mkdir(filename, { recursive: true });
+  try {
+    await assert.rejects(
+      deleteStoredPhoto(`http://localhost:3100/uploads/${"d".repeat(64)}.jpg`),
+      (error: NodeJS.ErrnoException) => error.code !== "ENOENT",
+    );
+  } finally {
+    await rmdir(filename).catch(() => undefined);
+  }
+});
+
+test("an unparseable app url makes photo deletion a no-op, not a crash", async (t) => {
+  const original = process.env.NEXT_PUBLIC_APP_URL;
+  t.after(() => {
+    if (original === undefined) delete process.env.NEXT_PUBLIC_APP_URL;
+    else process.env.NEXT_PUBLIC_APP_URL = original;
+  });
+
+  process.env.NEXT_PUBLIC_APP_URL = "http://";
+  await deleteStoredPhoto("http://localhost:3100/uploads/" + "e".repeat(64) + ".jpg");
+  assert.deepEqual(blobCalls.del, []);
+});
