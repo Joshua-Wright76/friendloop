@@ -109,9 +109,20 @@ Status: `todo` (not built) · `done` (built and covered).
 | I4 | Readers are walled off | A reader has no suggest link, and a suggest URL reached by a reader (or a revoked/expired token) shows the standard no-access screen with no data leak. | done |
 | I5 | from_you stays quiet | No suggest affordance appears in prompt email, reply sheet, or dashboard in `from_you` mode. | done |
 
+## J · Voice replies
+
+| ID | Flow | Acceptance criteria | Status |
+| --- | --- | --- | --- |
+| J1 | Record an answer | On the reply sheet a question offers "record a voice note"; record, stop, preview with duration, attach. Draft autosave persists the audio; reloading keeps it. | done |
+| J2 | Replace and remove | A member can re-record over an attached note or delete it, before and after delivery; post-delivery replacement keeps the `added_after_delivery` truth on the web issue. | done |
+| J3 | Limits, plainly | Duration cap (target 2 minutes, hard stop 3) and size cap produce the same warm plain-language error, never a 500. | done |
+| J4 | Where recording isn't possible | A browser without MediaRecorder sees "your browser can't record here" plus a file-picker fallback accepting m4a/mp3/webm/ogg within the same caps. | done |
+| J5 | Reading and the email snapshot | The web issue renders a styled audio player; the delivery email renders a "voice note — listen on the web issue" card (email never attempts to embed audio). | done |
+| J6 | Media parity | Audio files are content-hashed and stored exactly like photos (local in dev, Blob in prod); share-link visitors can hear a shared issue's notes under the same rules as photos. | done |
+
 IDs are stable handles, not positions: a retired flow leaves its number out
 rather than renumbering the rest.
 
 ---
 
-**49 flows.** A flow is only `done` when its spec passes locally and in CI.
+**55 flows.** A flow is only `done` when its spec passes locally and in CI.

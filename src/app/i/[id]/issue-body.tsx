@@ -2,6 +2,7 @@
 
 import { useOptimistic, useState, useTransition } from "react";
 import { addComment, toggleReaction } from "./actions";
+import { formatAudioDuration } from "@/lib/audio-validation";
 import type { IssueAnswer, IssueBlock } from "@/lib/issue-view";
 import { Tape } from "@/components/stationery";
 import { copy, text } from "@/lib/copy";
@@ -123,6 +124,20 @@ function AnswerCard({
           alt={answer.body || text(copy.issue.photoAlt, { author: answer.author })}
           className="mt-3 w-full rounded-lg border border-line object-cover"
         />
+      ) : null}
+      {answer.audioUrl ? (
+        <figure className="mt-3">
+          <audio
+            controls
+            preload="none"
+            src={answer.audioUrl}
+            aria-label={text(copy.issue.voiceLabel, { duration: formatAudioDuration(answer.audioDurationMs ?? 0) })}
+            className="w-full"
+          />
+          <figcaption className="mt-1 text-[12px] text-ink-muted numeric">
+            {text(copy.issue.voiceLabel, { duration: formatAudioDuration(answer.audioDurationMs ?? 0) })}
+          </figcaption>
+        </figure>
       ) : null}
       {answer.addedLater ? (
         <p className="mt-2 text-[12px] text-ink-muted">

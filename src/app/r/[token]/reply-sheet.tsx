@@ -11,10 +11,18 @@ import { formatTimeInZone } from "@/lib/format";
 import { MAX_DISPLAY_NAME } from "@/lib/names";
 import { MAX_PHOTO_BYTES, PHOTO_ACCEPT } from "@/lib/photo-validation";
 import {
+  MAX_AUDIO_BYTES,
+  MAX_AUDIO_DURATION_MS,
+  AUDIO_ACCEPT,
+  formatAudioDuration,
+} from "@/lib/audio-validation";
+import {
   createSerialDraftWriter,
   postReply,
+  removeReplyAudio,
   removeReplyPhoto,
   saveReplyName,
+  uploadReplyAudio,
   uploadReplyPhoto,
 } from "@/lib/reply-client";
 
@@ -24,6 +32,8 @@ export type SheetQuestion = {
   text: string;
   body: string;
   photoUrl: string | null;
+  audioUrl: string | null;
+  audioDurationMs: number | null;
   submitted: boolean;
 };
 
@@ -64,6 +74,7 @@ function viewerTimeLabel(deliversAtIso: string, loopTimezone: string): string | 
 type SaveStatus = "idle" | "saving" | "saved" | "error";
 type QuestionSaveStatus = "empty" | "saving" | "saved" | "error";
 type PhotoStatus = "idle" | "uploading" | "saved" | "removing" | "removed" | "uploadError" | "removeError";
+type AudioStatus = "idle" | "recording" | "uploading" | "saved" | "removing" | "removed" | "uploadError" | "removeError";
 
 export function ReplySheet({
   token,
@@ -100,6 +111,27 @@ export function ReplySheet({
   );
   const [photoErrors, setPhotoErrors] = useState<Record<string, string | null>>({});
   const [retryablePhotos, setRetryablePhotos] = useState<Record<string, boolean>>({});
+  const [audioUrls, setAudioUrls] = useState<Record<string, string | null>>(() =>
+    Object.fromEntries(questions.map((question) => [question.id, question.audioUrl])),
+  );
+  const [audioDurations, setAudioDurations] = useState<Record<string, number | null>>(() =>
+    Object.fromEntries(questions.map((question) => [question.id, question.audioDurationMs])),
+  );
+  const [audioStates, setAudioStates] = useState<Record<string, AudioStatus>>(() =>
+    Object.fromEntries(questions.map((question) => [question.id, "idle"])),
+  );
+  const [audioErrors, setAudioErrors] = useState<Record<string, string | null>>({});
+  const [retryableAudio, setRetryableAudio] = useState<Record<string, boolean>>({});
+  const [audioPreviews, setAudioPreviews] = useState<Record<string, string | null>>({});
+  const [recording, setRecording] = useState<{ questionId: string; startedAt: number } | null>(null);
+  const [recordingElapsed, setRecordingElapsed] = useState(0);
+  // Server snapshot stays false so the sheet renders identically on the server;
+  // recording affordances appear once the browser says it can.
+  const canRecord = useSyncExternalStore(
+    subscribeToNothing,
+    () => typeof MediaRecorder !== "undefined" && Boolean(navigator.mediaDevices?.getUserMedia),
+    () => false,
+  );
   const [sent, setSent] = useState(() => questions.some((question) => question.submitted));
   const [animateSentStamp, setAnimateSentStamp] = useState(false);
   const [sending, setSending] = useState(false);
@@ -111,6 +143,12 @@ export function ReplySheet({
   const photoFiles = useRef(new Map<string, File>());
   const photoObjectUrls = useRef(new Map<string, string>());
   const photoLocks = useRef(new Set<string>());
+  const audioPending = useRef(new Map<string, { blob: Blob; filename: string; durationMs: number }>());
+  const audioObjectUrls = useRef(new Map<string, string>());
+  const audioLocks = useRef(new Set<string>());
+  const recorder = useRef<MediaRecorder | null>(null);
+  const recordingChunks = useRef<Blob[]>([]);
+  const recordingTimer = useRef<ReturnType<typeof setInterval> | null>(null);
   const latestBodies = useRef<Record<string, string>>(
     Object.fromEntries(questions.map((question) => [question.id, question.body])),
   );
@@ -128,9 +166,15 @@ export function ReplySheet({
   );
   const answered = useMemo(
     () => questions.filter((question) =>
-      (bodies[question.id] ?? "").trim().length > 0 || Boolean(photoUrls[question.id]),
+      (bodies[question.id] ?? "").trim().length > 0 ||
+      Boolean(photoUrls[question.id]) ||
+      Boolean(audioUrls[question.id]),
     ).length,
-    [bodies, photoUrls, questions],
+    [audioUrls, bodies, photoUrls, questions],
+  );
+  const audioBusy = useMemo(
+    () => Object.values(audioStates).some((state) => state === "uploading" || state === "removing"),
+    [audioStates],
   );
   const photoBusy = useMemo(
     () => Object.values(photoStates).some((state) => state === "uploading" || state === "removing"),
@@ -303,6 +347,182 @@ export function ReplySheet({
       void removePhoto(questionId);
     }
   }, [photoStates, removePhoto, uploadPhoto]);
+
+  const clearAudioPreview = useCallback((questionId: string) => {
+    const objectUrl = audioObjectUrls.current.get(questionId);
+    if (objectUrl) URL.revokeObjectURL(objectUrl);
+    audioObjectUrls.current.delete(questionId);
+    setAudioPreviews((current) => ({ ...current, [questionId]: null }));
+  }, []);
+
+  const uploadAudio = useCallback(async (questionId: string, blob: Blob, filename: string, durationMs: number) => {
+    if (audioLocks.current.has(questionId)) return;
+    audioLocks.current.add(questionId);
+    setAudioStates((current) => ({ ...current, [questionId]: "uploading" }));
+    setAudioErrors((current) => ({ ...current, [questionId]: null }));
+
+    const result = await uploadReplyAudio(token, questionId, blob, filename, durationMs, copy.reply.errors.audioSaveFailed);
+    audioLocks.current.delete(questionId);
+
+    if (result.ok) {
+      setAudioUrls((current) => ({ ...current, [questionId]: result.audioUrl }));
+      setAudioDurations((current) => ({ ...current, [questionId]: result.audioDurationMs }));
+      audioPending.current.delete(questionId);
+      setRetryableAudio((current) => ({ ...current, [questionId]: false }));
+      setAudioStates((current) => ({ ...current, [questionId]: "saved" }));
+      setAudioErrors((current) => ({ ...current, [questionId]: null }));
+    } else {
+      audioPending.current.set(questionId, { blob, filename, durationMs });
+      setRetryableAudio((current) => ({ ...current, [questionId]: true }));
+      setAudioStates((current) => ({ ...current, [questionId]: "uploadError" }));
+      setAudioErrors((current) => ({ ...current, [questionId]: result.error }));
+    }
+    clearAudioPreview(questionId);
+  }, [clearAudioPreview, token]);
+
+  const stopRecording = useCallback((questionId: string, discard: boolean) => {
+    const active = recorder.current;
+    if (!active || active.state === "inactive") {
+      setRecording(null);
+      setRecordingElapsed(0);
+      return;
+    }
+    const startedAt = recording?.startedAt ?? Date.now();
+    active.onstop = () => {
+      const durationMs = Date.now() - startedAt;
+      const type = active.mimeType || "audio/webm";
+      const blob = new Blob(recordingChunks.current, { type });
+      recordingChunks.current = [];
+      for (const track of active.stream.getTracks()) track.stop();
+      recorder.current = null;
+      if (recordingTimer.current) {
+        clearInterval(recordingTimer.current);
+        recordingTimer.current = null;
+      }
+      setRecording(null);
+      setRecordingElapsed(0);
+
+      if (discard || durationMs > MAX_AUDIO_DURATION_MS) {
+        setAudioStates((current) => ({ ...current, [questionId]: "uploadError" }));
+        setAudioErrors((current) => ({ ...current, [questionId]: copy.reply.voiceTooLong }));
+        return;
+      }
+      const extension = type.includes("mp4") ? "m4a" : type.includes("ogg") ? "ogg" : "webm";
+      void uploadAudio(questionId, blob, `voice-note.${extension}`, durationMs);
+    };
+    active.stop();
+  }, [recording, uploadAudio]);
+
+  const startRecording = useCallback(async (questionId: string) => {
+    if (recording || audioLocks.current.has(questionId)) return;
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mime = [
+        "audio/webm;codecs=opus",
+        "audio/webm",
+        "audio/mp4",
+      ].find((candidate) => typeof MediaRecorder !== "undefined" && MediaRecorder.isTypeSupported(candidate));
+      const active = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined);
+      recordingChunks.current = [];
+      active.ondataavailable = (event) => {
+        if (event.data.size > 0) recordingChunks.current.push(event.data);
+      };
+      const startedAt = Date.now();
+      active.start(250);
+      recorder.current = active;
+      setRecording({ questionId, startedAt });
+      setAudioStates((current) => ({ ...current, [questionId]: "recording" }));
+      setAudioErrors((current) => ({ ...current, [questionId]: null }));
+      recordingTimer.current = setInterval(() => {
+        const elapsed = Date.now() - startedAt;
+        if (elapsed >= MAX_AUDIO_DURATION_MS) {
+          // The hard stop: over three minutes discards the take with a warm error.
+          stopRecording(questionId, true);
+          return;
+        }
+        setRecordingElapsed(elapsed);
+      }, 200);
+    } catch {
+      setAudioStates((current) => ({ ...current, [questionId]: "uploadError" }));
+      setAudioErrors((current) => ({ ...current, [questionId]: copy.reply.voiceNoRecorder }));
+    }
+  }, [recording, stopRecording]);
+
+  const pickAudioFile = useCallback((questionId: string, file: File) => {
+    if (audioLocks.current.has(questionId)) return;
+    if (file.size > MAX_AUDIO_BYTES) {
+      setAudioStates((current) => ({ ...current, [questionId]: "uploadError" }));
+      setAudioErrors((current) => ({ ...current, [questionId]: copy.reply.voiceTooLarge }));
+      return;
+    }
+    const objectUrl = URL.createObjectURL(file);
+    const probe = new Audio();
+    probe.preload = "metadata";
+    const cleanup = () => URL.revokeObjectURL(objectUrl);
+    probe.onloadedmetadata = () => {
+      cleanup();
+      const durationMs = Number.isFinite(probe.duration) ? probe.duration * 1000 : NaN;
+      if (!Number.isFinite(durationMs) || durationMs > MAX_AUDIO_DURATION_MS) {
+        setAudioStates((current) => ({ ...current, [questionId]: "uploadError" }));
+        setAudioErrors((current) => ({ ...current, [questionId]: copy.reply.voiceTooLong }));
+        return;
+      }
+      const oldObjectUrl = audioObjectUrls.current.get(questionId);
+      if (oldObjectUrl) URL.revokeObjectURL(oldObjectUrl);
+      audioObjectUrls.current.set(questionId, objectUrl);
+      setAudioPreviews((current) => ({ ...current, [questionId]: objectUrl }));
+      void uploadAudio(questionId, file, file.name, durationMs);
+    };
+    probe.onerror = () => {
+      cleanup();
+      setAudioStates((current) => ({ ...current, [questionId]: "uploadError" }));
+      setAudioErrors((current) => ({ ...current, [questionId]: copy.reply.errors.invalidAudio }));
+    };
+    probe.src = objectUrl;
+  }, [uploadAudio]);
+
+  const removeAudio = useCallback(async (questionId: string) => {
+    if (audioLocks.current.has(questionId)) return;
+    audioPending.current.delete(questionId);
+    setRetryableAudio((current) => ({ ...current, [questionId]: false }));
+    clearAudioPreview(questionId);
+    setAudioErrors((current) => ({ ...current, [questionId]: null }));
+
+    if (!audioUrls[questionId]) {
+      setAudioStates((current) => ({ ...current, [questionId]: "removed" }));
+      return;
+    }
+
+    audioLocks.current.add(questionId);
+    setAudioStates((current) => ({ ...current, [questionId]: "removing" }));
+    const result = await removeReplyAudio(token, questionId, copy.reply.errors.audioRemoveFailed);
+    audioLocks.current.delete(questionId);
+
+    if (result.ok) {
+      setAudioUrls((current) => ({ ...current, [questionId]: null }));
+      setAudioDurations((current) => ({ ...current, [questionId]: null }));
+      setAudioStates((current) => ({ ...current, [questionId]: "removed" }));
+    } else {
+      setAudioStates((current) => ({ ...current, [questionId]: "removeError" }));
+      setAudioErrors((current) => ({ ...current, [questionId]: result.error }));
+    }
+  }, [audioUrls, clearAudioPreview, token]);
+
+  const retryAudio = useCallback((questionId: string) => {
+    if (audioStates[questionId] === "uploadError") {
+      const pending = audioPending.current.get(questionId);
+      if (pending) void uploadAudio(questionId, pending.blob, pending.filename, pending.durationMs);
+    } else if (audioStates[questionId] === "removeError") {
+      void removeAudio(questionId);
+    }
+  }, [audioStates, removeAudio, uploadAudio]);
+
+  useEffect(() => () => {
+    if (recordingTimer.current) clearInterval(recordingTimer.current);
+    recorder.current?.stream.getTracks().forEach((track) => track.stop());
+    for (const objectUrl of audioObjectUrls.current.values()) URL.revokeObjectURL(objectUrl);
+    audioObjectUrls.current.clear();
+  }, []);
 
   const persist = useCallback(
     async (questionId: string, body: string) => {
@@ -501,8 +721,28 @@ export function ReplySheet({
                   : photoState === "removed"
                     ? copy.reply.photoRemoved
                     : photoErrors[question.id];
+            const audioState = audioStates[question.id] ?? "idle";
+            const audioUrl = audioUrls[question.id];
+            const audioPreview = audioPreviews[question.id];
+            const voiceBusyForCard = audioState === "uploading" || audioState === "removing";
+            const showVoiceRemove = Boolean(
+              audioUrl ||
+                audioPreview ||
+                (audioState === "uploadError" && retryableAudio[question.id]) ||
+                audioState === "removeError",
+            );
+            const audioStatusText = audioState === "uploading"
+              ? copy.reply.voiceUploading
+              : audioState === "removing"
+                ? copy.reply.voiceRemoving
+                : audioState === "saved"
+                  ? copy.reply.voiceSaved
+                  : audioState === "removed"
+                    ? copy.reply.voiceRemoved
+                    : audioErrors[question.id];
 
             return (
+            <>
             <section key={question.id} className="card paper ride-in block p-5 pt-7">
               <Tape tone={(["dots", "stripe", "mint", "check"] as const)[index % 4]} position={index % 2 ? "right" : "left"} />
               <div className="mb-3 flex items-start justify-between gap-3">
@@ -605,6 +845,99 @@ export function ReplySheet({
                 </button>
               ) : null}
             </section>
+
+            <section aria-label={copy.reply.voiceRecord} className="mt-4 border-t border-line pt-4">
+              {recording?.questionId === question.id ? (
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-[13px] font-medium text-ink numeric" role="status">
+                    {text(copy.reply.voiceRecording, { elapsed: formatAudioDuration(recordingElapsed) })}
+                  </p>
+                  <button
+                    type="button"
+                    className="btn btn-primary min-h-11 px-4 text-[13px]"
+                    onClick={() => stopRecording(question.id, false)}
+                  >
+                    {copy.reply.voiceStop}
+                  </button>
+                </div>
+              ) : (
+                <div className="flex flex-wrap items-center gap-2">
+                  {canRecord ? (
+                    <button
+                      type="button"
+                      className="btn btn-quiet min-h-11 px-4 text-[13px]"
+                      onClick={() => void startRecording(question.id)}
+                      disabled={sending || voiceBusyForCard || Boolean(recording)}
+                    >
+                      {audioUrl ? copy.reply.voiceReplace : copy.reply.voiceRecord}
+                    </button>
+                  ) : null}
+                  <input
+                    id={`audio-${question.id}`}
+                    type="file"
+                    accept={AUDIO_ACCEPT}
+                    className="peer sr-only"
+                    disabled={sending || voiceBusyForCard || Boolean(recording)}
+                    onChange={(event) => {
+                      const file = event.target.files?.[0];
+                      if (file) pickAudioFile(question.id, file);
+                      event.target.value = "";
+                    }}
+                  />
+                  <label
+                    htmlFor={`audio-${question.id}`}
+                    className="btn btn-quiet min-h-11 px-4 text-[13px] peer-disabled:pointer-events-none peer-disabled:opacity-45 peer-focus-visible:outline peer-focus-visible:outline-3 peer-focus-visible:outline-accent peer-focus-visible:outline-offset-2"
+                  >
+                    {copy.reply.voicePick}
+                  </label>
+                  {showVoiceRemove ? (
+                    <button
+                      type="button"
+                      className="btn btn-quiet min-h-11 px-4 text-[13px]"
+                      onClick={() => void removeAudio(question.id)}
+                      disabled={sending || voiceBusyForCard}
+                    >
+                      {copy.reply.voiceRemove}
+                    </button>
+                  ) : null}
+                  {!canRecord && !audioUrl ? (
+                    <span className="text-[12px] leading-relaxed text-ink-muted">{copy.reply.voiceNoRecorder}</span>
+                  ) : null}
+                </div>
+              )}
+              {(audioPreview || audioUrl) ? (
+                <audio
+                  controls
+                  preload="none"
+                  src={audioPreview ?? audioUrl ?? ""}
+                  aria-label={text(copy.reply.voiceDurationLabel, { duration: formatAudioDuration(audioDurations[question.id] ?? 0) })}
+                  className="mt-2 w-full"
+                />
+              ) : null}
+              {audioStatusText ? (
+                <p
+                  id={`audio-status-${question.id}`}
+                  role={audioState === "uploadError" || audioState === "removeError" ? "alert" : "status"}
+                  aria-live={audioState === "uploadError" || audioState === "removeError" ? "assertive" : "polite"}
+                  aria-atomic="true"
+                  className={`mt-2 text-[13px] leading-relaxed ${audioState === "uploadError" || audioState === "removeError" ? "text-danger" : "text-ink-muted"}`}
+                >
+                  {audioStatusText}
+                </p>
+              ) : null}
+              {(audioState === "removeError" || (audioState === "uploadError" && retryableAudio[question.id] && !recording)) ? (
+                <button
+                  type="button"
+                  className="mt-1 min-h-11 text-[13px] font-bold text-ink underline underline-offset-2"
+                  onClick={() => retryAudio(question.id)}
+                  disabled={sending || voiceBusyForCard}
+                >
+                  {audioState === "removeError" ? copy.reply.voiceRetryRemove : copy.reply.voiceRetryUpload}
+                </button>
+              ) : null}
+              <p className="mt-1 text-[12px] leading-relaxed text-ink-muted">{copy.reply.voiceFormats}</p>
+            </section>
+            </>
             );
           })}
         </div>
@@ -648,7 +981,7 @@ export function ReplySheet({
           <button
             type="button"
             onClick={onSend}
-            disabled={sending || photoBusy || (!sent && answered === 0)}
+            disabled={sending || photoBusy || audioBusy || (!sent && answered === 0)}
             className="btn btn-primary"
           >
             {sending ? copy.reply.sending : sent ? copy.reply.saveChanges : copy.reply.sendAnswers}

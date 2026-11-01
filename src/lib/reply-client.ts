@@ -144,3 +144,62 @@ export function createSerialDraftWriter<T>(write: (questionId: string, body: str
     });
   };
 }
+
+export type AudioSaveResult =
+  | { ok: true; savedAt: string; audioUrl: string; audioDurationMs: number }
+  | { ok: false; error: string };
+
+/** A recording or picked file goes straight to the app — it never needs the Blob client flow. */
+export async function uploadReplyAudio(
+  token: string,
+  issueQuestionId: string,
+  audio: Blob,
+  filename: string,
+  durationMs: number,
+  genericError: string,
+  fetcher: typeof fetch = fetch,
+): Promise<AudioSaveResult> {
+  try {
+    const form = new FormData();
+    form.set("issueQuestionId", issueQuestionId);
+    form.set("audio", audio, filename);
+    form.set("durationMs", String(Math.round(durationMs)));
+    const response = await fetcher(`/api/reply/${token}/audio`, { method: "POST", body: form });
+    const data = (await response.json()) as {
+      ok?: boolean;
+      savedAt?: string;
+      audioUrl?: string;
+      audioDurationMs?: number;
+      error?: string;
+    };
+    if (!response.ok || !data.ok || !data.audioUrl || typeof data.audioDurationMs !== "number") {
+      return { ok: false, error: data.error ?? genericError };
+    }
+    return {
+      ok: true,
+      savedAt: data.savedAt ?? "",
+      audioUrl: data.audioUrl,
+      audioDurationMs: data.audioDurationMs,
+    };
+  } catch {
+    return { ok: false, error: genericError };
+  }
+}
+
+export async function removeReplyAudio(
+  token: string,
+  issueQuestionId: string,
+  genericError: string,
+  fetcher: typeof fetch = fetch,
+): Promise<SaveResult> {
+  try {
+    const response = await fetcher(`/api/reply/${token}/audio`, {
+      method: "DELETE",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ issueQuestionId }),
+    });
+    return await parseSaveResult(response, genericError);
+  } catch {
+    return { ok: false, error: genericError };
+  }
+}

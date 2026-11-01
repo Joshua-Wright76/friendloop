@@ -17,6 +17,8 @@ export type IssueAnswer = {
   isYou: boolean;
   body: string;
   photoUrl: string | null;
+  audioUrl: string | null;
+  audioDurationMs: number | null;
   addedLater: boolean;
   reactions: Array<{ emoji: string; count: number; mine: boolean }>;
 };
@@ -89,6 +91,8 @@ export async function loadIssue(input: {
       issueQuestionId: replies.issueQuestionId,
       body: replies.body,
       photoUrl: replies.photoUrl,
+      audioUrl: replies.audioUrl,
+      audioDurationMs: replies.audioDurationMs,
       addedAfterDelivery: replies.addedAfterDelivery,
       membershipId: replies.membershipId,
       name: memberships.name,
@@ -118,6 +122,8 @@ export async function loadIssue(input: {
           isYou: mine,
           body: row.body,
           photoUrl: row.photoUrl,
+          audioUrl: row.audioUrl,
+          audioDurationMs: row.audioDurationMs,
           addedLater: row.addedAfterDelivery,
           reactions: REACTIONS.map((emoji) => ({
             emoji,
