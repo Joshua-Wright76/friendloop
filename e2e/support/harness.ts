@@ -103,3 +103,8 @@ export async function pickOption(
 export async function waitForSheet(page: Page): Promise<void> {
   await expect(page.locator("textarea").first()).toHaveAttribute("style", /height:\s*\d+px/);
 }
+
+/** The HTML body of the newest email whose dedupe key starts with `prefix`. */
+export async function latestOutboxBody(prefix: string): Promise<string> {
+  return (await latestOutbox(prefix)).html;
+}

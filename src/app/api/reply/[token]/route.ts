@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { saveDraftFor, saveNameFor, submitFor } from "@/lib/reply";
+import { saveDraftFor, saveNameFor, savePollChoicesFor, submitFor } from "@/lib/reply";
 import { saveSectionMusicFor, saveSectionTextFor } from "@/lib/sections";
 import { copy } from "@/lib/copy";
 
@@ -10,7 +10,7 @@ import { copy } from "@/lib/copy";
 export async function POST(request: Request, { params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
 
-  let payload: { action?: string; issueQuestionId?: string; issueSectionId?: string; body?: string; name?: string; url?: string; caption?: string };
+  let payload: { action?: string; issueQuestionId?: string; issueSectionId?: string; choices?: unknown; body?: string; name?: string; url?: string; caption?: string };
   try {
     payload = await request.json();
   } catch {
@@ -57,6 +57,20 @@ export async function POST(request: Request, { params }: { params: Promise<{ tok
       issueSectionId: payload.issueSectionId,
       url: typeof payload.url === "string" ? payload.url : "",
       caption: typeof payload.caption === "string" ? payload.caption : "",
+    });
+    return result.ok
+      ? NextResponse.json({ ok: true, savedAt: result.savedAt })
+      : NextResponse.json({ error: result.error }, { status: result.status });
+  }
+
+  if (payload.action === "pollChoice") {
+    if (typeof payload.issueQuestionId !== "string") {
+      return NextResponse.json({ error: copy.reply.errors.missingQuestion }, { status: 400 });
+    }
+    const result = await savePollChoicesFor({
+      token,
+      issueQuestionId: payload.issueQuestionId,
+      choices: payload.choices,
     });
     return result.ok
       ? NextResponse.json({ ok: true, savedAt: result.savedAt })

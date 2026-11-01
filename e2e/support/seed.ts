@@ -147,6 +147,9 @@ export async function seedOpenIssue(
         questionId: question.id,
         text: question.text,
         position: index,
+        kind: question.kind,
+        pollMultiple: question.pollMultiple,
+        pollOptions: question.pollOptions,
       })),
     );
   }
@@ -248,6 +251,9 @@ export async function seedDeliveredIssue(
         questionId: question.id,
         text: question.text,
         position: index,
+        kind: question.kind,
+        pollMultiple: question.pollMultiple,
+        pollOptions: question.pollOptions,
       })),
     );
   }
