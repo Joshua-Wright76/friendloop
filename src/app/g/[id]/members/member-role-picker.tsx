@@ -6,10 +6,10 @@ import { Picker, type PickerOption } from "@/components/picker";
 import { copy, text } from "@/lib/copy";
 import { roleAction } from "./actions";
 
-type Access = "member" | "admin" | "owner";
-type Props = { groupId: string; membershipId: string; memberName: string; current: "member" | "admin"; canAssignOwner: boolean };
+type Access = "member" | "admin";
+type Props = { groupId: string; membershipId: string; memberName: string; current: "member" | "admin" };
 
-export function MemberRolePicker({ groupId, membershipId, memberName, current, canAssignOwner }: Props) {
+export function MemberRolePicker({ groupId, membershipId, memberName, current }: Props) {
   const router = useRouter();
   const [access, setAccess] = useState<Access>(current);
   const [message, setMessage] = useState("");
@@ -17,7 +17,6 @@ export function MemberRolePicker({ groupId, membershipId, memberName, current, c
   const options: PickerOption[] = [
     { value: "member", label: copy.common.roles.member },
     { value: "admin", label: copy.common.roles.admin },
-    ...(canAssignOwner ? [{ value: "owner", label: copy.common.roles.owner }] : []),
   ];
 
   function update(next: string) {

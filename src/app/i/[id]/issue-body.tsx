@@ -6,6 +6,7 @@ import { CommentThread } from "./comment-thread";
 import { formatAudioDuration } from "@/lib/audio-validation";
 import type { IssueComment } from "@/lib/comment-view";
 import type { IssueAnswer, IssueBlock, IssuePoll, IssueSectionBlock } from "@/lib/issue-view";
+import { Avatar } from "@/components/avatar";
 import { Tape } from "@/components/stationery";
 import { copy, text } from "@/lib/copy";
 
@@ -99,7 +100,7 @@ export function IssueBody({
               section.replies.map((reply) => (
                 <div key={reply.replyId} className="mt-4 border-t border-line pt-4 first:border-t-0">
                   <div className="flex items-center gap-2.5">
-                    <span className="avatar" aria-hidden="true">{reply.author.charAt(0)}</span>
+                    <Avatar name={reply.author} photoUrl={reply.authorPhotoUrl} />
                     <p className="m-0 text-[14px] font-extrabold text-ink-soft">{reply.author}</p>
                   </div>
                   {reply.body ? (
@@ -223,7 +224,7 @@ function AnswerCard({
   return (
     <article className="answer-card mt-4 border-t border-line pt-4 first:border-t-0">
       <div className="flex items-center gap-2.5">
-        <span className="avatar" aria-hidden="true">{answer.author.charAt(0)}</span>
+        <Avatar name={answer.author} photoUrl={answer.authorPhotoUrl} />
         <p className="m-0 text-[14px] font-extrabold text-ink-soft">{answer.author}</p>
       </div>
       {answer.choices.length > 0 ? (

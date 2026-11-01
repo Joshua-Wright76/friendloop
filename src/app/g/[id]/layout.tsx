@@ -12,6 +12,7 @@ import { membersOf } from "@/lib/manage";
 import { describeDeadline, nextSlot, weekdayName } from "@/lib/schedule";
 import { url } from "@/lib/urls";
 import LoopLoading from "./loading";
+import { LoopBanner, LoopTheme } from "@/components/loop-theme";
 import { LoopDataProvider, type LoopData } from "./loop-data";
 
 type Props = {
@@ -46,6 +47,7 @@ async function LoadedGroupLayout({ children, params }: Props) {
         userId: memberships.userId,
         email: memberships.email,
         name: memberships.name,
+        photoUrl: memberships.photoUrl,
         access: memberships.access,
         participation: memberships.participation,
         invitedAt: memberships.invitedAt,
@@ -82,6 +84,7 @@ async function LoadedGroupLayout({ children, params }: Props) {
     db.select({
       id: issues.id,
       number: issues.number,
+      name: issues.name,
       status: issues.status,
       opensAt: issues.opensAt,
       deliversAt: issues.deliversAt,
@@ -162,5 +165,15 @@ async function LoadedGroupLayout({ children, params }: Props) {
     weekdayLabel: weekdayName(group.promptWeekday),
   };
 
-  return <LoopDataProvider data={data}>{children}</LoopDataProvider>;
+  return (
+    <LoopDataProvider data={data}>
+      <LoopTheme preset={group.themePreset} accent={group.themeAccent} />
+      {group.headerImageUrl ? (
+        <div className="mx-auto w-full max-w-[680px] px-4 pt-5 sm:px-6">
+          <LoopBanner url={group.headerImageUrl} />
+        </div>
+      ) : null}
+      {children}
+    </LoopDataProvider>
+  );
 }

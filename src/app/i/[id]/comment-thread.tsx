@@ -11,6 +11,7 @@ import {
 } from "@/lib/mention-picker";
 import type { MentionPick } from "@/lib/mentions";
 import { MAX_PHOTO_BYTES, PHOTO_ACCEPT } from "@/lib/photo-validation";
+import { Avatar } from "@/components/avatar";
 import { copy, text } from "@/lib/copy";
 
 type Quote = { id: string; author: string };
@@ -79,7 +80,10 @@ export function CommentThread({
 function CommentItem({ comment, onReply }: { comment: IssueComment; onReply: (() => void) | null }) {
   return (
     <div className="px-1 py-3 sm:px-4">
-      <p className="text-[13px] font-medium text-ink-soft">{comment.author}</p>
+      <div className="flex items-center gap-2">
+        <Avatar name={comment.author} photoUrl={comment.authorPhotoUrl} className="!h-6 !w-6 !text-[11px]" />
+        <p className="m-0 text-[13px] font-medium text-ink-soft">{comment.author}</p>
+      </div>
       {comment.quote ? (
         <blockquote className="comment-quote mt-1.5">
           {comment.quote.removed ? (
@@ -305,7 +309,7 @@ function CommentComposer({
                 choose(person);
               }}
             >
-              <span className="avatar !h-7 !w-7 !text-[12px]" aria-hidden="true">{person.name.charAt(0)}</span>
+              <Avatar name={person.name} photoUrl={person.photoUrl} className="!h-7 !w-7 !text-[12px]" />
               {person.name}
             </li>
           ))}

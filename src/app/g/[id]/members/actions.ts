@@ -99,16 +99,8 @@ export async function roleAction(formData: FormData) {
   const viewer = await viewerFor(groupId);
   if (!viewer || viewer.membership.access === "member") redirect(`/g/${groupId}`);
 
-  if (access === "owner") {
-    if (viewer.membership.access !== "owner") return { ok: false as const };
-    try {
-      await transferOwnership(groupId, viewer.membership.id, membershipId);
-      revalidatePath(`/g/${groupId}`, "layout");
-    } catch {
-      return { ok: false as const };
-    }
-    redirect(`/g/${groupId}/members?transferred=1`);
-  }
+  // Ownership moves through `transferAction`, which asks for a confirmation.
+  if (access === "owner") return { ok: false as const };
 
   try {
     const updated = await setAccess(groupId, membershipId, access === "admin" ? "admin" : "member");
@@ -120,13 +112,18 @@ export async function roleAction(formData: FormData) {
   }
 }
 
+/**
+ * Hand the loop to an admin. The form carries the new owner's membership id and
+ * an explicit confirmation; the acting owner is read from the session, never the form.
+ */
 export async function transferAction(formData: FormData) {
   const groupId = String(formData.get("groupId") ?? "");
   const membershipId = String(formData.get("membershipId") ?? "");
   const viewer = await viewerFor(groupId);
   if (!viewer || viewer.membership.access !== "owner") redirect(`/g/${groupId}`);
+  if (formData.get("confirm") !== "yes") redirect(`/g/${groupId}/members?transferError=1`);
 
-  await transferOwnership(groupId, viewer.membership.id, membershipId);
+  const moved = await transferOwnership(groupId, viewer.membership.id, membershipId);
   revalidatePath(`/g/${groupId}`, "layout");
-  redirect(`/g/${groupId}/members?transferred=1`);
+  redirect(`/g/${groupId}/members?${moved ? "transferred=1" : "transferError=1"}`);
 }

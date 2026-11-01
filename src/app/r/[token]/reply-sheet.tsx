@@ -5,7 +5,10 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import type { Deadline } from "@/lib/schedule";
+import { LoopBanner } from "@/components/loop-theme";
+import { ProfilePhoto } from "@/components/profile-photo";
 import { Cherries, Tape } from "@/components/stationery";
+import { issueTitle } from "@/lib/issue-name";
 import { copy, text } from "@/lib/copy";
 import { formatTimeInZone } from "@/lib/format";
 import { MAX_DISPLAY_NAME } from "@/lib/names";
@@ -52,6 +55,9 @@ type Props = {
   loopName: string;
   loopTimezone: string;
   roundNumber: number;
+  roundName: string | null;
+  headerImageUrl: string | null;
+  photoUrl: string | null;
   deadline: Deadline;
   deliversAtIso: string;
   displayName: string;
@@ -91,6 +97,9 @@ export function ReplySheet({
   loopName,
   loopTimezone,
   roundNumber,
+  roundName,
+  headerImageUrl,
+  photoUrl,
   deadline,
   deliversAtIso,
   displayName,
@@ -801,10 +810,11 @@ export function ReplySheet({
       </header>
 
       <main className="mx-auto w-full max-w-[600px] px-4 pb-36 pt-7">
+        <LoopBanner url={headerImageUrl} className="mb-5" />
         <div className="relative pr-16">
           <Cherries className="absolute -top-2 right-0 h-16 w-16 rotate-12" />
           <p className="eyebrow">{text(copy.reply.hi, { name: name.trim() || displayName })}</p>
-          <h1 className="mt-1 text-ink">{text(copy.reply.round, { number: roundNumber })}</h1>
+          <h1 className="mt-1 text-ink">{issueTitle(copy.reply.round, roundNumber, roundName)}</h1>
         </div>
         <p className="mt-3 text-[15px] leading-relaxed text-ink-soft">
           {text(copy.reply.closes, { deadline: deadline.inLoopZone })}
@@ -841,6 +851,10 @@ export function ReplySheet({
                   ? copy.reply.nameError
                   : copy.reply.nameHint}
           </p>
+          <div className="mt-3 border-t border-dashed border-line pt-3">
+            <p className="mb-2 text-[13px] font-medium text-ink-soft">{copy.identity.profile.title}</p>
+            <ProfilePhoto endpoint={`/api/reply/${token}/profile-photo`} name={name.trim() || displayName} photoUrl={photoUrl} />
+          </div>
         </section>
 
         {sent ? (
