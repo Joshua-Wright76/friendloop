@@ -99,9 +99,19 @@ Status: `todo` (not built) · `done` (built and covered).
 | --- | --- | --- | --- |
 | H1 | Preview screens and emails | Every preview screen and the email templates open at their `/dev` routes on any environment without being linked from the site. The captured inbox stays locked without `UI_PREVIEW_SECRET`: it answers 404 until a keyed visit to `/dev/ui`, and a wrong key keeps it locked. | done |
 
+## I · Suggested questions
+
+| ID | Flow | Acceptance criteria | Status |
+| --- | --- | --- | --- |
+| I1 | Suggest a question | A contributor sees a "suggest a question" affordance on the reply sheet, writes a question, picks how their name shows ("asked by Maya" or anonymously), submits, and sees a quiet confirmation. The suggestion is web-only: no email is sent. | done |
+| I2 | Owner reviews the queue | The loop dashboard shows pending suggestions with author display and text; accept turns it into an active pool question attributed to that membership; decline removes it from the queue; edit-then-accept stores the edited text. | done |
+| I3 | Suggested question in an issue | When an accepted suggestion is selected for an issue, the delivered issue credits it ("asked by Maya") unless the author chose anonymity; past issues keep their original credit. | done |
+| I4 | Readers are walled off | A reader has no suggest link, and a suggest URL reached by a reader (or a revoked/expired token) shows the standard no-access screen with no data leak. | done |
+| I5 | from_you stays quiet | No suggest affordance appears in prompt email, reply sheet, or dashboard in `from_you` mode. | done |
+
 IDs are stable handles, not positions: a retired flow leaves its number out
 rather than renumbering the rest.
 
 ---
 
-**47 flows.** A flow is only `done` when its spec passes locally and in CI.
+**49 flows.** A flow is only `done` when its spec passes locally and in CI.

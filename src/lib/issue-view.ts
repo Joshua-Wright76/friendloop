@@ -24,6 +24,8 @@ export type IssueAnswer = {
 export type IssueBlock = {
   questionId: string;
   question: string;
+  /** Frozen credit from when the issue opened: the author's name, or null when anonymous. */
+  suggestedBy: string | null;
   answers: IssueAnswer[];
 };
 
@@ -104,6 +106,7 @@ export async function loadIssue(input: {
   const blocks: IssueBlock[] = questions.map((question) => ({
     questionId: question.id,
     question: question.text,
+    suggestedBy: question.suggestedBy,
     answers: rows
       .filter((row) => row.issueQuestionId === question.id)
       .map((row) => {

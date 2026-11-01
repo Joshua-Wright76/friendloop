@@ -13,6 +13,7 @@ type Notices = {
   transferred?: string;
   added?: string;
   archived?: string;
+  suggestion?: string;
   opened?: string;
   saved?: string;
   error?: string;
@@ -22,7 +23,7 @@ type Notices = {
 type Props =
   | { tab: "overview"; welcome?: string; nudged?: string }
   | { tab: "members"; notices: Pick<Notices, "invited" | "resent" | "removed" | "transferred"> }
-  | { tab: "questions"; notices: Pick<Notices, "added" | "archived"> }
+  | { tab: "questions"; notices: Pick<Notices, "added" | "archived" | "suggestion"> }
   | { tab: "issues"; notices: Pick<Notices, "opened"> }
   | { tab: "settings"; notices: Pick<Notices, "saved" | "error" | "shares"> };
 

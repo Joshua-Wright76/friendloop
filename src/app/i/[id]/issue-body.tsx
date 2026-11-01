@@ -34,6 +34,11 @@ export function IssueBody({
               <span className="question-number mt-0.5 numeric">{index + 1}</span>
               {block.question}
             </h2>
+            {block.suggestedBy ? (
+              <p className="mt-1.5 pl-8 text-[13px] font-medium text-ink-muted">
+                {text(copy.issue.askedBy, { name: block.suggestedBy })}
+              </p>
+            ) : null}
 
             <div className="mt-3">
               {block.answers.map((answer) => (

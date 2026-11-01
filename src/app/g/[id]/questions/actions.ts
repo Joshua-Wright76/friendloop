@@ -7,6 +7,7 @@ import { db } from "@/db";
 import { groups, questions } from "@/db/schema";
 import { getNow } from "@/lib/clock";
 import { addQuestion, addQuestionTexts, archiveQuestion, reorderQuestion, toggleSkipNext } from "@/lib/manage";
+import { acceptSuggestion, declineSuggestion } from "@/lib/suggestions";
 import { viewerFor } from "@/lib/permissions";
 
 async function requireManager(groupId: string) {
@@ -83,4 +84,25 @@ export async function skipNextAction(formData: FormData) {
   await toggleSkipNext(groupId, questionId);
   revalidatePath(`/g/${groupId}`, "layout");
   redirect(`/g/${groupId}/questions`);
+}
+
+export async function acceptSuggestionAction(formData: FormData) {
+  const groupId = String(formData.get("groupId") ?? "");
+  await requireManager(groupId);
+
+  const suggestionId = String(formData.get("suggestionId") ?? "");
+  const text = String(formData.get("text") ?? "");
+  const result = await acceptSuggestion({ groupId, suggestionId, text, at: await getNow() });
+  revalidatePath(`/g/${groupId}`, "layout");
+  redirect(`/g/${groupId}/questions?suggestion=${result.ok ? "added" : "gone"}`);
+}
+
+export async function declineSuggestionAction(formData: FormData) {
+  const groupId = String(formData.get("groupId") ?? "");
+  await requireManager(groupId);
+
+  const suggestionId = String(formData.get("suggestionId") ?? "");
+  const result = await declineSuggestion({ groupId, suggestionId, at: await getNow() });
+  revalidatePath(`/g/${groupId}`, "layout");
+  redirect(`/g/${groupId}/questions?suggestion=${result.ok ? "declined" : "gone"}`);
 }

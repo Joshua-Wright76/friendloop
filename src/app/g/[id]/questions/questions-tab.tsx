@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { addAction, addFromPacksAction, rotationAction } from "./actions";
+import { addAction, addFromPacksAction, acceptSuggestionAction, declineSuggestionAction, rotationAction } from "./actions";
 import { QuestionOrder } from "./question-order";
 import { LoopNav } from "@/components/loop-nav";
 import { Picker } from "@/components/picker";
@@ -16,8 +16,8 @@ const ROTATION_OPTIONS = [
   ...Array.from({ length: 10 }, (_, index) => ({ value: String(index + 1), label: String(index + 1) })),
 ];
 
-export default function QuestionsTab({ notices }: { notices: { added?: string; archived?: string; rotation?: string; fromPacks?: string } }) {
-  const { group, membership, questions: pool } = useLoopData();
+export default function QuestionsTab({ notices }: { notices: { added?: string; archived?: string; rotation?: string; fromPacks?: string; suggestion?: string } }) {
+  const { group, membership, questions: pool, suggestions } = useLoopData();
   const id = group.id;
   const manages = membership.access !== "member";
   const [picked, setPicked] = useState<string[]>([]);
@@ -51,6 +51,9 @@ export default function QuestionsTab({ notices }: { notices: { added?: string; a
 
       {notices.added ? <Notice>{copy.questions.addedNotice}</Notice> : null}
       {notices.archived ? <Notice>{copy.questions.archivedNotice}</Notice> : null}
+      {notices.suggestion === "added" ? <Notice>{copy.questions.suggestionAddedNotice}</Notice> : null}
+      {notices.suggestion === "declined" ? <Notice>{copy.questions.suggestionDeclinedNotice}</Notice> : null}
+      {notices.suggestion === "gone" ? <Notice>{copy.questions.suggestionGoneNotice}</Notice> : null}
       {notices.rotation === "1" ? <Notice>{copy.questions.rotationSaved}</Notice> : null}
       {notices.rotation === "invalid" ? <Notice>{copy.questions.rotationInvalid}</Notice> : null}
       {notices.fromPacks === "0" ? <Notice>{copy.questions.fromPacksNone}</Notice> : null}
@@ -60,6 +63,53 @@ export default function QuestionsTab({ notices }: { notices: { added?: string; a
             ? copy.questions.fromPacksAddedOne
             : text(copy.questions.fromPacksAdded, { count: notices.fromPacks })}
         </Notice>
+      ) : null}
+
+      {manages && suggestions.length > 0 ? (
+        <section className="card mt-5 border-accent-line bg-accent-soft p-5" aria-label={copy.questions.suggestionsTitle}>
+          <h2 className="text-[16px] font-semibold tracking-[-0.01em] text-ink">{copy.questions.suggestionsTitle}</h2>
+          <p className="mt-1 text-[14px] leading-relaxed text-ink-soft">{copy.questions.suggestionsDescription}</p>
+          <ul className="mt-4 flex flex-col gap-3">
+            {suggestions.map((suggestion) => (
+              <li key={suggestion.id} className="card p-4">
+                <p className="text-[12.5px] font-medium text-ink-muted numeric">
+                  {text(copy.questions.suggestionAuthor, {
+                    name: suggestion.authorName ?? suggestion.authorEmail.split("@")[0],
+                  })}
+                  {suggestion.authorDisplay === "anonymous" ? (
+                    <span className="ml-2 chip border bg-card px-2 py-0.5 text-[11px] text-ink-soft">
+                      {copy.questions.suggestionAnonymous}
+                    </span>
+                  ) : null}
+                </p>
+                <form action={acceptSuggestionAction} className="mt-2">
+                  <input type="hidden" name="groupId" value={id} />
+                  <input type="hidden" name="suggestionId" value={suggestion.id} />
+                  <input
+                    name="text"
+                    required
+                    maxLength={200}
+                    defaultValue={suggestion.text}
+                    aria-label={copy.questions.suggestionTextLabel}
+                    className="field h-[46px] py-0"
+                  />
+                  <div className="mt-2.5 flex items-center gap-2">
+                    <button type="submit" className="btn btn-primary min-h-11 px-4 text-[13px]">
+                      {copy.questions.suggestionSave}
+                    </button>
+                  </div>
+                </form>
+                <form action={declineSuggestionAction} className="mt-2">
+                  <input type="hidden" name="groupId" value={id} />
+                  <input type="hidden" name="suggestionId" value={suggestion.id} />
+                  <button type="submit" className="btn btn-quiet min-h-11 px-4 text-[13px]">
+                    {copy.questions.suggestionDecline}
+                  </button>
+                </form>
+              </li>
+            ))}
+          </ul>
+        </section>
       ) : null}
 
       {manages ? (

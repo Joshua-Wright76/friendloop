@@ -2,6 +2,7 @@ import { and, eq, isNull } from "drizzle-orm";
 import { db } from "@/db";
 import { groups, issueQuestions, questions } from "@/db/schema";
 import { selectRoundQuestions } from "./question-rotation";
+import { suggestionCreditsForQuestions } from "./suggestions";
 
 /** Snapshot one round and advance the cursor used by both scheduled and manual sends. */
 export async function snapshotQuestionsForIssue(input: {
@@ -17,12 +18,14 @@ export async function snapshotQuestionsForIssue(input: {
 
   const { selected, nextCursor } = selectRoundQuestions(pool, group.questionsPerRound, group.questionCursor);
   if (selected.length > 0) {
+    const credits = await suggestionCreditsForQuestions(group.id, selected.map((question) => question.id));
     await db.insert(issueQuestions).values(
       selected.map((question, index) => ({
         issueId,
         questionId: question.id,
         text: question.text,
         position: index,
+        suggestedBy: credits.get(question.id) ?? null,
       })),
     );
   }
