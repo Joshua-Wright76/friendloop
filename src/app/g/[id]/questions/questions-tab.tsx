@@ -6,6 +6,7 @@ import {
   acceptSuggestionAction,
   addAction,
   addFromPacksAction,
+  addPollAction,
   archiveSectionAction,
   createSectionAction,
   declineSuggestionAction,
@@ -18,15 +19,17 @@ import { LoopNav } from "@/components/loop-nav";
 import { Picker } from "@/components/picker";
 import { QuestionPackPicker } from "@/components/question-pack-picker";
 import { QUESTION_PACKS, newQuestionTexts } from "@/lib/question-packs";
+import { POLL_MAX_OPTIONS, POLL_OPTION_MAX, POLL_PROMPT_MAX } from "@/lib/poll";
 import { copy, text } from "@/lib/copy";
 import { useLoopData } from "../loop-data";
+import { PollSummary } from "./poll-summary";
 
 const ROTATION_OPTIONS = [
   { value: "", label: copy.questions.allQuestions },
   ...Array.from({ length: 10 }, (_, index) => ({ value: String(index + 1), label: String(index + 1) })),
 ];
 
-export default function QuestionsTab({ notices }: { notices: { added?: string; archived?: string; rotation?: string; fromPacks?: string; suggestion?: string; section?: string } }) {
+export default function QuestionsTab({ notices }: { notices: { added?: string; archived?: string; rotation?: string; fromPacks?: string; suggestion?: string; section?: string; poll?: string } }) {
   const { group, membership, questions: pool, suggestions, sections } = useLoopData();
   const id = group.id;
   const manages = membership.access !== "member";
@@ -64,6 +67,8 @@ export default function QuestionsTab({ notices }: { notices: { added?: string; a
       {notices.suggestion === "added" ? <Notice>{copy.questions.suggestionAddedNotice}</Notice> : null}
       {notices.suggestion === "declined" ? <Notice>{copy.questions.suggestionDeclinedNotice}</Notice> : null}
       {notices.suggestion === "gone" ? <Notice>{copy.questions.suggestionGoneNotice}</Notice> : null}
+      {notices.poll === "added" ? <Notice>{copy.polls.authoring.addedNotice}</Notice> : null}
+      {notices.poll === "invalid" ? <Notice>{copy.polls.authoring.invalidNotice}</Notice> : null}
       {notices.section === "created" ? <Notice>{copy.questions.sectionCreatedNotice}</Notice> : null}
       {notices.section === "saved" ? <Notice>{copy.questions.sectionSavedNotice}</Notice> : null}
       {notices.section === "archived" ? <Notice>{copy.questions.sectionArchivedNotice}</Notice> : null}
@@ -146,9 +151,9 @@ export default function QuestionsTab({ notices }: { notices: { added?: string; a
         </form>
       ) : null}
 
-      {manages && pool.length ? <QuestionOrder groupId={id} questions={pool.map(({ id: questionId, text, skipNext }) => ({ id: questionId, text, skipNext }))} /> : (
+      {manages && pool.length ? <QuestionOrder groupId={id} questions={pool.map(({ id: questionId, text, skipNext, kind, pollMultiple, pollOptions }) => ({ id: questionId, text, skipNext, kind, pollMultiple, pollOptions }))} /> : (
         <ol className="mt-5 flex flex-col gap-2.5" aria-label={copy.questions.listLabel}>
-          {pool.map((question, index) => <li key={question.id} className="card paper p-4"><div className="flex items-start gap-3"><span className="question-number">{index + 1}</span><div><p className="text-[15px] font-medium leading-snug text-ink">{question.text}</p>{question.skipNext ? <p className="mt-1 text-[12px] font-medium text-ink-muted">{copy.questions.skipNextNote}</p> : null}</div></div></li>)}
+          {pool.map((question, index) => <li key={question.id} className="card paper p-4"><div className="flex items-start gap-3"><span className="question-number">{index + 1}</span><div><p className="text-[15px] font-medium leading-snug text-ink">{question.text}</p><PollSummary question={question} />{question.skipNext ? <p className="mt-1 text-[12px] font-medium text-ink-muted">{copy.questions.skipNextNote}</p> : null}</div></div></li>)}
           {pool.length === 0 ? <li className="card p-5 text-[14px] text-ink-muted"><p>{copy.questions.empty}</p>{manages ? <a href="#question-form" className="btn btn-primary mt-4 inline-flex">{copy.questions.firstQuestionAction}</a> : null}</li> : null}
         </ol>
       )}
@@ -168,6 +173,40 @@ export default function QuestionsTab({ notices }: { notices: { added?: string; a
           <button type="submit" className="btn btn-primary mt-3">
             {copy.questions.add}
           </button>
+        </form>
+      ) : null}
+
+      {manages ? (
+        <form action={addPollAction} id="poll-form" className="card mt-5 p-5">
+          <input type="hidden" name="groupId" value={id} />
+          <h2 className="text-[16px] font-semibold tracking-[-0.01em] text-ink">{copy.polls.authoring.title}</h2>
+          <p className="mt-1 text-[14px] leading-relaxed text-ink-soft">{copy.polls.authoring.description}</p>
+          <label htmlFor="poll-prompt" className="mt-3 block text-[13px] font-bold text-ink-soft">{copy.polls.authoring.promptLabel}</label>
+          <input
+            id="poll-prompt"
+            name="prompt"
+            required
+            maxLength={POLL_PROMPT_MAX}
+            placeholder={copy.polls.authoring.promptPlaceholder}
+            className="field mt-1 h-[46px] py-0"
+          />
+          <div className="mt-3 flex flex-col gap-2">
+            {Array.from({ length: POLL_MAX_OPTIONS }, (_, index) => (
+              <input
+                key={index}
+                name="option"
+                required={index < 2}
+                maxLength={POLL_OPTION_MAX}
+                placeholder={copy.polls.authoring.optionPlaceholder}
+                aria-label={text(copy.polls.authoring.optionLabel, { number: index + 1 })}
+                className="field h-[46px] py-0"
+              />
+            ))}
+          </div>
+          <label className="mt-3 flex min-h-11 items-center gap-2 text-[14px] text-ink">
+            <input type="checkbox" name="multiple" className="h-5 w-5 accent-accent" /> {copy.polls.authoring.multipleLabel}
+          </label>
+          <button type="submit" className="btn btn-primary mt-3">{copy.polls.authoring.add}</button>
         </form>
       ) : null}
 

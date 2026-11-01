@@ -3,7 +3,7 @@
 import { useOptimistic, useState, useTransition } from "react";
 import { addComment, toggleReaction } from "./actions";
 import { formatAudioDuration } from "@/lib/audio-validation";
-import type { IssueAnswer, IssueBlock, IssueSectionBlock } from "@/lib/issue-view";
+import type { IssueAnswer, IssueBlock, IssuePoll, IssueSectionBlock } from "@/lib/issue-view";
 import { Tape } from "@/components/stationery";
 import { copy, text } from "@/lib/copy";
 
@@ -43,6 +43,8 @@ export function IssueBody({
                 {text(copy.issue.askedBy, { name: block.suggestedBy })}
               </p>
             ) : null}
+
+            {block.poll?.tally ? <PollResults poll={block.poll} /> : null}
 
             <div className="mt-3">
               {block.answers.map((answer) => (
@@ -159,6 +161,31 @@ export function IssueBody({
   );
 }
 
+/** The quiet tally under a delivered poll: each option, how many picked it, a thin bar. */
+function PollResults({ poll }: { poll: IssuePoll }) {
+  const voters = poll.voters ?? 0;
+  return (
+    <div className="mt-3 pl-8">
+      <p className="text-[12.5px] font-bold text-ink-muted numeric">
+        {copy.polls.issue.results} · {voters === 1 ? copy.polls.issue.votesOne : text(copy.polls.issue.votesMany, { count: voters })}
+      </p>
+      <ul className="mt-2 flex flex-col gap-2" aria-label={copy.polls.issue.results}>
+        {(poll.tally ?? []).map((row) => (
+          <li key={row.option}>
+            <div className="flex items-baseline justify-between gap-3 text-[14px] text-ink">
+              <span className="min-w-0">{row.option}</span>
+              <span className="flex-none font-bold text-ink-soft numeric">{row.votes}</span>
+            </div>
+            <div className="poll-bar mt-1" aria-hidden="true">
+              <span style={{ width: `${voters > 0 ? Math.round((row.votes / voters) * 100) : 0}%` }} />
+            </div>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 function AnswerCard({
   issueId,
   viewerToken,
@@ -191,9 +218,17 @@ function AnswerCard({
         <span className="avatar" aria-hidden="true">{answer.author.charAt(0)}</span>
         <p className="m-0 text-[14px] font-extrabold text-ink-soft">{answer.author}</p>
       </div>
-      <p className="mt-2 whitespace-pre-wrap text-[16px] leading-relaxed text-ink">
-        {answer.body}
-      </p>
+      {answer.choices.length > 0 ? (
+        <ul className="mt-2 flex flex-wrap gap-1.5" aria-label={text(copy.polls.issue.chose, { choices: answer.choices.join(", ") })}>
+          {answer.choices.map((choice) => (
+            <li key={choice} className="chip border bg-accent-soft px-2.5 py-1 text-[13px] font-bold text-accent-ink">{choice}</li>
+          ))}
+        </ul>
+      ) : (
+        <p className="mt-2 whitespace-pre-wrap text-[16px] leading-relaxed text-ink">
+          {answer.body}
+        </p>
+      )}
       {answer.photoUrl ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
