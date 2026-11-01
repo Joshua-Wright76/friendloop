@@ -22,6 +22,7 @@ Status: `todo` (not built) · `done` (built and covered).
 | A4 | Unknown email | An address with no account gets the identical "check your inbox" screen and the same email; the account only comes into existence when the link is used. | done |
 | A5 | Sign out | Sign out clears the session, `/you` redirects to `/signin`, and the previous cookie no longer authenticates. | done |
 | A6 | Revoked reply token | Opening a reply link whose token was rotated shows a "this link was replaced" page with no form and no data leak. | done |
+| A7 | Expired session | A session cookie that outlived its 30 days is refused: `/you` redirects to `/signin`, while a session still inside its window is accepted and shows the address. | done |
 
 ## B · Create and invite
 
@@ -55,10 +56,12 @@ Status: `todo` (not built) · `done` (built and covered).
 | D4 | Draft autosaves | Typing an answer persists it as a draft; reloading the reply page restores every draft. | done |
 | D5 | Submit answers | Submitting marks replies submitted with a timestamp, the bar shows "sent", and the owner's progress count increases. | done |
 | D6 | Edit a submitted answer | Before delivery, editing and re-submitting updates the reply and its timestamp without creating a duplicate row. | done |
-| D7 | Deliver the issue | With the clock past the delivery instant, the sweep sends one issue email per member containing every submitted answer, and the issue's status becomes `delivered`. | done |
+| D7 | Deliver the issue | With the clock past the delivery instant, the sweep sends one issue email per member containing every submitted answer and that member's own link, the issue's status becomes `delivered`, and no loop's email contains another loop's answers. | done |
 | D8 | Nothing to deliver | An issue reaching its delivery instant with zero submitted replies is marked `skipped`, sends no delivery email, and pauses the loop with an explanation to the owner. | done |
 | D9 | Nudge the stragglers | 48 hours before delivery, contributors with nothing submitted get exactly one reminder; anyone who submitted gets none, and a second sweep sends no duplicate. | done |
 | D10 | Nudge by hand | From the dashboard the owner sees who has not answered and can send one more reminder; anyone who already answered gets none, and each nudge is its own email rather than a duplicate. | done |
+| D11 | Two triggers at once | When the two production triggers run the sweep concurrently, exactly one issue is created for the slot, one prompt per contributor is sent, and concurrent delivery and reminder passes never double-send. | done |
+| D12 | Provider rejects a send | A provider outage leaves the prompt `failed` with its attempt counted, the next sweep retries the same row instead of queueing a new one, a permanent rejection keeps the provider's reason, and a rate limit clears once the provider recovers. | done |
 
 ## E · Reading and reacting
 
@@ -66,8 +69,8 @@ Status: `todo` (not built) · `done` (built and covered).
 | --- | --- | --- | --- |
 | E1 | Read a delivered issue | A member opening `/i/<n>` sees every question with each contributor's answer, their own marked, and the issue's date. | done |
 | E2 | Read by share link | With sharing enabled, an anonymous visitor at the share URL reads the same issue and sees no other loop data or navigation. | done |
-| E3 | Comment on an issue | A member posts a comment, it appears for other members immediately, and an empty comment is rejected. | done |
-| E4 | React to an answer | A member adds a reaction to someone's answer, the count updates for everyone, and toggling removes it. | done |
+| E3 | Comment on an issue | A member posts a comment, it appears for other members immediately in their own session, an empty comment is rejected, and the author is marked "You" rather than by name. | done |
+| E4 | React to an answer | A member adds a reaction to someone's answer, the count updates for the person whose answer it is in a second session, and toggling removes it. | done |
 | E5 | Browse the archive | The archive lists delivered issues newest-first; opening an older one renders without needing the current issue to exist. | done |
 
 ## F · Loop settings
@@ -85,7 +88,7 @@ Status: `todo` (not built) · `done` (built and covered).
 
 | ID | Flow | Acceptance criteria | Status |
 | --- | --- | --- | --- |
-| G3 | Promote to admin | Promoting a member to admin lets them manage questions and members, while the owner-only actions stay unavailable to them. | done |
+| G3 | Promote to admin | Promoting a member to admin lets them manage questions and members, while the owner-only actions stay unavailable to them; the promotion reaches that person's already-signed-in session. | done |
 | G4 | Reader cannot reply | A direct POST to the reply endpoint from a reader is rejected with 403 and writes nothing. | done |
 | G5 | Transfer ownership | The owner transfers ownership, becomes an admin+contributor, and the new owner gains owner-only actions while the old owner loses them. | done |
 | G6 | `from_you` mode | In `from_you`, every non-owner is forced to reader on invite and cannot be made a contributor. | done |
@@ -101,4 +104,4 @@ rather than renumbering the rest.
 
 ---
 
-**44 flows.** A flow is only `done` when its spec passes locally and in CI.
+**47 flows.** A flow is only `done` when its spec passes locally and in CI.
