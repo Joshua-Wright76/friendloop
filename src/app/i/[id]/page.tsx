@@ -71,11 +71,9 @@ export default async function IssuePage({
         canInteract={Boolean(membership)}
         blocks={view.blocks}
         sections={view.sections}
-        comments={view.comments.map((comment) => ({
-          id: comment.id,
-          author: comment.author,
-          body: comment.body,
-        }))}
+        comments={view.comments}
+        commentsEnabled={view.commentsEnabled}
+        mentionables={view.mentionables}
       />
 
       <p className="mt-8 text-center text-[13px] text-ink-muted">

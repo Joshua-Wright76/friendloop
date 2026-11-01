@@ -83,6 +83,19 @@ export default function SettingsTab({ notices }: { notices: { saved?: string; er
           <p className="mt-2 text-[12px] leading-relaxed text-ink-muted">{copy.settings.sharesOff}</p>
         )}
 
+        <label className="mt-4 flex items-start gap-2.5 text-[14px] leading-relaxed text-ink-soft">
+          <input
+            type="checkbox"
+            name="commentsEnabled"
+            defaultChecked={group.commentsEnabled}
+            className="mt-0.5 accent-[var(--accent)]"
+          />
+          <span>
+            {copy.settings.comments}
+            <span className="mt-0.5 block text-[13px] text-ink-muted">{copy.settings.commentsHint}</span>
+          </span>
+        </label>
+
         <button type="submit" className="btn btn-primary mt-5">
           {copy.settings.save}
         </button>

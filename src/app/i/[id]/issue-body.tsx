@@ -1,13 +1,13 @@
 "use client";
 
-import { useOptimistic, useState, useTransition } from "react";
-import { addComment, toggleReaction } from "./actions";
+import { useId, useOptimistic, useState, useTransition } from "react";
+import { toggleReaction } from "./actions";
+import { CommentThread } from "./comment-thread";
 import { formatAudioDuration } from "@/lib/audio-validation";
+import type { IssueComment } from "@/lib/comment-view";
 import type { IssueAnswer, IssueBlock, IssuePoll, IssueSectionBlock } from "@/lib/issue-view";
 import { Tape } from "@/components/stationery";
 import { copy, text } from "@/lib/copy";
-
-type Comment = { id: string; author: string; body: string };
 
 type Props = {
   issueId: string;
@@ -15,7 +15,10 @@ type Props = {
   canInteract: boolean;
   blocks: IssueBlock[];
   sections: IssueSectionBlock[];
-  comments: Comment[];
+  comments: IssueComment[];
+  /** The owner's switch: false removes every comment surface from the page. */
+  commentsEnabled: boolean;
+  mentionables: Array<{ id: string; name: string }>;
 };
 
 export function IssueBody({
@@ -25,6 +28,8 @@ export function IssueBody({
   blocks,
   sections,
   comments,
+  commentsEnabled,
+  mentionables,
 }: Props) {
   const sectionOffset = blocks.filter((block) => block.answers.length > 0).length;
   return (
@@ -54,6 +59,8 @@ export function IssueBody({
                   viewerToken={viewerToken}
                   canInteract={canInteract}
                   answer={answer}
+                  commentsEnabled={commentsEnabled}
+                  mentionables={mentionables}
                 />
               ))}
             </div>
@@ -134,29 +141,22 @@ export function IssueBody({
         </section>
       ))}
 
-      <section className="card mt-2 p-5">
-        <h2 className="text-ink">{copy.issue.comments}</h2>
-        {comments.length > 0 ? (
-          <div className="mt-3 divide-y divide-line border-t border-line">
-            {comments.map((comment) => (
-              <div key={comment.id} className="px-4 py-3">
-                <p className="text-[13px] font-medium text-ink-soft">
-                  {comment.author}
-                </p>
-                <p className="mt-0.5 whitespace-pre-wrap text-[15px] leading-relaxed text-ink">
-                  {comment.body}
-                </p>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <p className="mt-2 text-[14px] text-ink-muted">{copy.issue.noComments}</p>
-        )}
-
-        {canInteract ? (
-          <CommentForm issueId={issueId} viewerToken={viewerToken} />
-        ) : null}
-      </section>
+      {commentsEnabled ? (
+        <section className="card mt-2 p-5">
+          <h2 className="text-ink">{copy.issue.comments}</h2>
+          <CommentThread
+            issueId={issueId}
+            viewerToken={viewerToken}
+            replyId={null}
+            comments={comments}
+            mentionables={mentionables}
+            canInteract={canInteract}
+            composerLabel={copy.issue.commentAriaLabel}
+            placeholder={copy.issue.commentPlaceholder}
+            empty={copy.issue.noComments}
+          />
+        </section>
+      ) : null}
     </div>
   );
 }
@@ -191,13 +191,21 @@ function AnswerCard({
   viewerToken,
   canInteract,
   answer,
+  commentsEnabled,
+  mentionables,
 }: {
   issueId: string;
   viewerToken: string | null;
   canInteract: boolean;
   answer: IssueAnswer;
+  commentsEnabled: boolean;
+  mentionables: Array<{ id: string; name: string }>;
 }) {
   const [pending, startTransition] = useTransition();
+  const [threadOpen, setThreadOpen] = useState(false);
+  const threadId = useId();
+  const owner = answer.isYou ? copy.issue.ownerYour : text(copy.issue.ownerOther, { author: answer.author });
+  const count = answer.comments.length;
   const [local, addLocal] = useOptimistic(
     answer.reactions,
     (state, emoji: string) =>
@@ -289,65 +297,39 @@ function AnswerCard({
           </button>
         ))}
       </div>
+
+      {commentsEnabled && (count > 0 || canInteract) ? (
+        <div className="mt-2">
+          <button
+            type="button"
+            aria-expanded={threadOpen}
+            aria-controls={threadId}
+            onClick={() => setThreadOpen((open) => !open)}
+            className="min-h-8 rounded-md px-1 text-[13px] font-bold text-accent-ink underline decoration-line-strong underline-offset-4"
+          >
+            {count === 0
+              ? copy.issue.commentOnAnswer
+              : count === 1
+                ? copy.issue.commentCountOne
+                : text(copy.issue.commentCount, { count })}
+          </button>
+          {threadOpen ? (
+            <div id={threadId} role="group" aria-label={text(copy.issue.threadLabel, { owner })} className="mt-1">
+              <CommentThread
+                issueId={issueId}
+                viewerToken={viewerToken}
+                replyId={answer.replyId}
+                comments={answer.comments}
+                mentionables={mentionables}
+                canInteract={canInteract}
+                composerLabel={text(copy.issue.threadComposerLabel, { owner })}
+                placeholder={copy.issue.commentPlaceholder}
+                empty={copy.issue.threadEmpty}
+              />
+            </div>
+          ) : null}
+        </div>
+      ) : null}
     </article>
-  );
-}
-
-function CommentForm({
-  issueId,
-  viewerToken,
-}: {
-  issueId: string;
-  viewerToken: string | null;
-}) {
-  const [value, setValue] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [pending, startTransition] = useTransition();
-
-  const submit = () => {
-    const body = value.trim();
-    if (!body) {
-      setError(copy.issue.writeFirst);
-      return;
-    }
-    startTransition(async () => {
-      const result = await addComment({ issueId, body, viewerToken });
-      if (result.ok) {
-        setValue("");
-        setError(null);
-      } else {
-        setError(result.error ?? copy.issue.postError);
-      }
-    });
-  };
-
-  return (
-    <form
-      className="mt-3"
-      onSubmit={(event) => {
-        event.preventDefault();
-        submit();
-      }}
-    >
-      <textarea
-        value={value}
-        onChange={(event) => setValue(event.target.value)}
-        rows={2}
-        placeholder={copy.issue.commentPlaceholder}
-        aria-label={copy.issue.commentAriaLabel}
-        className="field"
-      />
-      <div className="mt-2 flex items-center justify-between gap-3">
-        <p
-          role={error ? "alert" : undefined}
-          className="text-[13px] text-danger"
-        >
-          {error}
-        </p>
-        <button type="submit" disabled={pending} className="btn btn-primary">
-          {pending ? copy.issue.posting : copy.issue.post}
-        </button>
-      </div>
-    </form>
   );
 }
