@@ -5,10 +5,16 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/db";
 import { comments, issues, reactions } from "@/db/schema";
 import { membershipForViewer } from "@/lib/issue-view";
+import { currentUser } from "@/lib/auth";
 import { copy } from "@/lib/copy";
 
 export type ActionResult = { ok: boolean; error?: string };
 
+/**
+ * Who is acting: the `?m=` token from a delivery email, or the signed-in member
+ * reading the archive. The page accepts both, so the write path has to as well —
+ * otherwise a signed-in member gets a comment box that silently refuses.
+ */
 async function viewerFor(issueId: string, viewerToken: string | null) {
   const [issue] = await db
     .select({ groupId: issues.groupId })
@@ -16,7 +22,13 @@ async function viewerFor(issueId: string, viewerToken: string | null) {
     .where(eq(issues.id, issueId))
     .limit(1);
   if (!issue) return null;
-  return membershipForViewer({ groupId: issue.groupId, token: viewerToken });
+
+  const user = await currentUser();
+  return membershipForViewer({
+    groupId: issue.groupId,
+    userId: user?.id ?? null,
+    token: viewerToken,
+  });
 }
 
 export async function addComment(input: {
