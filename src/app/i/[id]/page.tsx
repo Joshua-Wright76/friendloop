@@ -35,7 +35,11 @@ export default async function IssuePage({
     token: m ?? null,
   });
 
-  const view = await loadIssue({ issueId: id, viewerMembershipId: membership?.id ?? null });
+  const view = await loadIssue({
+    issueId: id,
+    viewerMembershipId: membership?.id ?? null,
+    viewerIsAdmin: membership?.access === "owner" || membership?.access === "admin",
+  });
   if (!view) notFound();
 
   return (
@@ -66,6 +70,7 @@ export default async function IssuePage({
         viewerToken={m ?? null}
         canInteract={Boolean(membership)}
         blocks={view.blocks}
+        sections={view.sections}
         comments={view.comments.map((comment) => ({
           id: comment.id,
           author: comment.author,

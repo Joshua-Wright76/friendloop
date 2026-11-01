@@ -63,6 +63,13 @@ export function makeMp3(frames = 40): Buffer {
   return Buffer.concat(Array.from({ length: frames }, () => frame));
 }
 
+/** A valid-enough PNG: real magic bytes, tiny body. */
+export function makePng(size = 64): Buffer {
+  const header = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+  const body = Buffer.alloc(size - header.length, 0);
+  return Buffer.concat([header, body]);
+}
+
 /** Bytes the storage layer accepts: an EBML header with silence after it. */
 export function makeWebm(size = 2_000): Buffer {
   const buffer = Buffer.alloc(size, 0);

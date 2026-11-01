@@ -25,6 +25,8 @@ import {
   uploadReplyAudio,
   uploadReplyPhoto,
 } from "@/lib/reply-client";
+import { removeReplySectionMedia, uploadReplySectionPhoto } from "@/lib/section-client";
+import type { SheetSection } from "@/lib/sections";
 
 export type SheetQuestion = {
   id: string;
@@ -41,6 +43,7 @@ type Props = {
   token: string;
   /** from_you loops have one writer who already owns the questions. */
   canSuggest: boolean;
+  sections: SheetSection[];
   loopName: string;
   loopTimezone: string;
   roundNumber: number;
@@ -79,6 +82,7 @@ type AudioStatus = "idle" | "recording" | "uploading" | "saved" | "removing" | "
 export function ReplySheet({
   token,
   canSuggest,
+  sections,
   loopName,
   loopTimezone,
   roundNumber,
@@ -155,12 +159,39 @@ export function ReplySheet({
   const dirty = useRef(new Set<string>());
   const savedName = useRef(initialName ?? "");
 
+  const [sectionBodies, setSectionBodies] = useState<Record<string, string>>(() =>
+    Object.fromEntries(sections.map((section) => [section.id, section.body])),
+  );
+  const [sectionLinks, setSectionLinks] = useState<Record<string, string>>(() =>
+    Object.fromEntries(sections.map((section) => [section.id, section.linkUrl])),
+  );
+  const [sectionCaptions, setSectionCaptions] = useState<Record<string, string>>(() =>
+    Object.fromEntries(sections.map((section) => [section.id, section.body])),
+  );
+  const [sectionMediaLists, setSectionMediaLists] = useState(() =>
+    Object.fromEntries(sections.map((section) => [section.id, section.media])),
+  );
+  const [sectionSaveStates, setSectionSaveStates] = useState<Record<string, "idle" | "saving" | "saved" | "error">>(() =>
+    Object.fromEntries(sections.map((section) => [section.id, "idle" as const])),
+  );
+  const [sectionErrors, setSectionErrors] = useState<Record<string, string | null>>({});
+  const [sectionNotices, setSectionNotices] = useState<Record<string, string | null>>({});
+  const sectionUploadLocks = useRef(new Set<string>());
+
   const total = questions.length;
   const writeDraft = useMemo(
     () => createSerialDraftWriter((questionId, body) => postReply(
       token,
       { action: "draft", issueQuestionId: questionId, body },
       copy.reply.genericError,
+    )),
+    [token],
+  );
+  const writeSectionDraft = useMemo(
+    () => createSerialDraftWriter((issueSectionId, body) => postReply(
+      token,
+      { action: "sectionDraft", issueSectionId, body },
+      copy.reply.errors.sectionSaveFailed,
     )),
     [token],
   );
@@ -171,6 +202,15 @@ export function ReplySheet({
       Boolean(audioUrls[question.id]),
     ).length,
     [audioUrls, bodies, photoUrls, questions],
+  );
+  // Section answers count toward the action bar, so a section-only round sends.
+  const sectionAnswered = useMemo(
+    () => sections.some((section) =>
+      (sectionBodies[section.id] ?? "").trim().length > 0 ||
+      (sectionLinks[section.id] ?? "").trim().length > 0 ||
+      (sectionMediaLists[section.id] ?? []).length > 0,
+    ),
+    [sectionBodies, sectionLinks, sectionMediaLists, sections],
   );
   const audioBusy = useMemo(
     () => Object.values(audioStates).some((state) => state === "uploading" || state === "removing"),
@@ -516,6 +556,68 @@ export function ReplySheet({
       void removeAudio(questionId);
     }
   }, [audioStates, removeAudio, uploadAudio]);
+
+  const saveSection = useCallback(async (issueSectionId: string) => {
+    setSectionSaveStates((current) => ({ ...current, [issueSectionId]: "saving" }));
+    const url = sectionLinks[issueSectionId] ?? "";
+    const caption = sectionCaptions[issueSectionId] ?? "";
+    const result = await postReply(
+      token,
+      { action: "sectionMusic", issueSectionId, url, caption },
+      copy.reply.errors.sectionSaveFailed,
+    );
+    if (result.ok) {
+      setSectionSaveStates((current) => ({ ...current, [issueSectionId]: "saved" }));
+      setSectionErrors((current) => ({ ...current, [issueSectionId]: null }));
+    } else {
+      setSectionSaveStates((current) => ({ ...current, [issueSectionId]: "error" }));
+      setSectionErrors((current) => ({ ...current, [issueSectionId]: result.error }));
+    }
+  }, [sectionCaptions, sectionLinks, token]);
+
+  const saveSectionText = useCallback((issueSectionId: string) => {
+    setSectionSaveStates((current) => ({ ...current, [issueSectionId]: "saving" }));
+    void writeSectionDraft(issueSectionId, sectionBodies[issueSectionId] ?? "")
+      .then((result) => {
+        setSectionSaveStates((current) => ({ ...current, [issueSectionId]: result.ok ? "saved" : "error" }));
+        if (!result.ok) setSectionErrors((current) => ({ ...current, [issueSectionId]: result.error }));
+      });
+  }, [sectionBodies, writeSectionDraft]);
+
+  const uploadSectionPhoto = useCallback(async (issueSectionId: string, kind: SheetSection["kind"], file: File, caption: string, position: number) => {
+    const lockKey = `${issueSectionId}:${position}`;
+    if (sectionUploadLocks.current.has(lockKey)) return;
+    sectionUploadLocks.current.add(lockKey);
+    const result = await uploadReplySectionPhoto(token, issueSectionId, file, caption, position, copy.reply.errors.photoUploadFailed);
+    sectionUploadLocks.current.delete(lockKey);
+    if (result.ok) {
+      setSectionMediaLists((current) => ({
+        ...current,
+        [issueSectionId]: [
+          ...(current[issueSectionId] ?? []),
+          { id: result.mediaId, url: result.url, caption: kind === "photo_wall" ? caption || null : null },
+        ],
+      }));
+      setSectionSaveStates((current) => ({ ...current, [issueSectionId]: "saved" }));
+      setSectionNotices((current) => ({ ...current, [issueSectionId]: copy.reply.sectionUploaded }));
+      setSectionErrors((current) => ({ ...current, [issueSectionId]: null }));
+    } else {
+      setSectionErrors((current) => ({ ...current, [issueSectionId]: result.error }));
+    }
+  }, [token]);
+
+  const removeSectionPhoto = useCallback(async (issueSectionId: string, mediaId: string) => {
+    const result = await removeReplySectionMedia(token, issueSectionId, mediaId, copy.reply.errors.photoRemoveFailed);
+    if (result.ok) {
+      setSectionMediaLists((current) => ({
+        ...current,
+        [issueSectionId]: (current[issueSectionId] ?? []).filter((item) => item.id !== mediaId),
+      }));
+      setSectionNotices((current) => ({ ...current, [issueSectionId]: copy.reply.sectionRemoved }));
+    } else {
+      setSectionErrors((current) => ({ ...current, [issueSectionId]: result.error }));
+    }
+  }, [token]);
 
   useEffect(() => () => {
     if (recordingTimer.current) clearInterval(recordingTimer.current);
@@ -942,6 +1044,149 @@ export function ReplySheet({
           })}
         </div>
 
+        {sections.length > 0 ? (
+          <section className="mt-8" aria-label={copy.reply.sectionsHeading}>
+            <h2 className="font-display text-[25px] font-bold leading-[1.15] text-ink">{copy.reply.sectionsHeading}</h2>
+            {sections.map((section) => {
+              const media = sectionMediaLists[section.id] ?? [];
+              const saveState = sectionSaveStates[section.id] ?? "idle";
+              const cap = section.kind === "photo_wall" ? 6 : 1;
+              return (
+                <div key={section.id} className="card paper ride-in mt-4 block p-5 pt-6">
+                  <h3 className="font-display text-[22px] font-bold leading-tight text-ink">
+                    {section.emoji ? <span className="mr-2">{section.emoji}</span> : null}
+                    {section.title}
+                  </h3>
+                  {section.description ? (
+                    <p className="mt-1 text-[13.5px] leading-relaxed text-ink-soft">{section.description}</p>
+                  ) : null}
+
+                  {section.kind === "music" ? (
+                    <div className="mt-3 flex flex-col gap-2">
+                      <input
+                        value={sectionLinks[section.id] ?? ""}
+                        onChange={(event) => setSectionLinks((current) => ({ ...current, [section.id]: event.target.value }))}
+                        placeholder={copy.reply.sectionMusicPlaceholder}
+                        aria-label={copy.reply.sectionMusicLabel}
+                        maxLength={500}
+                        disabled={sending}
+                        className="field h-[46px] py-0"
+                      />
+                      <input
+                        value={sectionCaptions[section.id] ?? ""}
+                        onChange={(event) => setSectionCaptions((current) => ({ ...current, [section.id]: event.target.value }))}
+                        placeholder={copy.reply.sectionCaptionPlaceholder}
+                        aria-label={copy.reply.sectionCaptionLabel}
+                        maxLength={120}
+                        disabled={sending}
+                        className="field h-[46px] py-0"
+                      />
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          className="btn btn-primary min-h-11 px-4 text-[13px]"
+                          onClick={() => void saveSection(section.id)}
+                          disabled={sending}
+                        >
+                          {copy.reply.sectionMusicSave}
+                        </button>
+                        {(sectionLinks[section.id] ?? "") ? (
+                          <button
+                            type="button"
+                            className="btn btn-quiet min-h-11 px-4 text-[13px]"
+                            onClick={() => {
+                              setSectionLinks((current) => ({ ...current, [section.id]: "" }));
+                              void saveSection(section.id);
+                            }}
+                            disabled={sending}
+                          >
+                            {copy.reply.sectionMusicClear}
+                          </button>
+                        ) : null}
+                        <span aria-live="polite" className="text-[12.5px] text-ink-muted">
+                          {saveState === "saving" ? copy.reply.sectionSaving : saveState === "saved" ? copy.reply.sectionDraftSaved : null}
+                        </span>
+                      </div>
+                      {sectionErrors[section.id] ? (
+                        <p role="alert" className="text-[13px] leading-relaxed text-danger">
+                          {sectionErrors[section.id]}
+                        </p>
+                      ) : null}
+                    </div>
+                  ) : null}
+
+                  {section.kind === "standard" ? (
+                    <div className="mt-3">
+                      <textarea
+                        value={sectionBodies[section.id] ?? ""}
+                        onChange={(event) => setSectionBodies((current) => ({ ...current, [section.id]: event.target.value }))}
+                        onBlur={() => saveSectionText(section.id)}
+                        placeholder={copy.reply.placeholder}
+                        aria-label={section.title}
+                        rows={3}
+                        maxLength={2000}
+                        disabled={sending}
+                        className="field lined-field w-full py-2"
+                      />
+                      <p aria-live="polite" className="mt-1 text-[12px] text-ink-muted">
+                        {saveState === "saving" ? copy.reply.sectionSaving : saveState === "saved" ? copy.reply.sectionDraftSaved : null}
+                      </p>
+                      {sectionErrors[section.id] ? (
+                        <p role="alert" className="text-[13px] leading-relaxed text-danger">
+                          {sectionErrors[section.id]}
+                        </p>
+                      ) : null}
+                    </div>
+                  ) : null}
+
+                  {(section.kind === "standard" || section.kind === "photo_wall") ? (
+                    <div className="mt-3">
+                      {media.map((item, index) => (
+                        <div key={item.id} className="mt-2 flex items-start gap-3">
+                          <img src={item.url} alt={item.caption ?? ""} className="h-16 w-16 flex-none rounded-md border border-line object-cover" />
+                          <div className="min-w-0 flex-1">
+                            {item.caption ? (
+                              <p className="truncate text-[13px] text-ink">{item.caption}</p>
+                            ) : null}
+                            <button
+                              type="button"
+                              className="mt-1 min-h-11 text-[13px] font-bold text-ink underline underline-offset-2"
+                              onClick={() => void removeSectionPhoto(section.id, item.id)}
+                              disabled={sending}
+                            >
+                              {copy.reply.sectionRemovePhoto}
+                            </button>
+                          </div>
+                          <span className="text-[12px] text-ink-muted numeric">{index + 1}/{cap}</span>
+                        </div>
+                      ))}
+                      {media.length < cap ? (
+                        <PhotoSlot
+                          sectionId={section.id}
+                          kind={section.kind}
+                          position={media.length}
+                          disabled={sending}
+                          onPick={(file, caption) => void uploadSectionPhoto(section.id, section.kind, file, caption, media.length)}
+                        />
+                      ) : null}
+                      {sectionNotices[section.id] ? (
+                        <p aria-live="polite" className="mt-2 text-[13px] text-ink-muted">
+                          {sectionNotices[section.id]}
+                        </p>
+                      ) : null}
+                      {sectionErrors[section.id] ? (
+                        <p role="alert" className="mt-2 text-[13px] leading-relaxed text-danger">
+                          {sectionErrors[section.id]}
+                        </p>
+                      ) : null}
+                    </div>
+                  ) : null}
+                </div>
+              );
+            })}
+          </section>
+        ) : null}
+
         {error ? (
           <p role="alert" className="mt-4 text-[14px] leading-relaxed text-danger">
             {error}
@@ -981,7 +1226,7 @@ export function ReplySheet({
           <button
             type="button"
             onClick={onSend}
-            disabled={sending || photoBusy || audioBusy || (!sent && answered === 0)}
+            disabled={sending || photoBusy || audioBusy || (!sent && answered === 0 && !sectionAnswered)}
             className="btn btn-primary"
           >
             {sending ? copy.reply.sending : sent ? copy.reply.saveChanges : copy.reply.sendAnswers}
@@ -989,5 +1234,57 @@ export function ReplySheet({
         </div>
       </div>
     </>
+  );
+}
+
+/** One photo slot on a standard section or photo wall. Photo walls require a caption. */
+function PhotoSlot({
+  sectionId,
+  kind,
+  position,
+  disabled,
+  onPick,
+}: {
+  sectionId: string;
+  kind: "standard" | "photo_wall";
+  position: number;
+  disabled: boolean;
+  onPick: (file: File, caption: string) => void;
+}) {
+  const id = `section-photo-${sectionId}-${position}`;
+  const [caption, setCaption] = useState("");
+  return (
+    <div className="mt-2 flex flex-wrap items-center gap-2">
+      <input
+        id={id}
+        type="file"
+        accept={PHOTO_ACCEPT}
+        className="peer sr-only"
+        disabled={disabled}
+        onChange={(event) => {
+          const file = event.target.files?.[0];
+          if (file) onPick(file, caption);
+          setCaption("");
+          event.target.value = "";
+        }}
+      />
+      <label
+        htmlFor={id}
+        className="btn btn-quiet min-h-11 px-4 text-[13px] peer-disabled:pointer-events-none peer-disabled:opacity-45"
+      >
+        {kind === "photo_wall" ? copy.reply.sectionAddPhoto : copy.reply.sectionAddPhoto}
+      </label>
+      {kind === "photo_wall" ? (
+        <input
+          value={caption}
+          onChange={(event) => setCaption(event.target.value)}
+          placeholder={copy.reply.sectionPhotoCaptionPlaceholder}
+          aria-label={copy.reply.sectionCaptionLabel}
+          maxLength={200}
+          disabled={disabled}
+          className="field h-[46px] min-w-44 flex-1 py-0"
+        />
+      ) : null}
+    </div>
   );
 }

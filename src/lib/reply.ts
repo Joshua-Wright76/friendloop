@@ -6,6 +6,7 @@ import { copy } from "./copy.ts";
 import { cleanDisplayName } from "./names";
 import { deleteStoredPhoto } from "./photo-storage";
 import { deleteStoredAudio } from "./media-storage.ts";
+import { sectionReplies } from "@/db/schema";
 import { replyHasContentCondition } from "./reply-query";
 
 /** How long an unopened invitation stays good. */
@@ -331,6 +332,22 @@ export async function submitFor(token: string): Promise<WriteResult> {
         eq(replies.issueId, context.issue.id),
         eq(replies.membershipId, context.membership.id),
         replyHasContentCondition(),
+      ),
+    );
+
+  // Section answers ride the same submission as the questions.
+  await db
+    .update(sectionReplies)
+    .set({
+      status: "submitted",
+      submittedAt: at,
+      addedAfterDelivery: context.issue.status === "delivered" || at > context.issue.deliversAt,
+      updatedAt: at,
+    })
+    .where(
+      and(
+        eq(sectionReplies.issueId, context.issue.id),
+        eq(sectionReplies.membershipId, context.membership.id),
       ),
     );
 

@@ -48,6 +48,7 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
         viewerToken={null}
         canInteract={false}
         blocks={view.blocks}
+        sections={view.sections}
         comments={[]}
       />
 

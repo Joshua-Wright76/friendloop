@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { describeDeadline } from "@/lib/schedule";
 import { resolveToken, sheetFor } from "@/lib/reply";
+import { sectionsForSheet } from "@/lib/sections";
 import { ReplySheet } from "./reply-sheet";
 import { copy, text } from "@/lib/copy";
 
@@ -76,6 +77,7 @@ export default async function ReplyPage({ params }: { params: Promise<{ token: s
   }
 
   const issue = sheet.context.issue;
+  const sections = await sectionsForSheet(token, issue.id);
   const deadline = describeDeadline(issue.deliversAt, context.group.timezone);
 
   return (
@@ -89,6 +91,7 @@ export default async function ReplyPage({ params }: { params: Promise<{ token: s
       deliversAtIso={issue.deliversAt.toISOString()}
       displayName={context.membership.name ?? context.membership.email.split("@")[0]}
       initialName={context.membership.name}
+      sections={sections}
       questions={sheet.questions.map((question, index) => ({
         id: question.id,
         index: index + 1,

@@ -127,13 +127,19 @@ test("development photos are written to the public folder", async () => {
 test("production photos go to the blob store, and need its token", async (t) => {
   const originalEnv = process.env.NODE_ENV;
   const originalToken = process.env.BLOB_READ_WRITE_TOKEN;
+  const originalE2E = process.env.E2E;
   t.after(() => {
     setEnv("NODE_ENV", originalEnv);
+    if (originalE2E === undefined) delete process.env.E2E;
+    else process.env.E2E = originalE2E;
     if (originalToken === undefined) delete process.env.BLOB_READ_WRITE_TOKEN;
     else process.env.BLOB_READ_WRITE_TOKEN = originalToken;
   });
 
+  // This contract is for the deployed app alone; the e2e build stores on disk
+  // instead, so the flag comes off while the production path is under test.
   setEnv("NODE_ENV", "production");
+  delete process.env.E2E;
   delete process.env.BLOB_READ_WRITE_TOKEN;
   await assert.rejects(storePhoto(JPEG, JPEG_FORMAT), /BLOB_READ_WRITE_TOKEN/);
 
