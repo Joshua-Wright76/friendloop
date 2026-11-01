@@ -1,5 +1,8 @@
 import { expect, type Page } from "@playwright/test";
 import { latestOutbox, linkFrom } from "./db";
+import { AFTER_FIRST_SLOT, BEFORE_FIRST_SLOT, DAY, DELIVERY_DAY, E2E_NOW, HOUR } from "./clock";
+
+export { AFTER_FIRST_SLOT, BEFORE_FIRST_SLOT, DAY, DELIVERY_DAY, E2E_NOW, HOUR };
 
 export const APP = process.env.E2E_BASE_URL ?? "http://localhost:3100";
 export const CRON_SECRET = process.env.CRON_SECRET ?? "e2e-cron-secret";
@@ -9,20 +12,32 @@ export function uniqueEmail(prefix: string): string {
   return `${prefix}-${Math.random().toString(36).slice(2, 8)}@friendloop.test`;
 }
 
+export type EmailTransport = "outbox" | "resend";
+
+/** Force one request down the provider path, or back to the captured outbox. */
+export function transportHeaders(transport: EmailTransport): Record<string, string> {
+  return { "x-e2e-email-transport": transport };
+}
+
 /**
  * Run the one scheduled entry point as if it were `at`. This is the fake clock:
  * the app reads `x-e2e-now` only when E2E=1.
  */
-export async function runSweep(at: Date): Promise<{
+export async function runSweep(
+  at: Date,
+  options: { transport?: EmailTransport } = {},
+): Promise<{
   opened: number;
   delivered: number;
   skipped: number;
   reminded: number;
+  retried: number;
 }> {
   const response = await fetch(`${APP}/api/cron/sweep`, {
     headers: {
       authorization: `Bearer ${CRON_SECRET}`,
       "x-e2e-now": at.toISOString(),
+      ...(options.transport ? transportHeaders(options.transport) : {}),
     },
   });
   expect(response.status, "sweep endpoint should accept the cron secret").toBe(200);
@@ -31,6 +46,7 @@ export async function runSweep(at: Date): Promise<{
     delivered: number;
     skipped: number;
     reminded: number;
+    retried: number;
   };
 }
 
@@ -39,16 +55,19 @@ export function clockHeaders(at: Date) {
   return { "x-e2e-now": at.toISOString() };
 }
 
-export const DAY = 24 * 60 * 60 * 1000;
-export const HOUR = 60 * 60 * 1000;
+/**
+ * Put the page on the same instant its fixtures were built on.
+ *
+ * The server reads `x-e2e-now`; client components read `Date`, which
+ * `page.clock.setFixedTime` pins without touching timers (autosave debounce
+ * still runs). Without this pair a spec asserts against two different "now"s.
+ */
+export async function freezeClock(page: Page, at: Date): Promise<void> {
+  await page.setExtraHTTPHeaders(clockHeaders(at));
+  await page.clock.setFixedTime(at);
+}
 
-/** Thursday 07:59 UTC — the minute before a Friday 09:00 Amsterdam slot. */
-export const BEFORE_FIRST_SLOT = new Date("2026-01-01T07:59:00Z");
-export const AFTER_FIRST_SLOT = new Date("2026-01-02T08:05:00Z");
-export const DELIVERY_DAY = new Date("2026-01-09T08:05:00Z");
-
-/** Walk the real sign-in path: request, read the email, confirm. */
-export async function signIn(page: Page, email: string): Promise<void> {
+/** Walk the real sign-in path: request, read the email, confirm. */export async function signIn(page: Page, email: string): Promise<void> {
   await page.goto("/signin");
   await page.getByLabel("Your email").fill(email);
   await page.getByRole("button", { name: "Email me a link" }).click();
