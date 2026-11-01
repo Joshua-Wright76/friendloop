@@ -256,7 +256,7 @@ export async function enableUiPreview(reset = false) {
         membershipId: UI_PREVIEW.aliceMembershipId,
         body: ALICE_ANSWERS[index],
         audioUrl: index === 0 ? "/dev-preview/voice-note.webm" : null,
-        audioDurationMs: index === 0 ? 84_000 : null,
+        audioDurationMs: index === 0 ? 1_408 : null,
         status: "submitted" as const,
         submittedAt: new Date(now.getTime() - 86400000),
       },
@@ -385,6 +385,9 @@ export async function enableUiPreview(reset = false) {
       )
       .limit(1);
 
+    // section_media has no natural unique key, so conflict handling cannot make
+    // this idempotent: replace the wall's photos instead of appending to them.
+    await tx.delete(sectionMedia).where(eq(sectionMedia.sectionReplyId, wallReply.id));
     await tx.insert(sectionMedia).values([
       {
         sectionReplyId: wallReply.id,
@@ -398,7 +401,7 @@ export async function enableUiPreview(reset = false) {
         caption: "The leftovers",
         position: 1,
       },
-    ]).onConflictDoNothing();
+    ]);
 
     await tx.insert(musicLinks).values({
       url: "https://open.spotify.com/album/1DFixLWuPkv3KT3TnV35m3",
