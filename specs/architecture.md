@@ -289,3 +289,15 @@ the loop, or the reply token in the link, and never a revoked membership
 (`membershipForViewer`). The tab inside `/g/<id>` rides the loop layout's own
 membership check. Share-link visitors have no route to it by construction.
 
+
+## 19 · The print view is the round, rendered differently
+
+`/i/<id>?print` and `/s/<token>?print` call the same `loadIssue` as the web round and
+hand the result to a server component built for paper (`issue-print.tsx`), so there is
+no export step, no stored copy and no PDF dependency; "Save as PDF" is the browser's.
+The switch is only honoured for a delivered round (`wantsPrint` plus a status check on
+the page), and the view is loaded as no one in particular so authors are named, not
+"You". Light paper is a scoped re-declaration of the tokens (`printThemeCss`: the loop's
+light scheme on white), so html's dark tokens and a loop's dark scheme can never leak
+into it; `@media print` hides the app chrome and controls page breaks. Nothing here
+calls `window.print()` except an explicit click.

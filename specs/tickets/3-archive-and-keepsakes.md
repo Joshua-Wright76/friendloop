@@ -101,15 +101,52 @@ defining — and everywhere else it is the paid tier, so free is the point.
   (questions, answers, photos, voice-note cards, poll tallies, credits),
   produced client-side from a `?print` view so the free-tier constraint stays
   untouched. Reader's "Save as PDF" is the mechanism; a dedicated print
-  stylesheet with page-break control is the work.
-- **Year book (explicit stretch, likely never as print fulfillment)** — an
+  stylesheet with page-break control is the work. **Shipped** (see design
+notes below).
+- **Year book (explicit stretch, not built)** — an
   annual compilation view; only if a self-serve print partner with no monthly
   cost appears.
 
 | ID | Flow | Acceptance criteria | Status |
 | --- | --- | --- | --- |
-| Q1 | Print an issue | On a delivered issue, "print" opens the print view: no chrome, page breaks between questions, media sized to not split, both color schemes print as the light paper. | todo |
-| Q2 | Late edits stay true | The print view reflects the web issue's current canonical state, including post-delivery additions marked as late. | todo |
+| Q1 | Print an issue | On a delivered issue, "print" opens the print view: no chrome, page breaks between questions, media sized to not split, both color schemes print as the light paper. | done |
+| Q2 | Late edits stay true | The print view reflects the web issue's current canonical state, including post-delivery additions marked as late. | done |
+
+Design notes (as built)
+
+- **One address, one switch.** `/i/<id>?print` and `/s/<token>?print` render the same
+  `loadIssue` view through a server component (`issue-print.tsx`) instead of the
+  interactive body, so there is no copy of the round to go stale (Q2 falls out of
+  that) and no server-side PDF generation or dependency: "Save as PDF" in the
+  browser's print window is the mechanism. The only client code is a button that
+  calls `window.print()` on click; the view never prints itself, because a mail
+  scanner prefetching the link would otherwise print too.
+- **Delivered only.** An open round has no print action, and `?print` on one just shows
+  the round (no redirect, nothing to leak). Share links already only exist for
+  delivered rounds and honour "sharing off" like the share page.
+- **Always light paper.** `.print-sheet` re-declares every colour token
+  (`printThemeCss`): the loop's own *light* scheme (so a preset's ink and accent
+  survive, and its contrast guarantees still apply) with page, card and field forced
+  white, no gingham check and no shadow. The html dark tokens never reach it, in
+  print or on screen. Header image prints if the loop has one.
+- **Names, not "You".** The view is loaded as nobody in particular, so authors and
+  comment authors are named; a keepsake is read by someone else. Admin-only sections
+  follow the web rule (shown only if the opener is an owner or admin).
+- **What is on paper.** Question answers, photos (alt text always set), voice notes as
+  a card with the duration (audio cannot print), poll picks plus tally as numbers (the
+  bar is decoration), "asked by" credits, standard sections, photo walls with
+  captions, music picks as title, provider and the link text, reactions as a words line
+  ("Reactions: ❤️ 2"), the issue thread, and each answer's thread under its answer.
+  Sections nobody wrote in are left out (nothing to keep); questions without answers
+  already were. Comments appear exactly when the web round shows them.
+- **Page control.** `@media print`: each question or section starts a page (except the
+  first, which follows the masthead), and answers, figures, cards, comments and the
+  poll never split. Long answers still flow across pages. Photos are capped at 6.4in
+  tall; the wall is two-up.
+- **Known quirk, not changed here.** Submitting after delivery flags all of the
+  submitter's section answers as added late (existing `submitFor` behaviour); the print
+  view faithfully mirrors the web round, so it does too.
+
 
 ## Part R · Reading and delivery controls
 
