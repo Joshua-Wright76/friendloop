@@ -9,6 +9,7 @@ import {
   jsonb,
   uniqueIndex,
   index,
+  type AnyPgColumn,
 } from "drizzle-orm/pg-core";
 
 /** Management rights. */
@@ -30,6 +31,7 @@ export const emailKindEnum = pgEnum("email_kind", [
   "reminder",
   "delivery",
   "nudge",
+  "mention",
 ]);
 
 export const users = pgTable("users", {
@@ -90,6 +92,8 @@ export const groups = pgTable("groups", {
   /** Reply window length in days; delivery lands this long after opening. */
   windowDays: integer("window_days").default(7).notNull(),
   shareEnabled: boolean("share_enabled").default(false).notNull(),
+  /** The owner's switch: off hides every comment surface and refuses writes; nothing is deleted. */
+  commentsEnabled: boolean("comments_enabled").default(true).notNull(),
   pausedAt: timestamp("paused_at", { withTimezone: true }),
   /** Last slot that produced an issue, so pause/resume restarts cleanly. */
   lastSlotAt: timestamp("last_slot_at", { withTimezone: true }),
@@ -265,11 +269,19 @@ export const comments = pgTable(
     membershipId: uuid("membership_id")
       .references(() => memberships.id, { onDelete: "cascade" })
       .notNull(),
+    /** Plain text; a mention is stored as `@[<membership id>]` and rendered as that person's name. */
     body: text("body").notNull(),
+    /** Null for the issue-level thread; otherwise the answer this comment hangs from. */
+    replyId: uuid("reply_id").references(() => replies.id, { onDelete: "cascade" }),
+    /** The comment this one answers. Falls back to "a removed comment" if that one goes. */
+    quoteCommentId: uuid("quote_comment_id").references((): AnyPgColumn => comments.id, {
+      onDelete: "set null",
+    }),
+    photoUrl: text("photo_url"),
     deletedAt: timestamp("deleted_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   },
-  (t) => [index("comments_issue_idx").on(t.issueId)],
+  (t) => [index("comments_issue_idx").on(t.issueId), index("comments_reply_idx").on(t.replyId)],
 );
 
 export const reactions = pgTable(

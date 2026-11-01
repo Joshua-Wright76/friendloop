@@ -99,6 +99,7 @@ test("every email the product sends has a preview", () => {
       "deliveryShared",
       "inviteContributor",
       "inviteReader",
+      "mention",
       "paused",
       "prompt",
       "reminder",

@@ -181,7 +181,7 @@ test("a delivered round renders for a member, marking their own answers", async 
 
   assert.equal(view.comments.length, 1);
   assert.equal(view.comments[0].author, "Bob");
-  assert.equal(view.comments[0].body, "A comment.");
+  assert.deepEqual(view.comments[0].parts, [{ type: "text", text: "A comment." }]);
 });
 
 test("a stranger sees the answers without reaction controls", async () => {

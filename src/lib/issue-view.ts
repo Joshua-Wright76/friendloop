@@ -1,7 +1,6 @@
-import { and, asc, eq, inArray } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull } from "drizzle-orm";
 import { db } from "@/db";
 import {
-  comments,
   groups,
   issueQuestions,
   issues,
@@ -10,6 +9,7 @@ import {
   replies,
 } from "@/db/schema";
 import { copy } from "./copy.ts";
+import { loadComments, type IssueComment } from "./comment-view.ts";
 import { tallyPoll, type PollTallyRow } from "./poll.ts";
 import { musicCardFor } from "./sections";
 import { issueSections, sectionMedia, sectionReplies } from "@/db/schema";
@@ -26,6 +26,8 @@ export type IssueAnswer = {
   choices: string[];
   addedLater: boolean;
   reactions: Array<{ emoji: string; count: number; mine: boolean }>;
+  /** The thread on this one answer; always empty when comments are off or the page is shared. */
+  comments: IssueComment[];
 };
 
 export type IssueSectionReplyBlock = {
@@ -72,7 +74,11 @@ export type IssueView = {
   group: typeof groups.$inferSelect;
   blocks: IssueBlock[];
   sections: IssueSectionBlock[];
-  comments: Array<{ id: string; author: string; body: string; createdAt: Date }>;
+  comments: IssueComment[];
+  /** The owner's switch. When false every comment surface is gone, and the lists above are empty. */
+  commentsEnabled: boolean;
+  /** Who the viewer can @mention; empty for strangers and when comments are off. */
+  mentionables: Array<{ id: string; name: string }>;
   answerCount: number;
 };
 
@@ -151,6 +157,13 @@ export async function loadIssue(input: {
     return delivered || row.membershipId === viewerMembershipId;
   });
 
+  // Comments are a member surface: a share link never shows them, and the owner
+  // can switch them off for everyone. Off hides; it never deletes.
+  const showComments = group.commentsEnabled && !input.shareToken;
+  const threads = showComments
+    ? await loadComments({ issueId: issue.id, groupId: group.id, viewerMembershipId })
+    : { top: [], byReply: new Map<string, IssueComment[]>(), mentionables: [] };
+
   const replyIds = rows.map((row) => row.replyId);
   const reactionRows = replyIds.length
     ? await db.select().from(reactions).where(inArray(reactions.replyId, replyIds))
@@ -188,6 +201,7 @@ export async function loadIssue(input: {
           audioDurationMs: row.audioDurationMs,
           choices: row.pollChoices.flatMap((index) => question.pollOptions?.[index] ?? []),
           addedLater: row.addedAfterDelivery,
+          comments: threads.byReply.get(row.replyId) ?? [],
           reactions: REACTIONS.map((emoji) => ({
             emoji,
             count: forReply.filter((reaction) => reaction.emoji === emoji).length,
@@ -269,33 +283,15 @@ export async function loadIssue(input: {
       }),
   }));
 
-  const commentRows = await db
-    .select({
-      id: comments.id,
-      body: comments.body,
-      createdAt: comments.createdAt,
-      name: memberships.name,
-      email: memberships.email,
-      membershipId: comments.membershipId,
-    })
-    .from(comments)
-    .innerJoin(memberships, eq(memberships.id, comments.membershipId))
-    .where(eq(comments.issueId, issue.id))
-    .orderBy(asc(comments.createdAt));
-
   return {
     issue,
     group,
     blocks,
     sections,
     answerCount: rows.length,
-    comments: commentRows.map((row) => ({
-      id: row.id,
-      author:
-        row.membershipId === viewerMembershipId ? copy.issue.you : (row.name ?? row.email.split("@")[0]),
-      body: row.body,
-      createdAt: row.createdAt,
-    })),
+    comments: threads.top,
+    commentsEnabled: group.commentsEnabled,
+    mentionables: threads.mentionables,
   };
 }
 
@@ -309,7 +305,13 @@ export async function membershipForViewer(input: {
     const [row] = await db
       .select()
       .from(memberships)
-      .where(and(eq(memberships.groupId, input.groupId), eq(memberships.userId, input.userId)))
+      .where(
+        and(
+          eq(memberships.groupId, input.groupId),
+          eq(memberships.userId, input.userId),
+          isNull(memberships.revokedAt),
+        ),
+      )
       .limit(1);
     if (row) return row;
   }
@@ -318,7 +320,13 @@ export async function membershipForViewer(input: {
     const [row] = await db
       .select()
       .from(memberships)
-      .where(and(eq(memberships.replyToken, input.token), eq(memberships.groupId, input.groupId)))
+      .where(
+        and(
+          eq(memberships.replyToken, input.token),
+          eq(memberships.groupId, input.groupId),
+          isNull(memberships.revokedAt),
+        ),
+      )
       .limit(1);
     if (row) return row;
   }

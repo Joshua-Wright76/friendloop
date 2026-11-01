@@ -1,6 +1,7 @@
 import {
   deliveryEmail,
   inviteEmail,
+  mentionEmail,
   pausedEmail,
   promptEmail,
   reminderEmail,
@@ -110,6 +111,17 @@ export function emailPreviews(): EmailPreview[] {
         url: "https://friendloop.dev/r/preview-token",
         deadlineLabel: "Friday at 9:00 AM",
         remaining: 2,
+      }),
+    },
+    {
+      id: "mention",
+      email: mentionEmail({
+        groupName: "Saturday Club",
+        memberName: "Alice",
+        authorName: "Alex",
+        issueNumber: 11,
+        excerpt: "@Alice that geese story is the best thing I read all week.",
+        url: "https://friendloop.dev/i/preview?m=preview-token",
       }),
     },
     {

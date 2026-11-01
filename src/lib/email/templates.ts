@@ -243,6 +243,30 @@ export function reminderEmail(input: {
   };
 }
 
+export function mentionEmail(input: {
+  groupName: string;
+  memberName: string;
+  authorName: string;
+  issueNumber: number;
+  excerpt: string;
+  url: string;
+}): RenderedEmail {
+  const { groupName, memberName, authorName, issueNumber, excerpt, url } = input;
+  const content = copy.emails.mention;
+  const values = { groupName, memberName, authorName, issueNumber, excerpt, url };
+  return {
+    subject: text(content.subject, values),
+    html: layout({
+      preheader: text(content.preheader, values),
+      heading: text(content.heading, values),
+      body: [text(content.body, values), `“${excerpt}”`],
+      cta: { label: content.cta, url },
+      footer: text(content.footer, values),
+    }),
+    text: text(content.text, values),
+  };
+}
+
 export function deliveryEmail(input: {
   groupName: string;
   issueNumber: number;

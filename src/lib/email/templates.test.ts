@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   deliveryEmail,
   inviteEmail,
+  mentionEmail,
   pausedEmail,
   promptEmail,
   reminderEmail,
@@ -28,6 +29,7 @@ test("every email uses Friendloop's stationery system and plain-text twin", () =
     reminderEmail({ groupName: "Friday Loop", memberName: "Dev", url: "https://friendloop.dev/answer", deadlineLabel: "Friday at 9:00 AM", remaining: 2 }),
     deliveryEmail({ groupName: "Friday Loop", issueNumber: 2, url: "https://friendloop.dev/issue", answers: [{ question: "What made you laugh?", author: "Dev", body: "The cat fist bump." }] }),
     pausedEmail({ groupName: "Friday Loop", url: "https://friendloop.dev/loop" }),
+    mentionEmail({ groupName: "Friday Loop", memberName: "Dev", authorName: "Alex", issueNumber: 2, excerpt: "@Dev nice one", url: "https://friendloop.dev/i/1?m=t" }),
   ];
 
   for (const email of emails) {
@@ -67,4 +69,21 @@ test("delivery email points to web comments without promising inbound replies", 
 
   assert.match(email.html, /open the issue to read and comment/);
   assert.doesNotMatch(email.html, /reply to this email/);
+});
+
+test("a mention email names who said it, quotes it, and links to the issue", () => {
+  const email = mentionEmail({
+    groupName: "Friday Loop",
+    memberName: "Maya",
+    authorName: "Alex",
+    issueNumber: 4,
+    excerpt: "@Maya <b>this</b> is yours",
+    url: "https://friendloop.dev/i/1?m=token",
+  });
+
+  assert.equal(email.subject, "Alex mentioned you in Friday Loop");
+  assert.match(email.html, /@Maya &lt;b&gt;this&lt;\/b&gt; is yours/);
+  assert.match(email.html, /See the comment/);
+  assert.match(email.text, /Maya, Alex mentioned you in a comment on round 4 of Friday Loop:/);
+  assert.match(email.text, /https:\/\/friendloop\.dev\/i\/1\?m=token/);
 });
