@@ -83,8 +83,8 @@ export function IssueBody({
             {section.kind === "photo_wall" ? (
               <div className="grid grid-cols-2 gap-2">
                 {section.replies.flatMap((reply) =>
-                  reply.media.map((item) => (
-                    <figure key={item.url} className="m-0">
+                  reply.media.map((item, mediaIndex) => (
+                    <figure key={item.url} id={mediaIndex === 0 ? `section-reply-${reply.replyId}` : undefined} className="m-0 scroll-mt-4">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img src={item.url} alt={item.caption ?? ""} className="w-full rounded-lg border border-line object-cover" />
                       {item.caption ? (
@@ -98,7 +98,7 @@ export function IssueBody({
               </div>
             ) : (
               section.replies.map((reply) => (
-                <div key={reply.replyId} className="mt-4 border-t border-line pt-4 first:border-t-0">
+                <div key={reply.replyId} id={`section-reply-${reply.replyId}`} className="mt-4 scroll-mt-4 border-t border-line pt-4 first:border-t-0">
                   <div className="flex items-center gap-2.5">
                     <Avatar name={reply.author} photoUrl={reply.authorPhotoUrl} />
                     <p className="m-0 text-[14px] font-extrabold text-ink-soft">{reply.author}</p>
@@ -222,7 +222,7 @@ function AnswerCard({
   );
 
   return (
-    <article className="answer-card mt-4 border-t border-line pt-4 first:border-t-0">
+    <article id={`answer-${answer.replyId}`} className="answer-card mt-4 scroll-mt-4 border-t border-line pt-4 first:border-t-0">
       <div className="flex items-center gap-2.5">
         <Avatar name={answer.author} photoUrl={answer.authorPhotoUrl} />
         <p className="m-0 text-[14px] font-extrabold text-ink-soft">{answer.author}</p>

@@ -8,6 +8,7 @@ const items = [
   ["People", "/members", copy.common.navigation.people],
   ["Questions", "/questions", copy.common.navigation.questions],
   ["Rounds", "/issues", copy.common.navigation.rounds],
+  ["Album", "/album", copy.common.navigation.album],
   ["Settings", "/settings", copy.common.navigation.settings],
 ] as const;
 

@@ -9,6 +9,7 @@ import { Cherries } from "@/components/stationery";
 import { copy, text } from "@/lib/copy";
 import { issueTitle } from "@/lib/issue-name";
 import { LoopBanner, LoopTheme } from "@/components/loop-theme";
+import { albumHref } from "@/lib/album-query";
 
 export const instant = false;
 
@@ -80,7 +81,18 @@ export default async function IssuePage({
         mentionables={view.mentionables}
       />
 
-      <p className="mt-8 text-center text-[13px] text-ink-muted">
+      {membership ? (
+        <p className="mt-8 text-center text-[14px] font-bold">
+          <Link
+            href={albumHref({ base: `/album/${view.group.id}`, token: m ?? null })}
+            className="inline-flex min-h-11 items-center text-ink underline decoration-line-strong underline-offset-4"
+          >
+            {copy.album.issueLink}
+          </Link>
+        </p>
+      ) : null}
+
+      <p className="mt-4 text-center text-[13px] text-ink-muted">
         <Link href="/" className="underline decoration-line-strong underline-offset-4">
           {copy.common.brand}
         </Link>

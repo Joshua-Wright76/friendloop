@@ -423,3 +423,15 @@ body:has(.reply-actionbar) .theme-switch { bottom: calc(92px + env(safe-area-ins
   .wizard-progress__track > span { transition: none; }
   .picker-popover, .picker-sheet { animation: none !important; }
 }
+
+/* The Album: a grid of tappable photos, voice notes as full-width cards, and a native modal viewer. */
+.album-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 10px; margin: 0; padding: 0; list-style: none; }
+@media (min-width: 560px) { .album-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.album-grid > .album-voice { grid-column: 1 / -1; }
+.album-tile { display: block; width: 100%; aspect-ratio: 1; padding: 0; overflow: hidden; border: 1px solid var(--line-strong); border-radius: 6px; background: var(--accent-soft); cursor: pointer; box-shadow: var(--shadow); }
+.album-tile > img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.album-avatar { width: 22px; height: 22px; font-size: 11px; }
+.album-viewer { width: min(920px, calc(100vw - 20px)); max-width: none; max-height: calc(100dvh - 20px); margin: auto; padding: clamp(14px, 3vw, 22px); overflow-y: auto; border: 1px solid var(--line-strong); border-radius: 8px; background: var(--card); color: var(--ink); box-shadow: var(--shadow-lift); }
+.album-viewer::backdrop { background: rgb(20 12 14 / .72); }
+.album-viewer-body { display: flex; flex-direction: column; gap: 12px; }
+.album-viewer-photo { display: block; width: 100%; max-height: 62dvh; object-fit: contain; border-radius: 6px; background: var(--accent-soft); }
