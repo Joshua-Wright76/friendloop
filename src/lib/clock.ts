@@ -1,5 +1,6 @@
 import { headers } from "next/headers";
 import { connection } from "next/server";
+import { e2eSeamsAllowed } from "./e2e";
 
 /**
  * The single impure clock read in request-handling code.
@@ -20,7 +21,7 @@ export async function getNow(options: { skipConnection?: boolean } = {}): Promis
     }
   }
 
-  if (process.env.E2E === "1") {
+  if (e2eSeamsAllowed()) {
     try {
       const requestHeaders = await headers();
       const override = requestHeaders.get("x-e2e-now");
@@ -34,6 +35,7 @@ export async function getNow(options: { skipConnection?: boolean } = {}): Promis
   }
   return new Date();
 }
+
 
 /** Escape hatch for code that runs without a request (seed scripts, migrations). */
 export function nowFromEnv(): Date {

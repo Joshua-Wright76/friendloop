@@ -9,7 +9,10 @@
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
     "test": "node --test 'src/**/*.test.ts'",
+    "test:integration": "node scripts/e2e-db.mjs run node --import ./test/register.mjs --import ./test/env.mjs --test --test-concurrency=1 --test-force-exit --test-global-setup=./test/global-setup.mjs 'test/**/*.integration.test.ts'",
+    "test:coverage": "node scripts/e2e-db.mjs run node --import ./test/register.mjs --import ./test/env.mjs --test --test-concurrency=1 --test-force-exit --test-global-setup=./test/global-setup.mjs --experimental-test-coverage --test-coverage-include='src/lib/**/*.ts' --test-coverage-exclude='**/*.test.ts' --test-coverage-lines=100 --test-coverage-functions=100 --test-coverage-branches=93 'src/**/*.test.ts' 'test/**/*.integration.test.ts'",
     "check:flows": "node scripts/check-flows.mjs",
+    "check:test-tables": "node scripts/check-test-tables.mjs",
     "measure:navigation": "node --env-file=.env scripts/measure-loop-navigation.mjs",
     "db:generate": "drizzle-kit generate",
     "db:push": "drizzle-kit push",
@@ -19,10 +22,13 @@
     "e2e:db:stop": "node scripts/e2e-db.mjs stop",
     "e2e:db:reset": "node scripts/e2e-db.mjs reset",
     "e2e:ui": "node scripts/e2e-db.mjs run playwright test --ui",
-    "verify": "npm run typegen && npm run typecheck && npm run lint && npm run test && npm run check:flows && npm run check:migrations",
+    "verify": "npm run typegen && npm run typecheck && npm run lint && npm run test && npm run test:integration && npm run check:flows && npm run check:test-tables && npm run check:migrations",
     "check:migrations": "node scripts/check-migrations.mjs",
     "db:seed": "node scripts/seed-dev.mjs",
     "typegen": "next typegen"
+  },
+  "engines": {
+    "node": ">=22.18"
   },
   "dependencies": {
     "@vercel/blob": "^2.8.2",

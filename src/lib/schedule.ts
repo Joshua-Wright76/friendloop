@@ -107,13 +107,11 @@ export function dueSlot(schedule: LoopSchedule, at: Date): Date | null {
 /** The next slot strictly after `at`, for "next send" copy. */
 export function nextSlot(schedule: LoopSchedule, at: Date): Date {
   const now = zoned(at, schedule.timezone);
-  let k = Math.max(slotIndex(schedule, now), 0);
-  for (let step = 0; step < 3; step += 1) {
-    const instant = slotInstant(schedule, k);
-    if (instant.getTime() > at.getTime()) return instant;
-    k += 1;
-  }
-  return slotInstant(schedule, k);
+  const k = Math.max(slotIndex(schedule, now), 0);
+  const candidate = slotInstant(schedule, k);
+  // `slotIndex` counts whole local dates, so `k` is either today's slot (still
+  // ahead of us) or the one that already passed — never further behind than that.
+  return candidate.getTime() > at.getTime() ? candidate : slotInstant(schedule, k + 1);
 }
 
 /**

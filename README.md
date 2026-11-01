@@ -5,7 +5,7 @@ Recurring questions go out by email, everyone answers through a private link, an
 the answers become a shared issue delivered back to the group.
 
 - Product truth: [`PRODUCT.md`](./PRODUCT.md)
-- Flow inventory (44 flows, the e2e checklist): [`specs/flows.md`](./specs/flows.md)
+- Flow inventory (47 flows, the e2e checklist): [`specs/flows.md`](./specs/flows.md)
 - Why the code looks like this: [`specs/architecture.md`](./specs/architecture.md)
 
 **Cost to run: $0/month** on free tiers (Vercel Hobby + Neon + Resend).
@@ -24,6 +24,11 @@ the answers become a shared issue delivered back to the group.
 src/lib/clock.ts        getNow()  — the only impure clock read; x-e2e-now when E2E=1
 src/lib/email/send.ts   outbox    — every send is a row first, then Resend
 ```
+
+Two narrower test-only seams hang off the second one: `RESEND_BASE_URL` points the
+real SDK at a local stub that can fail on demand, and `x-e2e-email-transport`
+chooses the transport per request. Both `x-e2e-*` headers are refused when
+`VERCEL_ENV=production`.
 
 Emails are recorded before they leave, keyed by a unique `dedupe_key`, so a retried
 cron run, a redeploy mid-send, or a double click can never send twice. Tests read
@@ -48,7 +53,7 @@ Vercel → Project → Settings → Environment Variables.
 | `CRON_SECRET` | `openssl rand -hex 32` — protects the sweep endpoint |
 | `UI_PREVIEW_SECRET` | `openssl rand -hex 32` — the key that unlocks `/dev/outbox` outside local development |
 | `BLOB_READ_WRITE_TOKEN` | Required for production photo uploads. Vercel → Storage → Blob |
-| `TEST_DATABASE_URL` | Optional: your own throwaway Postgres for e2e (a Neon branch). If unset, `npm run e2e` starts a local one. |
+| `TEST_DATABASE_URL` | Optional: your own throwaway Postgres for e2e and the integration tests (a Neon branch). If unset, both start a local one. |
 
 ## Environments
 
@@ -152,11 +157,48 @@ average exceeds `NAV_BUDGET_MS`.
 ## Verify
 
 ```sh
-npm run verify         # typecheck + lint + unit + flow matrix
-npm run e2e            # Playwright — starts its own Postgres if needed
+npm run verify              # typegen + typecheck + lint + unit + integration + flows + tables + migrations
+npm run test:coverage       # 100% line/function coverage of src/lib, enforced
+npm run e2e                 # Playwright — starts its own Postgres if needed
 npm run check:flows -- --strict   # what CI enforces on every run
 npx playwright test e2e/accessibility.spec.ts  # WCAG 2.2 AA axe checks, both themes
+E2E_BASE_URL=https://friendloop.dev npx playwright test --grep @probe   # read-only production smoke
 ```
+
+### Three layers, on purpose
+
+| Layer | Command | What it is for |
+| --- | --- | --- |
+| Pure units | `npm test` | schedule math, copy, tokens, validation — no database, no framework |
+| Database-backed units | `npm run test:integration` | `sweep`, `reply`, `manage`, `auth`, the outbox: the same fixtures the browser suite uses, in ~1s per file |
+| Browser | `npm run e2e` | the 47 flows, a11y, layout, two sessions at once |
+
+The middle layer exists because some things are impossible to state honestly
+through a browser: two triggers running the sweep at the same instant, a provider
+rejecting a send, a session that expired 31 days ago. `test/register.mjs` maps
+`@/…` and stubs `next/headers`, `next/cache`, `next/navigation`, and
+`@vercel/blob`, so request-scoped library code runs under `node --test` exactly
+as it ships.
+
+`npm run test:coverage` runs both unit layers under V8 coverage and fails below
+**100% lines and functions** of `src/lib` (branches are held at their current
+floor). `test/lib/manifest.integration.test.ts` imports every module in `src/lib`
+so a new file cannot hide from the report by never being loaded.
+
+### The provider seam
+
+`EMAIL_TRANSPORT=outbox` records every email and never calls Resend — so, on its
+own, `dispatch()`'s failure branch would only ever run in production. Two test
+seams close that:
+
+- `RESEND_BASE_URL` points the real Resend SDK at `e2e/support/fake-resend.ts`,
+  a local stub that can reject (500), rate-limit (429), or bounce a named
+  recipient.
+- With `E2E=1`, the `x-e2e-email-transport` header chooses the transport for one
+  request, the same way `x-e2e-now` moves the clock. Both are refused when
+  `VERCEL_ENV=production`, so inheriting `E2E=1` cannot hand a caller the clock.
+
+`.github/workflows/ci.yml` runs the suite against a `postgres:16-alpine` service.
 
 ### The e2e database
 
@@ -212,12 +254,16 @@ Flow coverage is not a vibe: `specs/flows.md` lists every user-visible flow, eac
 [`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs on every pull request and
 every push to `main`, in order:
 
-1. **Verify** — `npm run verify`: typegen, typecheck, lint, unit tests, the flow
-   matrix, and `check:migrations`.
-2. **Flow coverage (strict)** — `npm run check:flows -- --strict`: a `done` flow must
+1. **Verify** — `npm run verify`: typegen, typecheck, lint, unit tests, the
+   database-backed unit tests, the flow matrix, the truncate-list check, and
+   `check:migrations`.
+2. **Coverage gate** — `npm run test:coverage`: 100% lines and functions of
+   `src/lib`, enforced rather than reported.
+3. **Flow coverage (strict)** — `npm run check:flows -- --strict`: a `done` flow must
    have its spec file, and no flow may still be `todo`.
-3. **End-to-end** — `npm run e2e`: the full Playwright suite on chromium and webkit
-   against a throwaway `postgres:16-alpine` service container.
+4. **End-to-end** — `npm run e2e`: the full Playwright suite on chromium and webkit
+   against a throwaway `postgres:16-alpine` service container. Node 24 and the
+   runner image are pinned deliberately; a gate should not move underneath us.
 
 Migrations must be additive (`check:migrations` fails step 1 on destructive DDL),
 because reverting a deploy reverts code, not the database.
@@ -229,7 +275,9 @@ What CI does **not** do, so nobody is surprised by a bad deploy:
   check a merge gate needs branch protection plus pull requests, and this repo has
   neither — its history is linear commits pushed straight to `main`. That is a
   deliberate trade: fast to ship, not self-enforcing.
-- **No preview-deployment test run, and no production probe or automatic
-  rollback exist.** Vercel runs only `next build` (see `package.json`). An earlier
-  version of this section described a probe calling `POST /v1/projects/{id}/rollback`
-  on two consecutive failures; it was never written. Do not plan around it.
+- **No preview-deployment test run and no automatic rollback.** Vercel runs only
+  `next build` (see `package.json`). `e2e/probes.spec.ts` holds read-only
+  production probes (`--grep @probe` against `E2E_BASE_URL`), but nothing runs
+  them on a schedule; an earlier version of this section described a probe calling
+  `POST /v1/projects/{id}/rollback` on two consecutive failures, which was never
+  written. Do not plan around it.

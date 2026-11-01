@@ -51,6 +51,14 @@ export async function loadIssue(input: {
   shareToken?: string;
   viewerMembershipId?: string | null;
 }): Promise<IssueView | null> {
+  // Neither key is a lookup: asking Postgres to cast "" to uuid is a 500, not a
+  // missing page. The caller gets the same "nothing here" as any other miss.
+  if (!input.shareToken && !input.issueId) return null;
+
+  // A stranger is `null`, and a caller who left the field out is the same
+  // stranger — not a member who happens to have no id.
+  const viewerMembershipId = input.viewerMembershipId ?? null;
+
   const [row] = await db
     .select({ issue: issues, group: groups })
     .from(issues)
@@ -64,7 +72,7 @@ export async function loadIssue(input: {
             // yesterday stops working the moment the owner unchecks the box.
             eq(groups.shareEnabled, true),
           )
-        : eq(issues.id, input.issueId ?? ""),
+        : eq(issues.id, input.issueId as string),
     )
     .limit(1);
 
@@ -106,7 +114,7 @@ export async function loadIssue(input: {
     answers: rows
       .filter((row) => row.issueQuestionId === question.id)
       .map((row) => {
-        const mine = input.viewerMembershipId === row.membershipId;
+        const mine = viewerMembershipId === row.membershipId;
         const forReply = reactionRows.filter((reaction) => reaction.replyId === row.replyId);
         return {
           replyId: row.replyId,
@@ -121,9 +129,9 @@ export async function loadIssue(input: {
             emoji,
             count: forReply.filter((reaction) => reaction.emoji === emoji).length,
             mine: forReply.some(
-              (reaction) => reaction.emoji === emoji && reaction.membershipId === input.viewerMembershipId,
+              (reaction) => reaction.emoji === emoji && reaction.membershipId === viewerMembershipId,
             ),
-          })).filter((reaction) => reaction.count > 0 || input.viewerMembershipId !== null),
+          })).filter((reaction) => reaction.count > 0 || viewerMembershipId !== null),
         };
       }),
   }));
@@ -150,7 +158,7 @@ export async function loadIssue(input: {
     comments: commentRows.map((row) => ({
       id: row.id,
       author:
-        row.membershipId === input.viewerMembershipId ? copy.issue.you : (row.name ?? row.email.split("@")[0]),
+        row.membershipId === viewerMembershipId ? copy.issue.you : (row.name ?? row.email.split("@")[0]),
       body: row.body,
       createdAt: row.createdAt,
     })),

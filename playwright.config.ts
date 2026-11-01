@@ -13,6 +13,9 @@ const TEST_PORT = 3100;
 const baseURL = process.env.E2E_BASE_URL ?? `http://localhost:${TEST_PORT}`;
 const isProd = Boolean(process.env.E2E_BASE_URL);
 
+/** The stub the provider-path tests reach through `RESEND_BASE_URL`. */
+const FAKE_MAIL_URL = process.env.E2E_FAKE_MAIL_URL ?? "http://127.0.0.1:3101";
+
 process.env.CRON_SECRET ??= "e2e-cron-secret";
 if (!isProd) {
   process.env.E2E ??= "1";
@@ -30,6 +33,7 @@ export default defineConfig({
   // per-worker schemas when the suite is big enough to need them.
   workers: 1,
   globalSetup: "./e2e/global-setup.ts",
+  globalTeardown: "./e2e/global-teardown.ts",
   reporter: process.env.CI
     ? [["list"], ["html", { open: "never" }], ["github"]]
     : [["list"], ["html", { open: "never" }]],
@@ -46,7 +50,7 @@ export default defineConfig({
     {
       // The reply form is the surface that actually ships to phones.
       name: "phone",
-      testMatch: /(A2|B4|D4|D5|D6|theme-switch)\.spec\.ts/,
+      testMatch: /(A2|B4|D4|D5|D6|theme-switch|a11y-phone)\.spec\.ts/,
       use: { ...devices["iPhone 13"] },
     },
   ],
@@ -62,6 +66,10 @@ export default defineConfig({
         env: {
           E2E: "1",
           EMAIL_TRANSPORT: "outbox",
+          // Configured as if this were production, but pointed at the stub: the
+          // suite can then run `dispatch()` for real without sending mail.
+          RESEND_API_KEY: "re_e2e_fake_key",
+          RESEND_BASE_URL: FAKE_MAIL_URL,
           UI_PREVIEW_SECRET: process.env.UI_PREVIEW_SECRET ?? "e2e-preview-secret",
           CRON_SECRET: process.env.CRON_SECRET ?? "e2e-cron-secret",
           DATABASE_URL: process.env.TEST_DATABASE_URL ?? process.env.DATABASE_URL ?? "",

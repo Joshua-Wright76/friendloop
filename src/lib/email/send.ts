@@ -4,6 +4,7 @@ import { db } from "@/db";
 import { outbox } from "@/db/schema";
 import type { RenderedEmail } from "./templates";
 import { copy } from "../copy.ts";
+import { e2eSeamsAllowed } from "../e2e.ts";
 
 export type EmailKind = (typeof outbox.$inferInsert)["kind"];
 
@@ -19,16 +20,42 @@ export type QueueInput = RenderedEmail & {
   fromName?: string | null;
 };
 
-/** True when emails are only recorded, never handed to a provider. */
-export function emailIsCaptured(): boolean {
-  return transport() === "outbox";
-}
+export type Transport = "outbox" | "resend";
+
+/** Header a test uses to force one request down the real provider path. */
+export const TRANSPORT_HEADER = "x-e2e-email-transport";
 
 /** `outbox` skips the provider entirely (tests, and local dev without a key). */
-function transport(): "outbox" | "resend" {
+function configuredTransport(): Transport {
   if (process.env.EMAIL_TRANSPORT === "outbox") return "outbox";
   if (process.env.EMAIL_TRANSPORT === "resend") return "resend";
   return process.env.RESEND_API_KEY ? "resend" : "outbox";
+}
+
+/** True when emails are only recorded, never handed to a provider. */
+export function emailIsCaptured(): boolean {
+  return configuredTransport() === "outbox";
+}
+
+/**
+ * The transport for this request.
+ *
+ * With `E2E=1` a test may override the configured transport for a single request
+ * with `x-e2e-email-transport`, the same way `x-e2e-now` moves the clock. Without
+ * that, the provider path — the one production actually runs — could only be
+ * exercised by pointing a whole test run at a real Resend key.
+ */
+async function transport(): Promise<Transport> {
+  if (e2eSeamsAllowed()) {
+    try {
+      const { headers } = await import("next/headers");
+      const override = (await headers()).get(TRANSPORT_HEADER);
+      if (override === "outbox" || override === "resend") return override;
+    } catch {
+      // Outside a request scope (scripts, sweep in a unit test) — fall through.
+    }
+  }
+  return configuredTransport();
 }
 
 function addressBook(fromName?: string | null): string {
@@ -41,7 +68,11 @@ function addressBook(fromName?: string | null): string {
 let resendClient: Resend | null = null;
 function resend(): Resend {
   if (!resendClient) {
-    resendClient = new Resend(process.env.RESEND_API_KEY ?? "");
+    // `RESEND_BASE_URL` is what lets the suite run the real SDK against a stub
+    // that can reject, rate-limit, or fail — the paths no outbox-only test sees.
+    resendClient = new Resend(process.env.RESEND_API_KEY ?? "", {
+      baseUrl: process.env.RESEND_BASE_URL || undefined,
+    });
   }
   return resendClient;
 }
@@ -89,7 +120,7 @@ async function dispatch(row: {
   text: string;
   fromName?: string | null;
 }): Promise<void> {
-  if (transport() === "outbox") {
+  if ((await transport()) === "outbox") {
     await db
       .update(outbox)
       .set({ status: "sent", sentAt: new Date(), providerId: `outbox_${row.id}` })
