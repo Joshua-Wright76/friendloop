@@ -114,6 +114,28 @@ try {
       join memberships m on m.reply_token in ('dev-reply-token', 'alice-reply-token')
       where iq.issue_id = ${past.id} and iq.position = 4;
     `;
+
+    // A thread on the past round: a mention, a quoted reply, and one on a single answer.
+    const [owner] = await tx`select id from memberships where reply_token = 'dev-reply-token'`;
+    const [alice] = await tx`select id from memberships where reply_token = 'alice-reply-token'`;
+    const [aliceAnswer] = await tx`
+      select r.id from replies r
+      join issue_questions iq on iq.id = r.issue_question_id
+      where r.issue_id = ${past.id} and r.membership_id = ${alice.id} and iq.position = 1;
+    `;
+    const [opener] = await tx`
+      insert into comments (issue_id, membership_id, body)
+      values (${past.id}, ${owner.id}, ${`@[${alice.id}] that shelf deserves its own round.`})
+      returning id;
+    `;
+    await tx`
+      insert into comments (issue_id, membership_id, body, quote_comment_id)
+      values (${past.id}, ${alice.id}, 'It does now. Unlike March.', ${opener.id});
+    `;
+    await tx`
+      insert into comments (issue_id, membership_id, reply_id, body)
+      values (${past.id}, ${owner.id}, ${aliceAnswer.id}, 'Level, or a happy lean?');
+    `;
   });
 
   const base = (process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000").replace(/\/$/, "");

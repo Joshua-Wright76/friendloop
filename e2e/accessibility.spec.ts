@@ -3,7 +3,7 @@ import AxeBuilder from "@axe-core/playwright";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { groups } from "@/db/schema";
-import { resetDatabase } from "./support/db";
+import { resetDatabase, rows } from "./support/db";
 import { seedDeliveredIssue, seedLoop, seedOpenIssue } from "./support/seed";
 import { seedPoll, seedPollVote } from "./support/polls";
 import { signIn } from "./support/harness";
@@ -156,4 +156,41 @@ test("WCAG AA · delivered and shared issues", async ({ page }) => {
   const alice = loop.members.find((member) => member.email.startsWith("alice"))!;
 
   await auditThemes(page, [`/i/${issue.issueId}?m=${alice.token}`, "/s/a11y-share-token"]);
+});
+
+test("WCAG AA · comments: an open answer thread, the mention list, a quote, light and dark", async ({ page }) => {
+  test.setTimeout(90_000);
+  const loop = await seedLoop();
+  const issue = await seedDeliveredIssue(loop, {
+    deliveredAt: new Date("2026-10-30T08:00:00Z"),
+    answers: [
+      { email: "alice@friendloop.test", body: "Alice found a very patient goose." },
+      { email: "bob@friendloop.test", body: "Bob rebuilt the shed." },
+    ],
+  });
+  const alice = loop.members.find((member) => member.email.startsWith("alice"))!;
+  const bob = loop.members.find((member) => member.email.startsWith("bob"))!;
+  const [reply] = await rows<{ id: string }>("select id from replies where membership_id = $1", [bob.id]);
+  const [first] = await rows<{ id: string }>(
+    "insert into comments (issue_id, membership_id, reply_id, body) values ($1, $2, $3, $4) returning id",
+    [issue.issueId, alice.id, reply.id, `Great shed, @[${bob.id}]`],
+  );
+  await rows(
+    "insert into comments (issue_id, membership_id, reply_id, body, quote_comment_id) values ($1, $2, $3, 'Thanks!', $4)",
+    [issue.issueId, bob.id, reply.id, first.id],
+  );
+
+  for (const theme of ["light", "dark"] as const) {
+    await page.goto(`/i/${issue.issueId}?m=${alice.token}`);
+    if (await page.locator("html").getAttribute("data-theme") !== theme) {
+      await page.getByRole("button", { name: theme === "light" ? /switch to light mode/ : /switch to dark mode/ }).click();
+    }
+    const answer = page.locator("article").filter({ hasText: "Bob rebuilt the shed." });
+    await answer.getByRole("button", { name: "2 comments" }).click();
+    await answer.getByRole("button", { name: "Reply to Bob" }).click();
+    const box = answer.getByLabel("Comment on Bob's answer");
+    await box.pressSequentially("hello @");
+    await expect(page.getByRole("listbox", { name: "People to mention" })).toBeVisible();
+    await audit(page, "comments", false);
+  }
 });

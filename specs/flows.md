@@ -141,9 +141,18 @@ Status: `todo` (not built) · `done` (built and covered).
 | L2 | Answer a poll | A contributor picks one option (or several, on a multiple-choice poll) on the reply sheet and can change or clear the pick until delivery. The tally is never shown before delivery: not on the sheet, and not on the web issue, where only the viewer's own pick appears. | done |
 | L3 | Read a poll | The delivered issue shows every member's pick next to their name with a total tally; share-link visitors see the same, and the delivery email carries the picks and the results. | done |
 
+## M · Richer comments
+
+| ID | Flow | Acceptance criteria | Status |
+| --- | --- | --- | --- |
+| M1 | Mention a member | Typing @ in a comment box offers matching member names in a keyboard- and touch-usable list; the saved comment stores the membership reference and renders as that person's current name; each mentioned member (readers included, never the author or a revoked member) receives exactly one email linking to the issue, and posting the same comment twice never emails twice. | done |
+| M2 | Toggle comments | With commenting off, every comment surface disappears for everyone (the issue thread, per-answer threads, composers) and the write route refuses; past comments stay stored, and turning it back on restores them. | done |
+| M3 | Answer threads | A comment can be posted on a specific answer; it renders with that answer and never appears in the issue-level thread. | done |
+| M4 | Quote and attach | Replying to a comment quotes it into the composer; a comment can carry one photo under the same type and size caps as answers; a quote of a removed comment reads as removed. | done |
+
 IDs are stable handles, not positions: a retired flow leaves its number out
 rather than renumbering the rest.
 
 ---
 
-**69 flows.** A flow is only `done` when its spec passes locally and in CI.
+**73 flows.** A flow is only `done` when its spec passes locally and in CI.

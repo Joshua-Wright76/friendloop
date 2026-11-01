@@ -227,7 +227,7 @@ Flow coverage is not a vibe: `specs/flows.md` lists every user-visible flow, eac
 | Route | Who | What |
 | --- | --- | --- |
 | `/r/<token>` | contributor | answer the open round, no account |
-| `/i/<id>` | member (session or `?m=<token>`) | read a delivered round, comment, react |
+| `/i/<id>` | member (session or `?m=<token>`) | read a delivered round, comment (threads, quotes, photos, @mentions), react |
 | `/s/<token>` | anyone with the share link | read a delivered round |
 | `/you` | signed in | your loops + start a new one |
 | `/g/<id>` | member | the loop: next round, progress, doors |
