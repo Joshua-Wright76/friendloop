@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { deliveryInstant, describeDeadline, dueSlot, nextSlot, type LoopSchedule } from "./schedule.ts";
+import { deliveryInstant, describeDeadline, dueSlot, nextSlot, weekdayName, type LoopSchedule } from "./schedule.ts";
+import { copy } from "./copy.ts";
 
 const base: LoopSchedule = {
   timezone: "Europe/Amsterdam",
@@ -83,4 +84,50 @@ test("a viewer far east sees the deadline on their own clock", () => {
   const instant = utc("2026-01-09T08:00:00Z"); // Fri 09:00 Amsterdam
   const auckland = describeDeadline(instant, "Europe/Amsterdam", "Pacific/Auckland");
   assert.match(auckland.inViewerZone ?? "", /9:00 PM/);
+});
+
+test("a loop created on its prompt day, before the hour, anchors to that same day", () => {
+  // Thursday 9:00 prompt, created Thursday 00:00 — the occurrence is tonight.
+  const schedule: LoopSchedule = {
+    ...base,
+    timezone: "UTC",
+    promptWeekday: 4,
+    promptHour: 9,
+    createdAt: new Date("2026-01-01T00:00:00Z"),
+  };
+  assert.equal(nextSlot(schedule, new Date("2026-01-01T00:00:00Z")).toISOString(), "2026-01-01T09:00:00.000Z");
+  assert.equal(dueSlot(schedule, new Date("2026-01-01T08:59:00Z")), null);
+  assert.equal(dueSlot(schedule, new Date("2026-01-01T09:00:01Z"))?.toISOString(), "2026-01-01T09:00:00.000Z");
+});
+
+test("a loop created after its prompt hour waits a full cycle", () => {
+  // Created Friday 10:00 in a Friday 9:00 loop: the first round is next Friday.
+  const schedule: LoopSchedule = {
+    ...base,
+    timezone: "UTC",
+    createdAt: new Date("2026-01-02T10:00:00Z"),
+  };
+  assert.equal(dueSlot(schedule, new Date("2026-01-02T23:00:00Z")), null);
+  assert.equal(nextSlot(schedule, new Date("2026-01-02T10:00:00Z")).toISOString(), "2026-01-09T09:00:00.000Z");
+});
+
+test("next send is still correct on the prompt day before the hour", () => {
+  // Friday 08:00 local, the slot is 09:00 the same day.
+  assert.equal(nextSlot(base, new Date("2026-01-02T07:00:00Z")).toISOString(), "2026-01-02T08:00:00.000Z");
+});
+
+test("weekday names cover the week and fall back for nonsense", () => {
+  assert.equal(weekdayName(0), copy.common.weekdays[0]);
+  assert.equal(weekdayName(5), copy.common.weekdays[5]);
+  assert.equal(weekdayName(9), copy.common.weekdays[5]);
+});
+
+test("a loop created exactly on its slot anchors there, not a week later", () => {
+  const schedule: LoopSchedule = {
+    ...base,
+    timezone: "UTC",
+    createdAt: new Date("2026-01-02T09:00:00Z"), // Friday 09:00, the slot itself
+  };
+  assert.equal(nextSlot(schedule, new Date("2026-01-02T09:00:00Z")).toISOString(), "2026-01-09T09:00:00.000Z");
+  assert.equal(dueSlot(schedule, new Date("2026-01-02T09:00:00Z")), null);
 });

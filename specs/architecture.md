@@ -17,7 +17,11 @@ outbox. Both get one choke point.
   running a mail server. `dedupe_key` is unique, so a retried cron run or a
   redeploy never double-sends.
 - `EMAIL_TRANSPORT=outbox` skips the provider entirely (used by tests and by
-  local dev without a Resend key).
+  local dev without a Resend key). Because that means `dispatch()`'s failure
+  branch would otherwise only run in production, two narrow test seams exist:
+  `RESEND_BASE_URL` points the real SDK at a local stub that can reject, and
+  `x-e2e-email-transport` picks the transport per request under `E2E=1`. Both
+  `x-e2e-*` headers are refused when `VERCEL_ENV=production`.
 
 ## 2 · The scheduler converges; it never "fires"
 
@@ -39,8 +43,12 @@ run self-heals and a doubled run is a no-op. Triggers:
 
 - Vercel cron, once daily (`vercel.json`) — cannot be disabled for inactivity.
 - GitHub Actions every 15 minutes — fine granularity, free.
-- Both hit the same endpoint; a `pg_try_advisory_lock` keeps concurrent runs from
-  duplicating work (and the constraints cover the rest).
+- Both hit the same endpoint. Concurrency is handled per loop: `openDueIssues`
+  takes `select … for update` on the loop row before computing the next issue
+  number, so the loser collides on `unique(group_id, slot_at)` and is ignored —
+  without the lock the loser would instead trip `unique(group_id, number)` and
+  return a 500. `e2e/flows/D11.spec.ts` runs two sweeps at the same instant and
+  asserts one round, one prompt per contributor.
 
 ## 3 · Schedules are local wall-clock, resolved on demand
 

@@ -23,12 +23,29 @@ jobs:
   verify:
     name: Verify
     runs-on: ubuntu-24.04
+    services:
+      # The database-backed unit tests need a Postgres of their own; the e2e job
+      # gets a separate one so the two never see each other's rows.
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: friendloop_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/friendloop_test
     steps:
       - uses: actions/checkout@v7
 
       - uses: actions/setup-node@v7
         with:
-          node-version: 22
+          node-version: 24
           cache: npm
 
       - name: Install dependencies
@@ -37,8 +54,12 @@ jobs:
       # typegen first: LayoutProps/PageProps live in .next/types and are
       # otherwise only produced by a full build, so a bare clone fails
       # typecheck without it. `npm run verify` now does this itself.
-      - name: Verify (typegen, typecheck, lint, unit, flows, migrations)
+      - name: Verify (typegen, typecheck, lint, unit, integration, flows, tables, migrations)
         run: npm run verify
+
+      # 100% line and function coverage of src/lib, enforced rather than reported.
+      - name: Coverage gate
+        run: npm run test:coverage
 
       # The release gate README promises: no flow may ship marked `todo`.
       - name: Flow coverage (strict)
@@ -70,7 +91,7 @@ jobs:
 
       - uses: actions/setup-node@v7
         with:
-          node-version: 22
+          node-version: 24
           cache: npm
 
       - name: Install dependencies

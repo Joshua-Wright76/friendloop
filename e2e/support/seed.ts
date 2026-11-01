@@ -3,6 +3,7 @@ import { groups, issues, memberships, questions, users, replies, issueQuestions 
 import { and, eq, sql } from "drizzle-orm";
 import { newToken } from "@/lib/tokens";
 import { deliveryInstant } from "@/lib/schedule";
+import { E2E_NOW } from "./clock";
 
 /**
  * Fixtures built with plain inserts rather than the UI: a test that drives the
@@ -176,7 +177,7 @@ export async function seedReplies(input: {
       membershipId: input.membershipId,
       body: answer.body,
       status: "submitted",
-      submittedAt: input.submittedAt ?? new Date(),
+      submittedAt: input.submittedAt ?? E2E_NOW,
     });
   }
 }
@@ -194,8 +195,7 @@ export async function addMember(
   },
 ) {
   const token = newToken();
-  const now = Date.now();
-  const invitedAt = new Date(now - (input.invitedDaysAgo ?? 0) * 24 * 60 * 60 * 1000);
+  const invitedAt = new Date(E2E_NOW.getTime() - (input.invitedDaysAgo ?? 0) * 24 * 60 * 60 * 1000);
   const [row] = await db
     .insert(memberships)
     .values({
