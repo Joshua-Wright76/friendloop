@@ -21,10 +21,24 @@ contributors add their own events is a later option, off by default.
 
 | ID | Flow | Acceptance criteria | Status |
 | --- | --- | --- | --- |
-| O1 | Add an event | Owner adds a one-time event or an annual birthday tied to a member, with title, emoji, and date; it lists under upcoming events. | todo |
-| O2 | Event lands in the right issue | The sweep places an event inside the issue whose window contains its date; the issue gains an event section; contributors see it on the sheet and can reply with messages + a photo. | todo |
-| O3 | Birthdays recur | A birthday generates a section in exactly one issue per year (the issue whose window contains the date, loop timezone, DST-safe via the existing slot logic). | todo |
-| O4 | Past truth | A delivered issue's event section keeps its original title and placement even if the event is later edited or deleted. | todo |
+| O1 | Add an event | Owner adds a one-time event or an annual birthday tied to a member, with title, emoji, and date; it lists under upcoming events. | done |
+| O2 | Event lands in the right issue | The sweep places an event inside the issue whose window contains its date; the issue gains an event section; contributors see it on the sheet and can reply with messages + a photo. | done |
+| O3 | Birthdays recur | A birthday generates a section in exactly one issue per year (the issue whose window contains the date, loop timezone, DST-safe via the existing slot logic). | done |
+| O4 | Past truth | A delivered issue's event section keeps its original title and placement even if the event is later edited or deleted. | done |
+
+Design notes (shipped)
+
+- `events` + two columns on `issue_sections` (`event_id`, `event_date`), migration
+  `0009_events`. An event section is an ordinary standard section snapshot, so the
+  sheet, the issue and the email needed no new rendering; see `specs/architecture.md` §17.
+- A birthday stores month and day only; the section is titled "<Name>'s birthday" from
+  the member's name at snapshot. A one-time event stores its full date and may not be
+  created in the past.
+- The calendar lives on the Questions tab (owner and admins), beside Sections.
+- Everyone, the birthday person included, sees the section on their sheet; the copy
+  reads "Leave Alice a note or a photo", and the round reaches them like everyone else.
+- A date between two rounds (window shorter than cadence) lands in the round that is
+  open when it approaches. Dates the sweep never reached (pause, outage) are not backfilled.
 
 ## Part P · The Album
 
@@ -100,4 +114,6 @@ album (the Album is per loop); calendar (.ics) attachments for events.
 
 - **One reminder, with a per-member preference** (all / last-only / none). The
   48h + 24h schedule can land later without changing the preference data.
+- **Events** are active in `from_you` loops too, and regular contributors cannot add
+  their own (still a later option, off by default).
 - **Shipping shape:** one PR per part, stacked, each green on `npm run verify`.

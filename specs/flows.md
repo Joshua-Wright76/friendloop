@@ -159,9 +159,18 @@ Status: `todo` (not built) · `done` (built and covered).
 | N4 | Rename an issue | The owner names a round (before or after delivery); the name shows in the rounds list, the dashboard, the reply sheet, the web issue and share view, and the delivery email's subject and heading; clearing it brings "Round N" back; only the owner is offered the control. (Ticket 3's R1 is this flow.) | done |
 | N5 | Profile photos | A member sets and removes their own photo — on the reply sheet through their link, or on the people page when signed in; it renders in the member list, on their answers and in comments, falling back to the initial; it belongs to that loop's membership only, and the photo routes answer only the person they belong to. | done |
 
+## O · Events and birthdays
+
+| ID | Flow | Acceptance criteria | Status |
+| --- | --- | --- | --- |
+| O1 | Add an event | The owner or an admin adds a one-time event (title, emoji, date) or an annual birthday tied to a member (emoji, date; the year is ignored); it lists under "Coming up" soonest first with its next date, can be edited or removed, and a date already gone by is refused with a plain message. Members never see the calendar. | done |
+| O2 | Event lands in the right round | The sweep puts an event whose local date falls in a round's window into that round as a section titled with the event (or "Maya's birthday"); contributors see it on the sheet, reply with a message and a photo, and it travels in the delivery email and on the web issue. An event outside the window is left for the round that holds it. | done |
+| O3 | Birthdays recur | A birthday places exactly one section per year, in the one round whose window holds the date (loop timezone), however many rounds open around it or however often the sweep runs; a window shorter than the cadence still catches a date between two rounds, a window crossing New Year catches both sides, and 29 February keeps to 28 February in years without one. | done |
+| O4 | Past truth | A round keeps the title, emoji and place of the event section it was given even if the event is later edited or deleted or the member is renamed; replies already written stay with it. | done |
+
 IDs are stable handles, not positions: a retired flow leaves its number out
 rather than renumbering the rest.
 
 ---
 
-**77 flows.** A flow is only `done` when its spec passes locally and in CI.
+**81 flows.** A flow is only `done` when its spec passes locally and in CI.

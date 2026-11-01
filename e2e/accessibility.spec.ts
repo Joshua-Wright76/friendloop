@@ -218,3 +218,23 @@ test("WCAG AA · comments: an open answer thread, the mention list, a quote, lig
     await audit(page, "comments", false);
   }
 });
+
+test("WCAG AA · events and birthdays: the calendar with an event open for editing, light and dark", async ({ page }) => {
+  test.setTimeout(120_000);
+  const loop = await seedLoop();
+  const alice = loop.members.find((member) => member.email.startsWith("alice"))!;
+  await rows("insert into events (group_id, kind, emoji, month, day, membership_id) values ($1, 'birthday', '🎂', 3, 14, $2)", [loop.groupId, alice.id]);
+  await rows("insert into events (group_id, kind, title, emoji, month, day, year) values ($1, 'once', 'The housewarming', '🏡', 6, 20, 2099)", [loop.groupId]);
+  await signIn(page, "owner@friendloop.test");
+
+  for (const theme of ["light", "dark"] as const) {
+    await page.goto(`/g/${loop.groupId}/questions`);
+    if ((await page.locator("html").getAttribute("data-theme")) !== theme) {
+      await page.getByRole("button", { name: theme === "light" ? /switch to light mode/ : /switch to dark mode/ }).click();
+    }
+    const panel = page.getByRole("region", { name: "Events and birthdays" });
+    await panel.getByText("Edit").first().click();
+    await panel.getByLabel("Type of event").selectOption({ label: "One-time event" });
+    await audit(page, `the calendar with an edit form and the one-time form open (${theme})`, false);
+  }
+});
