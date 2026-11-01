@@ -34,6 +34,7 @@ export default async function UiScreensPage() {
       title: copy.devUi.issueHeading,
       links: [
         [screens.reply, `/r/${UI_PREVIEW.ownerToken}`],
+        [screens.suggest, `/r/${UI_PREVIEW.aliceToken}/suggest`],
         [screens.issue, `/i/${UI_PREVIEW.deliveredIssueId}?m=${UI_PREVIEW.ownerToken}`],
         [screens.shared, `/s/${UI_PREVIEW.shareToken}`],
       ],
