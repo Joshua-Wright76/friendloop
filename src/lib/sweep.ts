@@ -11,7 +11,7 @@ import {
 import { deliveryInstant, describeDeadline, dueSlot, type LoopSchedule } from "./schedule";
 import { sendEmail, flushOutbox } from "./email/send";
 import { sendPromptEmails } from "./notify";
-import { deliveryEmail, reminderEmail, pausedEmail, type AnswerBlock } from "./email/templates";
+import { deliveryEmail, emailThemeOf, reminderEmail, pausedEmail, type AnswerBlock } from "./email/templates";
 import { tallyPoll } from "./poll";
 import { copy, text } from "./copy.ts";
 import { issueUrl, replyUrl, url } from "./urls";
@@ -239,10 +239,12 @@ async function deliverDueIssues(at: Date): Promise<{ delivered: number; skipped:
     const rendered = deliveryEmail({
       groupName: group.name,
       issueNumber: issue.number,
+      issueName: issue.name,
       url: issueUrl(issue.id),
       answers,
       sections,
       shareUrl: shareToken ? url(`/s/${shareToken}`) : null,
+      theme: emailThemeOf(group),
     });
 
     for (const member of everyone) {
@@ -313,7 +315,7 @@ async function skipIssue(input: {
     .where(and(eq(memberships.groupId, group.id), eq(memberships.access, "owner")));
 
   for (const owner of owners) {
-    const rendered = pausedEmail({ groupName: group.name, url: url(`/g/${group.id}`) });
+    const rendered = pausedEmail({ groupName: group.name, url: url(`/g/${group.id}`), theme: emailThemeOf(group) });
     await sendEmail({
       ...rendered,
       to: owner.email,
@@ -384,6 +386,7 @@ async function remindStragglers(at: Date): Promise<number> {
         url: replyUrl(member.replyToken),
         deadlineLabel: deadline.inLoopZone,
         remaining: questionCount,
+        theme: emailThemeOf(group),
       });
       const result = await sendEmail({
         ...rendered,

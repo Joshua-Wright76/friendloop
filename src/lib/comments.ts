@@ -5,7 +5,7 @@ import { currentUser } from "./auth";
 import { copy } from "./copy.ts";
 import { displayName } from "./comment-view.ts";
 import { sendEmail } from "./email/send";
-import { mentionEmail } from "./email/templates";
+import { emailThemeOf, mentionEmail } from "./email/templates";
 import { excerpt, isUuid, markMentions, mentionIds, plainBody, type MentionPick } from "./mentions.ts";
 import { membershipForViewer } from "./issue-view";
 import { deleteStoredPhoto, storePhoto } from "./photo-storage";
@@ -206,8 +206,10 @@ async function notifyMentioned(input: {
       memberName: displayName(person),
       authorName: displayName(author),
       issueNumber: issue.number,
+      issueName: issue.name,
       excerpt: excerptText,
       url: issueUrl(issue.id, person.replyToken),
+      theme: emailThemeOf(group),
     });
     await sendEmail({
       ...rendered,

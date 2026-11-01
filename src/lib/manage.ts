@@ -1,4 +1,4 @@
-import { and, count, eq, inArray, isNull, sql } from "drizzle-orm";
+import { and, count, eq, inArray, isNotNull, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
 import {
   groups,
@@ -9,7 +9,7 @@ import {
   users,
 } from "@/db/schema";
 import { newToken } from "./tokens";
-import { inviteEmail } from "./email/templates";
+import { emailThemeOf, inviteEmail } from "./email/templates";
 import { sendEmail } from "./email/send";
 import { sendPromptEmails } from "./notify";
 import { replyUrl, url } from "./urls";
@@ -142,6 +142,7 @@ export async function inviteMembers(input: {
       token,
       groupId: group.id,
       groupName: group.name,
+      group,
       inviterName: input.actorName,
       participation,
       personalNote: input.personalNote,
@@ -173,6 +174,7 @@ export async function resendInvite(input: {
     token: membership.replyToken,
     groupId: group.id,
     groupName: group.name,
+    group,
     inviterName: input.actorName,
     participation: membership.participation,
   });
@@ -185,6 +187,7 @@ async function sendInvite(input: {
   token: string;
   groupId: string;
   groupName: string;
+  group: typeof groups.$inferSelect;
   inviterName: string;
   participation: "contributor" | "reader";
   personalNote?: string;
@@ -201,6 +204,7 @@ async function sendInvite(input: {
     url: replyUrl(input.token),
     isReader: input.participation === "reader",
     personalNote: input.personalNote,
+    theme: emailThemeOf(input.group),
   });
 
   await sendEmail({
@@ -261,12 +265,60 @@ export async function setAccess(groupId: string, membershipId: string, access: "
   return true;
 }
 
-export async function transferOwnership(groupId: string, fromId: string, toId: string) {
-  await db.update(memberships).set({ access: "admin" }).where(eq(memberships.id, fromId));
-  await db
-    .update(memberships)
-    .set({ access: "owner", participation: "contributor" })
-    .where(and(eq(memberships.id, toId), eq(memberships.groupId, groupId)));
+class HandoverRefused extends Error {}
+
+/**
+ * Hand the loop to an existing admin: they become the owner, the founder becomes
+ * an admin. One transaction, and each half is guarded by the state it expects, so
+ * a double submit, a second tab, or two owners racing each other can never leave
+ * a loop with zero owners or two. Returns false when nothing changed.
+ *
+ * Only an admin who has opened their invitation is eligible: handing a loop to an
+ * address nobody has ever answered from would orphan it. Sessions and reply
+ * tokens are untouched, so nobody is signed out by a handover.
+ */
+export async function transferOwnership(groupId: string, fromId: string, toId: string): Promise<boolean> {
+  if (fromId === toId) return false;
+
+  try {
+    await db.transaction(async (tx) => {
+      const [group] = await tx.select({ mode: groups.mode }).from(groups).where(eq(groups.id, groupId)).limit(1);
+      if (!group) throw new HandoverRefused();
+
+      const demoted = await tx
+        .update(memberships)
+        .set({
+          access: "admin",
+          // In a from_you loop the owner is the only writer, and the new owner is now that.
+          ...(group.mode === "from_you" ? { participation: "reader" as const } : {}),
+        })
+        .where(and(
+          eq(memberships.id, fromId),
+          eq(memberships.groupId, groupId),
+          eq(memberships.access, "owner"),
+          isNull(memberships.revokedAt),
+        ))
+        .returning({ id: memberships.id });
+      if (demoted.length === 0) throw new HandoverRefused();
+
+      const promoted = await tx
+        .update(memberships)
+        .set({ access: "owner", participation: "contributor" })
+        .where(and(
+          eq(memberships.id, toId),
+          eq(memberships.groupId, groupId),
+          eq(memberships.access, "admin"),
+          isNull(memberships.revokedAt),
+          isNotNull(memberships.acceptedAt),
+        ))
+        .returning({ id: memberships.id });
+      if (promoted.length === 0) throw new HandoverRefused();
+    });
+    return true;
+  } catch (error) {
+    if (error instanceof HandoverRefused) return false;
+    throw error;
+  }
 }
 
 export async function addQuestion(groupId: string, text: string, at: Date) {
@@ -524,6 +576,7 @@ export async function membersOf(groupId: string) {
       id: memberships.id,
       email: memberships.email,
       name: memberships.name,
+      photoUrl: memberships.photoUrl,
       access: memberships.access,
       participation: memberships.participation,
       invitedAt: memberships.invitedAt,

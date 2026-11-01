@@ -265,6 +265,16 @@ export async function enableUiPreview(reset = false) {
       },
     ]).onConflictDoNothing();
 
+    // Identity features, applied on every run so an older preview picks them up too:
+    // a non-default paper with a header picture, a named round, and profile photos.
+    await tx.update(groups).set({ themePreset: "bluebell", headerImageUrl: "/dev-preview/header.svg" })
+      .where(eq(groups.id, UI_PREVIEW.groupId));
+    await tx.update(issues).set({ name: "Camping weekend" }).where(eq(issues.id, UI_PREVIEW.deliveredIssueId));
+    await tx.update(memberships).set({ photoUrl: "/dev-preview/avatar-alice.svg" })
+      .where(eq(memberships.id, UI_PREVIEW.aliceMembershipId));
+    await tx.update(memberships).set({ photoUrl: "/dev-preview/avatar-owner.svg" })
+      .where(eq(memberships.id, UI_PREVIEW.ownerMembershipId));
+
     await tx.insert(issueQuestions).values(QUESTION_TEXT.flatMap((text, index) => {
       const poll = {
         kind: POLLS[index] ? "poll" as const : "written" as const,

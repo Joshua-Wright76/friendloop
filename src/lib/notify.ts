@@ -3,7 +3,7 @@ import { db } from "@/db";
 import { groups, issueQuestions, issues, memberships, outbox, replies, users } from "@/db/schema";
 import { describeDeadline } from "./schedule";
 import { sendEmail } from "./email/send";
-import { promptEmail, reminderEmail } from "./email/templates";
+import { emailThemeOf, promptEmail, reminderEmail } from "./email/templates";
 import { replyUrl } from "./urls";
 
 /** One prompt per contributor for a round that just opened. */
@@ -11,10 +11,11 @@ export async function sendPromptEmails(input: {
   group: typeof groups.$inferSelect;
   issueId: string;
   issueNumber: number;
+  issueName?: string | null;
   deliversAt: Date;
   questionCount: number;
 }): Promise<number> {
-  const { group, issueId, issueNumber, deliversAt, questionCount } = input;
+  const { group, issueId, issueNumber, issueName, deliversAt, questionCount } = input;
   if (questionCount === 0) return 0;
 
   const recipients = await db
@@ -42,9 +43,11 @@ export async function sendPromptEmails(input: {
       groupName: group.name,
       memberName: recipient.name ?? recipient.email.split("@")[0],
       issueNumber,
+      issueName,
       questionCount,
       url: replyUrl(recipient.replyToken),
       deadlineLabel: deadline.inLoopZone,
+      theme: emailThemeOf(group),
     });
     const result = await sendEmail({
       ...rendered,
@@ -125,6 +128,7 @@ export async function nudgeStragglers(groupId: string): Promise<number> {
       url: replyUrl(member.replyToken),
       deadlineLabel: deadline.inLoopZone,
       remaining: questionCount,
+      theme: emailThemeOf(group),
     });
     const result = await sendEmail({
       ...rendered,
