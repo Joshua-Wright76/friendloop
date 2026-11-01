@@ -90,7 +90,6 @@ Status: `todo` (not built) · `done` (built and covered).
 | --- | --- | --- | --- |
 | G3 | Promote to admin | Promoting a member to admin lets them manage questions and members, while the owner-only actions stay unavailable to them; the promotion reaches that person's already-signed-in session. | done |
 | G4 | Reader cannot reply | A direct POST to the reply endpoint from a reader is rejected with 403 and writes nothing. | done |
-| G5 | Transfer ownership | The owner transfers ownership, becomes an admin+contributor, and the new owner gains owner-only actions while the old owner loses them. | done |
 | G6 | `from_you` mode | In `from_you`, every non-owner is forced to reader on invite and cannot be made a contributor. | done |
 
 ## H · Preview
@@ -150,9 +149,19 @@ Status: `todo` (not built) · `done` (built and covered).
 | M3 | Answer threads | A comment can be posted on a specific answer; it renders with that answer and never appears in the issue-level thread. | done |
 | M4 | Quote and attach | Replying to a comment quotes it into the composer; a comment can carry one photo under the same type and size caps as answers; a quote of a removed comment reads as removed. | done |
 
+## N · Loop identity and lifecycle
+
+| ID | Flow | Acceptance criteria | Status |
+| --- | --- | --- | --- |
+| N1 | Choose a theme | The owner picks one of the curated papers (and optionally an accent colour and a header picture) in settings, with a live light-and-dark preview; the dashboard, reply sheet, web issue, share view and every email header render it from one token set; an accent that would be hard to read is nudged to pass WCAG AA, and every preset passes the axe audit in both schemes. Only the owner can set the picture. | done |
+| N2 | Default stays Gingham | A loop that never chose a theme renders exactly as before — no stationery rule injected, no banner, the original colours in light and dark and in email; choosing Gingham again stores nothing; the sign-in surface never wears a loop's paper. | done |
+| N3 | Transfer ownership | The owner hands the loop to an admin who has joined, through a confirmation that names the new owner and what they give up; the founder becomes an admin, owner-only actions move, sessions and reply tokens are untouched, and the old owner cannot hand it back without the new owner. The role menu no longer offers "Owner", and a handover that has gone stale changes nothing. (Supersedes G5.) | done |
+| N4 | Rename an issue | The owner names a round (before or after delivery); the name shows in the rounds list, the dashboard, the reply sheet, the web issue and share view, and the delivery email's subject and heading; clearing it brings "Round N" back; only the owner is offered the control. (Ticket 3's R1 is this flow.) | done |
+| N5 | Profile photos | A member sets and removes their own photo — on the reply sheet through their link, or on the people page when signed in; it renders in the member list, on their answers and in comments, falling back to the initial; it belongs to that loop's membership only, and the photo routes answer only the person they belong to. | done |
+
 IDs are stable handles, not positions: a retired flow leaves its number out
 rather than renumbering the rest.
 
 ---
 
-**73 flows.** A flow is only `done` when its spec passes locally and in CI.
+**77 flows.** A flow is only `done` when its spec passes locally and in CI.

@@ -4,7 +4,7 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { groups } from "@/db/schema";
 import { resetDatabase, rows } from "./support/db";
-import { seedDeliveredIssue, seedLoop, seedOpenIssue } from "./support/seed";
+import { addMember, seedDeliveredIssue, seedLoop, seedOpenIssue } from "./support/seed";
 import { seedPoll, seedPollVote } from "./support/polls";
 import { signIn } from "./support/harness";
 
@@ -114,6 +114,30 @@ test("WCAG AA · loop management, creation, and reply pages", async ({ page }) =
   await roleTrigger.click();
   await page.getByRole("option", { name: "Admin" }).first().click();
   await expect(roleTrigger).toBeFocused();
+});
+
+test("WCAG AA · stationery, handover, round names and profile photos", async ({ page }) => {
+  test.setTimeout(120_000);
+  const loop = await seedLoop();
+  await seedOpenIssue(loop, { openedAt: new Date("2026-10-23T07:00:00Z") });
+  await addMember(loop, { email: "heir@friendloop.test", access: "admin" });
+  await rows("update issues set name = 'Camping weekend' where group_id = $1", [loop.groupId]);
+  await rows("update groups set theme_preset = 'bluebell', theme_accent = '#ffee00', header_image_url = '/uploads/' || repeat('a', 64) || '.png' where id = $1", [loop.groupId]);
+  await signIn(page, "owner@friendloop.test");
+
+  for (const theme of ["light", "dark"] as const) {
+    await page.goto(`/g/${loop.groupId}/members`);
+    if ((await page.locator("html").getAttribute("data-theme")) !== theme) {
+      await page.getByRole("button", { name: theme === "light" ? /switch to light mode/ : /switch to dark mode/ }).click();
+    }
+    await page.getByRole("button", { name: "Make heir the owner" }).click();
+    await expect(page.getByRole("group", { name: /Hand .* to heir/ })).toBeVisible();
+    await audit(page, `members with the handover question open (${theme})`, false);
+
+    await page.goto(`/g/${loop.groupId}/issues`);
+    await page.getByText("Name this round").first().click();
+    await audit(page, `rounds with the name form open (${theme})`, false);
+  }
 });
 
 test("WCAG AA · a picker keeps focus across a save that disables it", async ({ page }) => {

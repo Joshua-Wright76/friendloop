@@ -9,10 +9,11 @@ test("H1 · the screens and email previews open at their routes", async ({ page 
 
   await page.getByRole("link", { name: "Email templates" }).click();
   await expect(page).toHaveURL(/\/dev\/emails$/);
-  await expect(page.locator("iframe")).toHaveCount(9);
+  await expect(page.locator("iframe")).toHaveCount(10);
   await expect(page.getByRole("heading", { name: "Sign-in link" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Delivered issue with a share link" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Someone mentioned you" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Delivered issue with its own stationery and a named round" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Empty round, loop paused" })).toBeVisible();
 
   // The captured inbox holds live sign-in links and stays locked without the key.
