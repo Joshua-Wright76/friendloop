@@ -63,22 +63,33 @@ async function openDueIssues(at: Date): Promise<number> {
     if (!slot) continue;
 
     const deliversAt = deliveryInstant(slot, group);
-    const [{ maxNumber }] = await db
-      .select({ maxNumber: sql<number>`coalesce(max(${issues.number}), 0)::int` })
-      .from(issues)
-      .where(eq(issues.groupId, group.id));
 
-    const inserted = await db
-      .insert(issues)
-      .values({
-        groupId: group.id,
-        number: maxNumber + 1,
-        slotAt: slot,
-        opensAt: slot,
-        deliversAt,
-      })
-      .onConflictDoNothing({ target: [issues.groupId, issues.slotAt] })
-      .returning({ id: issues.id, number: issues.number });
+    // Two triggers can reach this loop at the same moment (Vercel cron and the
+    // GitHub schedule). The slot's unique index alone is not enough: both would
+    // also compute the same `number` and the second insert would fail on
+    // `issues_group_number_idx` instead of being ignored. The row lock makes the
+    // second trigger read the first one's number, so it collides on the slot and
+    // `onConflictDoNothing` does its job.
+    const inserted = await db.transaction(async (tx) => {
+      await tx.execute(sql`select id from ${groups} where ${groups.id} = ${group.id} for update`);
+
+      const [{ maxNumber }] = await tx
+        .select({ maxNumber: sql<number>`coalesce(max(${issues.number}), 0)::int` })
+        .from(issues)
+        .where(eq(issues.groupId, group.id));
+
+      return tx
+        .insert(issues)
+        .values({
+          groupId: group.id,
+          number: maxNumber + 1,
+          slotAt: slot,
+          opensAt: slot,
+          deliversAt,
+        })
+        .onConflictDoNothing({ target: [issues.groupId, issues.slotAt] })
+        .returning({ id: issues.id, number: issues.number });
+    });
 
     // Another trigger already created this slot.
     if (inserted.length === 0) {
@@ -187,11 +198,14 @@ async function deliverDueIssues(at: Date): Promise<{ delivered: number; skipped:
     }
 
     // Conditional: whichever trigger gets here first wins, the other is a no-op.
-    await db
+    // Counting only the winner keeps the report honest under two triggers; the
+    // emails above are deduped by `delivery:${issue.id}:${member.id}` either way.
+    const claimed = await db
       .update(issues)
       .set({ status: "delivered", deliveredAt: at })
-      .where(and(eq(issues.id, issue.id), eq(issues.status, "open")));
-    delivered += 1;
+      .where(and(eq(issues.id, issue.id), eq(issues.status, "open")))
+      .returning({ id: issues.id });
+    if (claimed.length > 0) delivered += 1;
   }
 
   return { delivered, skipped };
