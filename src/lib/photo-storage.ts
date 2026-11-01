@@ -23,7 +23,9 @@ export function isManagedBlobPhotoUrl(photoUrl: string): boolean {
 export async function storePhoto(bytes: Uint8Array, format: PhotoFormat): Promise<string> {
   const filename = `${randomBytes(32).toString("hex")}.${format.extension}`;
 
-  if (process.env.NODE_ENV === "production") {
+  // The suite runs the production build (next start) without a Blob token, so
+  // it stores photos on disk exactly like a dev server — same seam as audio.
+  if (process.env.NODE_ENV === "production" && process.env.E2E !== "1") {
     const token = process.env.BLOB_READ_WRITE_TOKEN;
     if (!token) throw new Error("BLOB_READ_WRITE_TOKEN is required for production photo uploads.");
 

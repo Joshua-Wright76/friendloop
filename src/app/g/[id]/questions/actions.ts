@@ -8,6 +8,7 @@ import { groups, questions } from "@/db/schema";
 import { getNow } from "@/lib/clock";
 import { addQuestion, addQuestionTexts, archiveQuestion, reorderQuestion, toggleSkipNext } from "@/lib/manage";
 import { acceptSuggestion, declineSuggestion } from "@/lib/suggestions";
+import { archiveSection, createSection, moveSection, updateSection, type SectionKind } from "@/lib/sections";
 import { viewerFor } from "@/lib/permissions";
 
 async function requireManager(groupId: string) {
@@ -105,4 +106,63 @@ export async function declineSuggestionAction(formData: FormData) {
   const result = await declineSuggestion({ groupId, suggestionId, at: await getNow() });
   revalidatePath(`/g/${groupId}`, "layout");
   redirect(`/g/${groupId}/questions?suggestion=${result.ok ? "declined" : "gone"}`);
+}
+
+
+export async function createSectionAction(formData: FormData) {
+  const groupId = String(formData.get("groupId") ?? "");
+  await requireManager(groupId);
+
+  const kindRaw = String(formData.get("kind") ?? "standard");
+  const kind: SectionKind = kindRaw === "photo_wall" || kindRaw === "music" ? kindRaw : "standard";
+  const result = await createSection({
+    groupId,
+    kind,
+    title: String(formData.get("title") ?? ""),
+    emoji: String(formData.get("emoji") ?? ""),
+    description: String(formData.get("description") ?? ""),
+    adminOnly: formData.get("adminOnly") === "on",
+    at: await getNow(),
+  });
+  revalidatePath(`/g/${groupId}`, "layout");
+  redirect(`/g/${groupId}/questions?section=${result.ok ? "created" : "invalid"}`);
+}
+
+export async function updateSectionAction(formData: FormData) {
+  const groupId = String(formData.get("groupId") ?? "");
+  await requireManager(groupId);
+
+  const result = await updateSection({
+    groupId,
+    sectionId: String(formData.get("sectionId") ?? ""),
+    title: String(formData.get("title") ?? ""),
+    emoji: String(formData.get("emoji") ?? ""),
+    description: String(formData.get("description") ?? ""),
+    adminOnly: formData.get("adminOnly") === "on",
+    active: formData.get("active") === "on",
+  });
+  revalidatePath(`/g/${groupId}`, "layout");
+  redirect(`/g/${groupId}/questions?section=${result.ok ? "saved" : "invalid"}`);
+}
+
+export async function moveSectionAction(formData: FormData) {
+  const groupId = String(formData.get("groupId") ?? "");
+  await requireManager(groupId);
+
+  await moveSection({
+    groupId,
+    sectionId: String(formData.get("sectionId") ?? ""),
+    targetIndex: Number(formData.get("targetIndex") ?? 0),
+  });
+  revalidatePath(`/g/${groupId}`, "layout");
+  redirect(`/g/${groupId}/questions?section=moved`);
+}
+
+export async function archiveSectionAction(formData: FormData) {
+  const groupId = String(formData.get("groupId") ?? "");
+  await requireManager(groupId);
+
+  await archiveSection({ groupId, sectionId: String(formData.get("sectionId") ?? ""), at: await getNow() });
+  revalidatePath(`/g/${groupId}`, "layout");
+  redirect(`/g/${groupId}/questions?section=archived`);
 }

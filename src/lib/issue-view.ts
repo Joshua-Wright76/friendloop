@@ -10,6 +10,8 @@ import {
   replies,
 } from "@/db/schema";
 import { copy } from "./copy.ts";
+import { musicCardFor } from "./sections";
+import { issueSections, sectionMedia, sectionReplies } from "@/db/schema";
 
 export type IssueAnswer = {
   replyId: string;
@@ -21,6 +23,28 @@ export type IssueAnswer = {
   audioDurationMs: number | null;
   addedLater: boolean;
   reactions: Array<{ emoji: string; count: number; mine: boolean }>;
+};
+
+export type IssueSectionReplyBlock = {
+  replyId: string;
+  author: string;
+  isYou: boolean;
+  body: string;
+  linkUrl: string | null;
+  linkProvider: string | null;
+  linkTitle: string | null;
+  linkArtwork: string | null;
+  addedLater: boolean;
+  media: Array<{ url: string; caption: string | null }>;
+};
+
+export type IssueSectionBlock = {
+  id: string;
+  kind: "standard" | "photo_wall" | "music";
+  title: string;
+  emoji: string | null;
+  description: string | null;
+  replies: IssueSectionReplyBlock[];
 };
 
 export type IssueBlock = {
@@ -35,6 +59,7 @@ export type IssueView = {
   issue: typeof issues.$inferSelect;
   group: typeof groups.$inferSelect;
   blocks: IssueBlock[];
+  sections: IssueSectionBlock[];
   comments: Array<{ id: string; author: string; body: string; createdAt: Date }>;
   answerCount: number;
 };
@@ -50,6 +75,7 @@ export async function loadIssue(input: {
   issueId?: string;
   shareToken?: string;
   viewerMembershipId?: string | null;
+  viewerIsAdmin?: boolean;
 }): Promise<IssueView | null> {
   const [row] = await db
     .select({ issue: issues, group: groups })
@@ -128,6 +154,76 @@ export async function loadIssue(input: {
       }),
   }));
 
+  const sectionRows = await db
+    .select()
+    .from(issueSections)
+    .where(eq(issueSections.issueId, issue.id))
+    .orderBy(asc(issueSections.position));
+
+  const visibleSections = sectionRows.filter((section) => !section.adminOnly || input.viewerIsAdmin);
+
+  const sectionReplyRows = visibleSections.length
+    ? await db
+        .select({
+          replyId: sectionReplies.id,
+          issueSectionId: sectionReplies.issueSectionId,
+          body: sectionReplies.body,
+          linkUrl: sectionReplies.linkUrl,
+          linkProvider: sectionReplies.linkProvider,
+          addedAfterDelivery: sectionReplies.addedAfterDelivery,
+          membershipId: sectionReplies.membershipId,
+          name: memberships.name,
+          email: memberships.email,
+        })
+        .from(sectionReplies)
+        .innerJoin(memberships, eq(memberships.id, sectionReplies.membershipId))
+        .where(and(eq(sectionReplies.issueId, issue.id), eq(sectionReplies.status, "submitted")))
+    : [];
+
+  const sectionMediaRows = sectionReplyRows.length
+    ? await db
+        .select()
+        .from(sectionMedia)
+        .where(inArray(sectionMedia.sectionReplyId, sectionReplyRows.map((row) => row.replyId)))
+        .orderBy(asc(sectionMedia.position))
+    : [];
+
+  const musicCards = new Map<string, { title: string; artworkUrl: string | null }>();
+  for (const row of sectionReplyRows) {
+    if (row.linkUrl && row.linkProvider) {
+      const provider = row.linkProvider as "spotify" | "bandcamp" | "qobuz";
+      musicCards.set(row.linkUrl, await musicCardFor(provider, row.linkUrl));
+    }
+  }
+
+  const sections: IssueSectionBlock[] = visibleSections.map((section) => ({
+    id: section.id,
+    kind: section.kind,
+    title: section.title,
+    emoji: section.emoji,
+    description: section.description,
+    replies: sectionReplyRows
+      .filter((row) => row.issueSectionId === section.id)
+      .map((row) => {
+        const mine = input.viewerMembershipId === row.membershipId;
+        const card = row.linkUrl ? musicCards.get(row.linkUrl) : undefined;
+        return {
+          replyId: row.replyId,
+          author: mine ? copy.issue.you : (row.name ?? row.email.split("@")[0]),
+          isYou: mine,
+          body: row.body,
+          linkUrl: row.linkUrl,
+          linkProvider: row.linkProvider,
+          linkTitle: card?.title ?? null,
+          linkArtwork: card?.artworkUrl ?? null,
+          addedLater: row.addedAfterDelivery,
+          media: sectionMediaRows
+            .filter((item) => item.sectionReplyId === row.replyId)
+            .map((item) => ({ url: item.url, caption: item.caption })),
+        };
+      }),
+  }));
+
   const commentRows = await db
     .select({
       id: comments.id,
@@ -146,6 +242,7 @@ export async function loadIssue(input: {
     issue,
     group,
     blocks,
+    sections,
     answerCount: rows.length,
     comments: commentRows.map((row) => ({
       id: row.id,
