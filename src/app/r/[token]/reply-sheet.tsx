@@ -2,7 +2,7 @@
 
 /* eslint-disable @next/next/no-img-element -- Uploaded photos use local URLs in development and Blob URLs in production. */
 
-import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import type { Deadline } from "@/lib/schedule";
 import { Cherries, Tape } from "@/components/stationery";
@@ -844,8 +844,8 @@ export function ReplySheet({
                     : audioErrors[question.id];
 
             return (
-            <>
-            <section key={question.id} className="card paper ride-in block p-5 pt-7">
+            <Fragment key={question.id}>
+            <section className="card paper ride-in block p-5 pt-7">
               <Tape tone={(["dots", "stripe", "mint", "check"] as const)[index % 4]} position={index % 2 ? "right" : "left"} />
               <div className="mb-3 flex items-start justify-between gap-3">
                 <label htmlFor={`reply-${question.id}`} className="font-display text-[25px] font-bold leading-[1.15] text-ink">
@@ -1039,7 +1039,7 @@ export function ReplySheet({
               ) : null}
               <p className="mt-1 text-[12px] leading-relaxed text-ink-muted">{copy.reply.voiceFormats}</p>
             </section>
-            </>
+            </Fragment>
             );
           })}
         </div>
