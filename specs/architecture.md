@@ -168,3 +168,30 @@ count toward the round's total.
 the cursor. Scheduled rounds and "Send now" both call it, so the two paths cannot
 drift. Changing the count resets the cursor to the top. Issue question snapshots
 remain unchanged when the pool or rotation setting changes later.
+
+## 14 · A poll is a question, and a pick is a reply
+
+Polls ride the same machinery as written questions rather than a parallel
+pipeline. `questions` and `issue_questions` carry `kind` (`written` | `poll`),
+`poll_multiple`, and `poll_options` (a JSON array of two to six strings); the issue
+snapshot copies all three, so editing the pool never rewrites an issue that is
+already out. Pool order, rotation, skip-next, archiving, and `snapshotQuestionsForIssue`
+treat a poll exactly like any other question.
+
+A pick lives on the person's `replies` row as `poll_choices`, a JSON array of
+indexes into the snapshotted options. The existing unique key
+`(issue_id, issue_question_id, membership_id)` still holds, `replyHasContentCondition`
+counts a non-empty pick as content (so one commitment point — "Send answers" —
+covers polls too), and `added_after_delivery` and reactions work unchanged. A
+separate votes table was rejected: one row per pick would need its own submit,
+late-reply, and reaction rules. Clearing a pick leaves the row; readers filter
+empty polls out, so a cleared pick is never shown, counted, or delivered.
+
+Writes go through `savePollChoicesFor` (`action: "pollChoice"` on the reply POST).
+`checkPollChoices` validates whole — in range, no repeats, one pick unless the poll
+is multiple-choice — and `ensureWritableQuestion` keeps the kinds apart: text,
+photo, and voice are refused on a poll, and a pick is refused on a written question.
+
+**Results are a delivery-time fact.** `loadIssue` returns a poll's tally only once the
+issue is `delivered`; before that the tally is `null` and the only pick returned is
+the viewer's own. The reply sheet never receives anyone else's picks at all.

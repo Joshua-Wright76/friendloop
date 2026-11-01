@@ -73,7 +73,8 @@ Confirmed for v1:
   require a signed-in session.
 - Question pool: a preset bank plus custom questions written by the owner.
 - One photo per reply.
-- Delivered issues have comments and reactions. Polls are out of scope for v1.
+- Delivered issues have comments and reactions.
+- Polls are a kind of question: two to six options, single or multiple choice. Contributors tap to answer, and the tally appears only once the issue is delivered.
 - A delivered issue can be shared by secret link, off by default.
 - Weekly or biweekly cadence, seven-day reply window, per-loop timezone.
 - Late replies are never lost: answers stay editable after delivery, and the web
@@ -81,7 +82,7 @@ Confirmed for v1:
 - Runs on free tiers: Vercel Hobby, Neon, Resend.
 
 Explicitly undecided: whether a loop can be public/discoverable, native apps,
-polls, member-suggested questions.
+member-suggested questions.
 
 ## Brand Commitments
 

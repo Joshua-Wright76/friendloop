@@ -94,12 +94,16 @@ const QUESTION_IDS = [
   "22222222-2222-4222-8222-222222222241",
   "22222222-2222-4222-8222-222222222242",
   "22222222-2222-4222-8222-222222222243",
+  "22222222-2222-4222-8222-222222222280",
+  "22222222-2222-4222-8222-222222222281",
 ];
 const OPEN_QUESTION_IDS = [
   "22222222-2222-4222-8222-222222222250",
   "22222222-2222-4222-8222-222222222251",
   "22222222-2222-4222-8222-222222222252",
   "22222222-2222-4222-8222-222222222253",
+  "22222222-2222-4222-8222-222222222282",
+  "22222222-2222-4222-8222-222222222283",
 ];
 const SECTION_IDS = [
   "22222222-2222-4222-8222-222222222240",
@@ -121,24 +125,39 @@ const DELIVERED_QUESTION_IDS = [
   "22222222-2222-4222-8222-222222222261",
   "22222222-2222-4222-8222-222222222262",
   "22222222-2222-4222-8222-222222222263",
+  "22222222-2222-4222-8222-222222222284",
+  "22222222-2222-4222-8222-222222222285",
 ];
 const QUESTION_TEXT = [
   "What made you laugh this week?",
   "What are you looking forward to?",
   "What's something small you're proud of?",
   "What did you eat that was worth remembering?",
+  "Where should we camp this summer?",
+  "Which weekends should we plan?",
 ];
+/** The last two questions are polls: one pick, and pick-any. */
+const POLLS: Record<number, { multiple: boolean; options: string[] }> = {
+  4: { multiple: false, options: ["The lake", "The mountains", "The coast", "Backyard tents"] },
+  5: { multiple: true, options: ["Mid June", "Early July", "Late July", "August"] },
+};
+const OWNER_PICKS: Record<number, number[]> = { 4: [0], 5: [1, 2] };
+const ALICE_PICKS: Record<number, number[]> = { 4: [0], 5: [1] };
 const OWNER_ANSWERS = [
   "A group of geese has decided my bus stop belongs to them. They have a schedule now. I respect it.",
   "Three hours in a bookshop and I regret nothing.",
   "I finally finished the shelf I started in March.",
   "The little lemon cake from the corner café.",
+  "",
+  "",
 ];
 const ALICE_ANSWERS = [
   "My dad sent a four-minute voice memo of himself trying to find the record button.",
   "Seeing everyone this weekend.",
   "I kept a plant alive for a whole month.",
   "Homemade dumplings on a rainy evening.",
+  "",
+  "",
 ];
 
 /** The captured inbox is the one /dev page that needs the unlock. */
@@ -209,6 +228,9 @@ export async function enableUiPreview(reset = false) {
       groupId: UI_PREVIEW.groupId,
       text,
       position: index,
+      kind: POLLS[index] ? "poll" as const : "written" as const,
+      pollMultiple: POLLS[index]?.multiple ?? false,
+      pollOptions: POLLS[index]?.options ?? null,
     }))).onConflictDoNothing();
 
     await tx.insert(issues).values([
@@ -234,10 +256,17 @@ export async function enableUiPreview(reset = false) {
       },
     ]).onConflictDoNothing();
 
-    await tx.insert(issueQuestions).values(QUESTION_TEXT.flatMap((text, index) => [
-      { id: OPEN_QUESTION_IDS[index], issueId: UI_PREVIEW.openIssueId, questionId: QUESTION_IDS[index], text, position: index },
-      { id: DELIVERED_QUESTION_IDS[index], issueId: UI_PREVIEW.deliveredIssueId, questionId: QUESTION_IDS[index], text, position: index },
-    ])).onConflictDoNothing();
+    await tx.insert(issueQuestions).values(QUESTION_TEXT.flatMap((text, index) => {
+      const poll = {
+        kind: POLLS[index] ? "poll" as const : "written" as const,
+        pollMultiple: POLLS[index]?.multiple ?? false,
+        pollOptions: POLLS[index]?.options ?? null,
+      };
+      return [
+        { id: OPEN_QUESTION_IDS[index], issueId: UI_PREVIEW.openIssueId, questionId: QUESTION_IDS[index], text, position: index, ...poll },
+        { id: DELIVERED_QUESTION_IDS[index], issueId: UI_PREVIEW.deliveredIssueId, questionId: QUESTION_IDS[index], text, position: index, ...poll },
+      ];
+    })).onConflictDoNothing();
 
     const replyRows: Array<typeof replies.$inferInsert> = QUESTION_TEXT.flatMap((_, index) => [
       {
@@ -245,6 +274,7 @@ export async function enableUiPreview(reset = false) {
         issueQuestionId: DELIVERED_QUESTION_IDS[index],
         membershipId: UI_PREVIEW.ownerMembershipId,
         body: OWNER_ANSWERS[index],
+        pollChoices: OWNER_PICKS[index] ?? [],
         status: "submitted" as const,
         submittedAt: new Date(now.getTime() - 86400000),
       },
@@ -257,6 +287,7 @@ export async function enableUiPreview(reset = false) {
         body: ALICE_ANSWERS[index],
         audioUrl: index === 0 ? "/dev-preview/voice-note.webm" : null,
         audioDurationMs: index === 0 ? 1_408 : null,
+        pollChoices: ALICE_PICKS[index] ?? [],
         status: "submitted" as const,
         submittedAt: new Date(now.getTime() - 86400000),
       },

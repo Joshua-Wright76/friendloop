@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * A loop you can actually look at: one owner, one contributor with an answer
- * already in, four questions, and an open round.
+ * already in, four written questions, a poll, and an open round.
  *
  *   npm run db:seed
  *
@@ -49,6 +49,12 @@ try {
         (${GROUP}, 'What did you eat that was worth remembering?', 3);
     `;
 
+    await tx`
+      insert into questions (group_id, text, position, kind, poll_multiple, poll_options) values
+        (${GROUP}, 'Where should we camp this summer?', 4, 'poll', false,
+          ${JSON.stringify(["The lake", "The mountains", "The coast", "Backyard tents"])}::jsonb);
+    `;
+
     const [issue] = await tx`
       insert into issues (group_id, number, slot_at, opens_at, delivers_at)
       values (${GROUP}, 3, '2026-10-23T07:00:00Z', '2026-10-23T07:00:00Z', '2026-10-30T08:00:00Z')
@@ -56,8 +62,9 @@ try {
     `;
 
     await tx`
-      insert into issue_questions (issue_id, question_id, text, position)
-      select ${issue.id}, q.id, q.text, q.position from questions q where q.group_id = ${GROUP};
+      insert into issue_questions (issue_id, question_id, text, position, kind, poll_multiple, poll_options)
+      select ${issue.id}, q.id, q.text, q.position, q.kind, q.poll_multiple, q.poll_options
+      from questions q where q.group_id = ${GROUP};
     `;
 
     await tx`
@@ -80,8 +87,9 @@ try {
     `;
 
     await tx`
-      insert into issue_questions (issue_id, question_id, text, position)
-      select ${past.id}, q.id, q.text, q.position from questions q where q.group_id = ${GROUP};
+      insert into issue_questions (issue_id, question_id, text, position, kind, poll_multiple, poll_options)
+      select ${past.id}, q.id, q.text, q.position, q.kind, q.poll_multiple, q.poll_options
+      from questions q where q.group_id = ${GROUP};
     `;
 
     await tx`
@@ -95,6 +103,16 @@ try {
       from issue_questions iq
       join memberships m on m.reply_token in ('dev-reply-token', 'alice-reply-token')
       where iq.issue_id = ${past.id} and iq.position = 1;
+    `;
+
+    await tx`
+      insert into replies (issue_id, issue_question_id, membership_id, body, poll_choices, status, submitted_at)
+      select iq.issue_id, iq.id, m.id, '',
+        case m.reply_token when 'dev-reply-token' then '[0]'::jsonb else '[1]'::jsonb end,
+        'submitted', now()
+      from issue_questions iq
+      join memberships m on m.reply_token in ('dev-reply-token', 'alice-reply-token')
+      where iq.issue_id = ${past.id} and iq.position = 4;
     `;
   });
 

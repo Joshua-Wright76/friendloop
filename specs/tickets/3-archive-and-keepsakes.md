@@ -96,8 +96,8 @@ Print fulfillment as a business; transcripts or content-based media search;
 group-email-chain delivery; events editable by all members; cross-loop
 album (the Album is per loop); calendar (.ics) attachments for events.
 
-## Open questions
+## Resolved decisions (2026-11)
 
-Confirm before implementation: reminder cadence becomes 48h + 24h, or stays a
-single reminder with preference only (recommendation: keep one reminder in this
-ticket; schedule-shaping can land later without changing the preference data).
+- **One reminder, with a per-member preference** (all / last-only / none). The
+  48h + 24h schedule can land later without changing the preference data.
+- **Shipping shape:** one PR per part, stacked, each green on `npm run verify`.
