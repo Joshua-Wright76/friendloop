@@ -445,17 +445,25 @@ export async function openIssueNow(groupId: string, at: Date): Promise<{ issueId
     .limit(1);
   if (open) return { issueId: open.id, number: open.number };
 
-  const [{ maxNumber }] = await db
-    .select({ maxNumber: sql<number>`coalesce(max(${issues.number}), 0)::int` })
-    .from(issues)
-    .where(eq(issues.groupId, groupId));
-
   const deliversAt = deliveryInstant(at, group);
-  const [issue] = await db
-    .insert(issues)
-    .values({ groupId, number: maxNumber + 1, slotAt: at, opensAt: at, deliversAt })
-    .onConflictDoNothing({ target: [issues.groupId, issues.slotAt] })
-    .returning({ id: issues.id, number: issues.number });
+
+  // Same race as the scheduled sweep: two "Send now" clicks can compute the same
+  // number, and only the slot conflict is ignored. Lock the loop first.
+  const issue = await db.transaction(async (tx) => {
+    await tx.execute(sql`select id from ${groups} where ${groups.id} = ${groupId} for update`);
+
+    const [{ maxNumber }] = await tx
+      .select({ maxNumber: sql<number>`coalesce(max(${issues.number}), 0)::int` })
+      .from(issues)
+      .where(eq(issues.groupId, groupId));
+
+    const [created] = await tx
+      .insert(issues)
+      .values({ groupId, number: maxNumber + 1, slotAt: at, opensAt: at, deliversAt })
+      .onConflictDoNothing({ target: [issues.groupId, issues.slotAt] })
+      .returning({ id: issues.id, number: issues.number });
+    return created ?? null;
+  });
 
   if (!issue) return null;
 

@@ -25,3 +25,7 @@ test("someone else's clock keeps the same instant", () => {
   assert.equal(formatTimeInZone(DELIVERY, "Asia/Tokyo"), "Friday 17:00");
   assert.equal(formatTimeInZone(DELIVERY, "America/New_York"), "Friday 04:00");
 });
+
+test("an unknown zone falls back to UTC for the time too, instead of throwing", () => {
+  assert.equal(formatTimeInZone(DELIVERY, "Not/AZone"), "Friday 08:00");
+});
