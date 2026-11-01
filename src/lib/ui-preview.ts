@@ -1,16 +1,22 @@
 import { cookies } from "next/headers";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { notFound } from "next/navigation";
 import { db } from "@/db";
 import {
   comments,
   groups,
   issueQuestions,
+  issueSections,
   issues,
   magicLinks,
   memberships,
+  musicLinks,
+  questionSuggestions,
   questions,
   replies,
+  sectionMedia,
+  sectionReplies,
+  sections,
   sessions,
   users,
 } from "@/db/schema";
@@ -94,6 +100,21 @@ const OPEN_QUESTION_IDS = [
   "22222222-2222-4222-8222-222222222251",
   "22222222-2222-4222-8222-222222222252",
   "22222222-2222-4222-8222-222222222253",
+];
+const SECTION_IDS = [
+  "22222222-2222-4222-8222-222222222240",
+  "22222222-2222-4222-8222-222222222241",
+  "22222222-2222-4222-8222-222222222242",
+];
+const OPEN_SECTION_IDS = [
+  "22222222-2222-4222-8222-222222222245",
+  "22222222-2222-4222-8222-222222222246",
+  "22222222-2222-4222-8222-222222222247",
+];
+const DELIVERED_SECTION_IDS = [
+  "22222222-2222-4222-8222-222222222248",
+  "22222222-2222-4222-8222-222222222249",
+  "22222222-2222-4222-8222-22222222224a",
 ];
 const DELIVERED_QUESTION_IDS = [
   "22222222-2222-4222-8222-222222222260",
@@ -228,10 +249,14 @@ export async function enableUiPreview(reset = false) {
         submittedAt: new Date(now.getTime() - 86400000),
       },
       {
+        // Alice answers the first question out loud so the issue player and the
+        // email's voice-note block have something real to show.
         issueId: UI_PREVIEW.deliveredIssueId,
         issueQuestionId: DELIVERED_QUESTION_IDS[index],
         membershipId: UI_PREVIEW.aliceMembershipId,
         body: ALICE_ANSWERS[index],
+        audioUrl: index === 0 ? "/dev-preview/voice-note.webm" : null,
+        audioDurationMs: index === 0 ? 84_000 : null,
         status: "submitted" as const,
         submittedAt: new Date(now.getTime() - 86400000),
       },
@@ -251,6 +276,146 @@ export async function enableUiPreview(reset = false) {
       issueId: UI_PREVIEW.deliveredIssueId,
       membershipId: UI_PREVIEW.aliceMembershipId,
       body: "This made my morning.",
+    }).onConflictDoNothing();
+
+    // Sections: a recurring potluck note, a photo wall, and music picks, so the
+    // sheet, the delivered issue, and the dashboard all have something to show.
+    const sectionRows = [
+      {
+        id: SECTION_IDS[0],
+        groupId: UI_PREVIEW.groupId,
+        kind: "standard" as const,
+        title: "The potluck corner",
+        emoji: "🍲",
+        description: "What did you cook, eat, or share this week?",
+        position: 0,
+      },
+      {
+        id: SECTION_IDS[1],
+        groupId: UI_PREVIEW.groupId,
+        kind: "photo_wall" as const,
+        title: "The fridge wall",
+        emoji: "🧲",
+        description: "Pin up the photos worth keeping.",
+        position: 1,
+      },
+      {
+        id: SECTION_IDS[2],
+        groupId: UI_PREVIEW.groupId,
+        kind: "music" as const,
+        title: "Music picks",
+        emoji: "🎵",
+        description: null,
+        position: 2,
+      },
+    ];
+    await tx.insert(sections).values(sectionRows).onConflictDoNothing();
+
+    await tx.insert(issueSections).values([
+      ...sectionRows.map((section, index) => ({
+        id: OPEN_SECTION_IDS[index],
+        issueId: UI_PREVIEW.openIssueId,
+        sectionId: section.id,
+        kind: section.kind,
+        title: section.title,
+        emoji: section.emoji,
+        description: section.description,
+        adminOnly: false,
+        position: index,
+      })),
+      ...sectionRows.map((section, index) => ({
+        id: DELIVERED_SECTION_IDS[index],
+        issueId: UI_PREVIEW.deliveredIssueId,
+        sectionId: section.id,
+        kind: section.kind,
+        title: section.title,
+        emoji: section.emoji,
+        description: section.description,
+        adminOnly: false,
+        position: index,
+      })),
+    ]).onConflictDoNothing();
+
+    // Round 11 answers the sections; round 12 keeps a draft in progress. Any
+    // of these already existing (a repeat /dev/ui visit) is treated as done.
+    await tx.insert(sectionReplies).values([
+      {
+        issueId: UI_PREVIEW.deliveredIssueId,
+        issueSectionId: DELIVERED_SECTION_IDS[0],
+        membershipId: UI_PREVIEW.aliceMembershipId,
+        body: "Lemon cake, obviously — got to the corner café early for the last slice.",
+        status: "submitted",
+        submittedAt: new Date(now.getTime() - 86400000),
+      },
+      {
+        issueId: UI_PREVIEW.deliveredIssueId,
+        issueSectionId: DELIVERED_SECTION_IDS[1],
+        membershipId: UI_PREVIEW.aliceMembershipId,
+        body: "",
+        status: "submitted",
+        submittedAt: new Date(now.getTime() - 86400000),
+      },
+      {
+        issueId: UI_PREVIEW.deliveredIssueId,
+        issueSectionId: DELIVERED_SECTION_IDS[2],
+        membershipId: UI_PREVIEW.aliceMembershipId,
+        body: "Our road trip record",
+        linkUrl: "https://open.spotify.com/album/1DFixLWuPkv3KT3TnV35m3",
+        linkProvider: "spotify",
+        status: "submitted",
+        submittedAt: new Date(now.getTime() - 86400000),
+      },
+      {
+        issueId: UI_PREVIEW.openIssueId,
+        issueSectionId: OPEN_SECTION_IDS[0],
+        membershipId: UI_PREVIEW.ownerMembershipId,
+        body: "Draft: the soup story, take two.",
+        status: "draft",
+      },
+    ]).onConflictDoNothing();
+
+    const [wallReply] = await tx
+      .select({ id: sectionReplies.id })
+      .from(sectionReplies)
+      .where(
+        and(
+          eq(sectionReplies.issueId, UI_PREVIEW.deliveredIssueId),
+          eq(sectionReplies.issueSectionId, DELIVERED_SECTION_IDS[1]),
+        ),
+      )
+      .limit(1);
+
+    await tx.insert(sectionMedia).values([
+      {
+        sectionReplyId: wallReply.id,
+        url: "/dev-preview/potluck.png",
+        caption: "The whole table",
+        position: 0,
+      },
+      {
+        sectionReplyId: wallReply.id,
+        url: "/dev-preview/fridge.png",
+        caption: "The leftovers",
+        position: 1,
+      },
+    ]).onConflictDoNothing();
+
+    await tx.insert(musicLinks).values({
+      url: "https://open.spotify.com/album/1DFixLWuPkv3KT3TnV35m3",
+      provider: "spotify",
+      title: "Heavy Weather",
+      artworkUrl: null,
+      fetchedAt: now,
+    }).onConflictDoNothing();
+
+    await tx.insert(questionSuggestions).values({
+      id: "22222222-2222-4222-8222-222222222290",
+      groupId: UI_PREVIEW.groupId,
+      membershipId: UI_PREVIEW.aliceMembershipId,
+      text: "What's a small thing that made your week lighter?",
+      authorDisplay: "name",
+      status: "pending",
+      createdAt: now,
     }).onConflictDoNothing();
 
     await tx.insert(magicLinks).values({

@@ -7,6 +7,7 @@ import {
   signInEmail,
   type AnswerBlock,
   type RenderedEmail,
+  type SectionEmailBlock,
 } from "./templates";
 
 export type EmailPreview = { id: string; email: RenderedEmail };
@@ -21,12 +22,36 @@ const ANSWERS: AnswerBlock[] = [
     question: "What made you laugh this week?",
     author: "Alice",
     body: "My dad sent a four-minute voice memo of himself trying to find the record button.",
+    audioUrl: "https://friendloop.dev/dev-preview/voice-note.webm",
+    audioDurationMs: 84_000,
     addedLater: true,
   },
   {
     question: "What are you looking forward to?",
     author: "Alex",
     body: "Three hours in a bookshop and I regret nothing.",
+  },
+];
+
+const SECTIONS: SectionEmailBlock[] = [
+  {
+    title: "The potluck corner",
+    emoji: "🍲",
+    answers: [
+      { author: "Alice", body: "Lemon cake, obviously — got to the corner café early for the last slice." },
+      { author: "Sam", body: "Only soup. Delicious soup.", photoCount: 2 },
+    ],
+  },
+  {
+    title: "Music picks",
+    emoji: "🎵",
+    answers: [
+      {
+        author: "Alice",
+        body: "Our road trip record",
+        linkUrl: "https://open.spotify.com/album/1DFixLWuPkv3KT3TnV35m3",
+      },
+    ],
   },
 ];
 
