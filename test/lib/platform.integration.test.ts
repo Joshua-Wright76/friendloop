@@ -18,7 +18,7 @@ import {
   UI_PREVIEW,
   unlockUiInbox,
 } from "../../src/lib/ui-preview.ts";
-import { resetDatabase, rows, setEnv } from "../support/app.ts";
+import { resetDatabase, rows, setEnv, setupDatabase } from "../support/app.ts";
 import { E2E_NOW } from "../../e2e/support/clock.ts";
 import {
   clearRequest,
@@ -41,6 +41,9 @@ beforeEach(async () => {
 });
 
 // ── clock ────────────────────────────────────────────────────
+
+
+setupDatabase();
 
 test("the clock survives being read outside a request", async () => {
   (globalThis as { __CONNECTION_BROKEN__?: boolean }).__CONNECTION_BROKEN__ = true;

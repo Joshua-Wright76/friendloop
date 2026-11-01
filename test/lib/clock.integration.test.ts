@@ -1,10 +1,10 @@
-import { test, beforeEach } from "node:test";
+import { test } from "node:test";
 import assert from "node:assert/strict";
-import { resetDatabase, seedLoop, AFTER_FIRST_SLOT, rows } from "../support/app.ts";
+import { seedLoop, AFTER_FIRST_SLOT, rows, setupDatabase } from "../support/app.ts";
 import { getNow } from "../../src/lib/clock.ts";
 import { setRequestHeaders, clearRequest } from "../stubs/request.mjs";
 
-beforeEach(resetDatabase);
+setupDatabase();
 
 test("the fake clock is opt-in: no header, no override", async () => {
   clearRequest();

@@ -1,17 +1,19 @@
 import { test, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import { nudgeStragglers, sendPromptEmails } from "../../src/lib/notify.ts";
-import { groupOf, resetDatabase, rows, seedLoop, seedOpenIssue, seedReplies } from "../support/app.ts";
+import { groupOf, rows, seedLoop, seedOpenIssue, seedReplies, setupDatabase } from "../support/app.ts";
 import { AFTER_FIRST_SLOT } from "../../e2e/support/clock.ts";
 import { clearRequest, setRequestHeaders } from "../stubs/request.mjs";
 
+setupDatabase();
+
 beforeEach(async () => {
-  await resetDatabase();
   clearRequest();
   setRequestHeaders({ "x-e2e-now": AFTER_FIRST_SLOT.toISOString() });
 });
 
 const QUESTION = "What made you laugh this week?";
+
 
 
 test("prompts go to contributors who have not been removed", async () => {

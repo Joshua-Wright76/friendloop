@@ -16,7 +16,7 @@ import {
   submitFor,
 } from "../../src/lib/reply.ts";
 import { storePhoto } from "../../src/lib/photo-storage.ts";
-import { resetDatabase, rows, seedLoop, seedOpenIssue } from "../support/app.ts";
+import { resetDatabase, rows, seedLoop, seedOpenIssue, setupDatabase } from "../support/app.ts";
 import { AFTER_FIRST_SLOT, DELIVERY_DAY, E2E_NOW } from "../../e2e/support/clock.ts";
 import { clearRequest, setRequestHeaders } from "../stubs/request.mjs";
 import { calls as blobCalls, reset as resetBlob } from "../stubs/vercel-blob.mjs";
@@ -46,6 +46,9 @@ async function openLoop() {
   );
   return { loop, issue, alice, bob, question, second };
 }
+
+
+setupDatabase();
 
 test("a token resolves to the open round, a reader, an expired invite, or nothing", async () => {
   const { alice } = await openLoop();

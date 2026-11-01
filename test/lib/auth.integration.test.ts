@@ -11,12 +11,11 @@ import {
   SESSION_COOKIE,
 } from "../../src/lib/auth.ts";
 import { hashToken, newToken } from "../../src/lib/tokens.ts";
-import { latestOutbox, resetDatabase, rows } from "../support/app.ts";
+import { latestOutbox, rows, setupDatabase } from "../support/app.ts";
 import { clearRequest, cookieEntries, setRequestCookies, setRequestHeaders } from "../stubs/request.mjs";
 import { E2E_NOW } from "../../e2e/support/clock.ts";
 
 beforeEach(async () => {
-  await resetDatabase();
   clearRequest();
   setRequestHeaders({ "x-e2e-now": E2E_NOW.toISOString() });
 });
@@ -28,6 +27,9 @@ async function newestSignInToken(): Promise<string> {
   assert.ok(match, "the sign-in email carries a token");
   return decodeURIComponent(match[1]);
 }
+
+
+setupDatabase();
 
 test("requesting a link records the hash, never the token", async () => {
   await requestMagicLink("  Someone@Friendloop.Test  ");

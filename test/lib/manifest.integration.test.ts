@@ -1,4 +1,5 @@
 import { test } from "node:test";
+import { setupDatabase } from "../support/app.ts";
 import assert from "node:assert/strict";
 import { readdirSync } from "node:fs";
 import path from "node:path";
@@ -23,6 +24,9 @@ function modules(directory: string): string[] {
     return [full];
   });
 }
+
+
+setupDatabase();
 
 test("every src/lib module loads in the test harness", async () => {
   const files = modules(LIB);

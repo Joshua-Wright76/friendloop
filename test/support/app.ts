@@ -6,8 +6,9 @@
  * test that needs an issue, a member, or an outbox row asks the same helpers the
  * browser suite asks.
  */
+import { before, beforeEach } from "node:test";
 import { eq } from "drizzle-orm";
-import { migrate, resetSchema } from "../../e2e/support/db.ts";
+import { migrate, resetDatabase, resetSchema, rows } from "../../e2e/support/db.ts";
 import { db } from "@/db";
 import { groups } from "@/db/schema";
 
@@ -15,18 +16,27 @@ export { resetDatabase, rows, latestOutbox, outboxCount, linkFrom } from "../../
 export { seedLoop, seedOpenIssue, seedDeliveredIssue, seedReplies, addMember } from "../../e2e/support/seed.ts";
 export { E2E_NOW, AFTER_FIRST_SLOT, BEFORE_FIRST_SLOT, DELIVERY_DAY, DAY, HOUR } from "../../e2e/support/clock.ts";
 
-let schemaReady: Promise<void> | null = null;
-
 /**
- * Build the schema once per test file, from the migrations, exactly as the e2e
- * global setup does. Idempotent because several test files share one database.
+ * Every database-backed test file starts here.
+ *
+ * `npm run test:integration` builds the schema once for the whole run, but a
+ * single file is also runnable on its own (`node --test test/lib/auth…`), and a
+ * guard that only works when a runner-wide hook happened to fire is not a guard.
+ * So: empty every table between tests, and build the schema here if the database
+ * does not have one.
  */
-export function ensureSchema(): Promise<void> {
-  schemaReady ??= (async () => {
+export function setupDatabase(): void {
+  before(async () => {
+    if (await schemaExists()) return;
     await resetSchema();
     await migrate();
-  })();
-  return schemaReady;
+  });
+  beforeEach(resetDatabase);
+}
+
+async function schemaExists(): Promise<boolean> {
+  const [row] = await rows<{ present: boolean }>("select to_regclass('public.groups') is not null as present");
+  return row.present;
 }
 
 /** The loop row in the shape the library takes, not a raw snake_case record. */

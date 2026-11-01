@@ -27,12 +27,11 @@ import {
   updateLoopSettings,
   userById,
 } from "../../src/lib/manage.ts";
-import { outboxCount, resetDatabase, rows, seedDeliveredIssue, seedLoop } from "../support/app.ts";
+import { outboxCount, rows, seedDeliveredIssue, seedLoop, setupDatabase } from "../support/app.ts";
 import { E2E_NOW } from "../../e2e/support/clock.ts";
 import { clearRequest, setRequestHeaders } from "../stubs/request.mjs";
 
 beforeEach(async () => {
-  await resetDatabase();
   clearRequest();
   setRequestHeaders({ "x-e2e-now": E2E_NOW.toISOString() });
 });
@@ -51,6 +50,9 @@ async function questionsOf(groupId: string) {
     [groupId],
   );
 }
+
+
+setupDatabase();
 
 test("email parsing dedupes, normalizes, and drops non-addresses", () => {
   assert.deepEqual(

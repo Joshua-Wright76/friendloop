@@ -1,7 +1,7 @@
 import { test, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import { pendingWork, sweep } from "../../src/lib/sweep.ts";
-import { outboxCount, resetDatabase, rows, seedLoop, seedOpenIssue, seedReplies } from "../support/app.ts";
+import { outboxCount, resetDatabase, rows, seedLoop, seedOpenIssue, seedReplies, setupDatabase } from "../support/app.ts";
 import { AFTER_FIRST_SLOT, BEFORE_FIRST_SLOT, DELIVERY_DAY, E2E_NOW, HOUR } from "../../e2e/support/clock.ts";
 import { clearRequest, setRequestHeaders } from "../stubs/request.mjs";
 
@@ -12,6 +12,9 @@ beforeEach(async () => {
 });
 
 const ALICE_QUESTION = "What made you laugh this week?";
+
+
+setupDatabase();
 
 test("a paused loop opens nothing", async () => {
   const loop = await seedLoop();

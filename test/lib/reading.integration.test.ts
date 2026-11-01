@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { atLeast, requireViewer, viewerFor } from "../../src/lib/permissions.ts";
 import { loadIssue, membershipForViewer, reactionChoices } from "../../src/lib/issue-view.ts";
 import { snapshotQuestionsForIssue } from "../../src/lib/round-questions.ts";
-import { groupOf, resetDatabase, rows, seedDeliveredIssue, seedLoop, seedOpenIssue } from "../support/app.ts";
+import { groupOf, resetDatabase, rows, seedDeliveredIssue, seedLoop, seedOpenIssue, setupDatabase } from "../support/app.ts";
 import { requestMagicLink, confirmMagicLink } from "../../src/lib/auth.ts";
 import { latestOutbox } from "../support/app.ts";
 import { AFTER_FIRST_SLOT, E2E_NOW } from "../../e2e/support/clock.ts";
@@ -15,6 +15,9 @@ beforeEach(async () => {
   setRequestHeaders({ "x-e2e-now": AFTER_FIRST_SLOT.toISOString() });
 });
 
+
+
+setupDatabase();
 
 test("access ranks are ordered owner > admin > member", () => {
   assert.equal(atLeast("owner", "admin"), true);

@@ -9,7 +9,7 @@ import {
   sendEmail,
   TRANSPORT_HEADER,
 } from "../../src/lib/email/send.ts";
-import { resetDatabase, rows } from "../support/app.ts";
+import { rows, setupDatabase } from "../support/app.ts";
 import { clearRequest, setRequestHeaders } from "../stubs/request.mjs";
 import {
   FAKE_MAIL_URL,
@@ -41,7 +41,6 @@ after(async () => {
 });
 
 beforeEach(async () => {
-  await resetDatabase();
   await failNextSends(0);
   clearRequest();
   setRequestHeaders({ "x-e2e-now": "2026-01-02T08:05:00.000Z" });
@@ -58,6 +57,9 @@ const base = {
 function useResend() {
   setRequestHeaders({ "x-e2e-now": "2026-01-02T08:05:00.000Z", [TRANSPORT_HEADER]: "resend" });
 }
+
+
+setupDatabase();
 
 test("the configured transport is the outbox in this process", () => {
   assert.equal(emailIsCaptured(), true);

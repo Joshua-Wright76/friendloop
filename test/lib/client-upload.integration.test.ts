@@ -2,7 +2,7 @@ import { test, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import { uploadReplyPhoto } from "../../src/lib/reply-client.ts";
 import { copy } from "../../src/lib/copy.ts";
-import { resetDatabase, setEnv } from "../support/app.ts";
+import { setEnv, setupDatabase } from "../support/app.ts";
 import { uploads as blobUploads, reset as resetUploads } from "../stubs/vercel-blob-client.mjs";
 
 /**
@@ -14,13 +14,15 @@ import { uploads as blobUploads, reset as resetUploads } from "../stubs/vercel-b
 const JPEG = Uint8Array.from([0xff, 0xd8, 0xff, 0x00, 0x01]);
 
 beforeEach(async () => {
-  await resetDatabase();
   resetUploads();
 });
 
 function jsonResponse(status: number, body: unknown): Response {
   return { ok: status >= 200 && status < 300, status, json: async () => body } as unknown as Response;
 }
+
+
+setupDatabase();
 
 test("production uploads to a hashed pathname and waits for the route to confirm", async (t) => {
   const original = process.env.NODE_ENV;
