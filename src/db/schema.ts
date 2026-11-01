@@ -1,5 +1,6 @@
 import {
   pgTable,
+  date,
   uuid,
   text,
   timestamp,
@@ -23,6 +24,8 @@ export const replyStatusEnum = pgEnum("reply_status", ["draft", "submitted"]);
 export const sectionKindEnum = pgEnum("section_kind", ["standard", "photo_wall", "music"]);
 /** What a pool question asks for: a written answer, or a pick from fixed options. */
 export const questionKindEnum = pgEnum("question_kind", ["written", "poll"]);
+/** A one-time milestone, or a birthday that comes back every year. */
+export const eventKindEnum = pgEnum("event_kind", ["once", "birthday"]);
 export const outboxStatusEnum = pgEnum("outbox_status", ["pending", "sent", "failed"]);
 export const emailKindEnum = pgEnum("email_kind", [
   "signin",
@@ -333,6 +336,32 @@ export const sections = pgTable(
   (t) => [index("sections_group_idx").on(t.groupId)],
 );
 
+/**
+ * A date the loop wants to celebrate. The sweep snapshots the ones that fall in
+ * an issue's window into a section; the row itself never rewrites history.
+ */
+export const events = pgTable(
+  "events",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    groupId: uuid("group_id")
+      .references(() => groups.id, { onDelete: "cascade" })
+      .notNull(),
+    kind: eventKindEnum("kind").notNull(),
+    /** Required for a one-time event; a birthday is titled from the member's name at snapshot. */
+    title: text("title"),
+    emoji: text("emoji"),
+    month: integer("month").notNull(),
+    day: integer("day").notNull(),
+    /** Set for a one-time event, null for a birthday (the year doesn't matter). */
+    year: integer("year"),
+    /** The birthday person. */
+    membershipId: uuid("membership_id").references(() => memberships.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [index("events_group_idx").on(t.groupId)],
+);
+
 /** Sections are snapshotted per issue, exactly like questions. */
 export const issueSections = pgTable(
   "issue_sections",
@@ -348,8 +377,15 @@ export const issueSections = pgTable(
     description: text("description"),
     adminOnly: boolean("admin_only").default(false).notNull(),
     position: integer("position").default(0).notNull(),
+    /** Set when the section is a snapshot of an event; cleared if the event is deleted. */
+    eventId: uuid("event_id").references(() => events.id, { onDelete: "set null" }),
+    /** The calendar date this snapshot celebrates, so one occurrence lands in one issue. */
+    eventDate: date("event_date", { mode: "string" }),
   },
-  (t) => [uniqueIndex("issue_sections_issue_section_idx").on(t.issueId, t.sectionId)],
+  (t) => [
+    uniqueIndex("issue_sections_issue_section_idx").on(t.issueId, t.sectionId),
+    uniqueIndex("issue_sections_event_occurrence_idx").on(t.eventId, t.eventDate),
+  ],
 );
 
 /** One section answer per member per snapshotted section. */
@@ -454,4 +490,5 @@ export type Membership = typeof memberships.$inferSelect;
 export type Question = typeof questions.$inferSelect;
 export type Issue = typeof issues.$inferSelect;
 export type Reply = typeof replies.$inferSelect;
+export type LoopEvent = typeof events.$inferSelect;
 export type OutboxRow = typeof outbox.$inferSelect;

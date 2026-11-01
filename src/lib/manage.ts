@@ -13,11 +13,12 @@ import { emailThemeOf, inviteEmail } from "./email/templates";
 import { sendEmail } from "./email/send";
 import { sendPromptEmails } from "./notify";
 import { replyUrl, url } from "./urls";
-import { deliveryInstant } from "./schedule";
+import { deliveryInstant, groupSchedule, nextSlot } from "./schedule";
 import { INVITE_DAYS } from "./reply";
 import { reorderIds } from "./question-order";
 import { newQuestionTexts } from "./question-packs";
 import { snapshotQuestionsForIssue } from "./round-questions";
+import { snapshotEventsForIssue } from "./events";
 import { checkPoll } from "./poll";
 
 export function normalizeEmail(value: string): string {
@@ -556,6 +557,13 @@ export async function openIssueNow(groupId: string, at: Date): Promise<{ issueId
   if (!issue) return null;
 
   const questionCount = await snapshotQuestionsForIssue({ group, issueId: issue.id });
+  await snapshotEventsForIssue({
+    group,
+    issueId: issue.id,
+    opensAt: at,
+    deliversAt,
+    nextSlotAt: nextSlot(groupSchedule(group), at),
+  });
 
   await db.update(groups).set({ lastSlotAt: at }).where(eq(groups.id, groupId));
 

@@ -23,6 +23,27 @@ export type LoopSchedule = {
   lastSlotAt: Date | null;
 };
 
+/** A group row's schedule fields, in the shape the math above takes. */
+export function groupSchedule(group: {
+  timezone: string;
+  promptWeekday: number;
+  promptHour: number;
+  cadenceWeeks: number;
+  windowDays: number;
+  createdAt: Date;
+  lastSlotAt: Date | null;
+}): LoopSchedule {
+  return {
+    timezone: group.timezone,
+    promptWeekday: group.promptWeekday,
+    promptHour: group.promptHour,
+    cadenceWeeks: group.cadenceWeeks,
+    windowDays: group.windowDays,
+    createdAt: group.createdAt,
+    lastSlotAt: group.lastSlotAt,
+  };
+}
+
 /** Guards against a long outage trying to backfill years of issues. */
 const MAX_LOOKBACK_STEPS = 26;
 
