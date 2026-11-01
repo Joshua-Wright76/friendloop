@@ -37,8 +37,10 @@ export default async function UiScreensPage() {
         [screens.reply, `/r/${UI_PREVIEW.ownerToken}`],
         [screens.suggest, `/r/${UI_PREVIEW.aliceToken}/suggest`],
         [screens.issue, `/i/${UI_PREVIEW.deliveredIssueId}?m=${UI_PREVIEW.ownerToken}`],
+        [screens.issuePrint, `/i/${UI_PREVIEW.deliveredIssueId}?print&m=${UI_PREVIEW.ownerToken}`],
         [screens.albumAsReader, `/album/${UI_PREVIEW.groupId}?m=${UI_PREVIEW.aliceToken}`],
         [screens.shared, `/s/${UI_PREVIEW.shareToken}`],
+        [screens.sharedPrint, `/s/${UI_PREVIEW.shareToken}?print`],
       ],
     },
     {

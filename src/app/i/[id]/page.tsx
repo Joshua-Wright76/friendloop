@@ -10,6 +10,8 @@ import { copy, text } from "@/lib/copy";
 import { issueTitle } from "@/lib/issue-name";
 import { LoopBanner, LoopTheme } from "@/components/loop-theme";
 import { albumHref } from "@/lib/album-query";
+import { printHref, wantsPrint, webHref } from "@/lib/print-view";
+import { IssuePrint } from "./issue-print";
 
 export const instant = false;
 
@@ -23,10 +25,10 @@ export default async function IssuePage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ m?: string }>;
+  searchParams: Promise<{ m?: string; print?: string | string[] }>;
 }) {
   const { id } = await params;
-  const { m } = await searchParams;
+  const { m, print } = await searchParams;
 
   const user = await currentUser();
   const probe = await loadIssue({ issueId: id });
@@ -44,6 +46,32 @@ export default async function IssuePage({
     viewerIsAdmin: membership?.access === "owner" || membership?.access === "admin",
   });
   if (!view) notFound();
+
+  const delivered = view.issue.status === "delivered";
+
+  // A keepsake is only ever made of a round that has gone out. An open round asked
+  // for as `?print` is simply the round.
+  if (delivered && wantsPrint(print)) {
+    // Names, not "You": whoever opens this paper is not the person who wrote it.
+    const printable = await loadIssue({
+      issueId: id,
+      viewerMembershipId: null,
+      viewerIsAdmin: membership?.access === "owner" || membership?.access === "admin",
+    });
+    if (!printable) notFound();
+    return (
+      <IssuePrint
+        view={printable}
+        roundTemplate={copy.issue.round}
+        eyebrow={copy.print.eyebrow}
+        answersLine={printable.answerCount === 1 ? copy.issue.answer : text(copy.issue.answers, { count: printable.answerCount })}
+        deliveredLine={text(copy.issue.deliveredOn, {
+          date: formatDate(printable.issue.deliveredAt ?? printable.issue.deliversAt, printable.group.timezone),
+        })}
+        backHref={webHref(`/i/${id}`, m ?? null)}
+      />
+    );
+  }
 
   return (
     <main className="mx-auto w-full max-w-[680px] px-4 pb-16 pt-5 sm:px-6">
@@ -81,8 +109,19 @@ export default async function IssuePage({
         mentionables={view.mentionables}
       />
 
-      {membership ? (
+      {delivered ? (
         <p className="mt-8 text-center text-[14px] font-bold">
+          <Link
+            href={printHref(`/i/${id}`, m ?? null)}
+            className="inline-flex min-h-11 items-center text-ink underline decoration-line-strong underline-offset-4"
+          >
+            {copy.print.action}
+          </Link>
+        </p>
+      ) : null}
+
+      {membership ? (
+        <p className="mt-4 text-center text-[14px] font-bold">
           <Link
             href={albumHref({ base: `/album/${view.group.id}`, token: m ?? null })}
             className="inline-flex min-h-11 items-center text-ink underline decoration-line-strong underline-offset-4"

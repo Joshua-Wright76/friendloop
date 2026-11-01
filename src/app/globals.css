@@ -435,3 +435,66 @@ body:has(.reply-actionbar) .theme-switch { bottom: calc(92px + env(safe-area-ins
 .album-viewer::backdrop { background: rgb(20 12 14 / .72); }
 .album-viewer-body { display: flex; flex-direction: column; gap: 12px; }
 .album-viewer-photo { display: block; width: 100%; max-height: 62dvh; object-fit: contain; border-radius: 6px; background: var(--accent-soft); }
+
+/* ------------------------------------------------------------------ */
+/* The print view of a delivered round (/i/<id>?print, /s/<token>?print) */
+/* ------------------------------------------------------------------ */
+/* Always light paper: .print-sheet re-declares every token (see printThemeCss), so a dark screen or a tinted preset never reaches it. */
+.print-sheet { position: relative; z-index: 1; min-height: 100dvh; background: #fff; color: var(--ink); color-scheme: light; }
+.print-wrap { margin: 0 auto; width: 100%; max-width: 720px; padding: 20px 20px 48px; }
+.print-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 16px; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1.5px dashed var(--line-strong); }
+.print-back { display: inline-flex; align-items: center; min-height: 44px; color: var(--accent-ink); font-weight: 800; text-decoration: underline; text-underline-offset: 4px; }
+.print-hint { flex-basis: 100%; margin: 0; color: var(--ink-soft); font-size: 14px; }
+.print-masthead { margin-bottom: 28px; }
+.print-masthead h1 { font-size: 34px !important; }
+.print-meta { margin: 4px 0 0; color: var(--ink-soft); font-size: 14px; }
+.print-question { margin-top: 30px; }
+.print-question > h2 { font-size: 24px !important; break-after: avoid; }
+.print-credit { margin: 4px 0 0 36px; color: var(--ink-soft); font-size: 13px; }
+.print-answer { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--line-strong); break-inside: avoid; }
+.print-answer:first-of-type { border-top: 0; }
+.print-author { display: flex; align-items: center; gap: 10px; margin: 0; color: var(--ink-soft); font-family: var(--font-body); font-size: 15px !important; font-weight: 800 !important; line-height: 1.2 !important; break-after: avoid; }
+.print-body { margin: 8px 0 0; color: var(--ink); font-size: 16px; line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere; }
+.print-choices { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 0; padding: 0; list-style: none; }
+.print-figure { margin: 12px 0 0; break-inside: avoid; }
+.print-figure > img { display: block; width: 100%; max-height: 6.4in; object-fit: contain; border: 1px solid var(--line-strong); border-radius: 6px; background: #fff; }
+.print-figure > figcaption { margin-top: 4px; color: var(--ink-soft); font-size: 13px; line-height: 1.35; }
+.print-wall { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 12px; }
+.print-wall > .print-figure { margin: 0; }
+.print-wall > .print-figure > img { max-height: 3.2in; }
+.print-card { margin-top: 12px; padding: 10px 12px; border: 1.5px solid var(--line-strong); border-radius: 8px; background: #fff; break-inside: avoid; }
+.print-card-title { margin: 0; color: var(--ink); font-size: 14px; font-weight: 800; overflow-wrap: anywhere; }
+.print-card-meta { margin: 2px 0 0; color: var(--ink-soft); font-size: 12px; }
+.print-card-link { margin: 2px 0 0; color: var(--ink-soft); font-size: 11.5px; overflow-wrap: anywhere; }
+.print-late { margin: 8px 0 0; color: var(--ink-soft); font-size: 12.5px; font-style: italic; }
+.print-reactions { margin: 8px 0 0; color: var(--ink-soft); font-size: 13px; }
+.print-poll { margin: 12px 0 0 36px; break-inside: avoid; }
+.print-poll-title { margin: 0; color: var(--ink-soft); font-size: 13px; font-weight: 800; }
+.print-poll ul { display: grid; gap: 8px; margin: 8px 0 0; padding: 0; list-style: none; }
+.print-poll li { display: grid; grid-template-columns: 1fr auto; gap: 2px 12px; font-size: 14px; }
+.print-poll li > .poll-bar { grid-column: 1 / -1; border: 1px solid var(--line-strong); background: #fff; }
+.print-thread { margin: 10px 0 0 14px; padding-left: 12px; border-left: 3px solid var(--line-strong); }
+.print-comment { margin-top: 10px; break-inside: avoid; }
+.print-comment-author { display: flex; align-items: center; gap: 8px; margin: 0; color: var(--ink-soft); font-size: 13px; font-weight: 800; }
+.print-comment .print-body { font-size: 14.5px; margin-top: 4px; }
+.print-comment .comment-quote p { margin: 0; font-size: 13px; color: var(--ink-soft); }
+.print-footer { margin-top: 36px; padding-top: 12px; border-top: 1px solid var(--line-strong); color: var(--ink-soft); font-size: 12.5px; text-align: center; }
+.print-sheet .poll-bar > span, .print-sheet .avatar, .print-sheet .chip { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+.print-sheet .chip { border: 1px solid var(--line-strong) !important; }
+
+@page { margin: 14mm; }
+@media print {
+  /* Anything that is not the round: gone. */
+  html:has(.print-sheet) { background: #fff !important; }
+  html:has(.print-sheet) body::before { display: none; }
+  html:has(.print-sheet) .theme-switch,
+  html:has(.print-sheet) .skip-link,
+  .no-print { display: none !important; }
+  .print-sheet { min-height: 0; }
+  .print-wrap { max-width: none; padding: 0; }
+  .print-sheet * { transition: none !important; animation: none !important; }
+  /* A new page for each question, but never inside a card, a photo or a comment. */
+  .print-question { margin-top: 0; break-before: page; }
+  .print-masthead + main > .print-question:first-child { break-before: auto; margin-top: 24px; }
+  .print-masthead { break-after: avoid; }
+}
