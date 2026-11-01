@@ -1247,5 +1247,46 @@
     "saved": "Stationery saved. Everyone sees it on their next visit.",
     "savedAdjusted": "Stationery saved. We nudged the accent a little so it stays easy to read.",
     "error": "That didn't save. Check the accent code and try again."
+  },
+  "events": {
+    "title": "Events and birthdays",
+    "description": "Add a birthday or a milestone. When one lands inside a round, it becomes a section everyone can write to.",
+    "upcomingTitle": "Coming up",
+    "listLabel": "Events, soonest first",
+    "empty": "Nothing on the calendar yet. Add a birthday and it will turn up in the right round by itself.",
+    "addTitle": "Add an event",
+    "kindLabel": "Type of event",
+    "kindBirthday": "Birthday, every year",
+    "kindOnce": "One-time event",
+    "memberLabel": "Whose birthday?",
+    "titleLabel": "What's the occasion?",
+    "titlePlaceholder": "The housewarming",
+    "emojiLabel": "Icon",
+    "dateLabel": "Date",
+    "birthdayDateHint": "The year doesn't matter for a birthday.",
+    "add": "Add event",
+    "edit": "Edit",
+    "save": "Save changes",
+    "remove": "Remove",
+    "removeLabel": "Remove {title}",
+    "editLabel": "Edit {title}",
+    "yearly": "Every year",
+    "passed": "Already happened",
+    "birthdayRow": "{name}'s birthday",
+    "addedNotice": "Event added.",
+    "savedNotice": "Event saved.",
+    "removedNotice": "Event removed.",
+    "errors": {
+      "invalid": "Check the date and the details, then try again.",
+      "pastDate": "That date has already gone by.",
+      "titleRequired": "Give the occasion a name.",
+      "memberRequired": "Choose someone from the loop."
+    },
+    "section": {
+      "defaultEmoji": "🎉",
+      "birthdayTitle": "{name}'s birthday",
+      "birthdayDescription": "Leave {name} a note or a photo. It lands in the round for everyone to read.",
+      "onceDescription": "Leave a note or a photo for the occasion."
+    }
   }
 }

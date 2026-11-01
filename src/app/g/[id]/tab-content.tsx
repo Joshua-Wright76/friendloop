@@ -17,6 +17,7 @@ type Notices = {
   suggestion?: string;
   section?: string;
   poll?: string;
+  event?: string;
   opened?: string;
   named?: string;
   saved?: string;
@@ -28,7 +29,7 @@ type Notices = {
 type Props =
   | { tab: "overview"; welcome?: string; nudged?: string }
   | { tab: "members"; notices: Pick<Notices, "invited" | "resent" | "removed" | "transferred" | "transferError"> }
-  | { tab: "questions"; notices: Pick<Notices, "added" | "archived" | "suggestion" | "section" | "poll"> }
+  | { tab: "questions"; notices: Pick<Notices, "added" | "archived" | "suggestion" | "section" | "poll" | "event"> }
   | { tab: "issues"; notices: Pick<Notices, "opened" | "named"> }
   | { tab: "settings"; notices: Pick<Notices, "saved" | "error" | "shares" | "stationery"> };
 

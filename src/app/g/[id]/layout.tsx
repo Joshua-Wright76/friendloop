@@ -6,6 +6,7 @@ import { db } from "@/db";
 import { groups, issues, memberships, questions, replies } from "@/db/schema";
 import { pendingSuggestions } from "@/lib/suggestions";
 import { sectionsOf } from "@/lib/sections";
+import { eventsOf } from "@/lib/events";
 import { currentUser } from "@/lib/auth";
 import { getNow } from "@/lib/clock";
 import { membersOf } from "@/lib/manage";
@@ -66,7 +67,8 @@ async function LoadedGroupLayout({ children, params }: Props) {
   if (!row) notFound();
 
   const { group, membership } = row;
-  const [people, questionRows, roundRows, suggestionRows, sectionRows, at] = await Promise.all([
+  const at = await getNow();
+  const [people, questionRows, roundRows, suggestionRows, sectionRows, eventRows] = await Promise.all([
     membersOf(group.id),
     db.select({
       id: questions.id,
@@ -100,7 +102,7 @@ async function LoadedGroupLayout({ children, params }: Props) {
       .orderBy(desc(issues.number)),
     pendingSuggestions(group.id),
     sectionsOf(group.id),
-    getNow(),
+    membership.access === "member" ? Promise.resolve([]) : eventsOf(group, at),
   ]);
 
   const rounds: LoopData["rounds"] = roundRows.map((round) => ({
@@ -147,6 +149,7 @@ async function LoadedGroupLayout({ children, params }: Props) {
       active: section.active,
       position: section.position,
     })),
+    events: eventRows,
     suggestions: suggestionRows.map((suggestion) => ({
       id: suggestion.id,
       text: suggestion.text,
