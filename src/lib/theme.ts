@@ -365,6 +365,25 @@ export function themeCss(resolved: ResolvedTheme | null): string {
   return `html[data-theme="light"]{${declarations(resolved.light)}}html[data-theme="dark"]{${declarations(resolved.dark)}}`;
 }
 
+/**
+ * The paper a round prints on: the loop's light scheme with the page and card gone
+ * white, no gingham check and no shadows, so a dark screen or a tinted preset never
+ * costs anyone ink. Scoped to `.print-sheet`, so it never touches the rest of the page.
+ */
+export function printThemeCss(resolved: ResolvedTheme | null): string {
+  const light = (resolved ?? GINGHAM_RESOLVED).light;
+  const paper: SchemeTokens = {
+    ...light,
+    page: "#ffffff",
+    card: "#ffffff",
+    field: "#ffffff",
+    check: "transparent",
+    shadow: "none",
+    shadowLift: "none",
+  };
+  return `.print-sheet{${declarations(paper)}}`;
+}
+
 /* ------------------------------- email -------------------------------- */
 
 /** What an email needs of a theme: light only, inline-style friendly. */

@@ -1056,8 +1056,10 @@
       "reply": "Reply sheet",
       "suggest": "Suggest a question (as a member)",
       "issue": "Delivered issue",
+      "issuePrint": "Printed round (member)",
       "albumAsReader": "Album, opened from an inbox link",
       "shared": "Shared issue",
+      "sharedPrint": "Printed round (share link)",
       "invalid": "Expired or invalid reply link",
       "emails": "Email templates",
       "outbox": "Captured email"
@@ -1325,5 +1327,21 @@
     },
     "linkLabel": "Album",
     "issueLink": "See the album"
+  },
+  "print": {
+    "action": "Print this round",
+    "toolbarLabel": "Print options",
+    "button": "Print or save as PDF",
+    "hint": "In the print window, choose \"Save as PDF\" to keep a copy.",
+    "back": "Back to the round",
+    "documentTitle": "{title} · {loop}",
+    "eyebrow": "Kept from the loop",
+    "late": "Added late, after the round went out",
+    "voiceCard": "Voice note, {duration}. Listen on the web round.",
+    "reactions": "Reactions: {summary}",
+    "commentsHeading": "Comments",
+    "answerComments": "Comments on this answer",
+    "linkLabel": "Link",
+    "footer": "Printed from {brand}"
   }
 }

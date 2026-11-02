@@ -8,6 +8,8 @@ import { Cherries } from "@/components/stationery";
 import { copy, text } from "@/lib/copy";
 import { issueTitle } from "@/lib/issue-name";
 import { LoopBanner, LoopTheme } from "@/components/loop-theme";
+import { printHref, wantsPrint, webHref } from "@/lib/print-view";
+import { IssuePrint } from "../../i/[id]/issue-print";
 
 export const instant = false;
 
@@ -17,10 +19,33 @@ export const metadata: Metadata = {
   referrer: "no-referrer",
 };
 
-export default async function SharePage({ params }: { params: Promise<{ token: string }> }) {
+export default async function SharePage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ token: string }>;
+  searchParams: Promise<{ print?: string | string[] }>;
+}) {
   const { token } = await params;
+  const { print } = await searchParams;
   const view = await loadIssue({ shareToken: token, viewerMembershipId: null });
   if (!view) notFound();
+
+  // Only delivered rounds have a share link at all, so the print view is always a keepsake.
+  if (wantsPrint(print)) {
+    return (
+      <IssuePrint
+        view={view}
+        roundTemplate={copy.share.round}
+        eyebrow={copy.print.eyebrow}
+        answersLine={view.answerCount === 1 ? copy.share.answer : text(copy.share.answers, { count: view.answerCount })}
+        deliveredLine={text(copy.share.deliveredOn, {
+          date: formatDate(view.issue.deliveredAt ?? view.issue.deliversAt, view.group.timezone),
+        })}
+        backHref={webHref(`/s/${token}`)}
+      />
+    );
+  }
 
   return (
     <main className="mx-auto w-full max-w-[680px] px-4 pb-16 pt-5 sm:px-6">
@@ -58,7 +83,16 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
         mentionables={[]}
       />
 
-      <p className="mt-8 text-center text-[13px] text-ink-muted">
+      <p className="mt-8 text-center text-[14px] font-bold">
+        <Link
+          href={printHref(`/s/${token}`)}
+          className="inline-flex min-h-11 items-center text-ink underline decoration-line-strong underline-offset-4"
+        >
+          {copy.print.action}
+        </Link>
+      </p>
+
+      <p className="mt-4 text-center text-[13px] text-ink-muted">
         {copy.share.sharedFrom}{" "}
         <Link href="/" className="underline decoration-line-strong underline-offset-4">
           {copy.common.brand}

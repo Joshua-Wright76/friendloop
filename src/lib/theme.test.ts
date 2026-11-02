@@ -16,6 +16,7 @@ import {
   isPresetKey,
   normalizeHex,
   previewTheme,
+  printThemeCss,
   resolveTheme,
   themeColorFor,
   themeCss,
@@ -187,4 +188,21 @@ test("a preview is the resolved theme, or Gingham when nothing is chosen", () =>
   assert.equal(previewTheme({ preset: "lilac", accent: null }).light.page, "#f5f0fb");
   assertReadable(GINGHAM_RESOLVED.light, "gingham light");
   assertReadable(GINGHAM_RESOLVED.dark, "gingham dark");
+});
+
+test("the print paper is the loop's light scheme on plain white, whatever the screen is doing", () => {
+  const themed = resolveTheme({ preset: "bluebell", accent: null });
+  for (const css of [printThemeCss(themed), printThemeCss(null)]) {
+    assert.match(css, /^\.print-sheet\{/);
+    assert.match(css, /--page:#ffffff/);
+    assert.match(css, /--card:#ffffff/);
+    assert.match(css, /--check:transparent/);
+    assert.match(css, /--shadow:none/);
+    assert.doesNotMatch(css, /html\[data-theme/);
+  }
+  // The themed sheet carries the loop's own light ink and accent; the default carries Gingham's.
+  assert.ok(printThemeCss(themed).includes(`--ink:${themed!.light.ink}`));
+  assert.ok(printThemeCss(themed).includes(`--accent:${themed!.light.accent}`));
+  assert.ok(printThemeCss(null).includes(`--ink:${GINGHAM_RESOLVED.light.ink}`));
+  assert.ok(!printThemeCss(themed).includes(themed!.dark.card));
 });

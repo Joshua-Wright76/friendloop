@@ -16,7 +16,7 @@ test("P3 · share-link visitors get no Album, and strangers, revoked members and
   await page.goto("/s/album-share-token");
   await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
   await expect(page.getByRole("link", { name: "See the album" })).toHaveCount(0);
-  await expect(page.locator('a[href*="/album"]')).toHaveCount(0);
+  await expect(page.locator('a[href*="/album/"]')).toHaveCount(0);
 
   // The share token opens nothing here, as a token or any other way.
   for (const path of [

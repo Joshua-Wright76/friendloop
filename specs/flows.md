@@ -176,6 +176,13 @@ Status: `todo` (not built) · `done` (built and covered).
 | P2 | Filter and search | Choosing one person and searching a word (matched against answer text, photo captions, and the question or section it answered; every word must turn up) each narrow the Album, alone or together; the URL carries the filters, a long album grows a page at a time without losing them, and an empty result says so plainly with a way out. | done |
 | P3 | Privacy holds | Share-link visitors get no Album route, link or data; strangers, revoked members, other loops' members and bad tokens get the plain not-found page with nothing of the loop in it; the media addresses stay content-hashed and unguessable. | done |
 
+## Q · Keepsake export
+
+| ID | Flow | Acceptance criteria | Status |
+| --- | --- | --- | --- |
+| Q1 | Print an issue | A delivered round (on the member page or the share link) offers "Print this round", which opens the same address with `?print`: the round on plain light paper, named authors rather than "You", with the questions, answers, photos, voice-note cards, poll picks and tallies, credits, sections, reactions and comment threads laid out for paper. Under print media the toolbar, theme switch and skip link are gone, each question starts a new page, answers, photos, cards and comments never split, nothing overflows sideways, and a dark screen or a tinted preset still prints as light paper. A round that has not gone out has no print action and `?print` leaves it unchanged; nothing opens the print dialog but a click. | done |
+| Q2 | Late edits stay true | The print view holds no copy of the round: it reads the same canonical state as the web round, so an edited answer, a new late answer, a taken-down comment, commenting switched off and a renamed round all show on the next print, and everything added after delivery is marked "Added late". | done |
+
 IDs are stable handles, not positions: a retired flow leaves its number out
 rather than renumbering the rest.
 
