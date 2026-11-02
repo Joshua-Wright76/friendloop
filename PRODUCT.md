@@ -59,7 +59,7 @@ Confirmed for v1:
   require a signed-in session.
 - Question pool: themed packs of starter questions plus custom questions written by the owner. The owner can include every question or rotate a set number through the pool in order.
 - One photo per reply.
-- Delivered issues have comments and reactions.
+- Delivered issues have comments and reactions. Comments can be hung from a single answer, quote another comment, carry one photo, and @mention any member (readers included, who get an email). The owner can turn commenting off for the loop; nothing is deleted.
 - Polls are a kind of question: two to six options, single or multiple choice. Contributors tap to answer, and the tally appears only once the issue is delivered.
 - A delivered issue can be shared by secret link, off by default.
 - Weekly or biweekly cadence, seven-day reply window, per-loop timezone.

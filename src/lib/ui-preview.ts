@@ -76,6 +76,15 @@ export async function unlockUiInbox(key: string | null): Promise<void> {
   });
 }
 
+const PREVIEW_OWNER_REPLY_ID = "22222222-2222-4222-8222-2222222222a0";
+const PREVIEW_ALICE_REPLY_ID = "22222222-2222-4222-8222-2222222222a1";
+const PREVIEW_COMMENT_IDS = [
+  "22222222-2222-4222-8222-222222222271",
+  "22222222-2222-4222-8222-222222222272",
+  "22222222-2222-4222-8222-222222222273",
+  "22222222-2222-4222-8222-222222222274",
+] as const;
+
 export const UI_PREVIEW = {
   groupId: "22222222-2222-4222-8222-222222222222",
   userId: "22222222-2222-4222-8222-222222222223",
@@ -270,6 +279,7 @@ export async function enableUiPreview(reset = false) {
 
     const replyRows: Array<typeof replies.$inferInsert> = QUESTION_TEXT.flatMap((_, index) => [
       {
+        ...(index === 0 ? { id: PREVIEW_OWNER_REPLY_ID } : {}),
         issueId: UI_PREVIEW.deliveredIssueId,
         issueQuestionId: DELIVERED_QUESTION_IDS[index],
         membershipId: UI_PREVIEW.ownerMembershipId,
@@ -281,6 +291,7 @@ export async function enableUiPreview(reset = false) {
       {
         // Alice answers the first question out loud so the issue player and the
         // email's voice-note block have something real to show.
+        ...(index === 0 ? { id: PREVIEW_ALICE_REPLY_ID } : {}),
         issueId: UI_PREVIEW.deliveredIssueId,
         issueQuestionId: DELIVERED_QUESTION_IDS[index],
         membershipId: UI_PREVIEW.aliceMembershipId,
@@ -302,12 +313,45 @@ export async function enableUiPreview(reset = false) {
     });
     await tx.insert(replies).values(replyRows).onConflictDoNothing();
 
-    await tx.insert(comments).values({
-      id: "22222222-2222-4222-8222-222222222270",
-      issueId: UI_PREVIEW.deliveredIssueId,
-      membershipId: UI_PREVIEW.aliceMembershipId,
-      body: "This made my morning.",
-    }).onConflictDoNothing();
+    // A thread with all the new moving parts: a mention, a quoted reply, one hanging
+    // from a single answer, and one the quote of which has been removed.
+    const mention = `@[${UI_PREVIEW.aliceMembershipId}]`;
+    await tx.insert(comments).values([
+      {
+        id: "22222222-2222-4222-8222-222222222270",
+        issueId: UI_PREVIEW.deliveredIssueId,
+        membershipId: UI_PREVIEW.aliceMembershipId,
+        body: "This made my morning.",
+      },
+      {
+        id: PREVIEW_COMMENT_IDS[0],
+        issueId: UI_PREVIEW.deliveredIssueId,
+        membershipId: UI_PREVIEW.ownerMembershipId,
+        body: `${mention} that goose story needs its own newsletter.`,
+      },
+      {
+        id: PREVIEW_COMMENT_IDS[1],
+        issueId: UI_PREVIEW.deliveredIssueId,
+        membershipId: UI_PREVIEW.aliceMembershipId,
+        body: "Only if the geese get a column.",
+        quoteCommentId: PREVIEW_COMMENT_IDS[0],
+      },
+      {
+        id: PREVIEW_COMMENT_IDS[2],
+        issueId: UI_PREVIEW.deliveredIssueId,
+        membershipId: UI_PREVIEW.ownerMembershipId,
+        replyId: PREVIEW_ALICE_REPLY_ID,
+        body: "The voice memo is the best part. Four minutes!",
+      },
+      {
+        id: PREVIEW_COMMENT_IDS[3],
+        issueId: UI_PREVIEW.deliveredIssueId,
+        membershipId: UI_PREVIEW.aliceMembershipId,
+        replyId: PREVIEW_ALICE_REPLY_ID,
+        body: "He found it eventually.",
+        quoteCommentId: PREVIEW_COMMENT_IDS[2],
+      },
+    ]).onConflictDoNothing();
 
     // Sections: a recurring potluck note, a photo wall, and music picks, so the
     // sheet, the delivered issue, and the dashboard all have something to show.

@@ -133,8 +133,10 @@ available to Playwright without a second data path.
 `POST /api/reply/<token>` handles both autosave and submit. A Server Action would
 work, but a reader or an expired invitation has to be refused with a real HTTP
 status, and a status is the only thing a test can assert on directly. The same rule
-covers the issue view: comments and reactions are Server Actions because they are
-only ever reachable from a page that already resolved who you are.
+covers the issue view: reactions are Server Actions because they are only ever
+reachable from a page that already resolved who you are. Comments are a route
+handler (`POST /api/issue/<id>/comments`, multipart) for the same reason replies
+are: they carry a photo, and a refusal should be a real status. See §15.
 
 ## 10 · Management is two roles, one page each
 
@@ -195,3 +197,27 @@ photo, and voice are refused on a poll, and a pick is refused on a written quest
 **Results are a delivery-time fact.** `loadIssue` returns a poll's tally only once the
 issue is `delivered`; before that the tally is `null` and the only pick returned is
 the viewer's own. The reply sheet never receives anyone else's picks at all.
+
+## 15 · Comments: mentions are references, threads are anchors
+
+`comments` carries `reply_id` (null for the issue-level thread, else the answer it
+hangs from), `quote_comment_id` (a live reference to the comment being answered),
+and `photo_url`. `groups.comments_enabled` is the owner's switch.
+
+All comment writes go through `postComment` in `src/lib/comments.ts`, which refuses
+before it stores: the author must be a live member (`membershipForViewer` ignores
+revoked members), comments must be on, an anchor must be a submitted answer of this
+issue (another member's poll pick stays hidden until delivery), a quote must be a
+live comment in the same thread, and a photo must pass `validatePhoto`. The route
+handler is only parsing.
+
+A mention is stored inline as `@[<membership id>]` and drawn as the member's current
+name (`src/lib/mentions.ts`); there is no mentions table, so the body cannot disagree
+with itself. The composer chooses the comment's UUID, which makes a retry the same
+comment, and mention emails are keyed `mention:<issue>:<comment>:<membership>`, so
+they are sent once however many times the request arrives. Readers can be mentioned;
+the author, revoked members and people from other loops are dropped.
+
+`loadIssue` turns all of this into view data once: the issue thread, each answer's
+thread, and the viewer's mention list. With comments off, or on a share link, those
+are empty and the page renders no comment surface at all.

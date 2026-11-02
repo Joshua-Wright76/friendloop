@@ -32,6 +32,7 @@ export async function settingsAction(formData: FormData) {
       ? Number(formData.get("cadence") ?? 1)
       : 1,
     shareEnabled: formData.get("shareEnabled") === "on",
+    commentsEnabled: formData.get("commentsEnabled") === "on",
   });
 
   revalidatePath(`/g/${groupId}`, "layout");

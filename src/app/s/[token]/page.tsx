@@ -50,6 +50,8 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
         blocks={view.blocks}
         sections={view.sections}
         comments={[]}
+        commentsEnabled={false}
+        mentionables={[]}
       />
 
       <p className="mt-8 text-center text-[13px] text-ink-muted">

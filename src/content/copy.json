@@ -709,6 +709,8 @@
     "sharesResetDescription": "Gives every delivered round a new link. The old ones stop working.",
     "sharesResetNotice": "New share links. Old ones no longer work.",
     "sharesOff": "Turn sharing on to create links for delivered rounds.",
+    "comments": "Members can comment on delivered rounds.",
+    "commentsHint": "Turn it off and every comment box disappears for everyone. Nothing already written is deleted; turn it back on and it all returns.",
     "save": "Save changes",
     "pausedTitle": "The loop is paused",
     "pauseTitle": "Pause this loop",
@@ -877,8 +879,39 @@
     "errors": {
       "tooLong": "That comment is too long.",
       "commentMembersOnly": "Only members of this loop can comment.",
-      "reactMembersOnly": "Only members of this loop can react."
+      "reactMembersOnly": "Only members of this loop can react.",
+      "commentsOff": "Comments are turned off for this loop.",
+      "answerGone": "That answer isn't there to comment on.",
+      "quoteGone": "The comment you were answering has been removed.",
+      "photoTooLarge": "That photo is over 5 MB. Try a smaller one.",
+      "photoInvalid": "Use a JPEG, PNG, WebP or GIF photo.",
+      "photoFailed": "The photo didn't make it. Try again?",
+      "invalidRequest": "That didn't go through. Try again?"
     },
+    "unknownMention": "someone",
+    "commentCount": "{count} comments",
+    "commentCountOne": "1 comment",
+    "commentOnAnswer": "Comment",
+    "threadLabel": "Comments on {owner} answer",
+    "threadComposerLabel": "Comment on {owner} answer",
+    "ownerYour": "your",
+    "ownerOther": "{author}'s",
+    "mentionCount": "{count} people to mention. Use the arrow keys, then Enter.",
+    "threadEmpty": "No comments on this answer yet.",
+    "commentReply": "Reply",
+    "commentReplyLabel": "Reply to {author}",
+    "replyingTo": "Replying to {author}",
+    "replyingToCancel": "Cancel reply",
+    "quoteRemoved": "A comment that has since been removed.",
+    "quoteBy": "{author} wrote",
+    "addPhoto": "Add a photo",
+    "removePhoto": "Remove photo",
+    "photoChosen": "Photo: {name}",
+    "commentPhotoAlt": "Photo from {author}'s comment",
+    "mentionHint": "Type @ to mention someone.",
+    "mentionListLabel": "People to mention",
+    "mentionOption": "Mention {name}",
+    "mentionedYou": "mentioned you",
     "askedBy": "asked by {name}",
     "voiceLabel": "Voice note, {duration}",
     "photosAdded": "added {count} photos — see the web issue",
@@ -931,6 +964,15 @@
       "cta": "Answer {questionCount} {plural}",
       "footer": "{groupName} · you can change your answers until it closes",
       "text": "{groupName} round {issueNumber} is open: {questionCount} {plural}.\n\n{url}\n\nCloses {deadlineLabel}."
+    },
+    "mention": {
+      "subject": "{authorName} mentioned you in {groupName}",
+      "preheader": "A comment on round {issueNumber}.",
+      "heading": "{authorName} mentioned you",
+      "body": "{memberName}, {authorName} mentioned you in a comment on round {issueNumber} of {groupName}.",
+      "cta": "See the comment",
+      "footer": "{groupName} · sent by Friendloop",
+      "text": "{memberName}, {authorName} mentioned you in a comment on round {issueNumber} of {groupName}:\n\n{excerpt}\n\n{url}"
     },
     "reminder": {
       "subject": "Still time for {groupName}",
@@ -1012,6 +1054,7 @@
       "inviteReader": "Invitation, as a reader",
       "prompt": "Round prompt",
       "reminder": "Reminder",
+      "mention": "Someone mentioned you",
       "delivery": "Delivered issue",
       "deliveryShared": "Delivered issue with a share link",
       "paused": "Empty round, loop paused"
@@ -1028,7 +1071,8 @@
       "prompt": "questions",
       "reminder": "reminder",
       "delivery": "issue",
-      "nudge": "reminder"
+      "nudge": "reminder",
+      "mention": "mention"
     }
   },
   "suggest": {

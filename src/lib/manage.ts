@@ -395,6 +395,8 @@ export type LoopSettings = {
   promptHour: number;
   cadenceWeeks: number;
   shareEnabled: boolean;
+  /** Optional so existing callers keep the current setting. */
+  commentsEnabled?: boolean;
 };
 
 export async function updateLoopSettings(groupId: string, settings: LoopSettings) {
@@ -414,6 +416,7 @@ export async function updateLoopSettings(groupId: string, settings: LoopSettings
       promptHour: settings.promptHour,
       cadenceWeeks: settings.cadenceWeeks,
       shareEnabled: settings.shareEnabled,
+      ...(settings.commentsEnabled === undefined ? {} : { commentsEnabled: settings.commentsEnabled }),
     })
     .where(eq(groups.id, groupId));
 

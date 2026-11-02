@@ -16,10 +16,11 @@ test("E3 · a member can comment and it sticks", async ({ page }) => {
   const alice = loop.members.find((member) => member.email.startsWith("alice"))!;
 
   await page.goto(`/i/${issue.issueId}?m=${alice.token}`);
-  await page.getByLabel("Comment").fill("This made my morning.");
+  await page.getByLabel("Comment", { exact: true }).fill("This made my morning.");
   await page.getByRole("button", { name: "Post" }).click();
 
-  await expect(page.getByText("This made my morning.")).toBeVisible();
+  // The thread, not the box: the typed text is still in the textarea until the post lands.
+  await expect(page.locator("p", { hasText: "This made my morning." })).toBeVisible();
 
   const saved = await rows<{ body: string }>("select body from comments");
   expect(saved).toHaveLength(1);
@@ -48,9 +49,9 @@ test("E3 · a comment posted in one session is there for another person", async 
     await signIn(bobPage, "bob@friendloop.test");
 
     await alicePage.goto(`/i/${issue.issueId}`);
-    await alicePage.getByLabel("Comment").fill("Left by Alice, for Bob to read.");
+    await alicePage.getByLabel("Comment", { exact: true }).fill("Left by Alice, for Bob to read.");
     await alicePage.getByRole("button", { name: "Post" }).click();
-    await expect(alicePage.getByText("Left by Alice, for Bob to read.")).toBeVisible();
+    await expect(alicePage.locator("p", { hasText: "Left by Alice, for Bob to read." })).toBeVisible();
 
     await bobPage.goto(`/i/${issue.issueId}`);
     await expect(bobPage.getByText("Left by Alice, for Bob to read.")).toBeVisible();

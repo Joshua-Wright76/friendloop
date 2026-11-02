@@ -42,10 +42,10 @@ Slices, cheapest first:
 
 | ID | Flow | Acceptance criteria | Status |
 | --- | --- | --- | --- |
-| M1 | Mention a member | Typing @ offers matching member names; the saved comment stores the membership reference; the mentioned member receives exactly one email with a link to the issue, deduped by outbox key. | todo |
-| M2 | Toggle comments | With commenting off, comment surfaces disappear for everyone and the API rejects writes; past comments stay stored, and re-enabling restores them. | todo |
-| M3 | Answer threads | A comment can be posted on a specific answer; it renders with that answer and never appears in the issue-level thread. | todo |
-| M4 | Quote and attach | Replying to a comment quotes it into the composer; a comment can carry one photo under the same media caps as answers. | todo |
+| M1 | Mention a member | Typing @ offers matching member names; the saved comment stores the membership reference; the mentioned member receives exactly one email with a link to the issue, deduped by outbox key. | done |
+| M2 | Toggle comments | With commenting off, comment surfaces disappear for everyone and the API rejects writes; past comments stay stored, and re-enabling restores them. | done |
+| M3 | Answer threads | A comment can be posted on a specific answer; it renders with that answer and never appears in the issue-level thread. | done |
+| M4 | Quote and attach | Replying to a comment quotes it into the composer; a comment can carry one photo under the same media caps as answers. | done |
 
 ## Part N · Loop personality and lifecycle
 
@@ -95,6 +95,49 @@ Design notes
   `mention:issue:comment:membership` keeps a retried cron from double-pinging.
 - Transfer is a single guarded action with confirmation naming the new owner;
   sessions and reply tokens are untouched by the handover.
+
+### Part M · Design notes (as built)
+
+- **A mention is a reference in the text.** The composer drops `@Name` into the
+  box and remembers `{id, label}`; on post the server swaps each still-present
+  `@Label` for `@[<membership id>]` and stores that. Rendering resolves the id to
+  the member's *current* name, so a rename follows through every old comment and
+  two people called "Sam" can never be confused. No separate mentions table: the
+  body is the single source of truth, and `mentionIds(body)` is how the email
+  step reads it back.
+- **Who is mentionable:** every live (non-revoked) member of the loop except the
+  author, readers included. Mentioning yourself, a revoked member, or someone in
+  another loop is silently dropped: no marker, no email.
+- **One email, ever.** The composer picks the comment's UUID; the server inserts
+  with that id and `ON CONFLICT DO NOTHING`, so a double click or a retried
+  request is the same comment. Mention emails use the outbox dedupe key
+  `mention:<issue>:<comment>:<membership>`. A retry of a comment whose email
+  never went out repairs it; it never sends a second. Another member cannot
+  reuse someone's comment id.
+- **Commenting toggle** is `groups.comments_enabled` (default true, so every
+  existing loop keeps commenting). Off removes the issue thread, every answer
+  thread, and the composers from `/i/<id>`, and `postComment` answers 403; the
+  rows stay and come back when it is re-enabled. Share pages never showed
+  comments and still don't.
+- **Threads hang from question answers** (`comments.reply_id`), which includes
+  poll picks (a poll answer is a `replies` row) once the round is delivered.
+  Section answers do not get threads: they are group artefacts (a photo wall is
+  a grid with no per-person card), and the issue-level thread covers them.
+  Deleting an answer's reply row cascades its thread.
+- **Quotes** are a live reference (`comments.quote_comment_id`, `ON DELETE SET
+  NULL`), not a copy. A quote must be a live comment in the same thread (same
+  issue, same answer or both issue-level). If the original is later soft-deleted
+  (`deleted_at`), the quote says "A comment that has since been removed" instead
+  of echoing it; if the row is hard-deleted the reply just loses its quote.
+- **Photos:** one per comment, same type and 5 MB cap as answers, validated by
+  signature, stored through `photo-storage`. Comments post through
+  `POST /api/issue/<id>/comments` (multipart) rather than a Server Action, for
+  the same reason as replies: a real status code and a body larger than 1 MB.
+  This path is a single request, so on Vercel the platform's 4.5 MB request
+  limit applies to comment photos; the answer path avoids it with direct Blob
+  uploads. Moving comments there is the follow-up if that bites.
+- **`membershipForViewer` now ignores revoked members** (it used to honour a
+  revoked member's reply token for reading and commenting).
 
 ## Non-goals for this ticket
 

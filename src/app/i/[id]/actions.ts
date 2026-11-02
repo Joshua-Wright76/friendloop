@@ -3,7 +3,7 @@
 import { and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { db } from "@/db";
-import { comments, issues, reactions } from "@/db/schema";
+import { issues, reactions } from "@/db/schema";
 import { membershipForViewer } from "@/lib/issue-view";
 import { currentUser } from "@/lib/auth";
 import { copy } from "@/lib/copy";
@@ -29,28 +29,6 @@ async function viewerFor(issueId: string, viewerToken: string | null) {
     userId: user?.id ?? null,
     token: viewerToken,
   });
-}
-
-export async function addComment(input: {
-  issueId: string;
-  body: string;
-  viewerToken: string | null;
-}): Promise<ActionResult> {
-  const body = input.body.trim();
-  if (!body) return { ok: false, error: copy.issue.writeFirst };
-  if (body.length > 2000) return { ok: false, error: copy.issue.errors.tooLong };
-
-  const membership = await viewerFor(input.issueId, input.viewerToken);
-  if (!membership) return { ok: false, error: copy.issue.errors.commentMembersOnly };
-
-  await db.insert(comments).values({
-    issueId: input.issueId,
-    membershipId: membership.id,
-    body,
-  });
-
-  revalidatePath(`/i/${input.issueId}`);
-  return { ok: true };
 }
 
 export async function toggleReaction(input: {
