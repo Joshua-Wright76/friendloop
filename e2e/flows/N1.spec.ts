@@ -14,6 +14,12 @@ test.beforeEach(async () => {
 const TAGS = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"];
 
 async function expectAccessible(page: import("@playwright/test").Page, label: string) {
+  // Audit the settled page. Colours ease between the schemes, and a sample taken
+  // mid-ease reads as a blend of the two accents that never rests on screen.
+  await page.evaluate(async () => {
+    await Promise.all(document.getAnimations().map((animation) => animation.finished.catch(() => undefined)));
+    await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+  });
   const result = await new AxeBuilder({ page }).withTags(TAGS).analyze();
   expect(result.violations, `${label}: ${result.violations.map((v) => `${v.id} (${v.nodes.length})`).join(", ")}`).toEqual([]);
 }
