@@ -32,7 +32,9 @@ test("K1 · the owner shapes the section list over time", async ({ page }) => {
 
   // Editing through the details form sticks.
   await page.getByRole("button", { name: "Move section up" }).nth(1).click();
-  const item = sectionList.last();
+  await expect(sectionList.first()).toContainText("The potluck corner");
+  // Name the row by its title, not its position: the list reorders under us.
+  const item = sectionList.filter({ hasText: "The potluck corner" });
   await item.getByText("Edit").click();
   await item.getByLabel("Title").fill("The potluck corner, revisited");
   await item.getByRole("button", { name: "Save section" }).click();
