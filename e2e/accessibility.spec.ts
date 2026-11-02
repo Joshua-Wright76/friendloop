@@ -7,6 +7,7 @@ import { resetDatabase, rows } from "./support/db";
 import { addMember, seedDeliveredIssue, seedLoop, seedOpenIssue } from "./support/seed";
 import { seedPoll, seedPollVote } from "./support/polls";
 import { signIn } from "./support/harness";
+import { seedAlbum } from "./support/album";
 
 const TAGS = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"];
 
@@ -236,5 +237,28 @@ test("WCAG AA · events and birthdays: the calendar with an event open for editi
     await panel.getByText("Edit").first().click();
     await panel.getByLabel("Type of event").selectOption({ label: "One-time event" });
     await audit(page, `the calendar with an edit form and the one-time form open (${theme})`, false);
+  }
+});
+
+test("WCAG AA · the Album: gallery, empty result, inbox link and the open viewer, light and dark", async ({ page }) => {
+  test.setTimeout(120_000);
+  const world = await seedAlbum();
+  await signIn(page, "owner@friendloop.test");
+
+  await auditThemes(page, [
+    `/g/${world.loop.groupId}/album`,
+    `/g/${world.loop.groupId}/album?q=zebra`,
+    `/album/${world.loop.groupId}?m=${world.alice.token}`,
+  ]);
+
+  for (const theme of ["light", "dark"] as const) {
+    await page.goto(`/g/${world.loop.groupId}/album`);
+    if ((await page.locator("html").getAttribute("data-theme")) !== theme) {
+      await page.getByRole("button", { name: theme === "light" ? /switch to light mode/ : /switch to dark mode/ }).click();
+    }
+    await page.getByRole("button", { name: /^Open photo from Bob/ }).click();
+    await expect(page.getByRole("dialog", { name: "Photo viewer" })).toBeVisible();
+    await audit(page, `album viewer open (${theme})`, false);
+    await page.keyboard.press("Escape");
   }
 });

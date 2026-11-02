@@ -70,7 +70,8 @@
       "people": "People",
       "questions": "Questions",
       "rounds": "Rounds",
-      "settings": "Settings"
+      "settings": "Settings",
+      "album": "Album"
     },
     "picker": {
       "searchTimezones": "Search timezones…",
@@ -1050,10 +1051,12 @@
       "members": "People and invitations",
       "questions": "Question management",
       "rounds": "Rounds archive",
+      "album": "Album",
       "settings": "Loop settings",
       "reply": "Reply sheet",
       "suggest": "Suggest a question (as a member)",
       "issue": "Delivered issue",
+      "albumAsReader": "Album, opened from an inbox link",
       "shared": "Shared issue",
       "invalid": "Expired or invalid reply link",
       "emails": "Email templates",
@@ -1288,5 +1291,39 @@
       "birthdayDescription": "Leave {name} a note or a photo. It lands in the round for everyone to read.",
       "onceDescription": "Leave a note or a photo for the occasion."
     }
+  },
+  "album": {
+    "title": "Album",
+    "intro": "Every photo and voice note from rounds that have gone out, newest first.",
+    "back": "← {name}",
+    "eyebrow": "Everything you've shared",
+    "filtersLabel": "Find something",
+    "searchLabel": "Search",
+    "searchPlaceholder": "Answer, caption or question",
+    "memberLabel": "From",
+    "everyone": "Everyone",
+    "apply": "Show",
+    "clear": "Clear filters",
+    "count": "{shown} of {total}",
+    "countAll": "{total} photos and voice notes",
+    "countOne": "1 photo or voice note",
+    "showMore": "Show more",
+    "empty": "Nothing here yet. Photos and voice notes show up once the round they came with has gone out.",
+    "emptyFiltered": "Nothing matches that. Try fewer words, or a different person.",
+    "round": "Round {number}",
+    "deliveredOn": "Delivered {date}",
+    "openPhoto": "Open photo from {author}: {about}",
+    "photoAlt": "Photo from {author}",
+    "voiceFrom": "Voice note from {author}, {duration}",
+    "viewInIssue": "View in the round",
+    "viewer": {
+      "label": "Photo viewer",
+      "close": "Close",
+      "previous": "Previous photo",
+      "next": "Next photo",
+      "position": "Photo {current} of {total}"
+    },
+    "linkLabel": "Album",
+    "issueLink": "See the album"
   }
 }

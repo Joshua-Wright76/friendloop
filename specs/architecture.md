@@ -266,3 +266,26 @@ an outage, are not backfilled: the sweep only ever materializes the latest misse
 slot. A birthday whose person has left the loop places nothing. Events work the same in
 `from_you` mode (the owner is the only writer there).
 
+## 18 · The Album is a query, not a table
+
+Nothing is copied to build the Album. `loadAlbum` (`src/lib/album.ts`) unions three
+selects — answer photos, answer voice notes, section media — each joined to its
+delivered issue, question or section, and author, then filters and orders the union
+once: newest round first, then the order the round reads in, with a stable key as the
+last tie-break so a longer page is always a strict extension of a shorter one. A page
+is `ALBUM_PAGE_SIZE × pages` rows (URL-driven, capped), and a count and the "from" list
+come from the same union. There is no pagination cursor to expire and no second copy
+of anything to fall out of date: a late photo, a removed photo or a deleted question
+shows up on the next load.
+
+What the Album may show is decided in the query, not the page: `status = 'delivered'`
+and `status = 'submitted'` keep out open rounds and drafts; `admin_only` sections are
+joined only for owner and admins; the loop id is a bound parameter, so another loop's
+media cannot appear. Search words and the member id reach SQL only as parameters
+(`ILIKE` patterns are escaped; a member id that is not a UUID is no filter).
+
+Access reuses the issue page's rule rather than inventing one: a signed-in member of
+the loop, or the reply token in the link, and never a revoked membership
+(`membershipForViewer`). The tab inside `/g/<id>` rides the loop layout's own
+membership check. Share-link visitors have no route to it by construction.
+
