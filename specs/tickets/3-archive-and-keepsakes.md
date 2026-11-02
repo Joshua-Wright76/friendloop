@@ -166,8 +166,8 @@ commitment matter more than reply-all nostalgia).
 | ID | Flow | Acceptance criteria | Status |
 | --- | --- | --- | --- |
 | R1 | Issue names | Owner names an issue; dashboard, email subject, and web issue show it; unnamed issues keep their number. **Shipped in Ticket 2 as flow N4**; Part R reuses that spec and adds no new flow. | done |
-| R2 | Find one member's answers | The dashboard's past-issues list filters to a delivered issue, and inside an issue a member's answers can be isolated (their name highlights the column; sorting groups answers by member). | todo |
-| R3 | Reminder preferences | Each contributor picks all / last-only / none; the sweep sends accordingly, never duplicates across reminders or runs, and the owner's manual nudge still reaches everyone who hasn't submitted. | todo |
+| R2 | Find one member's answers | The dashboard's past-issues list filters to a delivered issue, and inside an issue a member's answers can be isolated (their name highlights the column; sorting groups answers by member). | done |
+| R3 | Reminder preferences | Each contributor picks all / last-only / none; the sweep sends accordingly, never duplicates across reminders or runs, and the owner's manual nudge still reaches everyone who hasn't submitted. | done |
 | R4 | One-by-one delivery (stretch) | Owner can switch the loop to deliver each response as it arrives; emails dedupe per reply; switching mid-issue applies forward only. | todo |
 
 ## Non-goals for this ticket

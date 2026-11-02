@@ -245,7 +245,9 @@ Flow coverage is not a vibe: `specs/flows.md` lists every user-visible flow, eac
 1. The sweep sees a loop whose slot has passed → creates an issue, snapshots the
    questions, queues one `prompt` email per contributor.
 2. Contributors answer through `/r/<token>` — no account, nothing to remember.
-3. 48 hours before delivery, anyone who hasn't answered gets one reminder.
+3. 48 hours before delivery, anyone who hasn't answered gets one reminder — unless
+   they've turned reminders off on their answer page. The owner's nudge by hand
+   ignores that choice.
 4. At the delivery instant the sweep compiles submitted replies, emails the issue,
    and marks it `delivered`. Nothing submitted → the round is skipped and the loop
    pauses rather than sending an empty email.

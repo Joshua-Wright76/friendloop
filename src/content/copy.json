@@ -708,7 +708,16 @@
     "nameSave": "Save name",
     "nameSaved": "Round named.",
     "nameCleared": "The name is gone and the round is back to its number.",
-    "openNamed": "{name} is open now."
+    "openNamed": "{name} is open now.",
+    "filter": {
+      "label": "Rounds with answers from",
+      "everyone": "Everyone",
+      "apply": "Show rounds",
+      "clear": "Show every round",
+      "showing": "Showing rounds {name} answered in.",
+      "empty": "{name} hasn't answered in a delivered round yet.",
+      "openHidden": "Open rounds aren't listed while you filter."
+    }
   },
   "settings": {
     "title": "Settings",
@@ -802,6 +811,7 @@
       "invalidLink": "This link no longer works.",
       "expired": "This invitation has expired, ask for a new link.",
       "reader": "Readers don't answer questions.",
+      "reminderPreference": "Choose one of the listed reminder options.",
       "nothingOpen": "Nothing is open right now.",
       "wrongQuestion": "That question isn't in this round.",
       "missingAudio": "Choose a recording to upload.",
@@ -816,6 +826,17 @@
       "sectionPhotoCaption": "Give each photo on the wall a one-line caption."
     },
     "suggestLink": "Have a question for the group? Suggest one",
+    "reminders": {
+      "title": "Reminders",
+      "legend": "Reminders from this loop",
+      "all": "Remind me",
+      "last": "Only the last reminder",
+      "none": "No reminders",
+      "hint": "This only changes the loop's automatic reminder. Whoever runs the loop can still nudge you by hand.",
+      "saving": "Saving…",
+      "saved": "Saved.",
+      "error": "We couldn't save that. Try again."
+    },
     "voiceRecord": "Record a voice note",
     "voiceStop": "Stop recording",
     "voiceRecording": "Recording… {elapsed}",
@@ -881,6 +902,17 @@
     "answer": "1 answer from the group.",
     "answers": "{count} answers from the group.",
     "deliveredOn": "Delivered {date}.",
+    "reading": {
+      "label": "Reading this round",
+      "peopleLabel": "Show answers from",
+      "everyone": "Everyone",
+      "sortLabel": "Order",
+      "byQuestion": "By question",
+      "byPerson": "By person",
+      "showing": "Showing only {name}'s answers.",
+      "showEveryone": "Show everyone",
+      "questionLabel": "On: {question}"
+    },
     "comments": "Comments",
     "you": "You",
     "noComments": "Nothing yet.",
@@ -998,9 +1030,10 @@
       "bodySingular": "{memberName}, {remaining} answer is still waiting. It closes {deadlineLabel}.",
       "bodyPlural": "{memberName}, {remaining} answers are still waiting. It closes {deadlineLabel}.",
       "writingNote": "One line is plenty.",
+      "prefNote": "You can switch these reminders off at the bottom of your answer page.",
       "cta": "Finish my answers",
       "footer": "{groupName} · sent by Friendloop",
-      "text": "{memberName}, {remaining} still waiting on {groupName}. Closes {deadlineLabel}.\n\n{url}"
+      "text": "{memberName}, {remaining} still waiting on {groupName}. Closes {deadlineLabel}.\n\n{url}\n\n{prefNote}"
     },
     "delivery": {
       "subject": "{groupName} · {issueRef}",
@@ -1051,11 +1084,14 @@
       "members": "People and invitations",
       "questions": "Question management",
       "rounds": "Rounds archive",
+      "roundsFiltered": "Rounds archive, filtered to Alice",
       "album": "Album",
       "settings": "Loop settings",
       "reply": "Reply sheet",
       "suggest": "Suggest a question (as a member)",
       "issue": "Delivered issue",
+      "issueOnePerson": "Delivered issue, one person's answers",
+      "issueByPerson": "Delivered issue, read by person",
       "issuePrint": "Printed round (member)",
       "albumAsReader": "Album, opened from an inbox link",
       "shared": "Shared issue",

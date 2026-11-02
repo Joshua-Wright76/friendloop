@@ -8,6 +8,7 @@ import { deleteStoredPhoto } from "./photo-storage";
 import { deleteStoredAudio } from "./media-storage.ts";
 import { sectionReplies } from "@/db/schema";
 import { replyHasContentCondition } from "./reply-query";
+import { isReminderPreference } from "./reminders.ts";
 import { checkPollChoices } from "./poll";
 
 /** How long an unopened invitation stays good. */
@@ -431,6 +432,30 @@ export async function saveNameFor(input: { token: string; name: string }): Promi
   });
 
   await markAccepted(context.membership.id, context.membership.acceptedAt, at);
+  return { ok: true, savedAt: at.toISOString() };
+}
+
+/**
+ * How many automatic reminders this contributor wants. Per membership: a person in
+ * two loops can ask one of them to stay quiet. It only touches the loop's own
+ * reminder; the owner's nudge by hand does not look at it.
+ */
+export async function saveReminderPreferenceFor(input: {
+  token: string;
+  preference: unknown;
+}): Promise<PollWriteResult> {
+  const gate = await ensureWritable(input.token);
+  if (!gate.ok) return gate.result;
+  if (!isReminderPreference(input.preference)) {
+    return { ok: false, status: 400, error: copy.reply.errors.reminderPreference };
+  }
+
+  const at = await getNow();
+  await db
+    .update(memberships)
+    .set({ reminderPreference: input.preference })
+    .where(eq(memberships.id, gate.context.membership.id));
+  await markAccepted(gate.context.membership.id, gate.context.membership.acceptedAt, at);
   return { ok: true, savedAt: at.toISOString() };
 }
 

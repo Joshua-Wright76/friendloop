@@ -5,7 +5,8 @@ import { toggleReaction } from "./actions";
 import { CommentThread } from "./comment-thread";
 import { formatAudioDuration } from "@/lib/audio-validation";
 import type { IssueComment } from "@/lib/comment-view";
-import type { IssueAnswer, IssueBlock, IssuePoll, IssueSectionBlock } from "@/lib/issue-view";
+import type { IssueAnswer, IssueBlock, IssuePoll, IssueSectionBlock, IssueSectionReplyBlock } from "@/lib/issue-view";
+import type { PersonGroup } from "@/lib/issue-reading";
 import { Avatar } from "@/components/avatar";
 import { Tape } from "@/components/stationery";
 import { copy, text } from "@/lib/copy";
@@ -20,6 +21,8 @@ type Props = {
   /** The owner's switch: false removes every comment surface from the page. */
   commentsEnabled: boolean;
   mentionables: Array<{ id: string; name: string }>;
+  /** Reading by person: one card per author, replacing the question-by-question layout. */
+  groups?: PersonGroup[] | null;
 };
 
 export function IssueBody({
@@ -31,11 +34,46 @@ export function IssueBody({
   comments,
   commentsEnabled,
   mentionables,
+  groups = null,
 }: Props) {
   const sectionOffset = blocks.filter((block) => block.answers.length > 0).length;
   return (
     <div className="mt-8 flex flex-col gap-7">
-      {blocks
+      {groups
+        ? groups.map((group, index) => (
+            <section key={group.id} aria-label={group.name} className="card paper ride-in p-5 pt-7">
+              <Tape tone={(["dots", "stripe", "mint", "check"] as const)[index % 4]} position={index % 2 ? "right" : "left"} />
+              <h2 className="issue-question flex items-center gap-3 text-ink">
+                <span aria-hidden="true"><Avatar name={group.name} photoUrl={group.photoUrl} /></span>
+                {group.name}
+              </h2>
+              <div className="mt-3">
+                {group.entries.map((entry) =>
+                  entry.kind === "answer" ? (
+                    <AnswerCard
+                      key={entry.answer.replyId}
+                      issueId={issueId}
+                      viewerToken={viewerToken}
+                      canInteract={canInteract}
+                      answer={entry.answer}
+                      commentsEnabled={commentsEnabled}
+                      mentionables={mentionables}
+                      questionLabel={entry.question}
+                    />
+                  ) : (
+                    <SectionReplyCard
+                      key={entry.reply.replyId}
+                      reply={entry.reply}
+                      label={`${entry.emoji ? `${entry.emoji} ` : ""}${entry.title}`}
+                    />
+                  ),
+                )}
+              </div>
+            </section>
+          ))
+        : null}
+
+      {groups ? null : blocks
         .filter((block) => block.answers.length > 0)
         .map((block, index) => (
           <section key={block.questionId} className="card paper ride-in p-5 pt-7">
@@ -68,7 +106,7 @@ export function IssueBody({
           </section>
         ))}
 
-      {sections.map((section, sectionIndex) => (
+      {groups ? null : sections.map((section, sectionIndex) => (
         <section key={section.id} className="card paper ride-in p-5 pt-7">
           <Tape tone={(["mint", "check", "dots", "stripe"] as const)[sectionIndex % 4]} position="left" />
           <h2 className="issue-question flex items-start gap-3 text-ink">
@@ -97,43 +135,7 @@ export function IssueBody({
                 )}
               </div>
             ) : (
-              section.replies.map((reply) => (
-                <div key={reply.replyId} id={`section-reply-${reply.replyId}`} className="mt-4 scroll-mt-4 border-t border-line pt-4 first:border-t-0">
-                  <div className="flex items-center gap-2.5">
-                    <Avatar name={reply.author} photoUrl={reply.authorPhotoUrl} />
-                    <p className="m-0 text-[14px] font-extrabold text-ink-soft">{reply.author}</p>
-                  </div>
-                  {reply.body ? (
-                    <p className="mt-2 whitespace-pre-wrap text-[16px] leading-relaxed text-ink">{reply.body}</p>
-                  ) : null}
-                  {reply.linkUrl ? (
-                    <a
-                      href={reply.linkUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="mt-3 flex items-center gap-3 rounded-lg border border-line bg-accent-soft p-3 text-ink no-underline"
-                    >
-                      {reply.linkArtwork ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={reply.linkArtwork} alt="" className="h-12 w-12 flex-none rounded-md object-cover" />
-                      ) : (
-                        <span aria-hidden="true" className="font-display text-[24px] leading-none">&#9836;</span>
-                      )}
-                      <span className="min-w-0">
-                        <span className="block truncate text-[14px] font-bold">{reply.linkTitle ?? reply.linkUrl}</span>
-                        <span className="block text-[12px] font-medium text-ink-soft capitalize">{reply.linkProvider}</span>
-                      </span>
-                    </a>
-                  ) : null}
-                  {reply.media.map((item) => (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img key={item.url} src={item.url} alt={item.caption ?? ""} className="mt-3 w-full rounded-lg border border-line object-cover" />
-                  ))}
-                  {reply.addedLater ? (
-                    <p className="mt-2 text-[12px] text-ink-muted">{copy.issue.addedLater}</p>
-                  ) : null}
-                </div>
-              ))
+              section.replies.map((reply) => <SectionReplyCard key={reply.replyId} reply={reply} />)
             )}
             {section.replies.length === 0 ? (
               <p className="mt-2 text-[13.5px] text-ink-muted">{copy.issue.sectionEmpty}</p>
@@ -157,6 +159,53 @@ export function IssueBody({
             empty={copy.issue.noComments}
           />
         </section>
+      ) : null}
+    </div>
+  );
+}
+
+/** One person's answer to a standard or music section, with its link card and photos. */
+function SectionReplyCard({ reply, label }: { reply: IssueSectionReplyBlock; label?: string }) {
+  return (
+    <div id={`section-reply-${reply.replyId}`} className="mt-4 scroll-mt-4 border-t border-line pt-4 first:border-t-0">
+      {label ? <h3 className="m-0 text-[15px] font-bold text-ink">{label}</h3> : null}
+      <div className={`flex items-center gap-2.5${label ? " mt-2" : ""}`}>
+        <Avatar name={reply.author} photoUrl={reply.authorPhotoUrl} />
+        <p className="m-0 text-[14px] font-extrabold text-ink-soft">{reply.author}</p>
+      </div>
+      {reply.body ? (
+        <p className="mt-2 whitespace-pre-wrap text-[16px] leading-relaxed text-ink">{reply.body}</p>
+      ) : null}
+      {reply.linkUrl ? (
+        <a
+          href={reply.linkUrl}
+          target="_blank"
+          rel="noreferrer"
+          className="mt-3 flex items-center gap-3 rounded-lg border border-line bg-accent-soft p-3 text-ink no-underline"
+        >
+          {reply.linkArtwork ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={reply.linkArtwork} alt="" className="h-12 w-12 flex-none rounded-md object-cover" />
+          ) : (
+            <span aria-hidden="true" className="font-display text-[24px] leading-none">&#9836;</span>
+          )}
+          <span className="min-w-0">
+            <span className="block truncate text-[14px] font-bold">{reply.linkTitle ?? reply.linkUrl}</span>
+            <span className="block text-[12px] font-medium text-ink-soft capitalize">{reply.linkProvider}</span>
+          </span>
+        </a>
+      ) : null}
+      {reply.media.map((item) => (
+        <figure key={item.url} className="m-0 mt-3">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={item.url} alt={item.caption ?? ""} className="w-full rounded-lg border border-line object-cover" />
+          {item.caption && label ? (
+            <figcaption className="mt-1 text-[12.5px] leading-snug text-ink-soft">{item.caption}</figcaption>
+          ) : null}
+        </figure>
+      ))}
+      {reply.addedLater ? (
+        <p className="mt-2 text-[12px] text-ink-muted">{copy.issue.addedLater}</p>
       ) : null}
     </div>
   );
@@ -194,6 +243,7 @@ function AnswerCard({
   answer,
   commentsEnabled,
   mentionables,
+  questionLabel,
 }: {
   issueId: string;
   viewerToken: string | null;
@@ -201,6 +251,8 @@ function AnswerCard({
   answer: IssueAnswer;
   commentsEnabled: boolean;
   mentionables: Array<{ id: string; name: string }>;
+  /** Set when reading by person, where the question is no longer the heading above. */
+  questionLabel?: string;
 }) {
   const [pending, startTransition] = useTransition();
   const [threadOpen, setThreadOpen] = useState(false);
@@ -223,6 +275,7 @@ function AnswerCard({
 
   return (
     <article id={`answer-${answer.replyId}`} className="answer-card mt-4 scroll-mt-4 border-t border-line pt-4 first:border-t-0">
+      {questionLabel ? <h3 className="m-0 mb-2 text-[15px] font-bold text-ink">{questionLabel}</h3> : null}
       <div className="flex items-center gap-2.5">
         <Avatar name={answer.author} photoUrl={answer.authorPhotoUrl} />
         <p className="m-0 text-[14px] font-extrabold text-ink-soft">{answer.author}</p>

@@ -16,6 +16,9 @@ import { issueSections, sectionMedia, sectionReplies } from "@/db/schema";
 
 export type IssueAnswer = {
   replyId: string;
+  /** Who wrote it, for reading by person. The name shown is `author`; this one is never "You". */
+  authorId: string;
+  authorName: string;
   author: string;
   authorPhotoUrl: string | null;
   isYou: boolean;
@@ -33,6 +36,8 @@ export type IssueAnswer = {
 
 export type IssueSectionReplyBlock = {
   replyId: string;
+  authorId: string;
+  authorName: string;
   author: string;
   authorPhotoUrl: string | null;
   isYou: boolean;
@@ -196,6 +201,8 @@ export async function loadIssue(input: {
         const forReply = reactionRows.filter((reaction) => reaction.replyId === row.replyId);
         return {
           replyId: row.replyId,
+          authorId: row.membershipId,
+          authorName: row.name ?? row.email.split("@")[0],
           author: mine ? copy.issue.you : (row.name ?? row.email.split("@")[0]),
           authorPhotoUrl: row.authorPhotoUrl,
           isYou: mine,
@@ -273,6 +280,8 @@ export async function loadIssue(input: {
         const card = row.linkUrl ? musicCards.get(row.linkUrl) : undefined;
         return {
           replyId: row.replyId,
+          authorId: row.membershipId,
+          authorName: row.name ?? row.email.split("@")[0],
           author: mine ? copy.issue.you : (row.name ?? row.email.split("@")[0]),
           authorPhotoUrl: row.authorPhotoUrl,
           isYou: mine,

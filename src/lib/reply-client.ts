@@ -130,6 +130,16 @@ export async function saveReplyName(
   return postReply(token, { action: "name", name }, genericError, fetcher);
 }
 
+/** How many of the loop's automatic reminders this person wants. */
+export async function saveReminderPreference(
+  token: string,
+  preference: string,
+  genericError: string,
+  fetcher: typeof fetch = fetch,
+): Promise<SaveResult> {
+  return postReply(token, { action: "reminders", preference }, genericError, fetcher);
+}
+
 /** Keep writes for one question in request order, while allowing other questions to save independently. */
 export function createSerialDraftWriter<T>(write: (questionId: string, body: string) => Promise<T>) {
   const pending = new Map<string, Promise<unknown>>();

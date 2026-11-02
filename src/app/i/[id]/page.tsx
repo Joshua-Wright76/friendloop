@@ -12,6 +12,8 @@ import { LoopBanner, LoopTheme } from "@/components/loop-theme";
 import { albumHref } from "@/lib/album-query";
 import { printHref, wantsPrint, webHref } from "@/lib/print-view";
 import { IssuePrint } from "./issue-print";
+import { ReadingControls } from "./reading-controls";
+import { applyReading, parseReading, readingPeople } from "@/lib/issue-reading";
 
 export const instant = false;
 
@@ -25,10 +27,10 @@ export default async function IssuePage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ m?: string; print?: string | string[] }>;
+  searchParams: Promise<{ m?: string; print?: string | string[]; by?: string | string[]; sort?: string | string[] }>;
 }) {
   const { id } = await params;
-  const { m, print } = await searchParams;
+  const { m, print, by, sort } = await searchParams;
 
   const user = await currentUser();
   const probe = await loadIssue({ issueId: id });
@@ -73,6 +75,13 @@ export default async function IssuePage({
     );
   }
 
+  // How to read it: everyone's answers question by question (the default), or one
+  // person's, or grouped by person. A choice that names nobody here is no choice.
+  const reading = parseReading({ by, sort });
+  const people = readingPeople(view);
+  const arranged = applyReading(view, reading);
+  const effective = { by: arranged.focus?.id ?? null, sort: reading.sort };
+
   return (
     <main className="mx-auto w-full max-w-[680px] px-4 pb-16 pt-5 sm:px-6">
       <LoopTheme preset={view.group.themePreset} accent={view.group.themeAccent} />
@@ -98,12 +107,17 @@ export default async function IssuePage({
         </p>
       </div>
 
+      {people.length > 1 ? (
+        <ReadingControls base={`/i/${id}`} token={m ?? null} people={people} reading={effective} focus={arranged.focus} />
+      ) : null}
+
       <IssueBody
         issueId={view.issue.id}
         viewerToken={m ?? null}
         canInteract={Boolean(membership)}
-        blocks={view.blocks}
-        sections={view.sections}
+        blocks={arranged.blocks}
+        sections={arranged.sections}
+        groups={arranged.groups}
         comments={view.comments}
         commentsEnabled={view.commentsEnabled}
         mentionables={view.mentionables}

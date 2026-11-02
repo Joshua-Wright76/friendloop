@@ -17,6 +17,12 @@ import {
 export const accessEnum = pgEnum("access", ["owner", "admin", "member"]);
 /** Whether a member is asked to write. */
 export const participationEnum = pgEnum("participation", ["contributor", "reader"]);
+/**
+ * How many of the loop's automatic reminders a contributor wants. Today the loop
+ * sends one, so "all" and "last" read the same; the value is stored as asked so a
+ * longer schedule later needs no data change. Manual owner nudges ignore it.
+ */
+export const reminderPreferenceEnum = pgEnum("reminder_preference", ["all", "last", "none"]);
 export const modeEnum = pgEnum("mode", ["group", "from_you"]);
 export const issueStatusEnum = pgEnum("issue_status", ["open", "delivered", "skipped"]);
 export const replyStatusEnum = pgEnum("reply_status", ["draft", "submitted"]);
@@ -125,6 +131,7 @@ export const memberships = pgTable(
     photoUrl: text("photo_url"),
     access: accessEnum("access").default("member").notNull(),
     participation: participationEnum("participation").default("contributor").notNull(),
+    reminderPreference: reminderPreferenceEnum("reminder_preference").default("all").notNull(),
     /** Bearer credential for the no-account reply link. Rotatable. */
     replyToken: text("reply_token").notNull(),
     invitedAt: timestamp("invited_at", { withTimezone: true }).defaultNow().notNull(),

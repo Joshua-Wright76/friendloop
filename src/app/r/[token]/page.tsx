@@ -97,6 +97,7 @@ export default async function ReplyPage({ params }: { params: Promise<{ token: s
       deliversAtIso={issue.deliversAt.toISOString()}
       displayName={context.membership.name ?? context.membership.email.split("@")[0]}
       initialName={context.membership.name}
+      reminderPreference={context.membership.reminderPreference}
       sections={sections}
       questions={sheet.questions.map((question, index) => ({
         id: question.id,

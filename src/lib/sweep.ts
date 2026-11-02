@@ -13,6 +13,7 @@ import { sendEmail, flushOutbox } from "./email/send";
 import { sendPromptEmails } from "./notify";
 import { deliveryEmail, emailThemeOf, reminderEmail, pausedEmail, type AnswerBlock } from "./email/templates";
 import { tallyPoll } from "./poll";
+import { REMINDER_LEADS_MS, wantsReminder } from "./reminders";
 import { copy, text } from "./copy.ts";
 import { issueUrl, replyUrl, url } from "./urls";
 import { newToken } from "./tokens";
@@ -29,7 +30,6 @@ export type SweepReport = {
   retried: number;
 };
 
-const REMINDER_LEAD_MS = 48 * 60 * 60 * 1000;
 
 /**
  * Reconcile the world at `at`. Safe to run at any frequency, from any number of
@@ -333,7 +333,7 @@ async function remindStragglers(at: Date): Promise<number> {
       and(
         eq(issues.status, "open"),
         sql`${issues.deliversAt} > ${at.toISOString()}`,
-        sql`${issues.deliversAt} <= ${new Date(at.getTime() + REMINDER_LEAD_MS).toISOString()}`,
+        sql`${issues.deliversAt} <= ${new Date(at.getTime() + REMINDER_LEADS_MS[0]).toISOString()}`,
       ),
     );
 
@@ -350,6 +350,7 @@ async function remindStragglers(at: Date): Promise<number> {
         name: memberships.name,
         replyToken: memberships.replyToken,
         timezone: users.timezone,
+        reminderPreference: memberships.reminderPreference,
       })
       .from(memberships)
       .leftJoin(users, eq(users.id, memberships.userId))
@@ -375,6 +376,9 @@ async function remindStragglers(at: Date): Promise<number> {
 
     for (const member of pending) {
       if (done.has(member.id) || questionCount === 0) continue;
+      // The loop sends one reminder, so it is both the first and the last. Only
+      // the contributor's own "none" holds it back — the owner's nudge never asks.
+      if (!wantsReminder(member.reminderPreference, 0, REMINDER_LEADS_MS.length)) continue;
       const deadline = describeDeadline(issue.deliversAt, group.timezone, member.timezone);
       const rendered = reminderEmail({
         groupName: group.name,

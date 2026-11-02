@@ -9,10 +9,25 @@ import { issueTitle, MAX_ISSUE_NAME } from "@/lib/issue-name";
 import { renameIssueAction } from "./actions";
 import { useLoopData } from "../loop-data";
 
-export default function IssuesTab({ notices }: { notices: { opened?: string; named?: string } }) {
-  const { group, membership, rounds, openIssue: open } = useLoopData();
+export default function IssuesTab({
+  notices,
+  filter,
+}: {
+  notices: { opened?: string; named?: string };
+  filter: { memberId: string; roundIds: string[] } | null;
+}) {
+  const { group, membership, rounds: allRounds, openIssue: open, people } = useLoopData();
   const id = group.id;
   const isOwner = membership.access === "owner";
+
+  // Reading one person across the year: only delivered rounds they answered in.
+  const contributors = people
+    .filter((person) => person.participation === "contributor")
+    .map((person) => ({ id: person.id, name: person.name ?? person.email.split("@")[0] }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+  const focus = filter ? contributors.find((person) => person.id === filter.memberId) ?? null : null;
+  const answered = new Set(filter?.roundIds ?? []);
+  const rounds = focus ? allRounds.filter((round) => answered.has(round.id)) : allRounds;
 
   return (
     <main className="mx-auto w-full max-w-[680px] px-4 pb-16 pt-5 sm:px-6">
@@ -35,6 +50,30 @@ export default function IssuesTab({ notices }: { notices: { opened?: string; nam
       {notices.opened ? <Notice>{text(copy.rounds.openedNotice, { number: notices.opened })}</Notice> : null}
       {notices.named === "1" ? <Notice>{copy.rounds.nameSaved}</Notice> : null}
       {notices.named === "0" ? <Notice>{copy.rounds.nameCleared}</Notice> : null}
+
+      {contributors.length > 1 && allRounds.some((round) => round.status === "delivered") ? (
+        <form method="get" className="mt-5 flex flex-wrap items-end gap-2">
+          <label className="flex min-w-0 flex-1 flex-col gap-1.5">
+            <span className="text-[13px] font-medium text-ink-soft">{copy.rounds.filter.label}</span>
+            <select name="member" defaultValue={focus?.id ?? ""} className="field h-11 py-0">
+              <option value="">{copy.rounds.filter.everyone}</option>
+              {contributors.map((person) => (
+                <option key={person.id} value={person.id}>{person.name}</option>
+              ))}
+            </select>
+          </label>
+          <button type="submit" className="btn btn-quiet h-11 text-[14px]">{copy.rounds.filter.apply}</button>
+        </form>
+      ) : null}
+      {focus ? (
+        <p role="status" className="mt-3 text-[14px] leading-relaxed text-ink-soft">
+          {text(copy.rounds.filter.showing, { name: focus.name })}{" "}
+          {open ? copy.rounds.filter.openHidden : null}{" "}
+          <Link href={`/g/${id}/issues`} className="inline-flex min-h-11 items-center font-bold text-ink underline decoration-line-strong underline-offset-4">
+            {copy.rounds.filter.clear}
+          </Link>
+        </p>
+      ) : null}
 
       <div className="mt-5 flex flex-col gap-2.5">
         {rounds.map((round) => (
@@ -80,7 +119,7 @@ export default function IssuesTab({ notices }: { notices: { opened?: string; nam
 
             {round.status !== "open" ? (
               <Link
-                href={`/i/${round.id}`}
+                href={focus ? `/i/${round.id}?by=${focus.id}` : `/i/${round.id}`}
                 className="mt-2 inline-block text-[14px] font-medium text-accent hover:underline"
               >
                 {copy.rounds.read}
@@ -97,7 +136,12 @@ export default function IssuesTab({ notices }: { notices: { opened?: string; nam
             ) : null}
           </div>
         ))}
-        {rounds.length === 0 ? (
+        {rounds.length === 0 && focus ? (
+          <div className="card p-5 text-[14px] text-ink-muted">
+            <p>{text(copy.rounds.filter.empty, { name: focus.name })}</p>
+          </div>
+        ) : null}
+        {rounds.length === 0 && !focus ? (
           <div className="card p-5 text-[14px] text-ink-muted">
             <p>{copy.rounds.empty}</p>
             {membership.access !== "member" ? <Link href={`/g/${id}`} className="btn btn-primary mt-4 inline-flex">{copy.rounds.firstRoundAction}</Link> : null}
