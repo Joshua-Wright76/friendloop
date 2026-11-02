@@ -82,6 +82,8 @@ test("R2 · inside a round, one person's answers can be isolated and the round c
 
   // Read by person: one card per author, in name order, every answer under its question.
   await controls.getByRole("link", { name: "Everyone", exact: true }).click();
+  // Let the isolation clear before choosing the sort: the sort link is built from the page it was clicked on.
+  await expect(page).not.toHaveURL(/by=/);
   await controls.getByRole("link", { name: "By person" }).click();
   await expect(controls.getByRole("link", { name: /By person/ })).toHaveAttribute("aria-current", "true");
   const people = page.locator("section[aria-label] > h2");
