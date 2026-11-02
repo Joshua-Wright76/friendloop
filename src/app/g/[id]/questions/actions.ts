@@ -9,6 +9,7 @@ import { getNow } from "@/lib/clock";
 import { addPoll, addQuestion, addQuestionTexts, archiveQuestion, reorderQuestion, toggleSkipNext } from "@/lib/manage";
 import { acceptSuggestion, declineSuggestion } from "@/lib/suggestions";
 import { archiveSection, createSection, moveSection, updateSection, type SectionKind } from "@/lib/sections";
+import { createEvent, deleteEvent, updateEvent } from "@/lib/events";
 import { viewerFor } from "@/lib/permissions";
 
 async function requireManager(groupId: string) {
@@ -182,4 +183,56 @@ export async function archiveSectionAction(formData: FormData) {
   await archiveSection({ groupId, sectionId: String(formData.get("sectionId") ?? ""), at: await getNow() });
   revalidatePath(`/g/${groupId}`, "layout");
   redirect(`/g/${groupId}/questions?section=archived`);
+}
+
+async function groupOf(groupId: string) {
+  const [group] = await db.select().from(groups).where(eq(groups.id, groupId)).limit(1);
+  if (!group) redirect("/you");
+  return group;
+}
+
+function eventFields(formData: FormData) {
+  return {
+    title: String(formData.get("title") ?? ""),
+    emoji: String(formData.get("emoji") ?? ""),
+    date: String(formData.get("date") ?? ""),
+    membershipId: String(formData.get("membershipId") ?? "") || null,
+  };
+}
+
+export async function createEventAction(formData: FormData) {
+  const groupId = String(formData.get("groupId") ?? "");
+  await requireManager(groupId);
+
+  const result = await createEvent({
+    ...eventFields(formData),
+    kind: formData.get("kind") === "birthday" ? "birthday" : "once",
+    group: await groupOf(groupId),
+    at: await getNow(),
+  });
+  revalidatePath(`/g/${groupId}`, "layout");
+  redirect(`/g/${groupId}/questions?event=${result.ok ? "added" : result.code}`);
+}
+
+export async function updateEventAction(formData: FormData) {
+  const groupId = String(formData.get("groupId") ?? "");
+  await requireManager(groupId);
+
+  const result = await updateEvent({
+    ...eventFields(formData),
+    eventId: String(formData.get("eventId") ?? ""),
+    group: await groupOf(groupId),
+    at: await getNow(),
+  });
+  revalidatePath(`/g/${groupId}`, "layout");
+  redirect(`/g/${groupId}/questions?event=${result.ok ? "saved" : result.code}`);
+}
+
+export async function deleteEventAction(formData: FormData) {
+  const groupId = String(formData.get("groupId") ?? "");
+  await requireManager(groupId);
+
+  await deleteEvent({ groupId, eventId: String(formData.get("eventId") ?? "") });
+  revalidatePath(`/g/${groupId}`, "layout");
+  redirect(`/g/${groupId}/questions?event=removed`);
 }

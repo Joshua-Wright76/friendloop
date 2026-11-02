@@ -28,6 +28,7 @@ const TABLES = [
   "replies",
   "music_links",
   "issue_sections",
+  "events",
   "question_suggestions",
   "issue_questions",
   "issues",

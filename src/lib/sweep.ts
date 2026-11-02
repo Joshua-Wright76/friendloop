@@ -8,7 +8,7 @@ import {
   replies,
   users,
 } from "@/db/schema";
-import { deliveryInstant, describeDeadline, dueSlot, type LoopSchedule } from "./schedule";
+import { deliveryInstant, describeDeadline, dueSlot, groupSchedule, nextSlot } from "./schedule";
 import { sendEmail, flushOutbox } from "./email/send";
 import { sendPromptEmails } from "./notify";
 import { deliveryEmail, emailThemeOf, reminderEmail, pausedEmail, type AnswerBlock } from "./email/templates";
@@ -18,6 +18,7 @@ import { issueUrl, replyUrl, url } from "./urls";
 import { newToken } from "./tokens";
 import { snapshotQuestionsForIssue } from "./round-questions";
 import { snapshotSectionsForIssue } from "./sections";
+import { snapshotEventsForIssue } from "./events";
 import { issueSections, sectionMedia, sectionReplies } from "@/db/schema";
 
 export type SweepReport = {
@@ -29,18 +30,6 @@ export type SweepReport = {
 };
 
 const REMINDER_LEAD_MS = 48 * 60 * 60 * 1000;
-
-function scheduleOf(group: typeof groups.$inferSelect): LoopSchedule {
-  return {
-    timezone: group.timezone,
-    promptWeekday: group.promptWeekday,
-    promptHour: group.promptHour,
-    cadenceWeeks: group.cadenceWeeks,
-    windowDays: group.windowDays,
-    createdAt: group.createdAt,
-    lastSlotAt: group.lastSlotAt,
-  };
-}
 
 /**
  * Reconcile the world at `at`. Safe to run at any frequency, from any number of
@@ -63,7 +52,7 @@ async function openDueIssues(at: Date): Promise<number> {
   let opened = 0;
 
   for (const group of active) {
-    const slot = dueSlot(scheduleOf(group), at);
+    const slot = dueSlot(groupSchedule(group), at);
     if (!slot) continue;
 
     const deliversAt = deliveryInstant(slot, group);
@@ -104,6 +93,13 @@ async function openDueIssues(at: Date): Promise<number> {
     const issue = inserted[0];
     const questionCount = await snapshotQuestionsForIssue({ group, issueId: issue.id });
     await snapshotSectionsForIssue({ group, issueId: issue.id });
+    await snapshotEventsForIssue({
+      group,
+      issueId: issue.id,
+      opensAt: slot,
+      deliversAt,
+      nextSlotAt: nextSlot(groupSchedule(group), slot),
+    });
 
     await sendPromptEmails({
       group,
@@ -409,7 +405,7 @@ async function remindStragglers(at: Date): Promise<number> {
 export async function pendingWork(at: Date) {
   const active = await db.select().from(groups).where(isNull(groups.pausedAt));
   const due = active
-    .map((group) => ({ group, slot: dueSlot(scheduleOf(group), at) }))
+    .map((group) => ({ group, slot: dueSlot(groupSchedule(group), at) }))
     .filter((row): row is { group: typeof groups.$inferSelect; slot: Date } => row.slot !== null);
 
   const openIssues = await db

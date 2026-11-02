@@ -236,3 +236,33 @@ a hue, not a contrast ratio.
 Ownership moves in `transferOwnership`: one transaction, two guarded updates, and a
 refusal on either side rolls both back. `issues.name` and `memberships.photo_url` are
 plain nullable columns; the unnamed and photo-less forms are the original rendering.
+
+## 17 · An event is a date; a section is what it leaves behind
+
+`events` holds what the owner typed: a one-time event (title, emoji, full date) or a
+birthday (a membership, month and day, no year). Nothing reads it at delivery time. At
+the moment a round opens, `snapshotEventsForIssue` turns each event whose local date
+falls in the round's coverage into an `issue_sections` row of kind `standard` (so the
+sheet, the web issue and the email already know how to show it) with its title,
+emoji and description frozen, and `event_id` / `event_date` recording where it came
+from. Editing or deleting the event, or renaming the member, can never reach back
+into a round: the snapshot is the only copy that matters, and `event_id` simply goes
+null if its event is deleted.
+
+Coverage is calendar dates in the loop's timezone, never instants: the round's
+opening day through its delivery day, stretched to the day before the next slot when
+the window is shorter than the cadence, so no date between two rounds is lost
+(`issueCoverage` in `src/lib/event-dates.ts`). It lands in the round that is open
+when the date approaches, not the one that opens after. A unique index on
+`(event_id, event_date)` makes an occurrence claimable once, which is what keeps a
+retried sweep, an overlapping window, and a manual "send now" from doubling a section,
+and it is also why a birthday is exactly one section a year: next year is a different
+`event_date`. A 29 February birthday keeps to 28 February in years without one.
+
+An event added or moved while a round is open is placed into that round at once if its
+date is inside the window; otherwise it waits for the round that holds it. Dates that
+fall before a loop's first round, or in rounds the sweep skipped over after a pause or
+an outage, are not backfilled: the sweep only ever materializes the latest missed
+slot. A birthday whose person has left the loop places nothing. Events work the same in
+`from_you` mode (the owner is the only writer there).
+

@@ -22,7 +22,7 @@ try {
   await sql.begin(async (tx) => {
     await tx.unsafe(`
       truncate table email_events, outbox, reactions, comments, replies,
-        issue_questions, issues, questions, memberships, groups,
+        issue_sections, events, issue_questions, issues, questions, memberships, groups,
         sessions, magic_links, users restart identity cascade;
     `);
 
@@ -74,6 +74,23 @@ try {
         'submitted', now()
       from issue_questions iq, memberships m
       where m.reply_token = 'dev-reply-token' and iq.position = 0;
+    `;
+
+    // Events: Alice's birthday lands in the open round (as the sweep would place it),
+    // and a one-time housewarming sits further out on the list.
+    const [birthday] = await tx`
+      insert into events (group_id, kind, emoji, month, day, membership_id)
+      select ${GROUP}::uuid, 'birthday', '🎂', 10, 27, m.id from memberships m where m.reply_token = 'alice-reply-token'
+      returning id;
+    `;
+    await tx`
+      insert into events (group_id, kind, title, emoji, month, day, year)
+      values (${GROUP}, 'once', 'The housewarming', '🏡', 12, 12, 2026);
+    `;
+    await tx`
+      insert into issue_sections (issue_id, kind, title, emoji, description, position, event_id, event_date)
+      values (${issue.id}, 'standard', 'Alice''s birthday', '🎂',
+        'Leave Alice a note or a photo. It lands in the round for everyone to read.', 0, ${birthday.id}, '2026-10-27');
     `;
 
     // A round that already went out, so the issue page and the archive have content.

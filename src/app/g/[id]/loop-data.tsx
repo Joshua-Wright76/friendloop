@@ -29,6 +29,8 @@ export type LoopSection = {
   position: number;
 };
 
+export type LoopEvent = import("@/lib/events").EventListItem;
+
 export type LoopSuggestion = {
   id: string;
   text: string;
@@ -48,6 +50,7 @@ export type LoopData = {
   people: LoopPerson[];
   questions: LoopQuestion[];
   sections: LoopSection[];
+  events: LoopEvent[];
   suggestions: LoopSuggestion[];
   rounds: LoopRound[];
   openIssue: LoopRound | null;

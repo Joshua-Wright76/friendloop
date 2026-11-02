@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { db } from "@/db";
 import {
   comments,
+  events,
   groups,
   issueQuestions,
   issueSections,
@@ -129,6 +130,10 @@ const DELIVERED_SECTION_IDS = [
   "22222222-2222-4222-8222-222222222249",
   "22222222-2222-4222-8222-22222222224a",
 ];
+const PREVIEW_BIRTHDAY_EVENT_ID = "22222222-2222-4222-8222-22222222224b";
+const PREVIEW_ONCE_EVENT_ID = "22222222-2222-4222-8222-22222222224c";
+const OPEN_BIRTHDAY_SECTION_ID = "22222222-2222-4222-8222-22222222224d";
+const DELIVERED_BIRTHDAY_SECTION_ID = "22222222-2222-4222-8222-22222222224e";
 const DELIVERED_QUESTION_IDS = [
   "22222222-2222-4222-8222-222222222260",
   "22222222-2222-4222-8222-222222222261",
@@ -396,6 +401,61 @@ export async function enableUiPreview(reset = false) {
     ];
     await tx.insert(sections).values(sectionRows).onConflictDoNothing();
 
+    // Events: Alice's birthday (every year) and a one-time housewarming, plus the
+    // birthday as a snapshotted section in both rounds, as the sweep would leave it.
+    await tx.insert(events).values([
+      {
+        id: PREVIEW_BIRTHDAY_EVENT_ID,
+        groupId: UI_PREVIEW.groupId,
+        kind: "birthday" as const,
+        title: null,
+        emoji: "🎂",
+        month: 3,
+        day: 14,
+        year: null,
+        membershipId: UI_PREVIEW.aliceMembershipId,
+      },
+      {
+        id: PREVIEW_ONCE_EVENT_ID,
+        groupId: UI_PREVIEW.groupId,
+        kind: "once" as const,
+        title: "The housewarming",
+        emoji: "🏡",
+        month: 6,
+        day: 20,
+        year: now.getUTCFullYear() + 1,
+        membershipId: null,
+      },
+    ]).onConflictDoNothing();
+    await tx.insert(issueSections).values([
+      {
+        id: OPEN_BIRTHDAY_SECTION_ID,
+        issueId: UI_PREVIEW.openIssueId,
+        sectionId: null,
+        kind: "standard" as const,
+        title: "Alice's birthday",
+        emoji: "🎂",
+        description: "Leave Alice a note or a photo. It lands in the round for everyone to read.",
+        adminOnly: false,
+        position: 3,
+        eventId: PREVIEW_BIRTHDAY_EVENT_ID,
+        eventDate: `${now.getUTCFullYear()}-03-14`,
+      },
+      {
+        id: DELIVERED_BIRTHDAY_SECTION_ID,
+        issueId: UI_PREVIEW.deliveredIssueId,
+        sectionId: null,
+        kind: "standard" as const,
+        title: "Alice's birthday",
+        emoji: "🎂",
+        description: "Leave Alice a note or a photo. It lands in the round for everyone to read.",
+        adminOnly: false,
+        position: 3,
+        eventId: PREVIEW_BIRTHDAY_EVENT_ID,
+        eventDate: `${now.getUTCFullYear() - 1}-03-14`,
+      },
+    ]).onConflictDoNothing();
+
     await tx.insert(issueSections).values([
       ...sectionRows.map((section, index) => ({
         id: OPEN_SECTION_IDS[index],
@@ -456,6 +516,14 @@ export async function enableUiPreview(reset = false) {
         membershipId: UI_PREVIEW.ownerMembershipId,
         body: "Draft: the soup story, take two.",
         status: "draft",
+      },
+      {
+        issueId: UI_PREVIEW.deliveredIssueId,
+        issueSectionId: DELIVERED_BIRTHDAY_SECTION_ID,
+        membershipId: UI_PREVIEW.ownerMembershipId,
+        body: "Happy birthday, Alice. Thank you for the lemon cake, the road trips, and all of it.",
+        status: "submitted",
+        submittedAt: new Date(now.getTime() - 86400000),
       },
     ]).onConflictDoNothing();
 

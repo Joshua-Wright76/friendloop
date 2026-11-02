@@ -64,6 +64,13 @@
       "when": 1793571105161,
       "tag": "0008_loop_identity",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1793573213819,
+      "tag": "0009_events",
+      "breakpoints": true
     }
   ]
 }

@@ -23,13 +23,14 @@ import { POLL_MAX_OPTIONS, POLL_OPTION_MAX, POLL_PROMPT_MAX } from "@/lib/poll";
 import { copy, text } from "@/lib/copy";
 import { useLoopData } from "../loop-data";
 import { PollSummary } from "./poll-summary";
+import { EventsPanel } from "./events-panel";
 
 const ROTATION_OPTIONS = [
   { value: "", label: copy.questions.allQuestions },
   ...Array.from({ length: 10 }, (_, index) => ({ value: String(index + 1), label: String(index + 1) })),
 ];
 
-export default function QuestionsTab({ notices }: { notices: { added?: string; archived?: string; rotation?: string; fromPacks?: string; suggestion?: string; section?: string; poll?: string } }) {
+export default function QuestionsTab({ notices }: { notices: { added?: string; archived?: string; rotation?: string; fromPacks?: string; suggestion?: string; section?: string; poll?: string; event?: string } }) {
   const { group, membership, questions: pool, suggestions, sections } = useLoopData();
   const id = group.id;
   const manages = membership.access !== "member";
@@ -74,6 +75,12 @@ export default function QuestionsTab({ notices }: { notices: { added?: string; a
       {notices.section === "archived" ? <Notice>{copy.questions.sectionArchivedNotice}</Notice> : null}
       {notices.section === "moved" ? <Notice>{copy.questions.sectionMovedNotice}</Notice> : null}
       {notices.section === "invalid" ? <Notice>{copy.reply.errors.sectionSaveFailed}</Notice> : null}
+      {notices.event === "added" ? <Notice>{copy.events.addedNotice}</Notice> : null}
+      {notices.event === "saved" ? <Notice>{copy.events.savedNotice}</Notice> : null}
+      {notices.event === "removed" ? <Notice>{copy.events.removedNotice}</Notice> : null}
+      {notices.event && notices.event in copy.events.errors ? (
+        <Notice>{copy.events.errors[notices.event as keyof typeof copy.events.errors]}</Notice>
+      ) : null}
       {notices.rotation === "1" ? <Notice>{copy.questions.rotationSaved}</Notice> : null}
       {notices.rotation === "invalid" ? <Notice>{copy.questions.rotationInvalid}</Notice> : null}
       {notices.fromPacks === "0" ? <Notice>{copy.questions.fromPacksNone}</Notice> : null}
@@ -296,6 +303,8 @@ export default function QuestionsTab({ notices }: { notices: { added?: string; a
           </form>
         </section>
       ) : null}
+
+      {manages ? <EventsPanel /> : null}
 
       {manages ? (
         <form action={addFromPacksAction} className="card mt-5 p-5">

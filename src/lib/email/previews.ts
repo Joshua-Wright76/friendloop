@@ -55,6 +55,13 @@ const SECTIONS: SectionEmailBlock[] = [
     ],
   },
   {
+    title: "Alice's birthday",
+    emoji: "🎂",
+    answers: [
+      { author: "Sam", body: "Happy birthday, Alice. Thank you for the lemon cake, the road trips, and all of it." },
+    ],
+  },
+  {
     title: "Music picks",
     emoji: "🎵",
     answers: [
@@ -132,6 +139,7 @@ export function emailPreviews(): EmailPreview[] {
         issueNumber: 11,
         url: "https://friendloop.dev/i/preview",
         answers: ANSWERS,
+        sections: SECTIONS,
       }),
     },
     {
