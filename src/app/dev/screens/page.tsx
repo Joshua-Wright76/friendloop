@@ -51,6 +51,7 @@ export default async function UiScreensPage() {
       links: [
         [screens.emails, "/dev/emails"],
         [screens.outbox, "/dev/outbox"],
+        [screens.feedback, "/dev/feedback"],
       ],
     },
   ];

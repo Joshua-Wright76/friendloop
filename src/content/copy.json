@@ -1098,7 +1098,8 @@
       "sharedPrint": "Printed round (share link)",
       "invalid": "Expired or invalid reply link",
       "emails": "Email templates",
-      "outbox": "Captured email"
+      "outbox": "Captured email",
+      "feedback": "Feedback inbox"
     }
   },
   "devEmails": {
@@ -1379,5 +1380,31 @@
     "answerComments": "Comments on this answer",
     "linkLabel": "Link",
     "footer": "Printed from {brand}"
+  },
+  "feedback": {
+    "open": "Send feedback",
+    "title": "Tell us anything",
+    "hint": "Found a bug, or have an idea? A sentence is plenty.",
+    "label": "Your message",
+    "placeholder": "What happened, or what would be better?",
+    "send": "Send",
+    "sending": "Sending…",
+    "cancel": "Cancel",
+    "thanks": "Thank you, that reached us.",
+    "done": "Done",
+    "count": "{remaining} characters left",
+    "errors": {
+      "message": "Write a few words first, and keep it under 2,000 characters.",
+      "tooMany": "That's a lot of notes for one hour. Please try again a little later.",
+      "network": "That didn't go through. Please try again."
+    }
+  },
+  "devFeedback": {
+    "title": "Feedback",
+    "description": "Everything sent from the corner button, newest first.",
+    "warning": "Notes can carry names and email addresses. Keep this page to yourself.",
+    "empty": "Nothing yet. Use the button in the corner of any page.",
+    "anonymous": "Anonymous visitor",
+    "viewport": "Screen {viewport}"
   }
 }

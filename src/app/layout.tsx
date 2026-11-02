@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Gaegu, Nunito } from "next/font/google";
+import { FeedbackButton } from "@/components/feedback-button";
 import { ThemeSwitch } from "@/components/theme-switch";
 import { copy } from "@/lib/copy";
 import { THEME_COLORS } from "@/lib/theme";
@@ -54,6 +55,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       <body className="min-h-full">
         <a href="#main-content" className="skip-link">{copy.common.skipToContent}</a>
         <div id="main-content" tabIndex={-1}>{children}</div>
+        <FeedbackButton />
         <ThemeSwitch />
       </body>
     </html>
