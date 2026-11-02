@@ -201,7 +201,7 @@ function walk(h: number, s: number, from: number, direction: 1 | -1, ok: (hex: s
 /**
  * Turn any colour into a full, readable accent for one colour scheme. The hue the
  * owner picked is kept; lightness is moved until every pairing that carries text
- * or a control clears WCAG AA (4.5:1 for text, 3:1 for the accent against paper).
+ * or a control clears WCAG AA (4.5:1 for text, which includes the accent when it is link text).
  * `adjusted` says whether the colour had to move.
  */
 export function deriveAccent(
@@ -214,7 +214,7 @@ export function deriveAccent(
 
   if (scheme === "light") {
     const onAccent = "#ffffff";
-    const fits = (c: string) => contrastRatio(c, onAccent) >= 4.5 && contrastRatio(c, surfaces.card) >= 3;
+    const fits = (c: string) => contrastRatio(c, onAccent) >= 4.5 && contrastRatio(c, surfaces.card) >= 4.5;
     const given = normalizeHex(hex) as string;
     const accent = fits(given) ? given : walk(h, s, Math.min(l0, 0.62), -1, fits);
     const accentSoft = fromHsl(h, clamp(s, 0.4, 0.85), 0.93);
@@ -226,7 +226,9 @@ export function deriveAccent(
   }
 
   const onAccent = fromHsl(h, clamp(s, 0.2, 0.5), 0.12);
-  const fits = (c: string) => contrastRatio(c, onAccent) >= 4.5 && contrastRatio(c, surfaces.card) >= 3;
+  // On dark paper the accent is also the colour of link text, so it has to clear the
+  // text bar against the card, not only the 3:1 a fill needs.
+  const fits = (c: string) => contrastRatio(c, onAccent) >= 4.5 && contrastRatio(c, surfaces.card) >= 4.5;
   const given = normalizeHex(hex) as string;
   const accent = fits(given) ? given : walk(h, s, Math.max(l0, 0.5), 1, fits);
   const accentSoft = fromHsl(h, clamp(s, 0.2, 0.5), 0.2);
