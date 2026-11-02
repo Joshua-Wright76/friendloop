@@ -183,9 +183,18 @@ Status: `todo` (not built) · `done` (built and covered).
 | Q1 | Print an issue | A delivered round (on the member page or the share link) offers "Print this round", which opens the same address with `?print`: the round on plain light paper, named authors rather than "You", with the questions, answers, photos, voice-note cards, poll picks and tallies, credits, sections, reactions and comment threads laid out for paper. Under print media the toolbar, theme switch and skip link are gone, each question starts a new page, answers, photos, cards and comments never split, nothing overflows sideways, and a dark screen or a tinted preset still prints as light paper. A round that has not gone out has no print action and `?print` leaves it unchanged; nothing opens the print dialog but a click. | done |
 | Q2 | Late edits stay true | The print view holds no copy of the round: it reads the same canonical state as the web round, so an edited answer, a new late answer, a taken-down comment, commenting switched off and a renamed round all show on the next print, and everything added after delivery is marked "Added late". | done |
 
+## R · Reading and delivery controls
+
+Round names (Ticket 3's R1) ship as N4; R4 (one-by-one delivery) is a documented stretch and has no flow.
+
+| ID | Flow | Acceptance criteria | Status |
+| --- | --- | --- | --- |
+| R2 | Find one member's answers | The rounds list can be narrowed to the delivered rounds one person answered in (open rounds are not listed while filtering, a person with none gets a plain empty message and a way out, a made-up id is no filter), and "Read it" opens that round already isolated to them. Inside a round, a row of plain links isolates one person's answers (their name carries a check and `aria-current`), or reads the round by person — one card per author in name order, each answer under the question or section it answered — with a link back to everyone. A person who wrote nothing in the round, or a bad address, reads as everyone; the print view and the share link always show the whole round. | done |
+| R3 | Reminder preferences | Each contributor picks all / only the last / none on their own answer page; it saves as they choose, belongs to that loop's membership, and only they (by their token) can set it — a reader, a stranger or a bad value writes nothing, and opening the page or the email changes nothing. The loop's automatic reminder skips anyone on none and reaches the rest exactly once however often the sweep runs; prompt and delivery emails ignore it, and the owner's nudge by hand still reaches everyone who has not submitted. The loop sends one reminder, so "all" and "last" read the same today and the user-facing copy promises no second one. | done |
+
 IDs are stable handles, not positions: a retired flow leaves its number out
 rather than renumbering the rest.
 
 ---
 
-**81 flows.** A flow is only `done` when its spec passes locally and in CI.
+**88 flows.** A flow is only `done` when its spec passes locally and in CI.
