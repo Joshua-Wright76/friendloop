@@ -5,6 +5,8 @@
 
 import { copy, text } from "../copy.ts";
 import { formatAudioDuration } from "../audio-validation.ts";
+import { issueHeading, issueRef } from "../issue-name.ts";
+import { emailPalette, GINGHAM_EMAIL, type EmailPalette } from "../theme.ts";
 
 type LayoutInput = {
   preheader: string;
@@ -16,7 +18,23 @@ type LayoutInput = {
   sections?: SectionEmailBlock[];
   /** Where "listen on the web issue" points for voice notes. */
   answersUrl?: string;
+  /** The loop's stationery; absent means Gingham Picnic, exactly as before themes. */
+  theme?: EmailTheme;
 };
+
+export type EmailTheme = { palette: EmailPalette; headerImageUrl?: string | null };
+
+/** What an email needs from a loop to wear its stationery. */
+export function emailThemeOf(group: {
+  themePreset: string | null;
+  themeAccent: string | null;
+  headerImageUrl: string | null;
+}): EmailTheme {
+  return {
+    palette: emailPalette({ preset: group.themePreset, accent: group.themeAccent }),
+    headerImageUrl: group.headerImageUrl,
+  };
+}
 
 export type SectionEmailBlock = {
   title: string;
@@ -40,21 +58,11 @@ export type AnswerBlock = {
   addedLater?: boolean;
 };
 
-const COLORS = {
-  page: "#fff3f5",
-  check: "rgba(236,118,148,.15)",
-  card: "#fffdfa",
-  line: "#f1dae0",
-  lineStrong: "#e4bcc6",
-  ink: "#3d2a30",
-  soft: "#674d55",
-  muted: "#86676f",
-  accent: "#cc3456",
-  tape: "#f6a6ba",
-};
 const BODY_FONT = "Nunito,-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial,sans-serif";
 const DISPLAY_FONT = "Gaegu,Comic Sans MS,Chalkboard SE,cursive";
-const GINGHAM = `background-color:${COLORS.page};background-image:linear-gradient(90deg,${COLORS.check} 50%,transparent 0),linear-gradient(${COLORS.check} 50%,transparent 0);background-size:32px 32px`;
+function gingham(c: EmailPalette): string {
+  return `background-color:${c.page};background-image:linear-gradient(90deg,${c.check} 50%,transparent 0),linear-gradient(${c.check} 50%,transparent 0);background-size:32px 32px`;
+}
 
 function escapeHtml(value: string): string {
   return value
@@ -65,67 +73,77 @@ function escapeHtml(value: string): string {
     .replace(/'/g, "&#39;");
 }
 
-function paragraphs(lines: string[]): string {
+function headerImage(url: string | null | undefined, c: EmailPalette): string {
+  if (!url) return "";
+  // Decorative, and many clients block remote images until asked: the brand line
+  // below carries the identity, and the fallback fill keeps the space tidy.
+  return `<tr><td style="padding:0 0 20px"><img src="${escapeHtml(url)}" alt="" width="600" style="display:block;width:100%;max-width:600px;height:auto;background:${c.line};border:1px solid ${c.line};border-radius:6px" /></td></tr>
+`;
+}
+
+function paragraphs(lines: string[], c: EmailPalette): string {
   return lines
     .map(
       (line) =>
-        `<p style="margin:0 0 18px;font:400 16px/1.6 ${BODY_FONT};color:${COLORS.soft}">${escapeHtml(line)}</p>`,
+        `<p style="margin:0 0 18px;font:400 16px/1.6 ${BODY_FONT};color:${c.soft}">${escapeHtml(line)}</p>`,
     )
     .join("");
 }
 
-function sectionsHtml(sections: SectionEmailBlock[]): string {
+function sectionsHtml(sections: SectionEmailBlock[], c: EmailPalette): string {
   if (sections.length === 0) return "";
   return sections
     .map((section) => {
       const rows = section.answers
         .map((answer) => {
           const link = answer.linkUrl
-            ? ` <a href="${escapeHtml(answer.linkUrl)}" style="color:${COLORS.accent}">${escapeHtml(copy.emails.voiceNoteListen)}</a>`
+            ? ` <a href="${escapeHtml(answer.linkUrl)}" style="color:${c.accent}">${escapeHtml(copy.emails.voiceNoteListen)}</a>`
             : "";
           const photos =
             answer.photoCount && answer.photoCount > 0
-              ? ` <span style="color:${COLORS.muted}">${escapeHtml(copy.emails.photosAdded.replace("{count}", String(answer.photoCount)))}</span>`
+              ? ` <span style="color:${c.muted}">${escapeHtml(copy.emails.photosAdded.replace("{count}", String(answer.photoCount)))}</span>`
               : "";
-          return `<div style="margin:10px 0 0;font:400 15px/1.6 ${BODY_FONT};color:${COLORS.ink}"><span style="font:800 13px/1.5 ${BODY_FONT};color:${COLORS.soft}">${escapeHtml(answer.author)}</span> ${escapeHtml(answer.body)}${link}${photos}</div>`;
+          return `<div style="margin:10px 0 0;font:400 15px/1.6 ${BODY_FONT};color:${c.ink}"><span style="font:800 13px/1.5 ${BODY_FONT};color:${c.soft}">${escapeHtml(answer.author)}</span> ${escapeHtml(answer.body)}${link}${photos}</div>`;
         })
         .join("");
-      return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 18px;background:${COLORS.card};border:1px dashed ${COLORS.lineStrong};border-radius:6px"><tr><td style="padding:20px 22px">
-  <div style="font:700 20px/1.2 ${DISPLAY_FONT};color:${COLORS.ink}">${escapeHtml(`${section.emoji ?? ""} ${section.title}`.trim())}</div>
-  ${rows || `<div style="margin:10px 0 0;font:400 14px/1.5 ${BODY_FONT};color:${COLORS.muted}">${escapeHtml(copy.emails.sectionEmpty)}</div>`}
+      return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 18px;background:${c.card};border:1px dashed ${c.lineStrong};border-radius:6px"><tr><td style="padding:20px 22px">
+  <div style="font:700 20px/1.2 ${DISPLAY_FONT};color:${c.ink}">${escapeHtml(`${section.emoji ?? ""} ${section.title}`.trim())}</div>
+  ${rows || `<div style="margin:10px 0 0;font:400 14px/1.5 ${BODY_FONT};color:${c.muted}">${escapeHtml(copy.emails.sectionEmpty)}</div>`}
 </td></tr></table>`;
     })
     .join("");
 }
 
-function answersHtml(answers: AnswerBlock[], url: string): string {
+function answersHtml(answers: AnswerBlock[], url: string, c: EmailPalette): string {
   return answers
     .map((answer) => {
       const photo = answer.photoUrl
-        ? `<img src="${escapeHtml(answer.photoUrl)}" alt="" width="520" style="display:block;width:100%;max-width:520px;border:1px solid ${COLORS.line};border-radius:6px;margin:14px 0 0" />`
+        ? `<img src="${escapeHtml(answer.photoUrl)}" alt="" width="520" style="display:block;width:100%;max-width:520px;border:1px solid ${c.line};border-radius:6px;margin:14px 0 0" />`
         : "";
       // Email never attempts to play audio; the web issue is the canonical player.
       const voice = answer.audioUrl
-        ? `<div style="margin:14px 0 0;border:1px dashed ${COLORS.lineStrong};border-radius:6px;padding:10px 12px;font:400 13px/1.5 ${BODY_FONT};color:${COLORS.soft}">${escapeHtml(copy.emails.voiceNote.replace("{duration}", formatAudioDuration(answer.audioDurationMs ?? 0)))} — <a href="${escapeHtml(url)}" style="color:${COLORS.accent}">${escapeHtml(copy.emails.voiceNoteListen)}</a></div>`
+        ? `<div style="margin:14px 0 0;border:1px dashed ${c.lineStrong};border-radius:6px;padding:10px 12px;font:400 13px/1.5 ${BODY_FONT};color:${c.soft}">${escapeHtml(copy.emails.voiceNote.replace("{duration}", formatAudioDuration(answer.audioDurationMs ?? 0)))} — <a href="${escapeHtml(url)}" style="color:${c.accent}">${escapeHtml(copy.emails.voiceNoteListen)}</a></div>`
         : "";
       const note = answer.addedLater
-        ? `<div style="font:400 12px/1.5 ${BODY_FONT};color:${COLORS.muted};margin-top:10px">${escapeHtml(copy.emails.addedLater)}</div>`
+        ? `<div style="font:400 12px/1.5 ${BODY_FONT};color:${c.muted};margin-top:10px">${escapeHtml(copy.emails.addedLater)}</div>`
         : "";
-      return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 18px;background:${COLORS.card};border:1px solid ${COLORS.line};border-radius:6px"><tr><td style="padding:22px 22px 20px">
-  <div style="font:700 24px/1.2 ${DISPLAY_FONT};color:${COLORS.ink}">${escapeHtml(answer.question)}</div>
-  <div style="font:800 14px/1.5 ${BODY_FONT};color:${COLORS.soft};margin:16px 0 4px">${escapeHtml(answer.author)}</div>
-  <div style="font:400 16px/1.65 ${BODY_FONT};color:${COLORS.ink};white-space:pre-wrap">${escapeHtml(answer.body)}</div>
+      return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 18px;background:${c.card};border:1px solid ${c.line};border-radius:6px"><tr><td style="padding:22px 22px 20px">
+  <div style="font:700 24px/1.2 ${DISPLAY_FONT};color:${c.ink}">${escapeHtml(answer.question)}</div>
+  <div style="font:800 14px/1.5 ${BODY_FONT};color:${c.soft};margin:16px 0 4px">${escapeHtml(answer.author)}</div>
+  <div style="font:400 16px/1.65 ${BODY_FONT};color:${c.ink};white-space:pre-wrap">${escapeHtml(answer.body)}</div>
   ${photo}${voice}${note}
 </td></tr></table>`;
     })
     .join("");
 }
 
-export function layout({ preheader, heading, body, cta, footer, answers, sections, answersUrl }: LayoutInput): string {
+export function layout({ preheader, heading, body, cta, footer, answers, sections, answersUrl, theme }: LayoutInput): string {
+  const c = theme?.palette ?? GINGHAM_EMAIL;
+  const GINGHAM = gingham(c);
   const ctaHtml = cta
-    ? `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:8px 0 8px"><tr><td style="border-radius:999px;background:${COLORS.accent}"><a href="${escapeHtml(
+    ? `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:8px 0 8px"><tr><td style="border-radius:999px;background:${c.accent}"><a href="${escapeHtml(
         cta.url,
-      )}" style="display:inline-block;padding:15px 26px;font:800 16px/1 ${BODY_FONT};color:#ffffff;text-decoration:none;border-radius:999px">${escapeHtml(
+      )}" style="display:inline-block;padding:15px 26px;font:800 16px/1 ${BODY_FONT};color:${c.onAccent};text-decoration:none;border-radius:999px">${escapeHtml(
         cta.label,
       )}</a></td></tr></table>`
     : "";
@@ -136,17 +154,17 @@ export function layout({ preheader, heading, body, cta, footer, answers, section
 <div style="display:none;max-height:0;overflow:hidden;opacity:0">${escapeHtml(preheader)}</div>
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="${GINGHAM}"><tr><td align="center" style="padding:36px 14px 40px">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px">
-<tr><td style="padding:0 8px 24px;font:700 27px/1 ${DISPLAY_FONT};color:${COLORS.ink}"><span style="font-size:24px;vertical-align:-2px">${copy.common.cherry}</span> ${escapeHtml(copy.common.brand)}</td></tr>
+${headerImage(theme?.headerImageUrl, c)}<tr><td style="padding:0 8px 24px;font:700 27px/1 ${DISPLAY_FONT};color:${c.ink}"><span style="font-size:24px;vertical-align:-2px">${copy.common.cherry}</span> ${escapeHtml(copy.common.brand)}</td></tr>
 <tr><td>
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${COLORS.card};border:1px solid ${COLORS.line};border-radius:6px;box-shadow:0 14px 26px -18px rgba(160,40,70,.4)"><tr><td style="padding:0 30px 30px">
-<table role="presentation" cellpadding="0" cellspacing="0" style="margin:-11px 0 13px;position:relative;z-index:2;transform:rotate(-2deg);opacity:.92;clip-path:polygon(0 0,100% 0,97% 25%,100% 50%,97% 75%,100% 100%,0 100%,3% 75%,0 50%,3% 25%)"><tr><td width="88" height="22" style="width:88px;height:22px;background-color:${COLORS.tape};background-image:radial-gradient(circle,rgba(255,255,255,.85) 1.8px,transparent 2.3px);background-size:9px 9px"></td></tr></table>
-<h1 style="margin:0 0 22px;font:700 36px/1.08 ${DISPLAY_FONT};color:${COLORS.ink};letter-spacing:0">${escapeHtml(heading)}</h1>
-${paragraphs(body)}${ctaHtml}
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${c.card};border:1px solid ${c.line};border-radius:6px;box-shadow:${c.shadow}"><tr><td style="padding:0 30px 30px">
+<table role="presentation" cellpadding="0" cellspacing="0" style="margin:-11px 0 13px;position:relative;z-index:2;transform:rotate(-2deg);opacity:.92;clip-path:polygon(0 0,100% 0,97% 25%,100% 50%,97% 75%,100% 100%,0 100%,3% 75%,0 50%,3% 25%)"><tr><td width="88" height="22" style="width:88px;height:22px;background-color:${c.tape};background-image:radial-gradient(circle,rgba(255,255,255,.85) 1.8px,transparent 2.3px);background-size:9px 9px"></td></tr></table>
+<h1 style="margin:0 0 22px;font:700 36px/1.08 ${DISPLAY_FONT};color:${c.ink};letter-spacing:0">${escapeHtml(heading)}</h1>
+${paragraphs(body, c)}${ctaHtml}
 </td></tr></table>
 </td></tr>
-${answers ? `<tr><td style="padding-top:20px">${answersHtml(answers, answersUrl ?? "#")}</td></tr>` : ""}
-${sections && sections.length > 0 ? `<tr><td style="padding-top:20px">${sectionsHtml(sections)}</td></tr>` : ""}
-<tr><td style="padding:24px 10px 0"><p style="margin:0;font:400 13px/1.6 ${BODY_FONT};color:${COLORS.muted};text-align:center">${escapeHtml(
+${answers ? `<tr><td style="padding-top:20px">${answersHtml(answers, answersUrl ?? "#", c)}</td></tr>` : ""}
+${sections && sections.length > 0 ? `<tr><td style="padding-top:20px">${sectionsHtml(sections, c)}</td></tr>` : ""}
+<tr><td style="padding:24px 10px 0"><p style="margin:0;font:400 13px/1.6 ${BODY_FONT};color:${c.muted};text-align:center">${escapeHtml(
     footer ?? copy.emails.defaultFooter,
   )}</p></td></tr>
 </table></td></tr></table></body></html>`;
@@ -175,8 +193,9 @@ export function inviteEmail(input: {
   url: string;
   isReader: boolean;
   personalNote?: string;
+  theme?: EmailTheme;
 }): RenderedEmail {
-  const { groupName, inviterName, url, isReader, personalNote } = input;
+  const { groupName, inviterName, url, isReader, personalNote, theme } = input;
   const content = copy.emails.invite;
   const values = { groupName, inviterName, url, personalNote: personalNote ?? "" };
   const note = personalNote?.trim()
@@ -190,6 +209,7 @@ export function inviteEmail(input: {
       body: [text(content.body, values), isReader ? content.readerBody : content.contributorBody, ...(note ? [note] : [])],
       cta: { label: isReader ? content.readerCta : content.contributorCta, url },
       footer: text(content.footer, values),
+      theme,
     }),
     text: `${text(content.text, values)}${note ? `\n\n${note}` : ""}`,
   };
@@ -200,13 +220,19 @@ export function promptEmail(input: {
   memberName: string;
   issueNumber: number;
   questionCount: number;
+  issueName?: string | null;
   url: string;
   deadlineLabel: string;
+  theme?: EmailTheme;
 }): RenderedEmail {
-  const { groupName, memberName, issueNumber, questionCount, url, deadlineLabel } = input;
+  const { groupName, memberName, issueNumber, issueName, questionCount, url, deadlineLabel, theme } = input;
   const content = copy.emails.prompt;
   const plural = questionCount === 1 ? copy.emails.questionSingular : copy.emails.questionPlural;
-  const values = { groupName, memberName, issueNumber, questionCount, url, deadlineLabel, plural };
+  const values = {
+    groupName, memberName, issueNumber, questionCount, url, deadlineLabel, plural,
+    issueRef: issueRef(issueNumber, issueName),
+    issueHeading: issueHeading(issueNumber, issueName),
+  };
   return {
     subject: text(content.subject, values),
     html: layout({
@@ -215,6 +241,7 @@ export function promptEmail(input: {
       body: [text(content.body, values), content.writingNote],
       cta: { label: text(content.cta, values), url },
       footer: text(content.footer, values),
+      theme,
     }),
     text: text(content.text, values),
   };
@@ -226,8 +253,9 @@ export function reminderEmail(input: {
   url: string;
   deadlineLabel: string;
   remaining: number;
+  theme?: EmailTheme;
 }): RenderedEmail {
-  const { groupName, memberName, url, deadlineLabel, remaining } = input;
+  const { groupName, memberName, url, deadlineLabel, remaining, theme } = input;
   const content = copy.emails.reminder;
   const values = { groupName, memberName, url, deadlineLabel, remaining };
   return {
@@ -238,6 +266,7 @@ export function reminderEmail(input: {
       body: [text(remaining === 1 ? content.bodySingular : content.bodyPlural, values), content.writingNote],
       cta: { label: content.cta, url },
       footer: text(content.footer, values),
+      theme,
     }),
     text: text(content.text, values),
   };
@@ -248,12 +277,14 @@ export function mentionEmail(input: {
   memberName: string;
   authorName: string;
   issueNumber: number;
+  issueName?: string | null;
   excerpt: string;
   url: string;
+  theme?: EmailTheme;
 }): RenderedEmail {
-  const { groupName, memberName, authorName, issueNumber, excerpt, url } = input;
+  const { groupName, memberName, authorName, issueNumber, issueName, excerpt, url, theme } = input;
   const content = copy.emails.mention;
-  const values = { groupName, memberName, authorName, issueNumber, excerpt, url };
+  const values = { groupName, memberName, authorName, issueNumber, excerpt, url, issueRef: issueRef(issueNumber, issueName) };
   return {
     subject: text(content.subject, values),
     html: layout({
@@ -262,6 +293,7 @@ export function mentionEmail(input: {
       body: [text(content.body, values), `“${excerpt}”`],
       cta: { label: content.cta, url },
       footer: text(content.footer, values),
+      theme,
     }),
     text: text(content.text, values),
   };
@@ -270,16 +302,20 @@ export function mentionEmail(input: {
 export function deliveryEmail(input: {
   groupName: string;
   issueNumber: number;
+  issueName?: string | null;
   url: string;
   answers: AnswerBlock[];
   sections?: SectionEmailBlock[];
   shareUrl?: string | null;
+  theme?: EmailTheme;
 }): RenderedEmail {
-  const { groupName, issueNumber, url, answers, sections, shareUrl } = input;
+  const { groupName, issueNumber, issueName, url, answers, sections, shareUrl, theme } = input;
   const content = copy.emails.delivery;
   const values = {
     groupName,
     issueNumber,
+    issueRef: issueRef(issueNumber, issueName),
+    issueHeading: issueHeading(issueNumber, issueName),
     url,
     shareUrl: shareUrl ?? "",
     count: answers.length,
@@ -299,13 +335,14 @@ export function deliveryEmail(input: {
       answersUrl: url,
       cta: { label: content.cta, url },
       footer: text(shareUrl ? content.shareFooter : content.replyFooter, values),
+      theme,
     }),
     text: text(content.text, { ...values, answers: answerText }),
   };
 }
 
-export function pausedEmail(input: { groupName: string; url: string }): RenderedEmail {
-  const { groupName, url } = input;
+export function pausedEmail(input: { groupName: string; url: string; theme?: EmailTheme }): RenderedEmail {
+  const { groupName, url, theme } = input;
   const content = copy.emails.paused;
   const values = { groupName, url };
   return {
@@ -316,6 +353,7 @@ export function pausedEmail(input: { groupName: string; url: string }): Rendered
       body: [text(content.body, values), content.resumeBody],
       cta: { label: content.cta, url },
       footer: text(content.footer, values),
+      theme,
     }),
     text: text(content.text, values),
   };

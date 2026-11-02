@@ -17,6 +17,7 @@ import { issueSections, sectionMedia, sectionReplies } from "@/db/schema";
 export type IssueAnswer = {
   replyId: string;
   author: string;
+  authorPhotoUrl: string | null;
   isYou: boolean;
   body: string;
   photoUrl: string | null;
@@ -33,6 +34,7 @@ export type IssueAnswer = {
 export type IssueSectionReplyBlock = {
   replyId: string;
   author: string;
+  authorPhotoUrl: string | null;
   isYou: boolean;
   body: string;
   linkUrl: string | null;
@@ -78,7 +80,7 @@ export type IssueView = {
   /** The owner's switch. When false every comment surface is gone, and the lists above are empty. */
   commentsEnabled: boolean;
   /** Who the viewer can @mention; empty for strangers and when comments are off. */
-  mentionables: Array<{ id: string; name: string }>;
+  mentionables: Array<{ id: string; name: string; photoUrl: string | null }>;
   answerCount: number;
 };
 
@@ -142,6 +144,7 @@ export async function loadIssue(input: {
       membershipId: replies.membershipId,
       name: memberships.name,
       email: memberships.email,
+      authorPhotoUrl: memberships.photoUrl,
     })
     .from(replies)
     .innerJoin(memberships, eq(memberships.id, replies.membershipId))
@@ -194,6 +197,7 @@ export async function loadIssue(input: {
         return {
           replyId: row.replyId,
           author: mine ? copy.issue.you : (row.name ?? row.email.split("@")[0]),
+          authorPhotoUrl: row.authorPhotoUrl,
           isYou: mine,
           body: row.body,
           photoUrl: row.photoUrl,
@@ -233,6 +237,7 @@ export async function loadIssue(input: {
           membershipId: sectionReplies.membershipId,
           name: memberships.name,
           email: memberships.email,
+          authorPhotoUrl: memberships.photoUrl,
         })
         .from(sectionReplies)
         .innerJoin(memberships, eq(memberships.id, sectionReplies.membershipId))
@@ -269,6 +274,7 @@ export async function loadIssue(input: {
         return {
           replyId: row.replyId,
           author: mine ? copy.issue.you : (row.name ?? row.email.split("@")[0]),
+          authorPhotoUrl: row.authorPhotoUrl,
           isYou: mine,
           body: row.body,
           linkUrl: row.linkUrl,

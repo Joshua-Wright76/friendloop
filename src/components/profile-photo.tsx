@@ -1,0 +1,114 @@
+"use client";
+
+import { useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+import { copy } from "@/lib/copy";
+import { MAX_AVATAR_BYTES, PHOTO_ACCEPT } from "@/lib/photo-validation";
+import { Avatar } from "./avatar";
+
+type Status = "idle" | "saving" | "saved" | "removed" | "error";
+
+/**
+ * Set or remove your own photo for one loop. `endpoint` is the route that knows
+ * who you are (a reply token or a signed-in session); this only sends the file.
+ */
+export function ProfilePhoto({
+  endpoint,
+  name,
+  photoUrl: initial,
+  refresh = false,
+}: {
+  endpoint: string;
+  name: string;
+  photoUrl: string | null;
+  /** Re-render the surrounding server data after a change (the members list shows the photo too). */
+  refresh?: boolean;
+}) {
+  const router = useRouter();
+  const input = useRef<HTMLInputElement>(null);
+  const [photoUrl, setPhotoUrl] = useState(initial);
+  const [status, setStatus] = useState<Status>("idle");
+  const [message, setMessage] = useState("");
+
+  async function send(init: RequestInit, done: Status) {
+    setStatus("saving");
+    try {
+      const response = await fetch(endpoint, init);
+      const body = (await response.json().catch(() => ({}))) as { photoUrl?: string | null; error?: string };
+      if (!response.ok) {
+        setStatus("error");
+        setMessage(body.error ?? copy.identity.profile.error);
+        return;
+      }
+      setPhotoUrl(body.photoUrl ?? null);
+      setStatus(done);
+      if (refresh) router.refresh();
+    } catch {
+      setStatus("error");
+      setMessage(copy.identity.profile.error);
+    }
+  }
+
+  function choose(file: File | undefined) {
+    if (!file) return;
+    if (file.size > MAX_AVATAR_BYTES) {
+      setStatus("error");
+      setMessage(copy.identity.errors.avatarTooLarge);
+      return;
+    }
+    const form = new FormData();
+    form.set("photo", file);
+    void send({ method: "POST", body: form }, "saved");
+    if (input.current) input.current.value = "";
+  }
+
+  return (
+    <div className="flex items-center gap-3">
+      <Avatar name={name} photoUrl={photoUrl} className="!h-14 !w-14 !text-[20px]" />
+      <div className="min-w-0">
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            className="btn btn-quiet h-10 text-[14px]"
+            disabled={status === "saving"}
+            onClick={() => input.current?.click()}
+          >
+            {photoUrl ? copy.identity.profile.change : copy.identity.profile.add}
+          </button>
+          {photoUrl ? (
+            <button
+              type="button"
+              className="btn btn-quiet h-10 text-[14px]"
+              disabled={status === "saving"}
+              onClick={() => void send({ method: "DELETE" }, "removed")}
+            >
+              {copy.identity.profile.remove}
+            </button>
+          ) : null}
+        </div>
+        <input
+          ref={input}
+          type="file"
+          hidden
+          accept={PHOTO_ACCEPT}
+          aria-label={copy.identity.profile.inputLabel}
+          onChange={(event) => choose(event.target.files?.[0])}
+        />
+        <p
+          aria-live="polite"
+          className={`mt-1 text-[12px] leading-relaxed ${status === "error" ? "text-danger" : "text-ink-muted"}`}
+        >
+          {status === "saving"
+            ? copy.identity.profile.saving
+            : status === "saved"
+              ? copy.identity.profile.saved
+              : status === "removed"
+                ? copy.identity.profile.removed
+                : status === "error"
+                  ? message
+                  : copy.identity.profile.hint}
+        </p>
+      </div>
+    </div>
+  );
+}

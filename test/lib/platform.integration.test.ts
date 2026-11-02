@@ -97,6 +97,7 @@ test("every email the product sends has a preview", () => {
     [
       "delivery",
       "deliveryShared",
+      "deliveryThemed",
       "inviteContributor",
       "inviteReader",
       "mention",
@@ -111,6 +112,9 @@ test("every email the product sends has a preview", () => {
     assert.ok(preview.email.html.includes("<!doctype html>"), `${preview.id} is a document`);
     assert.ok(preview.email.text.length > 0, `${preview.id} has a plain-text body`);
   }
+  const themed = previews.find((preview) => preview.id === "deliveryThemed")!;
+  assert.match(themed.email.subject, /Camping weekend/);
+  assert.match(themed.email.html, /#eef3fb/);
 });
 
 // ── photo storage ────────────────────────────────────────────

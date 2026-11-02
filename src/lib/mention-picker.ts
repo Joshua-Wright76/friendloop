@@ -1,6 +1,6 @@
 /** The composer's side of mentions: finding the `@word` being typed and offering names for it. */
 
-export type Mentionable = { id: string; name: string };
+export type Mentionable = { id: string; name: string; photoUrl?: string | null };
 
 export const MENTION_RESULTS = 6;
 

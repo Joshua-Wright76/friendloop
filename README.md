@@ -231,10 +231,10 @@ Flow coverage is not a vibe: `specs/flows.md` lists every user-visible flow, eac
 | `/s/<token>` | anyone with the share link | read a delivered round |
 | `/you` | signed in | your loops + start a new one |
 | `/g/<id>` | member | the loop: next round, progress, doors |
-| `/g/<id>/members` | owner/admin | invite, roles, remove, transfer |
+| `/g/<id>/members` | owner/admin | invite, roles, remove, hand the loop to an admin, your photo |
 | `/g/<id>/questions` | owner/admin | pool, order, skip-next, archive |
-| `/g/<id>/issues` | member | rounds and share links |
-| `/g/<id>/settings` | owner | schedule, sharing, pause, delete |
+| `/g/<id>/issues` | member | rounds and share links; the owner names rounds |
+| `/g/<id>/settings` | owner | schedule, sharing, stationery, pause, delete |
 | `/g/new` | signed in | create a loop from the question bank |
 
 ## How a round flows

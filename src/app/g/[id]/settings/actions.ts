@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getNow } from "@/lib/clock";
+import { saveTheme } from "@/lib/identity";
 import { deleteLoop, rotateShareLinks, setPaused, updateLoopSettings } from "@/lib/manage";
 import { viewerFor } from "@/lib/permissions";
 import { isValidTimezone } from "@/lib/timezone";
@@ -68,4 +69,19 @@ export async function deleteAction(formData: FormData) {
 
   await deleteLoop(groupId);
   redirect("/you?deleted=1");
+}
+
+/** The loop's stationery: a preset key and an optional accent. Owner only. */
+export async function stationeryAction(formData: FormData) {
+  const groupId = String(formData.get("groupId") ?? "");
+  await requireOwner(groupId);
+
+  const result = await saveTheme(groupId, {
+    preset: String(formData.get("preset") ?? ""),
+    accent: String(formData.get("accent") ?? ""),
+  });
+  if (!result.ok) redirect(`/g/${groupId}/settings?error=stationery`);
+
+  revalidatePath(`/g/${groupId}`, "layout");
+  redirect(`/g/${groupId}/settings?stationery=${result.adjusted ? "adjusted" : "1"}`);
 }

@@ -306,8 +306,9 @@ test("transferring ownership demotes the old owner and promotes the new one", as
   const alice = loop.members.find((member) => member.email.startsWith("alice"))!;
   const owner = loop.members.find((member) => member.access === "owner")!;
   await setParticipation(loop.groupId, alice.id, "reader");
+  await setAccess(loop.groupId, alice.id, "admin");
 
-  await transferOwnership(loop.groupId, owner.id, alice.id);
+  assert.equal(await transferOwnership(loop.groupId, owner.id, alice.id), true);
 
   const rowsAfter = await rows<{ id: string; access: string; participation: string }>(
     "select id, access, participation from memberships where id = any($1::uuid[])",

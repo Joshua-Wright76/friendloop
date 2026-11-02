@@ -7,11 +7,11 @@ import type { Deadline } from "@/lib/schedule";
 
 type Group = typeof groups.$inferSelect;
 type Membership = Pick<typeof memberships.$inferSelect,
-  "id" | "groupId" | "userId" | "email" | "name" | "access" | "participation" | "invitedAt" | "acceptedAt"
+  "id" | "groupId" | "userId" | "email" | "name" | "photoUrl" | "access" | "participation" | "invitedAt" | "acceptedAt"
 >;
 
 export type LoopPerson = Pick<Membership,
-  "id" | "email" | "name" | "access" | "participation" | "invitedAt" | "acceptedAt" | "userId"
+  "id" | "email" | "name" | "photoUrl" | "access" | "participation" | "invitedAt" | "acceptedAt" | "userId"
 >;
 
 export type LoopQuestion = Pick<typeof questions.$inferSelect,
@@ -38,7 +38,7 @@ export type LoopSuggestion = {
 };
 
 export type LoopRound = Pick<typeof issues.$inferSelect,
-  "id" | "number" | "status" | "opensAt" | "deliversAt" | "deliveredAt" | "shareToken"
+  "id" | "number" | "name" | "status" | "opensAt" | "deliversAt" | "deliveredAt" | "shareToken"
 > & { answers: number; shareUrl: string | null };
 
 export type LoopData = {

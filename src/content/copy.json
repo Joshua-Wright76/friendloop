@@ -597,7 +597,15 @@
     "removeEmail": "Remove {email}",
     "roleSaving": "Updating member type…",
     "roleUpdated": "Member type updated.",
-    "roleError": "Member type couldn't be updated. Please try again."
+    "roleError": "Member type couldn't be updated. Please try again.",
+    "transferAction": "Make {name} the owner",
+    "transferTitle": "Hand {groupName} to {name}?",
+    "transferBody": "{name} becomes the owner and you become an admin. Only {name} can hand it back.",
+    "transferConfirm": "Yes, make {name} the owner",
+    "transferCancel": "Not yet",
+    "transferError": "That didn't go through. Reload the page and check who the owner is now.",
+    "transferNeedsAdmin": "Make someone an admin first. Only an admin can become the owner.",
+    "transferPending": "Handing over…"
   },
   "questions": {
     "title": "Questions",
@@ -691,7 +699,15 @@
     "answers": "{count} answers",
     "read": "Read it",
     "empty": "No rounds yet. Send your first round when the questions and people are ready.",
-    "firstRoundAction": "Review loop and send first round"
+    "firstRoundAction": "Review loop and send first round",
+    "rename": "Name this round",
+    "nameLabel": "Name for round {number}",
+    "namePlaceholder": "Camping weekend",
+    "nameHint": "Leave it empty to go back to “Round {number}”.",
+    "nameSave": "Save name",
+    "nameSaved": "Round named.",
+    "nameCleared": "The name is gone and the round is back to its number.",
+    "openNamed": "{name} is open now."
   },
   "settings": {
     "title": "Settings",
@@ -958,21 +974,21 @@
     "prompt": {
       "subject": "{memberName}, {questionCount} {plural} for {groupName}",
       "preheader": "Closes {deadlineLabel}.",
-      "heading": "Round {issueNumber} is open",
+      "heading": "{issueHeading} is open",
       "body": "{questionCount} {plural}, no rush. Closes {deadlineLabel}.",
       "writingNote": "Write as much or as little as you like, even just a sentence counts!",
       "cta": "Answer {questionCount} {plural}",
       "footer": "{groupName} · you can change your answers until it closes",
-      "text": "{groupName} round {issueNumber} is open: {questionCount} {plural}.\n\n{url}\n\nCloses {deadlineLabel}."
+      "text": "{groupName} {issueRef} is open: {questionCount} {plural}.\n\n{url}\n\nCloses {deadlineLabel}."
     },
     "mention": {
       "subject": "{authorName} mentioned you in {groupName}",
-      "preheader": "A comment on round {issueNumber}.",
+      "preheader": "A comment on {issueRef}.",
       "heading": "{authorName} mentioned you",
-      "body": "{memberName}, {authorName} mentioned you in a comment on round {issueNumber} of {groupName}.",
+      "body": "{memberName}, {authorName} mentioned you in a comment on {issueRef} of {groupName}.",
       "cta": "See the comment",
       "footer": "{groupName} · sent by Friendloop",
-      "text": "{memberName}, {authorName} mentioned you in a comment on round {issueNumber} of {groupName}:\n\n{excerpt}\n\n{url}"
+      "text": "{memberName}, {authorName} mentioned you in a comment on {issueRef} of {groupName}:\n\n{excerpt}\n\n{url}"
     },
     "reminder": {
       "subject": "Still time for {groupName}",
@@ -986,14 +1002,14 @@
       "text": "{memberName}, {remaining} still waiting on {groupName}. Closes {deadlineLabel}.\n\n{url}"
     },
     "delivery": {
-      "subject": "{groupName} · round {issueNumber}",
+      "subject": "{groupName} · {issueRef}",
       "preheader": "{count} {plural} from the group.",
-      "heading": "Round {issueNumber}",
+      "heading": "{issueHeading}",
       "body": "Here's what everyone wrote.",
       "cta": "Read it on the web",
       "shareFooter": "{groupName} · shareable link: {shareUrl}",
       "replyFooter": "{groupName} · open the issue to read and comment",
-      "text": "{groupName} · round {issueNumber}\n\n{url}\n\n{answers}",
+      "text": "{groupName} · {issueRef}\n\n{url}\n\n{answers}",
       "textAnswer": "{question}\n{author}: {body}"
     },
     "paused": {
@@ -1009,7 +1025,9 @@
     "voiceNote": "Voice note · {duration}",
     "voiceNoteListen": "Listen on the web issue",
     "photosAdded": "added {count} photos — see the web issue",
-    "sectionEmpty": "Nothing here yet."
+    "sectionEmpty": "Nothing here yet.",
+    "roundRef": "round {number}",
+    "roundHeading": "Round {number}"
   },
   "devUi": {
     "title": "UI preview",
@@ -1057,6 +1075,7 @@
       "mention": "Someone mentioned you",
       "delivery": "Delivered issue",
       "deliveryShared": "Delivered issue with a share link",
+      "deliveryThemed": "Delivered issue with its own stationery and a named round",
       "paused": "Empty round, loop paused"
     }
   },
@@ -1150,5 +1169,83 @@
       "chose": "Chose: {choices}",
       "results": "Results: {tally}"
     }
+  },
+  "identity": {
+    "errors": {
+      "invalidImage": "Use a JPEG, PNG, WebP or GIF picture.",
+      "avatarTooLarge": "That photo is over 2 MB. Try a smaller one.",
+      "avatarFailed": "That photo didn't save. Try again in a moment.",
+      "bannerTooLarge": "That picture is over 4 MB. Try a smaller one.",
+      "bannerFailed": "That picture didn't save. Try again in a moment.",
+      "notAllowed": "Only the owner can change that."
+    },
+    "profile": {
+      "title": "Your photo",
+      "hint": "Shown next to your answers and comments in this loop, and nowhere else.",
+      "add": "Add a photo",
+      "change": "Change photo",
+      "remove": "Remove photo",
+      "saving": "Saving…",
+      "saved": "Photo saved.",
+      "removed": "Photo removed.",
+      "error": "That photo didn't save. Try a smaller JPEG or PNG.",
+      "inputLabel": "Choose a photo of yourself"
+    }
+  },
+  "stationery": {
+    "title": "Stationery",
+    "intro": "Pick the paper your loop is written on. The words, the handwriting and the layout stay the same for everyone.",
+    "paperLegend": "Paper",
+    "presets": {
+      "gingham": {
+        "name": "Gingham Picnic",
+        "description": "Pink gingham on cream. The original."
+      },
+      "bluebell": {
+        "name": "Bluebell Notebook",
+        "description": "Pale blue paper with blue notebook rules."
+      },
+      "meadow": {
+        "name": "Meadow Postcard",
+        "description": "Fresh greens on a cream card."
+      },
+      "marmalade": {
+        "name": "Marmalade Stationery",
+        "description": "Warm orange, like toast and jam."
+      },
+      "lilac": {
+        "name": "Lilac Linen",
+        "description": "Soft purple on linen-white."
+      }
+    },
+    "accentLegend": "Accent colour",
+    "accentHint": "Buttons, links and highlights. If a colour would be hard to read, we nudge it.",
+    "accentPicker": "Pick an accent colour",
+    "accentInput": "Accent colour as a hex code",
+    "accentReset": "Use the paper's own",
+    "accentUsing": "Using the paper's own accent.",
+    "accentInvalid": "Use a hex code like #3366cc.",
+    "adjusted": "That accent was a little hard to read, so we nudged it. Here is what everyone will see.",
+    "headerLegend": "Header picture",
+    "headerHint": "Sits above the loop's pages and emails. A wide picture works best, up to 4 MB.",
+    "headerInput": "Choose a header picture",
+    "headerUpload": "Choose a picture",
+    "headerReplace": "Replace picture",
+    "headerRemove": "Remove picture",
+    "headerSaving": "Saving…",
+    "headerSaved": "Header picture saved.",
+    "headerRemoved": "Header picture removed.",
+    "headerError": "That picture didn't save. Try a smaller JPEG or PNG.",
+    "previewTitle": "Preview",
+    "previewLight": "Light",
+    "previewDark": "Dark",
+    "previewHeading": "Round 12",
+    "previewAnswerName": "Maya",
+    "previewAnswer": "The best thing I ate all week was a peach.",
+    "previewButton": "Send answers",
+    "save": "Save stationery",
+    "saved": "Stationery saved. Everyone sees it on their next visit.",
+    "savedAdjusted": "Stationery saved. We nudged the accent a little so it stays easy to read.",
+    "error": "That didn't save. Check the accent code and try again."
   }
 }

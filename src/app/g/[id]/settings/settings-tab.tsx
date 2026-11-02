@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { TimezoneField } from "../../new/timezone-field";
 import { deleteAction, pauseHereAction, rotateSharesAction, settingsAction } from "./actions";
 import { LoopNav } from "@/components/loop-nav";
+import { StationeryForm } from "./stationery-form";
 import { Picker } from "@/components/picker";
 import { copy } from "@/lib/copy";
 import { useLoopData } from "../loop-data";
@@ -15,7 +16,7 @@ const WEEKDAY_OPTIONS = WEEKDAYS.map((day, index) => ({ value: String(index), la
 const HOUR_OPTIONS = HOURS.map((hour) => ({ value: String(hour), label: `${String(hour).padStart(2, "0")}:00` }));
 const CADENCE_OPTIONS = copy.newLoop.cadences;
 
-export default function SettingsTab({ notices }: { notices: { saved?: string; error?: string; shares?: string } }) {
+export default function SettingsTab({ notices }: { notices: { saved?: string; error?: string; shares?: string; stationery?: string } }) {
   const { group, membership } = useLoopData();
   const id = group.id;
   const isOwner = membership.access === "owner";
@@ -35,6 +36,9 @@ export default function SettingsTab({ notices }: { notices: { saved?: string; er
 
       {notices.saved ? <Notice>{copy.settings.savedNotice}</Notice> : null}
       {notices.shares ? <Notice>{copy.settings.sharesResetNotice}</Notice> : null}
+      {notices.stationery === "1" ? <Notice>{copy.stationery.saved}</Notice> : null}
+      {notices.stationery === "adjusted" ? <Notice>{copy.stationery.savedAdjusted}</Notice> : null}
+      {notices.error === "stationery" ? <Notice tone="danger">{copy.stationery.error}</Notice> : null}
       {notices.error === "confirm" ? (
         <Notice tone="danger">{copy.settings.confirmError}</Notice>
       ) : null}
@@ -100,6 +104,13 @@ export default function SettingsTab({ notices }: { notices: { saved?: string; er
           {copy.settings.save}
         </button>
       </form>
+
+      <StationeryForm
+        groupId={id}
+        preset={group.themePreset}
+        accent={group.themeAccent}
+        headerImageUrl={group.headerImageUrl}
+      />
 
       {group.shareEnabled ? (
         <form action={rotateSharesAction} className="card mt-3 p-5">

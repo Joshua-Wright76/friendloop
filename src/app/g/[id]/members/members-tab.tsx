@@ -3,13 +3,16 @@
 import Link from "next/link";
 import { removeAction, resendAction } from "./actions";
 import { MemberRolePicker } from "./member-role-picker";
+import { TransferControl } from "./transfer-control";
+import { Avatar } from "@/components/avatar";
+import { ProfilePhoto } from "@/components/profile-photo";
 import { InviteForm } from "./invite-form";
 import { LoopNav } from "@/components/loop-nav";
 import { copy } from "@/lib/copy";
 import { useLoopData } from "../loop-data";
 
 export default function MembersTab({ notices }: {
-  notices: { invited?: string; resent?: string; removed?: string; transferred?: string };
+  notices: { invited?: string; resent?: string; removed?: string; transferred?: string; transferError?: string };
 }) {
   const { group, membership, people } = useLoopData();
   const id = group.id;
@@ -31,6 +34,7 @@ export default function MembersTab({ notices }: {
       {notices.resent ? <Notice>{copy.members.resentNotice}</Notice> : null}
       {notices.removed ? <Notice>{copy.members.removedNotice}</Notice> : null}
       {notices.transferred ? <Notice>{copy.members.transferredNotice}</Notice> : null}
+      {notices.transferError ? <Notice>{copy.members.transferError}</Notice> : null}
 
       {manages && people.length === 1 ? (
         <div className="card mt-5 p-5">
@@ -46,12 +50,15 @@ export default function MembersTab({ notices }: {
           return (
             <div key={person.id} className="card p-4">
               <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="truncate text-[15px] font-medium text-ink">
-                    {person.name ?? person.email.split("@")[0]}
-                    {isYou ? <span className="ml-1.5 text-[13px] text-ink-muted">{copy.members.you}</span> : null}
-                  </p>
-                  <p className="truncate text-[13px] text-ink-muted">{person.email}</p>
+                <div className="flex min-w-0 items-center gap-3">
+                  <Avatar name={person.name ?? person.email} photoUrl={person.photoUrl} />
+                  <div className="min-w-0">
+                    <p className="truncate text-[15px] font-medium text-ink">
+                      {person.name ?? person.email.split("@")[0]}
+                      {isYou ? <span className="ml-1.5 text-[13px] text-ink-muted">{copy.members.you}</span> : null}
+                    </p>
+                    <p className="truncate text-[13px] text-ink-muted">{person.email}</p>
+                  </div>
                 </div>
                 {manages && person.access !== "owner" ? (
                   <MemberRolePicker
@@ -59,7 +66,6 @@ export default function MembersTab({ notices }: {
                     membershipId={person.id}
                     memberName={person.name ?? person.email}
                     current={person.access}
-                    canAssignOwner={isOwner}
                   />
                 ) : (
                   <span className="flex-none rounded-full border border-line px-2.5 py-1 text-[12px] font-medium capitalize text-ink-soft">
@@ -67,6 +73,29 @@ export default function MembersTab({ notices }: {
                   </span>
                 )}
               </div>
+
+              {isYou ? (
+                <div className="mt-3 border-t border-dashed border-line pt-3">
+                  <p className="mb-2 text-[13px] font-medium text-ink-soft">{copy.identity.profile.title}</p>
+                  <ProfilePhoto
+                    endpoint={`/api/loop/${id}/profile-photo`}
+                    name={person.name ?? person.email}
+                    photoUrl={person.photoUrl}
+                    refresh
+                  />
+                </div>
+              ) : null}
+
+              {isOwner && person.access === "admin" && person.acceptedAt ? (
+                <div className="mt-3 flex justify-end">
+                  <TransferControl
+                    groupId={id}
+                    groupName={group.name}
+                    membershipId={person.id}
+                    name={person.name ?? person.email.split("@")[0]}
+                  />
+                </div>
+              ) : null}
 
               {!person.acceptedAt ? (
                 <div className="mt-2 flex flex-wrap items-center gap-2 text-[13px] text-ink-soft">

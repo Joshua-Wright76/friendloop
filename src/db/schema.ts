@@ -92,6 +92,12 @@ export const groups = pgTable("groups", {
   /** Reply window length in days; delivery lands this long after opening. */
   windowDays: integer("window_days").default(7).notNull(),
   shareEnabled: boolean("share_enabled").default(false).notNull(),
+  /** Stationery preset key; null is Gingham Picnic, the original look. */
+  themePreset: text("theme_preset"),
+  /** Owner's accent override as #rrggbb; null keeps the preset's own. */
+  themeAccent: text("theme_accent"),
+  /** Owner's header picture, shown above the loop's own surfaces and emails. */
+  headerImageUrl: text("header_image_url"),
   /** The owner's switch: off hides every comment surface and refuses writes; nothing is deleted. */
   commentsEnabled: boolean("comments_enabled").default(true).notNull(),
   pausedAt: timestamp("paused_at", { withTimezone: true }),
@@ -112,6 +118,8 @@ export const memberships = pgTable(
     userId: uuid("user_id").references(() => users.id, { onDelete: "set null" }),
     email: text("email").notNull(),
     name: text("name"),
+    /** A profile photo for this loop only; null falls back to the initial. */
+    photoUrl: text("photo_url"),
     access: accessEnum("access").default("member").notNull(),
     participation: participationEnum("participation").default("contributor").notNull(),
     /** Bearer credential for the no-account reply link. Rotatable. */
@@ -162,6 +170,8 @@ export const issues = pgTable(
       .references(() => groups.id, { onDelete: "cascade" })
       .notNull(),
     number: integer("number").notNull(),
+    /** The owner's name for this round ("Camping weekend"); null keeps "Round N". */
+    name: text("name"),
     status: issueStatusEnum("status").default("open").notNull(),
     /** The local wall-clock slot this issue came from, frozen as an instant. */
     slotAt: timestamp("slot_at", { withTimezone: true }).notNull(),

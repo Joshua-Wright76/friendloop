@@ -5,6 +5,7 @@ import { nudgeAction, pauseAction, sendNowAction } from "./actions";
 import { Cherries, Tape } from "@/components/stationery";
 import { LoopNav } from "@/components/loop-nav";
 import { copy, text } from "@/lib/copy";
+import { issueTitle } from "@/lib/issue-name";
 import { useLoopData } from "./loop-data";
 
 export default function OverviewTab({ welcome, nudged }: { welcome?: string; nudged?: string }) {
@@ -92,7 +93,7 @@ export default function OverviewTab({ welcome, nudged }: { welcome?: string; nud
         <div className="card ride-in mt-5 p-5 pt-7">
           <Tape tone="dots" position="right" />
           <div className="flex items-baseline justify-between gap-3">
-            <p className="text-[13px] font-medium text-ink-muted">{text(copy.loop.round, { number: openIssue.number })}</p>
+            <p className="text-[13px] font-medium text-ink-muted">{issueTitle(copy.loop.round, openIssue.number, openIssue.name)}</p>
             <p className="text-[13px] font-medium text-ink-soft numeric">
               {text(copy.loop.progress, { answered: progress.length, writers })}
             </p>

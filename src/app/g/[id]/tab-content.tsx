@@ -11,23 +11,26 @@ type Notices = {
   resent?: string;
   removed?: string;
   transferred?: string;
+  transferError?: string;
   added?: string;
   archived?: string;
   suggestion?: string;
   section?: string;
   poll?: string;
   opened?: string;
+  named?: string;
   saved?: string;
   error?: string;
   shares?: string;
+  stationery?: string;
 };
 
 type Props =
   | { tab: "overview"; welcome?: string; nudged?: string }
-  | { tab: "members"; notices: Pick<Notices, "invited" | "resent" | "removed" | "transferred"> }
+  | { tab: "members"; notices: Pick<Notices, "invited" | "resent" | "removed" | "transferred" | "transferError"> }
   | { tab: "questions"; notices: Pick<Notices, "added" | "archived" | "suggestion" | "section" | "poll"> }
-  | { tab: "issues"; notices: Pick<Notices, "opened"> }
-  | { tab: "settings"; notices: Pick<Notices, "saved" | "error" | "shares"> };
+  | { tab: "issues"; notices: Pick<Notices, "opened" | "named"> }
+  | { tab: "settings"; notices: Pick<Notices, "saved" | "error" | "shares" | "stationery"> };
 
 export function LoopTabContent(props: Props) {
   switch (props.tab) {

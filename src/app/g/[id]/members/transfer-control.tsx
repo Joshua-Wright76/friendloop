@@ -1,0 +1,65 @@
+"use client";
+
+import { useEffect, useRef, useState } from "react";
+import { useFormStatus } from "react-dom";
+import { copy, text } from "@/lib/copy";
+import { transferAction } from "./actions";
+
+type Props = { groupId: string; groupName: string; membershipId: string; name: string };
+
+function Confirm({ name }: { name: string }) {
+  const { pending } = useFormStatus();
+  return (
+    <button type="submit" disabled={pending} className="btn btn-primary h-10 text-[14px]">
+      {pending ? copy.members.transferPending : text(copy.members.transferConfirm, { name })}
+    </button>
+  );
+}
+
+/**
+ * Hand the loop to this admin. Two steps on purpose: the first button only opens
+ * the question, and the question names the person and says what you give up.
+ */
+export function TransferControl({ groupId, groupName, membershipId, name }: Props) {
+  const [asking, setAsking] = useState(false);
+  const title = useRef<HTMLParagraphElement>(null);
+
+  useEffect(() => {
+    if (asking) title.current?.focus();
+  }, [asking]);
+
+  if (!asking) {
+    return (
+      <button
+        type="button"
+        onClick={() => setAsking(true)}
+        className="btn btn-quiet h-9 min-h-9 px-3 text-[13px]"
+      >
+        {text(copy.members.transferAction, { name })}
+      </button>
+    );
+  }
+
+  return (
+    <form
+      action={transferAction}
+      role="group"
+      aria-labelledby={`transfer-${membershipId}`}
+      className="notice mt-1 w-full border bg-accent-soft px-4 py-3"
+    >
+      <input type="hidden" name="groupId" value={groupId} />
+      <input type="hidden" name="membershipId" value={membershipId} />
+      <input type="hidden" name="confirm" value="yes" />
+      <p id={`transfer-${membershipId}`} ref={title} tabIndex={-1} className="text-[15px] font-bold text-ink outline-none">
+        {text(copy.members.transferTitle, { groupName, name })}
+      </p>
+      <p className="mt-1 text-[14px] leading-relaxed text-ink-soft">{text(copy.members.transferBody, { name })}</p>
+      <div className="mt-3 flex flex-wrap gap-2">
+        <Confirm name={name} />
+        <button type="button" onClick={() => setAsking(false)} className="btn btn-quiet h-10 text-[14px]">
+          {copy.members.transferCancel}
+        </button>
+      </div>
+    </form>
+  );
+}

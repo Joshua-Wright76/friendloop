@@ -1,5 +1,6 @@
 import {
   deliveryEmail,
+  emailThemeOf,
   inviteEmail,
   mentionEmail,
   pausedEmail,
@@ -141,6 +142,23 @@ export function emailPreviews(): EmailPreview[] {
         url: "https://friendloop.dev/i/preview",
         answers: ANSWERS,
         shareUrl: "https://friendloop.dev/s/preview-share-token",
+      }),
+    },
+    {
+      // A loop with its own stationery and a named round: Bluebell paper, a header
+      // picture, and the name where the number would be.
+      id: "deliveryThemed",
+      email: deliveryEmail({
+        groupName: "Saturday Club",
+        issueNumber: 11,
+        issueName: "Camping weekend",
+        url: "https://friendloop.dev/i/preview",
+        answers: ANSWERS.slice(0, 2),
+        theme: emailThemeOf({
+          themePreset: "bluebell",
+          themeAccent: null,
+          headerImageUrl: "https://friendloop.dev/dev-preview/header.svg",
+        }),
       }),
     },
     {

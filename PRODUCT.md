@@ -61,6 +61,8 @@ Confirmed for v1:
 - One photo per reply.
 - Delivered issues have comments and reactions. Comments can be hung from a single answer, quote another comment, carry one photo, and @mention any member (readers included, who get an email). The owner can turn commenting off for the loop; nothing is deleted.
 - Polls are a kind of question: two to six options, single or multiple choice. Contributors tap to answer, and the tally appears only once the issue is delivered.
+- A loop can wear its owner's choice of stationery: one of a few curated papers, an accent colour (nudged to stay readable) and a header picture, in the web pages and the emails. Gingham Picnic stays the default, and the brand frame (voice, type, card conventions) is not editable.
+- The owner can name a round ("Camping weekend"), and can hand the loop to an admin, who becomes the owner. Members can set a profile photo per loop.
 - A delivered issue can be shared by secret link, off by default.
 - Weekly or biweekly cadence, seven-day reply window, per-loop timezone.
 - Late replies are never lost: answers stay editable after delivery, and the web

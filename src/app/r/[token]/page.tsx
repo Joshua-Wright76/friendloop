@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { describeDeadline } from "@/lib/schedule";
 import { resolveToken, sheetFor } from "@/lib/reply";
 import { sectionsForSheet } from "@/lib/sections";
+import { LoopTheme } from "@/components/loop-theme";
 import { ReplySheet } from "./reply-sheet";
 import { copy, text } from "@/lib/copy";
 
@@ -81,12 +82,17 @@ export default async function ReplyPage({ params }: { params: Promise<{ token: s
   const deadline = describeDeadline(issue.deliversAt, context.group.timezone);
 
   return (
+    <>
+    <LoopTheme preset={context.group.themePreset} accent={context.group.themeAccent} />
     <ReplySheet
       token={token}
       canSuggest={context.group.mode !== "from_you"}
       loopName={context.group.name}
       loopTimezone={context.group.timezone}
       roundNumber={issue.number}
+      roundName={issue.name}
+      headerImageUrl={context.group.headerImageUrl}
+      photoUrl={context.membership.photoUrl}
       deadline={deadline}
       deliversAtIso={issue.deliversAt.toISOString()}
       displayName={context.membership.name ?? context.membership.email.split("@")[0]}
@@ -107,5 +113,6 @@ export default async function ReplyPage({ params }: { params: Promise<{ token: s
         submitted: question.submitted,
       }))}
     />
+    </>
   );
 }

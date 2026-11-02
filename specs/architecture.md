@@ -221,3 +221,18 @@ the author, revoked members and people from other loops are dropped.
 `loadIssue` turns all of this into view data once: the issue thread, each answer's
 thread, and the viewer's mention list. With comments off, or on a share link, those
 are empty and the page renders no comment surface at all.
+
+## 16 · A loop's identity is data, not a fork of the design
+
+A loop's look is `groups.theme_preset`, `theme_accent` and `header_image_url`, all
+null by default. `resolveTheme` in `src/lib/theme.ts` turns them into one token set
+per colour scheme; `<LoopTheme>` injects it as a stylesheet on the four group-aware
+surfaces and `emailPalette` reads the same tokens for mail. A loop with nothing set
+renders no override at all, so the stylesheet's Gingham Picnic is the whole story and
+a theme-less loop is untouched by this feature. Accents pass through `deriveAccent`,
+which moves lightness until every text pairing clears WCAG AA, so the owner chooses
+a hue, not a contrast ratio.
+
+Ownership moves in `transferOwnership`: one transaction, two guarded updates, and a
+refusal on either side rolls both back. `issues.name` and `memberships.photo_url` are
+plain nullable columns; the unnamed and photo-less forms are the original rendering.

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   deliveryEmail,
+  emailThemeOf,
   inviteEmail,
   mentionEmail,
   pausedEmail,
@@ -86,4 +87,66 @@ test("a mention email names who said it, quotes it, and links to the issue", () 
   assert.match(email.html, /See the comment/);
   assert.match(email.text, /Maya, Alex mentioned you in a comment on round 4 of Friday Loop:/);
   assert.match(email.text, /https:\/\/friendloop\.dev\/i\/1\?m=token/);
+});
+
+test("a loop with no stationery renders Gingham, and with some it wears the paper", () => {
+  const plain = pausedEmail({ groupName: "Friday Loop", url: "https://friendloop.dev/loop" });
+  const themed = pausedEmail({
+    groupName: "Friday Loop",
+    url: "https://friendloop.dev/loop",
+    theme: emailThemeOf({ themePreset: "meadow", themeAccent: null, headerImageUrl: null }),
+  });
+  assert.match(plain.html, /#fff3f5/);
+  assert.doesNotMatch(plain.html, /#f0f6ec/);
+  assert.match(themed.html, /#f0f6ec/);
+  assert.doesNotMatch(themed.html, /#cc3456/);
+  assert.equal(themed.text, plain.text);
+  assert.equal(themed.subject, plain.subject);
+
+  const gingham = emailThemeOf({ themePreset: "gingham", themeAccent: null, headerImageUrl: null });
+  assert.equal(pausedEmail({ groupName: "Friday Loop", url: "https://friendloop.dev/loop", theme: gingham }).html, plain.html);
+});
+
+test("a header picture sits above the brand line, decorative and escaped", () => {
+  const theme = emailThemeOf({ themePreset: null, themeAccent: null, headerImageUrl: 'https://cdn.test/a"b.png' });
+  const email = promptEmail({
+    groupName: "Friday Loop", memberName: "Dev", issueNumber: 3, questionCount: 4,
+    url: "https://friendloop.dev/answer", deadlineLabel: "Friday", theme,
+  });
+  assert.match(email.html, /<img src="https:\/\/cdn\.test\/a&quot;b\.png" alt="" width="600"/);
+  assert.ok(email.html.indexOf("<img") < email.html.indexOf("Friendloop</td>"));
+  assert.equal(
+    promptEmail({ groupName: "Friday Loop", memberName: "Dev", issueNumber: 3, questionCount: 4, url: "u", deadlineLabel: "Friday" }).html.includes("<img"),
+    false,
+  );
+});
+
+test("a named round replaces its number in the subject, headings and sentences", () => {
+  const delivery = deliveryEmail({
+    groupName: "Friday Loop", issueNumber: 2, issueName: "Camping weekend", url: "https://friendloop.dev/issue",
+    answers: [{ question: "q", author: "Dev", body: "b" }],
+  });
+  assert.equal(delivery.subject, "Friday Loop · Camping weekend");
+  assert.match(delivery.html, /<h1[^>]*>Camping weekend<\/h1>/);
+  assert.match(delivery.text, /Friday Loop · Camping weekend/);
+
+  const unnamed = deliveryEmail({
+    groupName: "Friday Loop", issueNumber: 2, url: "https://friendloop.dev/issue",
+    answers: [{ question: "q", author: "Dev", body: "b" }],
+  });
+  assert.equal(unnamed.subject, "Friday Loop · round 2");
+  assert.match(unnamed.html, /<h1[^>]*>Round 2<\/h1>/);
+
+  const prompt = promptEmail({
+    groupName: "Friday Loop", memberName: "Dev", issueNumber: 3, issueName: "Camping weekend", questionCount: 2,
+    url: "https://friendloop.dev/answer", deadlineLabel: "Friday",
+  });
+  assert.match(prompt.html, /Camping weekend is open/);
+  assert.match(prompt.text, /Friday Loop Camping weekend is open/);
+
+  const mention = mentionEmail({
+    groupName: "Friday Loop", memberName: "Dev", authorName: "Alex", issueNumber: 2, issueName: "Camping weekend",
+    excerpt: "hi", url: "https://friendloop.dev/i/1",
+  });
+  assert.match(mention.text, /a comment on Camping weekend of Friday Loop/);
 });

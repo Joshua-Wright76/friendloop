@@ -79,9 +79,13 @@ try {
     // A round that already went out, so the issue page and the archive have content.
     await tx`update groups set share_enabled = true where id = ${GROUP};`;
 
+    // Loop identity: a non-default paper, a named round, and a profile photo.
+    await tx`update groups set theme_preset = 'meadow' where id = ${GROUP};`;
+    await tx`update memberships set photo_url = '/dev-preview/avatar-alice.svg' where reply_token = 'alice-reply-token';`;
+
     const [past] = await tx`
-      insert into issues (group_id, number, slot_at, opens_at, delivers_at, status, delivered_at, share_token)
-      values (${GROUP}, 2, '2026-10-16T07:00:00Z', '2026-10-16T07:00:00Z',
+      insert into issues (group_id, number, name, slot_at, opens_at, delivers_at, status, delivered_at, share_token)
+      values (${GROUP}, 2, 'Camping weekend', '2026-10-16T07:00:00Z', '2026-10-16T07:00:00Z',
         '2026-10-23T07:00:00Z', 'delivered', '2026-10-23T07:00:00Z', 'dev-share-token')
       returning id;
     `;

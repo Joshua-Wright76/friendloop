@@ -7,6 +7,7 @@ import { bodyParts, excerpt, plainBody, type BodyPart } from "./mentions.ts";
 export type IssueComment = {
   id: string;
   author: string;
+  authorPhotoUrl: string | null;
   isYou: boolean;
   parts: BodyPart[];
   photoUrl: string | null;
@@ -21,7 +22,7 @@ export type CommentThreads = {
   /** Threads hanging from a single answer, keyed by the reply they belong to. */
   byReply: Map<string, IssueComment[]>;
   /** Everyone a comment can mention, apart from the viewer. */
-  mentionables: Array<{ id: string; name: string }>;
+  mentionables: Array<{ id: string; name: string; photoUrl: string | null }>;
 };
 
 export const QUOTE_EXCERPT = 140;
@@ -44,11 +45,13 @@ export async function loadComments(input: {
       id: memberships.id,
       name: memberships.name,
       email: memberships.email,
+      photoUrl: memberships.photoUrl,
       revokedAt: memberships.revokedAt,
     })
     .from(memberships)
     .where(eq(memberships.groupId, groupId));
   const names = new Map(people.map((person) => [person.id, displayName(person)]));
+  const photos = new Map(people.map((person) => [person.id, person.photoUrl]));
 
   const rows = await db
     .select()
@@ -70,6 +73,7 @@ export async function loadComments(input: {
     return {
       id: row.id,
       author: row.membershipId === viewerMembershipId ? copy.issue.you : (names.get(row.membershipId) ?? ""),
+      authorPhotoUrl: photos.get(row.membershipId) ?? null,
       isYou: row.membershipId === viewerMembershipId,
       parts: bodyParts(row.body, names, copy.issue.unknownMention),
       photoUrl: row.photoUrl,
@@ -99,7 +103,7 @@ export async function loadComments(input: {
   const mentionables = viewerMembershipId
     ? people
         .filter((person) => person.revokedAt === null && person.id !== viewerMembershipId)
-        .map((person) => ({ id: person.id, name: displayName(person) }))
+        .map((person) => ({ id: person.id, name: displayName(person), photoUrl: person.photoUrl }))
         .sort((a, b) => a.name.localeCompare(b.name))
     : [];
 
