@@ -31,6 +31,16 @@ const ANSWERS: AnswerBlock[] = [
     author: "Alex",
     body: "Three hours in a bookshop and I regret nothing.",
   },
+  {
+    question: "Where should we camp this summer?",
+    author: "Alex",
+    body: "Chose: The lake\nResults: The lake: 2 · The mountains: 1 · The coast: 0 · Backyard tents: 0",
+  },
+  {
+    question: "Where should we camp this summer?",
+    author: "Alice",
+    body: "Chose: The lake\nResults: The lake: 2 · The mountains: 1 · The coast: 0 · Backyard tents: 0",
+  },
 ];
 
 const SECTIONS: SectionEmailBlock[] = [

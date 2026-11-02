@@ -5,6 +5,7 @@ import { db } from "@/db";
 import { groups } from "@/db/schema";
 import { resetDatabase } from "./support/db";
 import { seedDeliveredIssue, seedLoop, seedOpenIssue } from "./support/seed";
+import { seedPoll, seedPollVote } from "./support/polls";
 import { signIn } from "./support/harness";
 
 const TAGS = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"];
@@ -47,6 +48,9 @@ test("WCAG AA · public and authentication pages", async ({ page }) => {
 test("WCAG AA · loop management, creation, and reply pages", async ({ page }) => {
   test.setTimeout(120_000);
   const loop = await seedLoop();
+  // Polls on the pool list and the reply sheet, single and multiple choice.
+  await seedPoll(loop, { text: "Where should we camp?", options: ["The lake", "The mountains", "The coast"] });
+  await seedPoll(loop, { text: "Which weekends work?", options: ["June", "July", "August"], multiple: true });
   await seedOpenIssue(loop, { openedAt: new Date("2026-10-23T07:00:00Z") });
   await signIn(page, "owner@friendloop.test");
 
@@ -140,11 +144,14 @@ test("WCAG AA · a picker keeps focus across a save that disables it", async ({ 
 test("WCAG AA · delivered and shared issues", async ({ page }) => {
   test.setTimeout(90_000);
   const loop = await seedLoop();
+  await seedPoll(loop, { text: "Where should we camp?", options: ["The lake", "The mountains", "The coast"] });
   const issue = await seedDeliveredIssue(loop, {
     deliveredAt: new Date("2026-10-30T08:00:00Z"),
     answers: [{ email: "alice@friendloop.test", body: "The cat fist bump." }],
     shareToken: "a11y-share-token",
   });
+  await seedPollVote(issue.issueId, loop.members.find((member) => member.email.startsWith("alice"))!.id, [0]);
+  await seedPollVote(issue.issueId, loop.members.find((member) => member.email.startsWith("bob"))!.id, [2]);
   await db.update(groups).set({ shareEnabled: true }).where(eq(groups.id, loop.groupId));
   const alice = loop.members.find((member) => member.email.startsWith("alice"))!;
 

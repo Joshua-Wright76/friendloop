@@ -26,6 +26,9 @@ export async function snapshotQuestionsForIssue(input: {
         text: question.text,
         position: index,
         suggestedBy: credits.get(question.id) ?? null,
+        kind: question.kind,
+        pollMultiple: question.pollMultiple,
+        pollOptions: question.pollOptions,
       })),
     );
   }

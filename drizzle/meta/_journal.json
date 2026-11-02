@@ -43,6 +43,13 @@
       "when": 1793488513924,
       "tag": "0005_slippery_tigra",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1793568646039,
+      "tag": "0006_polls",
+      "breakpoints": true
     }
   ]
 }

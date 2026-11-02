@@ -133,9 +133,17 @@ Status: `todo` (not built) · `done` (built and covered).
 | J5 | Reading and the email snapshot | The web issue renders a styled audio player; the delivery email renders a "voice note — listen on the web issue" card (email never attempts to embed audio). | done |
 | J6 | Media parity | Audio files are content-hashed and stored exactly like photos (local in dev, Blob in prod); share-link visitors can hear a shared issue's notes under the same rules as photos. | done |
 
+## L · Polls
+
+| ID | Flow | Acceptance criteria | Status |
+| --- | --- | --- | --- |
+| L1 | Author a poll | Owner adds a poll question (prompt, two to six options, single or multiple choice) from the questions tab; it appears in the pool labelled as a poll with its options, and can be reordered, archived, and rotated like any question. The next issue freezes its options. | done |
+| L2 | Answer a poll | A contributor picks one option (or several, on a multiple-choice poll) on the reply sheet and can change or clear the pick until delivery. The tally is never shown before delivery: not on the sheet, and not on the web issue, where only the viewer's own pick appears. | done |
+| L3 | Read a poll | The delivered issue shows every member's pick next to their name with a total tally; share-link visitors see the same, and the delivery email carries the picks and the results. | done |
+
 IDs are stable handles, not positions: a retired flow leaves its number out
 rather than renumbering the rest.
 
 ---
 
-**63 flows.** A flow is only `done` when its spec passes locally and in CI.
+**69 flows.** A flow is only `done` when its spec passes locally and in CI.

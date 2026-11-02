@@ -72,6 +72,9 @@ async function LoadedGroupLayout({ children, params }: Props) {
       active: questions.active,
       skipNext: questions.skipNext,
       position: questions.position,
+      kind: questions.kind,
+      pollMultiple: questions.pollMultiple,
+      pollOptions: questions.pollOptions,
     })
       .from(questions)
       .where(and(eq(questions.groupId, group.id), isNull(questions.archivedAt)))

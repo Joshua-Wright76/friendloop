@@ -8,6 +8,7 @@ import { deleteStoredPhoto } from "./photo-storage";
 import { deleteStoredAudio } from "./media-storage.ts";
 import { sectionReplies } from "@/db/schema";
 import { replyHasContentCondition } from "./reply-query";
+import { checkPollChoices } from "./poll";
 
 /** How long an unopened invitation stays good. */
 export const INVITE_DAYS = 14;
@@ -64,6 +65,8 @@ export type WriteResult =
   | { ok: true; savedAt: string }
   | { ok: false; status: 403 | 404 | 409; error: string };
 
+export type PollWriteResult = WriteResult | { ok: false; status: 400; error: string };
+
 export type PhotoWriteResult =
   | { ok: true; savedAt: string; photoUrl: string }
   | { ok: false; status: 403 | 404 | 409; error: string };
@@ -98,7 +101,16 @@ type WritableQuestion =
   | { ok: true; context: WritableContext; question: typeof issueQuestions.$inferSelect }
   | { ok: false; result: Extract<WriteResult, { ok: false }> };
 
-async function ensureWritableQuestion(token: string, issueQuestionId: string): Promise<WritableQuestion> {
+/**
+ * A written answer (text, photo, voice) and a poll pick are different shapes of
+ * the same row; each write path names the kind it accepts so a poll can never
+ * grow a photo and a written question can never hold a pick.
+ */
+async function ensureWritableQuestion(
+  token: string,
+  issueQuestionId: string,
+  kind: "written" | "poll" = "written",
+): Promise<WritableQuestion> {
   const gate = await ensureWritable(token);
   if (!gate.ok) return gate;
 
@@ -112,7 +124,7 @@ async function ensureWritableQuestion(token: string, issueQuestionId: string): P
     .from(issueQuestions)
     .where(and(eq(issueQuestions.id, issueQuestionId), eq(issueQuestions.issueId, context.issue.id)))
     .limit(1);
-  if (!question) {
+  if (!question || question.kind !== kind) {
     return { ok: false, result: { ok: false, status: 409, error: copy.reply.errors.wrongQuestion } };
   }
 
@@ -277,21 +289,10 @@ export async function saveDraftFor(input: {
   issueQuestionId: string;
   body: string;
 }): Promise<WriteResult> {
-  const gate = await ensureWritable(input.token);
+  const gate = await ensureWritableQuestion(input.token, input.issueQuestionId);
   if (!gate.ok) return gate.result;
 
-  const { context } = gate;
-  if (!context.issue) return { ok: false, status: 409, error: copy.reply.errors.nothingOpen };
-
-  const [question] = await db
-    .select()
-    .from(issueQuestions)
-    .where(
-      and(eq(issueQuestions.id, input.issueQuestionId), eq(issueQuestions.issueId, context.issue.id)),
-    )
-    .limit(1);
-  if (!question) return { ok: false, status: 409, error: copy.reply.errors.wrongQuestion };
-
+  const { context, question } = gate;
   const at = await getNow();
   const afterDelivery = context.issue.status === "delivered" || at > context.issue.deliversAt;
   const body = input.body.slice(0, 8000);
@@ -309,6 +310,46 @@ export async function saveDraftFor(input: {
     .onConflictDoUpdate({
       target: [replies.issueId, replies.issueQuestionId, replies.membershipId],
       set: { body, updatedAt: at, addedAfterDelivery: afterDelivery },
+    });
+
+  await markAccepted(context.membership.id, context.membership.acceptedAt, at);
+  return { ok: true, savedAt: at.toISOString() };
+}
+
+/**
+ * Save which options this person picked on a poll. Like text, the pick is a
+ * draft until they send the round, and it can change as often as they like; an
+ * empty pick clears it. Nothing here ever reports a tally back.
+ */
+export async function savePollChoicesFor(input: {
+  token: string;
+  issueQuestionId: string;
+  choices: unknown;
+}): Promise<PollWriteResult> {
+  const gate = await ensureWritableQuestion(input.token, input.issueQuestionId, "poll");
+  if (!gate.ok) return gate.result;
+
+  const { context, question } = gate;
+  const choices = checkPollChoices(input.choices, question.pollOptions?.length ?? 0, question.pollMultiple);
+  if (!choices) return { ok: false, status: 400, error: copy.polls.errors.choices };
+
+  const at = await getNow();
+  const afterDelivery = context.issue.status === "delivered" || at > context.issue.deliversAt;
+
+  await db
+    .insert(replies)
+    .values({
+      issueId: context.issue.id,
+      issueQuestionId: question.id,
+      membershipId: context.membership.id,
+      body: "",
+      pollChoices: choices,
+      status: "draft",
+      addedAfterDelivery: afterDelivery,
+    })
+    .onConflictDoUpdate({
+      target: [replies.issueId, replies.issueQuestionId, replies.membershipId],
+      set: { pollChoices: choices, updatedAt: at, addedAfterDelivery: afterDelivery },
     });
 
   await markAccepted(context.membership.id, context.membership.acceptedAt, at);
@@ -425,6 +466,10 @@ export async function sheetFor(token: string) {
         photoUrl: reply?.photoUrl ?? null,
         audioUrl: reply?.audioUrl ?? null,
         audioDurationMs: reply?.audioDurationMs ?? null,
+        kind: question.kind,
+        pollMultiple: question.pollMultiple,
+        pollOptions: question.pollOptions ?? [],
+        pollChoices: reply?.pollChoices ?? [],
         submitted: reply?.status === "submitted",
       };
     }),

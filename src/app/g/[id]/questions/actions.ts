@@ -6,7 +6,7 @@ import { and, asc, eq, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { groups, questions } from "@/db/schema";
 import { getNow } from "@/lib/clock";
-import { addQuestion, addQuestionTexts, archiveQuestion, reorderQuestion, toggleSkipNext } from "@/lib/manage";
+import { addPoll, addQuestion, addQuestionTexts, archiveQuestion, reorderQuestion, toggleSkipNext } from "@/lib/manage";
 import { acceptSuggestion, declineSuggestion } from "@/lib/suggestions";
 import { archiveSection, createSection, moveSection, updateSection, type SectionKind } from "@/lib/sections";
 import { viewerFor } from "@/lib/permissions";
@@ -56,6 +56,23 @@ export async function addAction(formData: FormData) {
   await addQuestion(groupId, text, await getNow());
   revalidatePath(`/g/${groupId}`, "layout");
   redirect(`/g/${groupId}/questions?added=1`);
+}
+
+export async function addPollAction(formData: FormData) {
+  const groupId = String(formData.get("groupId") ?? "");
+  await requireManager(groupId);
+
+  const result = await addPoll(
+    groupId,
+    {
+      prompt: String(formData.get("prompt") ?? ""),
+      options: formData.getAll("option").map((value) => String(value)),
+      multiple: formData.get("multiple") === "on",
+    },
+    await getNow(),
+  );
+  revalidatePath(`/g/${groupId}`, "layout");
+  redirect(`/g/${groupId}/questions?poll=${result.ok ? "added" : "invalid"}`);
 }
 
 export async function reorderQuestions(groupId: string, questionId: string, targetIndex: number): Promise<Array<{ id: string; text: string; skipNext: boolean }>> {

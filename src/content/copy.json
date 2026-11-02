@@ -1059,5 +1059,52 @@
       "notPending": "That suggestion was already handled.",
       "musicLink": "That link isn't a Spotify, Bandcamp, or Qobuz page. Paste a link to a track, album, or playlist."
     }
+  },
+  "polls": {
+    "authoring": {
+      "title": "Add a poll",
+      "description": "Ask the group to pick instead of write. Two to six options; people answer by tapping.",
+      "promptLabel": "Poll question",
+      "promptPlaceholder": "Where should we camp this summer?",
+      "optionLabel": "Option {number}",
+      "optionPlaceholder": "Something to pick",
+      "multipleLabel": "People can pick more than one",
+      "add": "Add poll",
+      "addedNotice": "Poll added.",
+      "invalidNotice": "A poll needs a question and two to six different options."
+    },
+    "errors": {
+      "prompt": "Give the poll a question, up to 200 characters.",
+      "optionCount": "A poll needs two to six different options.",
+      "optionLength": "Keep each option under 80 characters.",
+      "choices": "Pick from the options listed.",
+      "notPoll": "That question isn't a poll.",
+      "saveFailed": "That pick wasn't saved. Try again."
+    },
+    "badge": {
+      "single": "Poll · pick one",
+      "multiple": "Poll · pick any"
+    },
+    "sheet": {
+      "single": "Pick one",
+      "multiple": "Pick as many as you like",
+      "clear": "Clear my pick",
+      "saving": "Saving…",
+      "saved": "Pick saved",
+      "cleared": "Pick cleared",
+      "error": "Not saved",
+      "hidden": "Results appear when the round goes out."
+    },
+    "issue": {
+      "results": "Results",
+      "votesOne": "1 vote",
+      "votesMany": "{count} votes",
+      "chose": "Chose {choices}",
+      "tallyLabel": "{option}: {votes}"
+    },
+    "emails": {
+      "chose": "Chose: {choices}",
+      "results": "Results: {tally}"
+    }
   }
 }

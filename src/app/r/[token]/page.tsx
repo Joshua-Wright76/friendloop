@@ -100,6 +100,10 @@ export default async function ReplyPage({ params }: { params: Promise<{ token: s
         photoUrl: question.photoUrl,
         audioUrl: question.audioUrl,
         audioDurationMs: question.audioDurationMs,
+        kind: question.kind,
+        pollMultiple: question.pollMultiple,
+        pollOptions: question.pollOptions,
+        pollChoices: question.pollChoices,
         submitted: question.submitted,
       }))}
     />

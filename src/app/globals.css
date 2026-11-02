@@ -317,6 +317,12 @@ body:has(.reply-actionbar) .theme-switch { bottom: calc(92px + env(safe-area-ins
 .reply-actionbar { background: var(--card) !important; }
 .issue-question { font-size: 27px !important; }
 .answer-card { padding-top: 20px; }
+.poll-option { display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 10px 14px; border: 1.5px solid var(--control-line); border-radius: 8px; background: var(--card); cursor: pointer; transition: border-color 160ms ease, background-color 160ms ease; }
+.poll-option:has(input:checked) { border-color: var(--accent); background: var(--accent-soft); }
+.poll-option:has(input:focus-visible) { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 24%, transparent); }
+.poll-option:has(input:disabled) { cursor: not-allowed; opacity: .6; }
+.poll-bar { height: 8px; border-radius: 999px; background: var(--line); overflow: hidden; }
+.poll-bar > span { display: block; height: 100%; border-radius: inherit; background: var(--accent); }
 .sent-stamp { transform-box: fill-box; transform-origin: center; }
 .sent-stamp-animate { animation: sent-stamp-in 360ms cubic-bezier(.18,.9,.25,1.3) both; }
 

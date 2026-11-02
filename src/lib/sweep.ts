@@ -12,6 +12,8 @@ import { deliveryInstant, describeDeadline, dueSlot, type LoopSchedule } from ".
 import { sendEmail, flushOutbox } from "./email/send";
 import { sendPromptEmails } from "./notify";
 import { deliveryEmail, reminderEmail, pausedEmail, type AnswerBlock } from "./email/templates";
+import { tallyPoll } from "./poll";
+import { copy, text } from "./copy.ts";
 import { issueUrl, replyUrl, url } from "./urls";
 import { newToken } from "./tokens";
 import { snapshotQuestionsForIssue } from "./round-questions";
@@ -131,10 +133,14 @@ async function deliverDueIssues(at: Date): Promise<{ delivered: number; skipped:
     const [group] = await db.select().from(groups).where(eq(groups.id, issue.groupId)).limit(1);
     if (!group) continue;
 
-    const rows = await db
+    const allRows = await db
       .select({
+        questionId: issueQuestions.id,
         question: issueQuestions.text,
+        kind: issueQuestions.kind,
+        pollOptions: issueQuestions.pollOptions,
         position: issueQuestions.position,
+        pollChoices: replies.pollChoices,
         body: replies.body,
         photoUrl: replies.photoUrl,
         audioUrl: replies.audioUrl,
@@ -148,6 +154,9 @@ async function deliverDueIssues(at: Date): Promise<{ delivered: number; skipped:
       .innerJoin(memberships, eq(memberships.id, replies.membershipId))
       .where(and(eq(replies.issueId, issue.id), eq(replies.status, "submitted")))
       .orderBy(issueQuestions.position, memberships.createdAt);
+
+    // A poll pick someone cleared after sending is not an answer.
+    const rows = allRows.filter((row) => row.kind !== "poll" || row.pollChoices.length > 0);
 
     // Section answers are content too, but a truly empty issue stays skipped.
     const sectionRows = await db
@@ -180,7 +189,7 @@ async function deliverDueIssues(at: Date): Promise<{ delivered: number; skipped:
     const answers: AnswerBlock[] = rows.map((row) => ({
       question: row.question,
       author: row.authorName ?? row.authorEmail.split("@")[0],
-      body: row.body,
+      body: row.kind === "poll" ? pollEmailBody(row, rows) : row.body,
       photoUrl: row.photoUrl,
       audioUrl: row.audioUrl,
       audioDurationMs: row.audioDurationMs,
@@ -263,6 +272,24 @@ async function deliverDueIssues(at: Date): Promise<{ delivered: number; skipped:
   }
 
   return { delivered, skipped };
+}
+
+/** How a poll answer reads in the delivery email: the pick, then the quiet tally. */
+function pollEmailBody(
+  row: { questionId: string; pollOptions: string[] | null; pollChoices: number[] },
+  rows: Array<{ questionId: string; pollChoices: number[] }>,
+): string {
+  const options = row.pollOptions ?? [];
+  const chose = text(copy.polls.emails.chose, {
+    choices: row.pollChoices.flatMap((index) => options[index] ?? []).join(", "),
+  });
+  const tally = tallyPoll(
+    options,
+    rows.filter((other) => other.questionId === row.questionId).map((other) => other.pollChoices),
+  )
+    .map((item) => text(copy.polls.issue.tallyLabel, { option: item.option, votes: item.votes }))
+    .join(" · ");
+  return `${chose}\n${text(copy.polls.emails.results, { tally })}`;
 }
 
 async function skipIssue(input: {

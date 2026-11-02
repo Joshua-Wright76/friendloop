@@ -27,6 +27,7 @@ import {
 } from "@/lib/reply-client";
 import { removeReplySectionMedia, uploadReplySectionPhoto } from "@/lib/section-client";
 import type { SheetSection } from "@/lib/sections";
+import { PollCard, type PollCardStatus } from "./poll-card";
 
 export type SheetQuestion = {
   id: string;
@@ -36,6 +37,10 @@ export type SheetQuestion = {
   photoUrl: string | null;
   audioUrl: string | null;
   audioDurationMs: number | null;
+  kind: "written" | "poll";
+  pollMultiple: boolean;
+  pollOptions: string[];
+  pollChoices: number[];
   submitted: boolean;
 };
 
@@ -136,6 +141,11 @@ export function ReplySheet({
     () => typeof MediaRecorder !== "undefined" && Boolean(navigator.mediaDevices?.getUserMedia),
     () => false,
   );
+  const [pollPicks, setPollPicks] = useState<Record<string, number[]>>(() =>
+    Object.fromEntries(questions.map((question) => [question.id, question.pollChoices])),
+  );
+  const [pollStatuses, setPollStatuses] = useState<Record<string, PollCardStatus>>({});
+  const pollRevisions = useRef(new Map<string, number>());
   const [sent, setSent] = useState(() => questions.some((question) => question.submitted));
   const [animateSentStamp, setAnimateSentStamp] = useState(false);
   const [sending, setSending] = useState(false);
@@ -187,6 +197,14 @@ export function ReplySheet({
     )),
     [token],
   );
+  const writePoll = useMemo(
+    () => createSerialDraftWriter((questionId, encoded) => postReply(
+      token,
+      { action: "pollChoice", issueQuestionId: questionId, choices: JSON.parse(encoded) as number[] },
+      copy.polls.errors.saveFailed,
+    )),
+    [token],
+  );
   const writeSectionDraft = useMemo(
     () => createSerialDraftWriter((issueSectionId, body) => postReply(
       token,
@@ -197,11 +215,13 @@ export function ReplySheet({
   );
   const answered = useMemo(
     () => questions.filter((question) =>
-      (bodies[question.id] ?? "").trim().length > 0 ||
-      Boolean(photoUrls[question.id]) ||
-      Boolean(audioUrls[question.id]),
+      question.kind === "poll"
+        ? (pollPicks[question.id] ?? []).length > 0
+        : (bodies[question.id] ?? "").trim().length > 0 ||
+          Boolean(photoUrls[question.id]) ||
+          Boolean(audioUrls[question.id]),
     ).length,
-    [audioUrls, bodies, photoUrls, questions],
+    [audioUrls, bodies, photoUrls, pollPicks, questions],
   );
   // Section answers count toward the action bar, so a section-only round sends.
   const sectionAnswered = useMemo(
@@ -215,6 +235,11 @@ export function ReplySheet({
   const audioBusy = useMemo(
     () => Object.values(audioStates).some((state) => state === "uploading" || state === "removing"),
     [audioStates],
+  );
+  // A pick still on its way would miss the send, so the button waits for it.
+  const pollBusy = useMemo(
+    () => Object.values(pollStatuses).some((state) => state === "saving"),
+    [pollStatuses],
   );
   const photoBusy = useMemo(
     () => Object.values(photoStates).some((state) => state === "uploading" || state === "removing"),
@@ -667,6 +692,26 @@ export function ReplySheet({
     [autosize, persist],
   );
 
+  /** A tap saves straight away, in order, so the last tap always wins. */
+  const choosePoll = useCallback(
+    async (questionId: string, next: number[]) => {
+      const revision = (pollRevisions.current.get(questionId) ?? 0) + 1;
+      pollRevisions.current.set(questionId, revision);
+      setPollPicks((current) => ({ ...current, [questionId]: next }));
+      setPollStatuses((current) => ({ ...current, [questionId]: "saving" }));
+      const result = await writePoll(questionId, JSON.stringify(next));
+      if (pollRevisions.current.get(questionId) !== revision) return;
+      if (result.ok) {
+        setPollStatuses((current) => ({ ...current, [questionId]: next.length > 0 ? "saved" : "cleared" }));
+        setError(null);
+      } else {
+        setPollStatuses((current) => ({ ...current, [questionId]: "error" }));
+        setError(result.error);
+      }
+    },
+    [writePoll],
+  );
+
   const saveDisplayName = useCallback(async () => {
     const trimmed = name.trim().slice(0, MAX_DISPLAY_NAME).trim();
     if (!trimmed || trimmed === savedName.current) {
@@ -703,6 +748,8 @@ export function ReplySheet({
 
     try {
       for (const question of questions) {
+        // Poll picks save the moment they are tapped; there is no draft text to flush.
+        if (question.kind === "poll") continue;
         const body = bodies[question.id] ?? "";
         const revision = (revisions.current.get(question.id) ?? 0) + 1;
         revisions.current.set(question.id, revision);
@@ -809,6 +856,22 @@ export function ReplySheet({
 
         <div className="mt-7 flex flex-col gap-6">
           {questions.map((question, index) => {
+            if (question.kind === "poll") {
+              return (
+                <PollCard
+                  key={question.id}
+                  id={question.id}
+                  index={index}
+                  prompt={question.text}
+                  options={question.pollOptions}
+                  multiple={question.pollMultiple}
+                  picks={pollPicks[question.id] ?? []}
+                  status={pollStatuses[question.id] ?? "idle"}
+                  disabled={sending}
+                  onChange={(next) => void choosePoll(question.id, next)}
+                />
+              );
+            }
             const photoState = photoStates[question.id] ?? "idle";
             const photoUrl = photoUrls[question.id];
             const preview = photoPreviews[question.id];
@@ -1226,7 +1289,7 @@ export function ReplySheet({
           <button
             type="button"
             onClick={onSend}
-            disabled={sending || photoBusy || audioBusy || (!sent && answered === 0 && !sectionAnswered)}
+            disabled={sending || photoBusy || audioBusy || pollBusy || (!sent && answered === 0 && !sectionAnswered)}
             className="btn btn-primary"
           >
             {sending ? copy.reply.sending : sent ? copy.reply.saveChanges : copy.reply.sendAnswers}

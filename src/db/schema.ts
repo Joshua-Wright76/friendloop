@@ -20,6 +20,8 @@ export const issueStatusEnum = pgEnum("issue_status", ["open", "delivered", "ski
 export const replyStatusEnum = pgEnum("reply_status", ["draft", "submitted"]);
 /** The three kinds of recurring content area an issue can carry besides questions. */
 export const sectionKindEnum = pgEnum("section_kind", ["standard", "photo_wall", "music"]);
+/** What a pool question asks for: a written answer, or a pick from fixed options. */
+export const questionKindEnum = pgEnum("question_kind", ["written", "poll"]);
 export const outboxStatusEnum = pgEnum("outbox_status", ["pending", "sent", "failed"]);
 export const emailKindEnum = pgEnum("email_kind", [
   "signin",
@@ -136,6 +138,10 @@ export const questions = pgTable(
     /** Skipped for the next issue only; cleared once that issue opens. */
     skipNext: boolean("skip_next").default(false).notNull(),
     archivedAt: timestamp("archived_at", { withTimezone: true }),
+    /** A poll is a question whose answer is a pick from `pollOptions`. */
+    kind: questionKindEnum("kind").default("written").notNull(),
+    pollMultiple: boolean("poll_multiple").default(false).notNull(),
+    pollOptions: jsonb("poll_options").$type<string[]>(),
     createdByMembershipId: uuid("created_by_membership_id").references(() => memberships.id, {
       onDelete: "set null",
     }),
@@ -182,6 +188,10 @@ export const issueQuestions = pgTable(
     position: integer("position").default(0).notNull(),
     /** Frozen at snapshot time: the name an accepted suggestion credits, null when anonymous. */
     suggestedBy: text("suggested_by"),
+    /** A poll's shape, frozen with the text so editing the pool never rewrites a vote. */
+    kind: questionKindEnum("kind").default("written").notNull(),
+    pollMultiple: boolean("poll_multiple").default(false).notNull(),
+    pollOptions: jsonb("poll_options").$type<string[]>(),
   },
   (t) => [uniqueIndex("issue_questions_issue_question_idx").on(t.issueId, t.questionId)],
 );
@@ -234,6 +244,8 @@ export const replies = pgTable(
     /** A recorded voice note riding alongside the text and photo. */
     audioUrl: text("audio_url"),
     audioDurationMs: integer("audio_duration_ms"),
+    /** A poll answer: indexes into the snapshotted `pollOptions`. Empty on written answers. */
+    pollChoices: jsonb("poll_choices").$type<number[]>().default([]).notNull(),
     status: replyStatusEnum("status").default("draft").notNull(),
     submittedAt: timestamp("submitted_at", { withTimezone: true }),
     addedAfterDelivery: boolean("added_after_delivery").default(false).notNull(),

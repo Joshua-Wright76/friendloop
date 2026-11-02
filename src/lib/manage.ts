@@ -18,6 +18,7 @@ import { INVITE_DAYS } from "./reply";
 import { reorderIds } from "./question-order";
 import { newQuestionTexts } from "./question-packs";
 import { snapshotQuestionsForIssue } from "./round-questions";
+import { checkPoll } from "./poll";
 
 export function normalizeEmail(value: string): string {
   return value.trim().toLowerCase();
@@ -282,6 +283,38 @@ export async function addQuestion(groupId: string, text: string, at: Date) {
     .values({ groupId, text: trimmed, position: maxPosition + 1, createdAt: at })
     .returning({ id: questions.id });
   return row.id;
+}
+
+/**
+ * Add a poll to the pool. It is a question like any other, so ordering, rotation,
+ * archiving and issue snapshots all treat it the same way.
+ */
+export async function addPoll(
+  groupId: string,
+  input: { prompt: string; options: string[]; multiple: boolean },
+  at: Date,
+): Promise<{ ok: true; id: string } | { ok: false; error: string }> {
+  const checked = checkPoll(input);
+  if (!checked.ok) return checked;
+
+  const [{ maxPosition }] = await db
+    .select({ maxPosition: sql<number>`coalesce(max(${questions.position}), -1)::int` })
+    .from(questions)
+    .where(eq(questions.groupId, groupId));
+
+  const [row] = await db
+    .insert(questions)
+    .values({
+      groupId,
+      text: checked.poll.prompt,
+      kind: "poll",
+      pollMultiple: checked.poll.multiple,
+      pollOptions: checked.poll.options,
+      position: maxPosition + 1,
+      createdAt: at,
+    })
+    .returning({ id: questions.id });
+  return { ok: true, id: row.id };
 }
 
 /** Add several library questions at once, skipping any already in the pool. */

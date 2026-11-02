@@ -11,7 +11,8 @@ in-progress issues, and from the question-request flow; reactions work on
 delivered polls. `PRODUCT.md` scopes polls out of v1 — this ticket is the
 decision to add them as a question kind, not a separate object.
 
-- A poll is authored like a question: prompt text + 2–6 options, single choice.
+- A poll is authored like a question: prompt text + 2–6 options, configured per
+  poll as single choice or multiple choice (pick any number, unweighted).
 - Contributors answer by tapping; the delivered issue shows each member's
   choice (attribution identical to written answers) plus a quiet tally.
 - Polls enter the pool, rotation, and issue snapshots through the same
@@ -19,9 +20,9 @@ decision to add them as a question kind, not a separate object.
 
 | ID | Flow | Acceptance criteria | Status |
 | --- | --- | --- | --- |
-| L1 | Author a poll | Owner adds a poll question with options; it appears in the pool, can be reordered, archived, and rotated like any question. | todo |
-| L2 | Answer a poll | A contributor picks one option on the reply sheet, can change it until delivery, and the tally never reveals partial results before delivery. | todo |
-| L3 | Read a poll | The delivered issue shows every member's choice next to their name with a total tally; share-link visitors see the same. | todo |
+| L1 | Author a poll | Owner adds a poll question with options (single or multiple choice); it appears in the pool, can be reordered, archived, and rotated like any question. | done |
+| L2 | Answer a poll | A contributor picks one option (or several, on a multiple-choice poll) on the reply sheet, can change it until delivery, and the tally never reveals partial results before delivery. | done |
+| L3 | Read a poll | The delivered issue shows every member's choice next to their name with a total tally; share-link visitors see the same. | done |
 
 ## Part M · Richer comments
 
@@ -79,6 +80,15 @@ issues, comments, and the dashboard.
 
 Design notes
 
+- **Polls (shipped).** A poll is a `questions` row with `kind = 'poll'`, plus
+  `poll_multiple` and `poll_options`; `issue_questions` snapshots the same three
+  columns. A pick is `replies.poll_choices`, a JSON array of option indexes, so the
+  existing unique key, submit gate (a pick counts as content), late-reply flag and
+  reactions all apply unchanged. A separate votes table would have needed its own
+  versions of each. Results are only computed for a delivered issue; before that
+  the web issue returns the viewer's own pick and nothing else. Editing a poll in
+  the pool is not part of this ticket (archive it and add a new one); issues that
+  already went out keep their frozen options either way.
 - Themes as a token set in `theme.ts` (already exists for dark/light), stored
   per group; email templates read the same tokens so the email header matches.
 - `emailKindEnum` gains a mention-notification kind; dedupe key
@@ -88,12 +98,19 @@ Design notes
 
 ## Non-goals for this ticket
 
-Polls with multiple selections or weighted votes; comment search or editing
+Weighted votes on polls (multiple selection *is* in scope; see below); comment search or editing
 windows beyond today's behavior; fully custom fonts/colors per loop; themes on
 the sign-in surface; member-visible theme voting.
 
-## Open questions
+## Resolved decisions (2026-11)
 
-Confirm before implementation: do polls accept "pick exactly one" only (yes,
-recommended); do mentions notify readers too (recommended: yes, they can be
-mentioned in comments but still cannot suggest or reply).
+Settled with the owner before implementation:
+
+- **Polls are single-choice or multiple-choice, chosen per poll.** The original
+  recommendation was single choice only; multiple choice (pick any number, every
+  option counts once, no weighting) is in scope. This amends the non-goals above.
+- **Mentions notify readers too.** A reader can be @mentioned in a comment and
+  receives the mention email; they still cannot suggest questions or reply.
+- **Reminders stay a single reminder** (Ticket 3, Part R): a per-member preference
+  of all / last-only / none, not a 48h + 24h schedule.
+- **Shipping shape:** one PR per part, stacked, each green on `npm run verify`.

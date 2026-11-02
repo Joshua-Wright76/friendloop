@@ -10,6 +10,7 @@ import {
   replies,
 } from "@/db/schema";
 import { copy } from "./copy.ts";
+import { tallyPoll, type PollTallyRow } from "./poll.ts";
 import { musicCardFor } from "./sections";
 import { issueSections, sectionMedia, sectionReplies } from "@/db/schema";
 
@@ -21,6 +22,8 @@ export type IssueAnswer = {
   photoUrl: string | null;
   audioUrl: string | null;
   audioDurationMs: number | null;
+  /** The option texts this person picked on a poll; empty on written questions. */
+  choices: string[];
   addedLater: boolean;
   reactions: Array<{ emoji: string; count: number; mine: boolean }>;
 };
@@ -47,11 +50,20 @@ export type IssueSectionBlock = {
   replies: IssueSectionReplyBlock[];
 };
 
+export type IssuePoll = {
+  multiple: boolean;
+  /** One row per option. Null until the issue is delivered: no partial results, ever. */
+  tally: PollTallyRow[] | null;
+  /** How many people picked anything; null while the tally is hidden. */
+  voters: number | null;
+};
+
 export type IssueBlock = {
   questionId: string;
   question: string;
   /** Frozen credit from when the issue opened: the author's name, or null when anonymous. */
   suggestedBy: string | null;
+  poll: IssuePoll | null;
   answers: IssueAnswer[];
 };
 
@@ -111,7 +123,7 @@ export async function loadIssue(input: {
     .where(eq(issueQuestions.issueId, issue.id))
     .orderBy(asc(issueQuestions.position));
 
-  const rows = await db
+  const allRows = await db
     .select({
       replyId: replies.id,
       issueQuestionId: replies.issueQuestionId,
@@ -119,6 +131,7 @@ export async function loadIssue(input: {
       photoUrl: replies.photoUrl,
       audioUrl: replies.audioUrl,
       audioDurationMs: replies.audioDurationMs,
+      pollChoices: replies.pollChoices,
       addedAfterDelivery: replies.addedAfterDelivery,
       membershipId: replies.membershipId,
       name: memberships.name,
@@ -127,6 +140,16 @@ export async function loadIssue(input: {
     .from(replies)
     .innerJoin(memberships, eq(memberships.id, replies.membershipId))
     .where(and(eq(replies.issueId, issue.id), eq(replies.status, "submitted")));
+
+  // Polls keep their results back until the issue goes out: before then, the only
+  // pick anyone can see is their own. A pick cleared after sending is not an answer.
+  const delivered = issue.status === "delivered";
+  const pollIds = new Set(questions.filter((question) => question.kind === "poll").map((question) => question.id));
+  const rows = allRows.filter((row) => {
+    if (!pollIds.has(row.issueQuestionId)) return true;
+    if (row.pollChoices.length === 0) return false;
+    return delivered || row.membershipId === viewerMembershipId;
+  });
 
   const replyIds = rows.map((row) => row.replyId);
   const reactionRows = replyIds.length
@@ -137,6 +160,19 @@ export async function loadIssue(input: {
     questionId: question.id,
     question: question.text,
     suggestedBy: question.suggestedBy,
+    poll:
+      question.kind === "poll"
+        ? {
+            multiple: question.pollMultiple,
+            tally: delivered
+              ? tallyPoll(
+                  question.pollOptions ?? [],
+                  rows.filter((row) => row.issueQuestionId === question.id).map((row) => row.pollChoices),
+                )
+              : null,
+            voters: delivered ? rows.filter((row) => row.issueQuestionId === question.id).length : null,
+          }
+        : null,
     answers: rows
       .filter((row) => row.issueQuestionId === question.id)
       .map((row) => {
@@ -150,6 +186,7 @@ export async function loadIssue(input: {
           photoUrl: row.photoUrl,
           audioUrl: row.audioUrl,
           audioDurationMs: row.audioDurationMs,
+          choices: row.pollChoices.flatMap((index) => question.pollOptions?.[index] ?? []),
           addedLater: row.addedAfterDelivery,
           reactions: REACTIONS.map((emoji) => ({
             emoji,

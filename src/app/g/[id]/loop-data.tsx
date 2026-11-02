@@ -15,7 +15,7 @@ export type LoopPerson = Pick<Membership,
 >;
 
 export type LoopQuestion = Pick<typeof questions.$inferSelect,
-  "id" | "text" | "active" | "skipNext" | "position"
+  "id" | "text" | "active" | "skipNext" | "position" | "kind" | "pollMultiple" | "pollOptions"
 >;
 
 export type LoopSection = {
