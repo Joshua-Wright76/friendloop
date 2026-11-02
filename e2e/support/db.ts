@@ -19,6 +19,7 @@ function client() {
 }
 
 const TABLES = [
+  "feedback",
   "email_events",
   "outbox",
   "section_media",

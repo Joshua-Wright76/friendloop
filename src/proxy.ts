@@ -6,9 +6,9 @@ import {
 } from "@/lib/ui-preview";
 
 /**
- * The captured inbox is the one /dev page that stays locked: its emails hold
- * live sign-in links. The screens and email previews are sample data and need
- * no gate. A denial has to be a real 404 status, which a page's notFound()
+ * The captured inbox and the feedback inbox are the /dev pages that stay
+ * locked: one holds live sign-in links, the other names the people who wrote
+ * in. The screens and email previews are sample data and need no gate. A denial has to be a real 404 status, which a page's notFound()
  * cannot produce once the shared shell has started streaming.
  */
 export function proxy(request: NextRequest) {
@@ -19,5 +19,5 @@ export function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: "/dev/outbox",
+  matcher: ["/dev/outbox", "/dev/feedback"],
 };

@@ -58,6 +58,7 @@ test("Q1 · a delivered round prints as chromeless light paper with page breaks,
     await expect(page.getByRole("button", { name: "Print or save as PDF" })).toBeHidden();
     await expect(page.getByRole("link", { name: "Back to the round" })).toBeHidden();
     await expect(page.locator(".theme-switch")).toBeHidden();
+    await expect(page.locator(".feedback-button")).toBeHidden();
     await expect(page.locator(".skip-link")).toBeHidden();
 
     // Light paper, even when the screen asked for dark.

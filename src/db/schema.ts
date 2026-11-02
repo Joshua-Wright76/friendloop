@@ -478,6 +478,29 @@ export const outbox = pgTable(
   ],
 );
 
+/**
+ * A note from the corner button: a bug or an idea, in the sender's own words.
+ * Who sent it is recorded only when the request itself proved it (a session or
+ * a reply link), and `path` has any reply token stripped before it is stored.
+ */
+export const feedback = pgTable(
+  "feedback",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    message: text("message").notNull(),
+    path: text("path").notNull(),
+    userId: uuid("user_id").references(() => users.id, { onDelete: "set null" }),
+    membershipId: uuid("membership_id").references(() => memberships.id, { onDelete: "set null" }),
+    /** Who they were at the time, so the note still reads after a rename or removal. */
+    senderName: text("sender_name"),
+    senderEmail: text("sender_email"),
+    userAgent: text("user_agent"),
+    viewport: text("viewport"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [index("feedback_created_idx").on(t.createdAt)],
+);
+
 /** Deliverability signal from Resend webhooks. */
 export const emailEvents = pgTable(
   "email_events",

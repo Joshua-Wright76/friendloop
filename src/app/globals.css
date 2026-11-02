@@ -288,6 +288,33 @@ body:has(.reply-actionbar) .theme-switch { bottom: calc(92px + env(safe-area-ins
   .theme-switch-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 }
 
+.feedback-button {
+  position: fixed;
+  z-index: 60;
+  left: 16px;
+  bottom: max(16px, env(safe-area-inset-bottom));
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 14px 0 12px;
+  border: 1.5px solid var(--line-strong);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--card) 94%, transparent);
+  color: var(--ink-soft);
+  box-shadow: var(--shadow-lift);
+  font: 700 13px/1 var(--font-body);
+  cursor: pointer;
+}
+.feedback-button:hover { background: var(--accent-soft); }
+.feedback-button-icon { width: 18px; height: 18px; }
+body:has(.reply-actionbar) .feedback-button { bottom: calc(92px + env(safe-area-inset-bottom)); }
+@media (max-width: 520px) {
+  .feedback-button { left: 12px; padding: 0; width: 44px; justify-content: center; }
+  .feedback-button-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+}
+.wizard-dialog.feedback-dialog { width: min(440px, calc(100vw - 28px)); }
+
 .stitched { border-color: var(--accent-line) !important; border-bottom-width: 2px !important; border-bottom-style: dashed !important; }
 .stitched-top { border-color: var(--accent-line) !important; border-top-width: 2px !important; border-top-style: dashed !important; }
 .eyebrow { margin: 0; color: var(--ink-soft); font-family: var(--font-display); font-size: 22px; font-weight: 700; line-height: 1.15; }
@@ -488,6 +515,7 @@ body:has(.reply-actionbar) .theme-switch { bottom: calc(92px + env(safe-area-ins
   html:has(.print-sheet) { background: #fff !important; }
   html:has(.print-sheet) body::before { display: none; }
   html:has(.print-sheet) .theme-switch,
+  html:has(.print-sheet) .feedback-button,
   html:has(.print-sheet) .skip-link,
   .no-print { display: none !important; }
   .print-sheet { min-height: 0; }
