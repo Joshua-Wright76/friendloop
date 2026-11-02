@@ -5,6 +5,7 @@ import {
   postReply,
   removeReplyAudio,
   removeReplyPhoto,
+  saveReminderPreference,
   saveReplyName,
   uploadReplyAudio,
   uploadReplyPhoto,
@@ -148,6 +149,19 @@ test("saving a name posts the name action", async () => {
     } as unknown as Response;
   });
   assert.deepEqual(body, { action: "name", name: "Alice" });
+  assert.deepEqual(result, { ok: true, savedAt: "2026-01-02T08:05:00.000Z" });
+});
+
+test("saving a reminder preference posts the reminders action", async () => {
+  let body: unknown;
+  const result = await saveReminderPreference("reply-token", "none", "Could not save", async (_input, init) => {
+    body = JSON.parse(String(init?.body));
+    return {
+      ok: true,
+      json: async () => ({ ok: true, savedAt: "2026-01-02T08:05:00.000Z" }),
+    } as unknown as Response;
+  });
+  assert.deepEqual(body, { action: "reminders", preference: "none" });
   assert.deepEqual(result, { ok: true, savedAt: "2026-01-02T08:05:00.000Z" });
 });
 

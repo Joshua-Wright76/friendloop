@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { saveDraftFor, saveNameFor, savePollChoicesFor, submitFor } from "@/lib/reply";
+import { saveDraftFor, saveNameFor, saveReminderPreferenceFor, savePollChoicesFor, submitFor } from "@/lib/reply";
 import { saveSectionMusicFor, saveSectionTextFor } from "@/lib/sections";
 import { copy } from "@/lib/copy";
 
@@ -10,7 +10,7 @@ import { copy } from "@/lib/copy";
 export async function POST(request: Request, { params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
 
-  let payload: { action?: string; issueQuestionId?: string; issueSectionId?: string; choices?: unknown; body?: string; name?: string; url?: string; caption?: string };
+  let payload: { action?: string; issueQuestionId?: string; issueSectionId?: string; choices?: unknown; body?: string; name?: string; preference?: unknown; url?: string; caption?: string };
   try {
     payload = await request.json();
   } catch {
@@ -29,6 +29,13 @@ export async function POST(request: Request, { params }: { params: Promise<{ tok
       token,
       name: typeof payload.name === "string" ? payload.name : "",
     });
+    return result.ok
+      ? NextResponse.json({ ok: true, savedAt: result.savedAt })
+      : NextResponse.json({ error: result.error }, { status: result.status });
+  }
+
+  if (payload.action === "reminders") {
+    const result = await saveReminderPreferenceFor({ token, preference: payload.preference });
     return result.ok
       ? NextResponse.json({ ok: true, savedAt: result.savedAt })
       : NextResponse.json({ error: result.error }, { status: result.status });

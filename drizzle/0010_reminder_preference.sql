@@ -1,0 +1,2 @@
+CREATE TYPE "public"."reminder_preference" AS ENUM('all', 'last', 'none');--> statement-breakpoint
+ALTER TABLE "memberships" ADD COLUMN "reminder_preference" "reminder_preference" DEFAULT 'all' NOT NULL;

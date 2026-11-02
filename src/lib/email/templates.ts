@@ -257,13 +257,13 @@ export function reminderEmail(input: {
 }): RenderedEmail {
   const { groupName, memberName, url, deadlineLabel, remaining, theme } = input;
   const content = copy.emails.reminder;
-  const values = { groupName, memberName, url, deadlineLabel, remaining };
+  const values = { groupName, memberName, url, deadlineLabel, remaining, prefNote: content.prefNote };
   return {
     subject: text(content.subject, values),
     html: layout({
       preheader: text(content.preheader, values),
       heading: text(content.heading, values),
-      body: [text(remaining === 1 ? content.bodySingular : content.bodyPlural, values), content.writingNote],
+      body: [text(remaining === 1 ? content.bodySingular : content.bodyPlural, values), content.writingNote, content.prefNote],
       cta: { label: content.cta, url },
       footer: text(content.footer, values),
       theme,

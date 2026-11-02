@@ -7,6 +7,8 @@ import Link from "next/link";
 import type { Deadline } from "@/lib/schedule";
 import { LoopBanner } from "@/components/loop-theme";
 import { ProfilePhoto } from "@/components/profile-photo";
+import { ReminderPreference } from "@/components/reminder-preference";
+import type { ReminderPreference as ReminderPreferenceValue } from "@/lib/reminders";
 import { Cherries, Tape } from "@/components/stationery";
 import { issueTitle } from "@/lib/issue-name";
 import { copy, text } from "@/lib/copy";
@@ -62,6 +64,7 @@ type Props = {
   deliversAtIso: string;
   displayName: string;
   initialName: string | null;
+  reminderPreference: ReminderPreferenceValue;
   questions: SheetQuestion[];
 };
 
@@ -104,6 +107,7 @@ export function ReplySheet({
   deliversAtIso,
   displayName,
   initialName,
+  reminderPreference,
   questions,
 }: Props) {
   const [bodies, setBodies] = useState<Record<string, string>>(() =>
@@ -1290,6 +1294,8 @@ export function ReplySheet({
             </Link>
           </p>
         ) : null}
+
+        <ReminderPreference token={token} initial={reminderPreference} />
       </main>
 
       <div
