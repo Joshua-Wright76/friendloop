@@ -5,9 +5,13 @@ export async function cssVar(page: Page, name: string): Promise<string> {
   return page.evaluate((variable) => getComputedStyle(document.documentElement).getPropertyValue(variable).trim(), name);
 }
 
-/** Visit a path with the browser asking for light or dark, and wait until the app agrees. */
+/**
+ * Visit a path with the browser asking for light or dark, and wait until the app agrees.
+ * Motion is reduced too: the cards fade in over 320ms, and a contrast audit that lands
+ * mid-fade measures a blend of two colours that never appears on a settled page.
+ */
 export async function gotoScheme(page: Page, path: string, scheme: "light" | "dark"): Promise<void> {
-  await page.emulateMedia({ colorScheme: scheme });
+  await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
   await page.goto(path);
   await expect(page.locator("html")).toHaveAttribute("data-theme", scheme);
 }
