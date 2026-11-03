@@ -163,7 +163,14 @@
     "emptyTitle": "A blank page, in a good way.",
     "emptyBody": "No loops yet. Start one, or wait for an invite",
     "openLoop": "Open loop",
-    "deletedNotice": "That loop is gone."
+    "deletedNotice": "That loop is gone.",
+    "signedInAs": "Signed in as {email}",
+    "status": {
+      "open": "Round {number} closes {date} · {answered} of {writers} in",
+      "delivered": "Last issue delivered {date}",
+      "first": "First questions go out {date}",
+      "paused": "Paused"
+    }
   },
   "newLoop": {
     "pageTitle": "New loop",
