@@ -28,8 +28,10 @@ type ThreadProps = {
   /** The composer's accessible name. */
   composerLabel: string;
   placeholder: string;
-  /** Shown when there is nothing yet. */
-  empty: string;
+  /** Shown when there is nothing yet; left out where the composer says enough. */
+  empty?: string;
+  /** Put the cursor in the composer as the thread opens. */
+  focusComposer?: boolean;
 };
 
 /** A run of comments and, for members, the box to add another. */
@@ -43,6 +45,7 @@ export function CommentThread({
   composerLabel,
   placeholder,
   empty,
+  focusComposer = false,
 }: ThreadProps) {
   const [quote, setQuote] = useState<Quote | null>(null);
 
@@ -58,9 +61,9 @@ export function CommentThread({
             />
           ))}
         </div>
-      ) : (
+      ) : empty ? (
         <p className="mt-2 text-[14px] text-ink-muted">{empty}</p>
-      )}
+      ) : null}
 
       {canInteract ? (
         <CommentComposer
@@ -72,6 +75,7 @@ export function CommentThread({
           placeholder={placeholder}
           quote={quote}
           onClearQuote={() => setQuote(null)}
+          focusOnMount={focusComposer}
         />
       ) : null}
     </div>
@@ -141,6 +145,7 @@ function CommentComposer({
   placeholder,
   quote,
   onClearQuote,
+  focusOnMount,
 }: {
   issueId: string;
   viewerToken: string | null;
@@ -150,6 +155,7 @@ function CommentComposer({
   placeholder: string;
   quote: Quote | null;
   onClearQuote: () => void;
+  focusOnMount: boolean;
 }) {
   const router = useRouter();
   const [value, setValue] = useState("");
@@ -189,6 +195,11 @@ function CommentComposer({
   useEffect(() => {
     if (quote) area.current?.focus();
   }, [quote]);
+
+  // A thread opened on purpose is opened to write in.
+  useEffect(() => {
+    if (focusOnMount) area.current?.focus();
+  }, [focusOnMount]);
 
   const choose = (person: Mentionable) => {
     if (!trigger) return;

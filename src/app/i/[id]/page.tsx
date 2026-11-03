@@ -14,6 +14,7 @@ import { printHref, wantsPrint, webHref } from "@/lib/print-view";
 import { IssuePrint } from "./issue-print";
 import { ReadingControls } from "./reading-controls";
 import { applyReading, parseReading, readingPeople } from "@/lib/issue-reading";
+import { resolveToken } from "@/lib/reply";
 
 export const instant = false;
 
@@ -83,6 +84,14 @@ export default async function IssuePage({
   const arranged = applyReading(view, reading);
   const effective = { by: arranged.focus?.id ?? null, sort: reading.sort };
 
+  // A reply link edits the loop's latest round, before and after it goes out. When
+  // that round is this one and the link is the viewer's own, offer the way back.
+  const own = m && membership?.replyToken === m ? await resolveToken(m) : null;
+  const editHref = own?.state === "ok" && own.issue?.id === view.issue.id ? `/r/${m}` : null;
+  const answeredHere =
+    view.blocks.some((block) => block.answers.some((answer) => answer.isYou)) ||
+    view.sections.some((section) => section.replies.some((reply) => reply.isYou));
+
   return (
     <main className="mx-auto w-full max-w-[680px] px-4 pb-16 pt-5 sm:px-6">
       <LoopTheme preset={view.group.themePreset} accent={view.group.themeAccent} />
@@ -122,7 +131,20 @@ export default async function IssuePage({
         comments={view.comments}
         commentsEnabled={view.commentsEnabled}
         mentionables={view.mentionables}
+        editHref={editHref}
       />
+
+      {editHref ? (
+        <p className="mt-8 text-center text-[14px] text-ink-soft">
+          {copy.issue.stillOpen}{" "}
+          <Link
+            href={editHref}
+            className="inline-flex min-h-11 items-center font-bold text-ink underline decoration-line-strong underline-offset-4"
+          >
+            {answeredHere ? copy.issue.editYourAnswers : copy.issue.addYourAnswers}
+          </Link>
+        </p>
+      ) : null}
 
       {delivered ? (
         <p className="mt-8 text-center text-[14px] font-bold">

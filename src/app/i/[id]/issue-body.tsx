@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useId, useOptimistic, useState, useTransition } from "react";
 import { toggleReaction } from "./actions";
 import { CommentThread } from "./comment-thread";
@@ -24,6 +25,8 @@ type Props = {
   mentionables: Array<{ id: string; name: string }>;
   /** Reading by person: one card per author, replacing the question-by-question layout. */
   groups?: PersonGroup[] | null;
+  /** The viewer's own reply sheet, while it can still change this round. */
+  editHref?: string | null;
 };
 
 export function IssueBody({
@@ -36,13 +39,54 @@ export function IssueBody({
   commentsEnabled,
   mentionables,
   groups = null,
+  editHref = null,
 }: Props) {
-  const sectionOffset = blocks.filter((block) => block.answers.length > 0).length;
+  const answered = blocks.filter((block) => block.answers.length > 0);
+  const sectionOffset = answered.length;
+  // The contents: every card on the page, numbered as the cards are.
+  const contents: Array<{ href: string; number: number | null; label: string }> = groups
+    ? groups.map((group) => ({ href: `#person-${group.id}`, number: null, label: group.name }))
+    : [
+        ...answered.map((block, index) => ({ href: `#question-${block.questionId}`, number: index + 1, label: block.question })),
+        ...sections.map((section, index) => ({
+          href: `#section-${section.id}`,
+          number: sectionOffset + 1 + index,
+          label: `${section.emoji ? `${section.emoji} ` : ""}${section.title}`,
+        })),
+      ];
+  // One way back to the sheet, beside the viewer's first answer on the page.
+  const firstOwn = editHref
+    ? (groups
+        ? groups.flatMap((group) => group.entries.flatMap((entry) => (entry.kind === "answer" ? [entry.answer] : [])))
+        : answered.flatMap((block) => block.answers)
+      ).find((answer) => answer.isYou)?.replyId ?? null
+    : null;
   return (
     <div className="mt-8 flex flex-col gap-7">
+      {contents.length > 1 ? (
+        <nav aria-labelledby="issue-contents-heading" className="issue-contents no-print card p-4 sm:p-5">
+          <h2 id="issue-contents-heading" className="eyebrow m-0">{copy.issue.contents}</h2>
+          <ol className="m-0 mt-1 list-none p-0">
+            {contents.map((item) => (
+              <li key={item.href}>
+                <a
+                  href={item.href}
+                  className="flex min-h-11 items-center gap-3 rounded-sm py-1 text-[15px] font-bold leading-snug text-ink underline decoration-line-strong decoration-1 underline-offset-4 hover:decoration-accent"
+                >
+                  {item.number !== null ? (
+                    <span aria-hidden="true" className="question-number numeric">{item.number}</span>
+                  ) : null}
+                  <span className="min-w-0 wrap-any">{item.label}</span>
+                </a>
+              </li>
+            ))}
+          </ol>
+        </nav>
+      ) : null}
+
       {groups
         ? groups.map((group, index) => (
-            <section key={group.id} aria-label={group.name} className="card paper ride-in p-5 pt-7">
+            <section key={group.id} id={`person-${group.id}`} aria-label={group.name} className="card paper ride-in scroll-mt-6 p-5 pt-7">
               <Tape tone={(["dots", "stripe", "mint", "check"] as const)[index % 4]} position={index % 2 ? "right" : "left"} />
               <h2 className="issue-question flex items-center gap-3 text-ink">
                 <span aria-hidden="true"><Avatar name={group.name} photoUrl={group.photoUrl} /></span>
@@ -60,6 +104,7 @@ export function IssueBody({
                       commentsEnabled={commentsEnabled}
                       mentionables={mentionables}
                       questionLabel={entry.question}
+                      editHref={entry.answer.replyId === firstOwn ? editHref : null}
                     />
                   ) : (
                     <SectionReplyCard
@@ -77,7 +122,7 @@ export function IssueBody({
       {groups ? null : blocks
         .filter((block) => block.answers.length > 0)
         .map((block, index) => (
-          <section key={block.questionId} className="card paper ride-in p-5 pt-7">
+          <section key={block.questionId} id={`question-${block.questionId}`} className="card paper ride-in scroll-mt-6 p-5 pt-7">
             <Tape tone={(["dots", "stripe", "mint", "check"] as const)[index % 4]} position={index % 2 ? "right" : "left"} />
             <h2 className="issue-question flex items-start gap-3 text-ink">
               <span className="question-number mt-0.5 numeric">{index + 1}</span>
@@ -101,6 +146,7 @@ export function IssueBody({
                   answer={answer}
                   commentsEnabled={commentsEnabled}
                   mentionables={mentionables}
+                  editHref={answer.replyId === firstOwn ? editHref : null}
                 />
               ))}
             </div>
@@ -108,7 +154,7 @@ export function IssueBody({
         ))}
 
       {groups ? null : sections.map((section, sectionIndex) => (
-        <section key={section.id} className="card paper ride-in p-5 pt-7">
+        <section key={section.id} id={`section-${section.id}`} className="card paper ride-in scroll-mt-6 p-5 pt-7">
           <Tape tone={(["mint", "check", "dots", "stripe"] as const)[sectionIndex % 4]} position="left" />
           <h2 className="issue-question flex items-start gap-3 text-ink">
             <span className="question-number mt-0.5 numeric">{sectionOffset + 1 + sectionIndex}</span>
@@ -195,11 +241,14 @@ function PhotoWall({ section }: { section: IssueSectionBlock }) {
 function SectionReplyCard({ reply, label }: { reply: IssueSectionReplyBlock; label?: string }) {
   return (
     <div id={`section-reply-${reply.replyId}`} className="mt-4 scroll-mt-4 border-t border-line pt-4 first:border-t-0">
-      {label ? <h3 className="m-0 text-[15px] font-bold text-ink">{label}</h3> : null}
-      <div className={`flex items-center gap-2.5${label ? " mt-2" : ""}`}>
-        <Avatar name={reply.author} photoUrl={reply.authorPhotoUrl} />
-        <p className="m-0 text-[14px] font-extrabold text-ink-soft">{reply.author}</p>
-      </div>
+      {label ? (
+        <h3 className="m-0 text-[22px] leading-tight text-ink">{label}</h3>
+      ) : (
+        <div className="flex items-center gap-2.5">
+          <Avatar name={reply.author} photoUrl={reply.authorPhotoUrl} />
+          <p className="m-0 text-[14px] font-extrabold text-ink-soft">{reply.author}</p>
+        </div>
+      )}
       {reply.body ? (
         <p className="mt-2 whitespace-pre-wrap text-[16px] leading-relaxed text-ink">{reply.body}</p>
       ) : null}
@@ -238,6 +287,18 @@ function SectionReplyCard({ reply, label }: { reply: IssueSectionReplyBlock; lab
   );
 }
 
+/** Back to the viewer's own reply sheet, beside their name. */
+function EditLink({ href }: { href: string }) {
+  return (
+    <Link
+      href={href}
+      className="ml-auto inline-flex min-h-11 items-center text-[13px] font-bold text-accent-ink underline decoration-line-strong underline-offset-4"
+    >
+      {copy.issue.editYourAnswers}
+    </Link>
+  );
+}
+
 /** The quiet tally under a delivered poll: each option, how many picked it, a thin bar. */
 function PollResults({ poll }: { poll: IssuePoll }) {
   const voters = poll.voters ?? 0;
@@ -271,6 +332,7 @@ function AnswerCard({
   commentsEnabled,
   mentionables,
   questionLabel,
+  editHref = null,
 }: {
   issueId: string;
   viewerToken: string | null;
@@ -280,6 +342,8 @@ function AnswerCard({
   mentionables: Array<{ id: string; name: string }>;
   /** Set when reading by person, where the question is no longer the heading above. */
   questionLabel?: string;
+  /** Set on the viewer's own answer while it can still change. */
+  editHref?: string | null;
 }) {
   const [pending, startTransition] = useTransition();
   const [threadOpen, setThreadOpen] = useState(false);
@@ -302,11 +366,17 @@ function AnswerCard({
 
   return (
     <article id={`answer-${answer.replyId}`} className="answer-card mt-4 scroll-mt-4 border-t border-line pt-4 first:border-t-0">
-      {questionLabel ? <h3 className="m-0 mb-2 text-[15px] font-bold text-ink">{questionLabel}</h3> : null}
-      <div className="flex items-center gap-2.5">
-        <Avatar name={answer.author} photoUrl={answer.authorPhotoUrl} />
-        <p className="m-0 text-[14px] font-extrabold text-ink-soft">{answer.author}</p>
-      </div>
+      {questionLabel ? (
+        // Reading by person: the card is already theirs, so the question leads and the byline would only repeat.
+        <h3 className="m-0 text-[22px] leading-tight text-ink">{questionLabel}</h3>
+      ) : (
+        <div className="flex flex-wrap items-center gap-x-2.5">
+          <Avatar name={answer.author} photoUrl={answer.authorPhotoUrl} />
+          <p className="m-0 text-[14px] font-extrabold text-ink-soft">{answer.author}</p>
+          {editHref ? <EditLink href={editHref} /> : null}
+        </div>
+      )}
+      {questionLabel && editHref ? <EditLink href={editHref} /> : null}
       {answer.choices.length > 0 ? (
         <ul className="mt-2 flex flex-wrap gap-1.5" aria-label={text(copy.polls.issue.chose, { choices: answer.choices.join(", ") })}>
           {answer.choices.map((choice) => (
@@ -330,7 +400,7 @@ function AnswerCard({
         <figure className="mt-3">
           <audio
             controls
-            preload="none"
+            preload="metadata"
             src={answer.audioUrl}
             aria-label={text(copy.issue.voiceLabel, { duration: formatAudioDuration(answer.audioDurationMs ?? 0) })}
             className="w-full"
@@ -418,7 +488,7 @@ function AnswerCard({
                 canInteract={canInteract}
                 composerLabel={text(copy.issue.threadComposerLabel, { owner })}
                 placeholder={copy.issue.commentPlaceholder}
-                empty={copy.issue.threadEmpty}
+                focusComposer
               />
             </div>
           ) : null}
