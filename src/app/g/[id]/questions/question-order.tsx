@@ -25,6 +25,13 @@ export function QuestionOrder({ groupId, questions: initial }: { groupId: string
   // Where keyboard focus should land if the control it was on is moved.
   const refocus = useRef<{ id: string; control: string } | null>(null);
 
+  // A live message is spoken once; leaving it in the page would be read again in browse mode, long after it is true.
+  useEffect(() => {
+    if (!announcement) return;
+    const timer = setTimeout(() => setAnnouncement(""), 3000);
+    return () => clearTimeout(timer);
+  }, [announcement]);
+
   useEffect(() => {
     if (movingId) dialog.current?.showModal();
     else if (dialog.current?.open) dialog.current.close();
