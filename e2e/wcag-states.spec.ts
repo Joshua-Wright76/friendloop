@@ -105,7 +105,7 @@ test("WCAG AA states · pickers keep a visible focus on every option", async ({ 
     await page.getByRole("button", { name: /^Timezone:/ }).click();
     const listbox = page.getByRole("listbox").first();
     await expect(listbox).toBeVisible();
-    out.push(...(await axeProblems(page, `picker ${label}`)));
+    out.push(...(await axeProblems(page, `picker ${label}`, ".picker-popover")));
     out.push(...(await focusedProblems(page, `picker search ${label}`)));
     for (let i = 0; i < 3; i += 1) {
       await page.keyboard.press("ArrowDown");

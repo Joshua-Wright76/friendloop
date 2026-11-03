@@ -52,13 +52,12 @@ function describeNodes(nodes: AxeNode[]): string {
     .join(" | ");
 }
 
-export async function axeProblems(page: Page, label: string): Promise<Problems> {
+export async function axeProblems(page: Page, label: string, scope?: string): Promise<Problems> {
   // ignorePseudo: a 1.5px decorative ::before line (the margin rule on `.paper` cards) must not make axe give
   // up on every text node near it; the contrast is then really measured.
-  const result = await new AxeBuilder({ page })
-    .withTags([...AXE_TAGS, "best-practice"])
-    .options(IGNORE_PSEUDO)
-    .analyze();
+  // `scope` narrows the audit to one widget (an open popup legitimately overlaps the page behind it).
+  const builder = new AxeBuilder({ page }).withTags([...AXE_TAGS, "best-practice"]).options(IGNORE_PSEUDO);
+  const result = await (scope ? builder.include(scope) : builder).analyze();
   const out: Problems = [];
   for (const violation of result.violations) {
     const wcag = violation.tags.some((tag) => AXE_TAGS.includes(tag));

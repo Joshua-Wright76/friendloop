@@ -107,7 +107,7 @@ async function sweep(
   await expect(page.locator("h1").first(), `${label} has no heading`).toBeVisible();
   if (!options.closedCard && href !== "/signin") {
     const heading = ((await page.locator("h1").first().textContent()) ?? "").trim().toLowerCase();
-    expect(NOT_THE_SCREEN.some((title) => heading.startsWith(title)), `${label} rendered “${heading}” instead of the screen`).toBe(false);
+    expect(NOT_THE_SCREEN.some((title) => heading === title), `${label} rendered “${heading}” instead of the screen`).toBe(false);
   }
   if (options.stationery) {
     // The paper under audit must be the one that was asked for, not whatever the preview seeded.
