@@ -11,7 +11,7 @@ import {
 import { copy } from "./copy.ts";
 import { loadComments, type IssueComment } from "./comment-view.ts";
 import { tallyPoll, type PollTallyRow } from "./poll.ts";
-import { musicCardFor } from "./sections";
+import { musicCardFor, type MusicCard, type MusicProvider, type MusicTrack } from "./sections";
 import { issueSections, sectionMedia, sectionReplies } from "@/db/schema";
 
 export type IssueAnswer = {
@@ -46,6 +46,8 @@ export type IssueSectionReplyBlock = {
   linkProvider: string | null;
   linkTitle: string | null;
   linkArtwork: string | null;
+  linkTracks: MusicTrack[];
+  linkTrackCount: number;
   addedLater: boolean;
   media: Array<{ url: string; caption: string | null }>;
 };
@@ -259,10 +261,10 @@ export async function loadIssue(input: {
         .orderBy(asc(sectionMedia.position))
     : [];
 
-  const musicCards = new Map<string, { title: string; artworkUrl: string | null }>();
+  const musicCards = new Map<string, MusicCard>();
   for (const row of sectionReplyRows) {
     if (row.linkUrl && row.linkProvider) {
-      const provider = row.linkProvider as "spotify" | "bandcamp" | "qobuz";
+      const provider = row.linkProvider as MusicProvider;
       musicCards.set(row.linkUrl, await musicCardFor(provider, row.linkUrl));
     }
   }
@@ -290,6 +292,8 @@ export async function loadIssue(input: {
           linkProvider: row.linkProvider,
           linkTitle: card?.title ?? null,
           linkArtwork: card?.artworkUrl ?? null,
+          linkTracks: card?.tracks ?? [],
+          linkTrackCount: card?.trackCount ?? 0,
           addedLater: row.addedAfterDelivery,
           media: sectionMediaRows
             .filter((item) => item.sectionReplyId === row.replyId)

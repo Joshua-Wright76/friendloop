@@ -145,6 +145,13 @@ export function IssuePrint({
                         <p className="print-card-title">{reply.linkTitle ?? reply.linkUrl}</p>
                         <p className="print-card-meta capitalize">{reply.linkProvider}</p>
                         <p className="print-card-link">{reply.linkUrl}</p>
+                        {reply.linkTrackCount > 1 && reply.linkTracks.length > 0 ? (
+                          <ol className="print-card-tracks">
+                            {reply.linkTracks.slice(0, 5).map((track, index) => (
+                              <li key={`${index}-${track.title}`}>{track.title}</li>
+                            ))}
+                          </ol>
+                        ) : null}
                       </div>
                     ) : null}
                     {reply.media.map((item) => (
