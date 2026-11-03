@@ -64,4 +64,26 @@ test("K4 · a photo wall takes several photos with captions", async ({ page }) =
   await page.goto(`/i/${issue.id}?m=${alice.token}`);
   await expect(page.getByText("The whole table")).toBeVisible();
   await expect(page.getByText("The leftovers")).toBeVisible();
+
+  // Tapping a photo opens it full size, with the others a step away and a download.
+  const first = page.getByRole("button", { name: /Open photo from .*: The whole table/ });
+  await first.click();
+  const viewer = page.getByRole("dialog", { name: "Photo viewer" });
+  await expect(viewer).toBeVisible();
+  await expect(viewer.getByText("Photo 1 of 2")).toBeVisible();
+  await expect(viewer.getByText("The whole table")).toBeVisible();
+  const download = viewer.getByRole("link", { name: "Download" });
+  await expect(download).toHaveAttribute("download", /^friendloop-.+-1\.png$/);
+  const [media] = await rows<{ url: string }>("select url from section_media order by position limit 1");
+  await expect(download).toHaveAttribute("href", media.url);
+  // Same-origin uploads honour the attribute, so the click really saves a file.
+  const [file] = await Promise.all([page.waitForEvent("download"), download.click()]);
+  expect(file.suggestedFilename()).toMatch(/^friendloop-.+-1\.png$/);
+
+  await page.keyboard.press("ArrowRight");
+  await expect(viewer.getByText("Photo 2 of 2")).toBeVisible();
+  await expect(viewer.getByText("The leftovers")).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(viewer).toBeHidden();
+  await expect(first).toBeFocused();
 });

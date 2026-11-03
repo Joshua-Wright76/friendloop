@@ -27,9 +27,10 @@ export default function OverviewTab({ welcome, nudged }: { welcome?: string; nud
       </header>
       <LoopNav id={group.id} active="Overview" isOwner={isOwner} />
 
-      {welcome === "1" ? (
+      {welcome === "1" || welcome === "no-picture" ? (
         <div role="status" className="notice settle mb-5 border bg-accent-soft px-4 py-3 text-[14px] leading-relaxed">
           {copy.loop.welcome}
+          {welcome === "no-picture" ? ` ${copy.loop.welcomeNoPicture}` : ""}
         </div>
       ) : null}
 

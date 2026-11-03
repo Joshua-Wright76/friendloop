@@ -10,7 +10,8 @@ import {
   type Mentionable,
 } from "@/lib/mention-picker";
 import type { MentionPick } from "@/lib/mentions";
-import { MAX_PHOTO_BYTES, PHOTO_ACCEPT } from "@/lib/photo-validation";
+import { PHOTO_ACCEPT } from "@/lib/photo-validation";
+import { PHOTO_TARGET, prepareImage } from "@/components/prepare-image";
 import { Avatar } from "@/components/avatar";
 import { copy, text } from "@/lib/copy";
 
@@ -155,6 +156,9 @@ function CommentComposer({
   const [caret, setCaret] = useState(0);
   const [picks, setPicks] = useState<MentionPick[]>([]);
   const [photo, setPhoto] = useState<File | null>(null);
+  // While a picked photo is being shrunk, Post and the picker wait: otherwise the
+  // comment could go without it, and the photo would turn up on the next one.
+  const [preparing, setPreparing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   // One id per comment being written: sending it twice is still one comment.
@@ -194,6 +198,7 @@ function CommentComposer({
   };
 
   const submit = () => {
+    if (preparing) return;
     const body = value.trim();
     if (!body && !photo) {
       setError(copy.issue.writeFirst);
@@ -245,17 +250,19 @@ function CommentComposer({
     }
   };
 
-  const onPickPhoto = (file: File | undefined) => {
-    if (!file) return;
-    if (file.size > MAX_PHOTO_BYTES) {
-      setError(copy.issue.errors.photoTooLarge);
-    } else if (!PHOTO_ACCEPT.split(",").includes(file.type)) {
-      setError(copy.issue.errors.photoInvalid);
-    } else {
-      setPhoto(file);
-      setError(null);
-    }
+  const onPickPhoto = async (picked: File | undefined) => {
     if (files.current) files.current.value = "";
+    if (!picked) return;
+    // Camera-roll photos are shrunk here rather than refused for their size.
+    setPreparing(true);
+    const prepared = await prepareImage(picked, PHOTO_TARGET);
+    setPreparing(false);
+    if (!prepared.ok) {
+      setError(copy.issue.errors.photoUnreadable);
+      return;
+    }
+    setPhoto(prepared.file);
+    setError(null);
   };
 
   return (
@@ -339,13 +346,13 @@ function CommentComposer({
             type="file"
             accept={PHOTO_ACCEPT}
             hidden
-            onChange={(event) => onPickPhoto(event.target.files?.[0])}
+            onChange={(event) => void onPickPhoto(event.target.files?.[0])}
           />
-          <button type="button" className="btn btn-quiet" onClick={() => files.current?.click()}>
-            {copy.issue.addPhoto}
+          <button type="button" className="btn btn-quiet" disabled={preparing || pending} onClick={() => files.current?.click()}>
+            {preparing ? copy.issue.preparingPhoto : copy.issue.addPhoto}
           </button>
         </div>
-        <button type="submit" disabled={pending} className="btn btn-primary">
+        <button type="submit" disabled={pending || preparing} className="btn btn-primary">
           {pending ? copy.issue.posting : copy.issue.post}
         </button>
       </div>

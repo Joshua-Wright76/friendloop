@@ -2,6 +2,7 @@ import { test, expect } from "@playwright/test";
 import { resetDatabase, rows } from "../support/db";
 import { signIn } from "../support/harness";
 import { chooseFile, seedWorld } from "../support/identity";
+import { seedLoop } from "../support/seed";
 import { TINY_PNG } from "../support/comments";
 
 test.beforeEach(async () => {
@@ -43,6 +44,28 @@ test("N5 · a contributor sets a photo on their reply sheet and it follows their
   await expect(page.locator(".avatar img")).toHaveCount(0);
 });
 
+test("N5 · an invitee can set a photo straight from the link, before any round is open and as a reader", async ({ page }) => {
+  // A brand-new loop has no open round, so the invitation lands on the quiet page.
+  const loop = await seedLoop();
+  const alice = loop.members.find((member) => member.email.startsWith("alice"))!;
+  await page.goto(`/r/${alice.token}`);
+  await expect(page.getByRole("heading", { name: "Nothing open right now" })).toBeVisible();
+  await chooseFile(page, "Choose a photo of yourself", { name: "me.png", mimeType: "image/png", buffer: TINY_PNG });
+  await expect(page.getByText("Photo saved.")).toBeVisible();
+  const url = await photoOf("alice@friendloop.test", loop.groupId);
+  expect(url).toMatch(/\/uploads\/[a-f0-9]{64}\.png$/);
+  await page.reload();
+  await expect(page.locator(`.avatar img[src="${url}"]`)).toBeVisible();
+
+  // A reader's invitation lands on the reader page, with the same control.
+  await rows("update memberships set participation = 'reader', photo_url = null where id = $1", [alice.id]);
+  await page.goto(`/r/${alice.token}`);
+  await expect(page.getByRole("heading", { name: /You're a reader/ })).toBeVisible();
+  await chooseFile(page, "Choose a photo of yourself", { name: "me.png", mimeType: "image/png", buffer: TINY_PNG });
+  await expect(page.getByText("Photo saved.")).toBeVisible();
+  expect(await photoOf("alice@friendloop.test", loop.groupId)).toMatch(/\/uploads\//);
+});
+
 test("N5 · a signed-in member sets their own photo on the people page, and nobody else's", async ({ page }) => {
   const { loop } = await seedWorld();
   await signIn(page, "owner@friendloop.test");
@@ -57,9 +80,9 @@ test("N5 · a signed-in member sets their own photo on the people page, and nobo
   await expect(page.locator(`.avatar img[src="${url}"]`)).toHaveCount(2);
   expect(await photoOf("alice@friendloop.test", loop.groupId)).toBeNull();
 
-  // Too large for a profile photo (2 MB), and not an image.
+  // Bytes that are not a picture (a real oversize photo is shrunk: see T1).
   await chooseFile(page, "Choose a photo of yourself", { name: "big.png", mimeType: "image/png", buffer: Buffer.alloc(2 * 1024 * 1024 + 1) }, mine);
-  await expect(mine.getByText("That photo is over 2 MB. Try a smaller one.")).toBeVisible();
+  await expect(mine.getByText("We couldn't read that picture.")).toBeVisible();
   expect(await photoOf("owner@friendloop.test", loop.groupId)).toBe(url);
 });
 
@@ -72,9 +95,15 @@ test("N5 · the photo routes answer only the person they belong to", async ({ re
   expect((await request.post(`/api/loop/${loop.groupId}/profile-photo`, form)).status()).toBe(403);
   expect((await request.delete(`/api/loop/${loop.groupId}/profile-photo`)).status()).toBe(403);
 
-  // A reader's link opens no sheet, so it sets no photo either.
+  // A reader's link opens no sheet, but the photo is still theirs: it rides on their comments.
   await rows("update memberships set participation = 'reader' where id = $1", [alice.id]);
+  expect((await request.post(`/api/reply/${alice.token}/profile-photo`, form)).status()).toBe(200);
+  await rows("update memberships set photo_url = null where id = $1", [alice.id]);
+  expect((await request.delete(`/api/reply/${alice.token}/profile-photo`)).status()).toBe(200);
+  // An expired, never-opened invitation sets nothing.
+  await rows("update memberships set accepted_at = null, invited_at = now() - interval '30 days' where id = $1", [alice.id]);
   expect((await request.post(`/api/reply/${alice.token}/profile-photo`, form)).status()).toBe(403);
+  await rows("update memberships set accepted_at = now(), invited_at = now() where id = $1", [alice.id]);
 
   // A real contributor with no file, or a file that is not an image, is told so plainly.
   await rows("update memberships set participation = 'contributor' where id = $1", [alice.id]);

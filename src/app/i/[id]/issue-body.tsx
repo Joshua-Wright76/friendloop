@@ -8,6 +8,7 @@ import type { IssueComment } from "@/lib/comment-view";
 import type { IssueAnswer, IssueBlock, IssuePoll, IssueSectionBlock, IssueSectionReplyBlock } from "@/lib/issue-view";
 import type { PersonGroup } from "@/lib/issue-reading";
 import { Avatar } from "@/components/avatar";
+import { PhotoLightbox, useLightbox, type LightboxPhoto } from "@/components/photo-lightbox";
 import { Tape } from "@/components/stationery";
 import { copy, text } from "@/lib/copy";
 
@@ -119,21 +120,7 @@ export function IssueBody({
           ) : null}
           <div className="mt-3">
             {section.kind === "photo_wall" ? (
-              <div className="grid grid-cols-2 gap-2">
-                {section.replies.flatMap((reply) =>
-                  reply.media.map((item, mediaIndex) => (
-                    <figure key={item.url} id={mediaIndex === 0 ? `section-reply-${reply.replyId}` : undefined} className="m-0 scroll-mt-4">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={item.url} alt={item.caption ?? ""} className="w-full rounded-lg border border-line object-cover" />
-                      {item.caption ? (
-                        <figcaption className="mt-1 text-[12.5px] leading-snug text-ink-soft">
-                          <span className="font-bold">{reply.author}</span> — {item.caption}
-                        </figcaption>
-                      ) : null}
-                    </figure>
-                  )),
-                )}
-              </div>
+              <PhotoWall section={section} />
             ) : (
               section.replies.map((reply) => <SectionReplyCard key={reply.replyId} reply={reply} />)
             )}
@@ -161,6 +148,46 @@ export function IssueBody({
         </section>
       ) : null}
     </div>
+  );
+}
+
+/** A photo wall laid edge to edge; tapping a photo opens it full size, with a download. */
+function PhotoWall({ section }: { section: IssueSectionBlock }) {
+  const lightbox = useLightbox();
+  const tiles = section.replies.flatMap((reply) =>
+    reply.media.map((item, mediaIndex) => ({ reply, item, first: mediaIndex === 0 })),
+  );
+  const photos: LightboxPhoto[] = tiles.map(({ reply, item }) => ({
+    url: item.url,
+    author: reply.author,
+    caption: item.caption,
+    context: section.title,
+  }));
+
+  return (
+    <>
+      <div className="grid grid-cols-2 gap-2">
+        {tiles.map(({ reply, item, first }, index) => (
+          <figure key={item.url} id={first ? `section-reply-${reply.replyId}` : undefined} className="m-0 scroll-mt-4">
+            <button
+              type="button"
+              className="photo-wall-tile"
+              aria-label={text(copy.album.openPhoto, { author: reply.author, about: item.caption || section.title })}
+              onClick={(event) => lightbox.open(index, event.currentTarget)}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={item.url} alt="" className="w-full rounded-lg border border-line object-cover" />
+            </button>
+            {item.caption ? (
+              <figcaption className="mt-1 text-[12.5px] leading-snug text-ink-soft">
+                <span className="font-bold">{reply.author}</span> — {item.caption}
+              </figcaption>
+            ) : null}
+          </figure>
+        ))}
+      </div>
+      <PhotoLightbox photos={photos} state={lightbox} />
+    </>
   );
 }
 

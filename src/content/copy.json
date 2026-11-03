@@ -166,6 +166,7 @@
       "day": "Choose a weekday for each round.",
       "hour": "Choose a local hour for each round.",
       "noQuestions": "Pick or write at least one question before creating your loop.",
+      "theme": "That paper or accent colour wasn't recognised. Pick one again and create your loop.",
       "email": "Check the email address and try again.",
       "section": "Add a title and a prompt for this section."
     },
@@ -198,6 +199,7 @@
       "nextAriaLabel": "Next, continue to the next setup step",
       "steps": [
         "Name and rhythm",
+        "Paper and picture",
         "Choose questions",
         "Add prompts",
         "Add readers",
@@ -258,6 +260,12 @@
         "closeQuestion": "Close question editor",
         "empty": "No questions selected yet. You can add a question here or choose a prompt on the next step.",
         "questionCount": "{count} questions"
+      },
+      "look": {
+        "title": "Choose its paper and picture",
+        "description": "Optional. Pick the stationery your loop is written on and a header picture. You can change both later in the settings.",
+        "pictureChosen": "Picture ready. It's added when you create the loop.",
+        "picturePreparing": "Preparing picture…"
       },
       "sections": {
         "title": "Add a few prompts",
@@ -557,6 +565,7 @@
     "resume": "Resume",
     "pause": "Pause",
     "welcome": "Loop created. Invite a couple of people and the first round will go out on schedule.",
+    "welcomeNoPicture": "The header picture didn't save, so add it again from the settings.",
     "round": "Round {number}",
     "progress": "{answered} of {writers} in",
     "waitingTitle": "Waiting on",
@@ -770,6 +779,13 @@
     "closes": "Closes {deadline}",
     "viewerTimezone": "({time} where you are)",
     "sent": "Sent. You can change these until {deadline}.",
+    "confirmation": {
+      "sentTitle": "Sent!",
+      "updatedTitle": "Changes sent!",
+      "body": "Your answers are in for {round}.",
+      "delivery": "It goes out to everyone {deadline}. Until then, you can change anything.",
+      "edit": "Edit my answers"
+    },
     "placeholder": "Write a little or a lot",
     "saving": "Saving…",
     "saved": "Saved",
@@ -779,7 +795,7 @@
     "replacePhoto": "Replace photo",
     "removePhoto": "Remove photo",
     "photoPreview": "Photo answer preview",
-    "photoFormats": "JPEG, PNG, WebP, or GIF · up to 5 MB",
+    "photoFormats": "JPEG, PNG, WebP, or GIF · big photos are resized for you",
     "photoUploading": "Uploading photo…",
     "photoSaved": "Photo saved",
     "photoRemoving": "Removing photo…",
@@ -805,8 +821,9 @@
       "unknownAction": "Unknown action.",
       "missingPhoto": "Choose a photo to upload.",
       "invalidPhoto": "Choose a JPEG, PNG, WebP, or GIF image.",
-      "photoTooLarge": "Photos must be 5 MB or smaller.",
+      "photoTooLarge": "Photos must be 4 MB or smaller.",
       "photoUploadFailed": "We couldn't upload that photo. Try again.",
+      "photoUnreadable": "We couldn't read that photo. Try a JPEG or PNG.",
       "photoRemoveFailed": "We couldn't remove that photo. Try again.",
       "invalidLink": "This link no longer works.",
       "expired": "This invitation has expired, ask for a new link.",
@@ -851,7 +868,11 @@
     "voiceTooLong": "Voice notes run up to 3 minutes. Try recording a shorter one.",
     "voiceTooLarge": "That recording is too big. A 3-minute note fits easily, so try again.",
     "voicePick": "Choose an audio file",
-    "voiceNoRecorder": "This browser can't record here — you can attach an audio file instead.",
+    "voiceNoRecorder": "This browser can't record here. If you opened the link inside another app, open it in Safari or Chrome instead — or attach an audio file.",
+    "voiceInsecure": "Recording only works on a secure (https) page, and this one isn't. You can attach an audio file instead.",
+    "voiceBlocked": "This browser is blocking the microphone for this page. Allow it in the site settings and try again, or attach an audio file instead.",
+    "voiceNoMic": "We couldn't find a microphone. You can attach an audio file instead.",
+    "voiceMicBusy": "Another app is using the microphone. Close it and try again, or attach an audio file instead.",
     "voiceDurationLabel": "Voice note, {duration}",
     "voiceFormats": "m4a, mp3, webm, or ogg, up to 3 minutes.",
     "sectionsHeading": "And a little extra",
@@ -869,6 +890,7 @@
     "sectionPhotoCaptionPlaceholder": "What's in this photo?",
     "sectionUploading": "Uploading…",
     "sectionUploaded": "Photo added.",
+    "sectionUploading": "Adding photo…",
     "sectionRemoved": "Photo removed.",
     "sectionErrors": {
       "json": "Expected a JSON body.",
@@ -876,8 +898,9 @@
       "unknownAction": "Unknown action.",
       "missingPhoto": "Choose a photo to upload.",
       "invalidPhoto": "Choose a JPEG, PNG, WebP, or GIF image.",
-      "photoTooLarge": "Photos must be 5 MB or smaller.",
+      "photoTooLarge": "Photos must be 4 MB or smaller.",
       "photoUploadFailed": "We couldn't upload that photo. Try again.",
+      "photoUnreadable": "We couldn't read that photo. Try a JPEG or PNG.",
       "photoRemoveFailed": "We couldn't remove that photo. Try again.",
       "invalidLink": "This link no longer works.",
       "expired": "This invitation has expired, ask for a new link.",
@@ -932,8 +955,9 @@
       "commentsOff": "Comments are turned off for this loop.",
       "answerGone": "That answer isn't there to comment on.",
       "quoteGone": "The comment you were answering has been removed.",
-      "photoTooLarge": "That photo is over 5 MB. Try a smaller one.",
+      "photoTooLarge": "That photo is over 4 MB. Try a smaller one.",
       "photoInvalid": "Use a JPEG, PNG, WebP or GIF photo.",
+      "photoUnreadable": "We couldn't read that photo. Try a JPEG or PNG.",
       "photoFailed": "The photo didn't make it. Try again?",
       "invalidRequest": "That didn't go through. Try again?"
     },
@@ -954,6 +978,7 @@
     "quoteRemoved": "A comment that has since been removed.",
     "quoteBy": "{author} wrote",
     "addPhoto": "Add a photo",
+    "preparingPhoto": "Preparing photo…",
     "removePhoto": "Remove photo",
     "photoChosen": "Photo: {name}",
     "commentPhotoAlt": "Photo from {author}'s comment",
@@ -1216,6 +1241,7 @@
     "errors": {
       "invalidImage": "Use a JPEG, PNG, WebP or GIF picture.",
       "avatarTooLarge": "That photo is over 2 MB. Try a smaller one.",
+      "unreadable": "We couldn't read that picture. Try a JPEG or PNG.",
       "avatarFailed": "That photo didn't save. Try again in a moment.",
       "bannerTooLarge": "That picture is over 4 MB. Try a smaller one.",
       "bannerFailed": "That picture didn't save. Try again in a moment.",
@@ -1269,7 +1295,7 @@
     "accentInvalid": "Use a hex code like #3366cc.",
     "adjusted": "That accent was a little hard to read, so we nudged it. Here is what everyone will see.",
     "headerLegend": "Header picture",
-    "headerHint": "Sits above the loop's pages and emails. A wide picture works best, up to 4 MB.",
+    "headerHint": "Sits above the loop's pages and emails. A wide picture works best. Big photos are resized for you.",
     "headerInput": "Choose a header picture",
     "headerUpload": "Choose a picture",
     "headerReplace": "Replace picture",
@@ -1360,7 +1386,8 @@
       "close": "Close",
       "previous": "Previous photo",
       "next": "Next photo",
-      "position": "Photo {current} of {total}"
+      "position": "Photo {current} of {total}",
+      "download": "Download"
     },
     "linkLabel": "Album",
     "issueLink": "See the album"

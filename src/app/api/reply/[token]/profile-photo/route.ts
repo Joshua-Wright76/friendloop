@@ -6,10 +6,14 @@ import { imageFromRequest } from "../../../image-form";
 
 type RouteContext = { params: Promise<{ token: string }> };
 
-/** The reply link is the credential: only the contributor it belongs to can set their own photo. */
+/**
+ * The reply link is the credential: only the person it belongs to can set their
+ * own photo. Readers have one too (their comments carry it), even though their
+ * link opens no sheet.
+ */
 async function contributorFor(token: string) {
   const context = await resolveToken(token);
-  return context.state === "ok" ? context.membership : null;
+  return context.state === "ok" || context.state === "reader" ? context.membership : null;
 }
 
 export async function POST(request: Request, { params }: RouteContext) {

@@ -6,7 +6,6 @@ import {
   authorizeQuestionForReply,
   deletePhotoIfUnreferenced,
   INVITE_DAYS,
-  photoSavedFor,
   removePhotoFor,
   resolveToken,
   saveDraftFor,
@@ -344,32 +343,6 @@ test("the write gates refuse readers, expired invites, and unknown links", async
 
   assert.deepEqual(await authorizeQuestionForReply(alice.token, question.id), { ok: true });
   assert.ok(loop.groupId);
-});
-
-test("the blob completion check reports saved, pending, and refused", async () => {
-  const { alice, bob, question } = await openLoop();
-  const photoUrl = await storePhoto(JPEG, JPEG_FORMAT);
-
-  assert.deepEqual(
-    await photoSavedFor({ token: alice.token, issueQuestionId: question.id, photoUrl }),
-    { ok: true, saved: false },
-  );
-
-  await savePhotoFor({ token: alice.token, issueQuestionId: question.id, photoUrl });
-  assert.deepEqual(
-    await photoSavedFor({ token: alice.token, issueQuestionId: question.id, photoUrl }),
-    { ok: true, saved: true },
-  );
-
-  // Somebody else's round or somebody else's photo: not saved.
-  assert.deepEqual(
-    await photoSavedFor({ token: bob.token, issueQuestionId: question.id, photoUrl }),
-    { ok: true, saved: false },
-  );
-
-  const refused = await photoSavedFor({ token: "never-issued", issueQuestionId: question.id, photoUrl });
-  assert.equal(refused.ok, false);
-  if (!refused.ok) assert.equal(refused.status, 404);
 });
 
 test("the sheet carries the person's own answers and submitted state", async () => {

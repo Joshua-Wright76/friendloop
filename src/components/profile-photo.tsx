@@ -3,7 +3,8 @@
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { copy } from "@/lib/copy";
-import { MAX_AVATAR_BYTES, PHOTO_ACCEPT } from "@/lib/photo-validation";
+import { PHOTO_ACCEPT } from "@/lib/photo-validation";
+import { AVATAR_TARGET, prepareImage } from "./prepare-image";
 import { Avatar } from "./avatar";
 
 type Status = "idle" | "saving" | "saved" | "removed" | "error";
@@ -49,17 +50,20 @@ export function ProfilePhoto({
     }
   }
 
-  function choose(file: File | undefined) {
-    if (!file) return;
-    if (file.size > MAX_AVATAR_BYTES) {
+  async function choose(picked: File | undefined) {
+    if (input.current) input.current.value = "";
+    if (!picked) return;
+    // A profile picture is shown tiny, so any camera photo is scaled down to fit.
+    setStatus("saving");
+    const prepared = await prepareImage(picked, AVATAR_TARGET);
+    if (!prepared.ok) {
       setStatus("error");
-      setMessage(copy.identity.errors.avatarTooLarge);
+      setMessage(copy.identity.errors.unreadable);
       return;
     }
     const form = new FormData();
-    form.set("photo", file);
-    void send({ method: "POST", body: form }, "saved");
-    if (input.current) input.current.value = "";
+    form.set("photo", prepared.file);
+    await send({ method: "POST", body: form }, "saved");
   }
 
   return (
@@ -92,7 +96,7 @@ export function ProfilePhoto({
           hidden
           accept={PHOTO_ACCEPT}
           aria-label={copy.identity.profile.inputLabel}
-          onChange={(event) => choose(event.target.files?.[0])}
+          onChange={(event) => void choose(event.target.files?.[0])}
         />
         <p
           aria-live="polite"

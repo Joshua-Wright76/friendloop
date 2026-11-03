@@ -9,6 +9,8 @@ async function moveToDetails(page: import("@playwright/test").Page, title: strin
   await page.goto("/g/new");
   await page.getByLabel("Loop title").fill(title);
   await page.getByRole("button", { name: NEXT }).click();
+  // The optional paper-and-picture step: leave it alone.
+  await page.getByRole("button", { name: NEXT }).click();
 }
 
 async function continueFromReaders(page: import("@playwright/test").Page) {
