@@ -17,6 +17,11 @@ export default function ErrorPage({
     console.error(error);
   }, [error]);
 
+  // A client error boundary cannot export metadata; name the page for the tab and for screen readers.
+  useEffect(() => {
+    document.title = `${copy.pageTitles.somethingWrong} · ${copy.common.brand}`;
+  }, []);
+
   return (
     <main className="mx-auto flex min-h-svh w-full max-w-[560px] flex-col justify-center px-4 py-10">
       <div className="mb-8 self-start">

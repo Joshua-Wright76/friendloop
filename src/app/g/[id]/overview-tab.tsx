@@ -4,6 +4,7 @@ import Link from "next/link";
 import { nudgeAction, pauseAction, sendNowAction } from "./actions";
 import { Cherries, Tape } from "@/components/stationery";
 import { LoopNav } from "@/components/loop-nav";
+import { NoticeFocus } from "@/components/notice-focus";
 import { copy, text } from "@/lib/copy";
 import { issueTitle } from "@/lib/issue-name";
 import { useLoopData } from "./loop-data";
@@ -20,28 +21,28 @@ export default function OverviewTab({ welcome, nudged }: { welcome?: string; nud
   return (
     <main className="mx-auto w-full max-w-[680px] px-4 pb-16 pt-5 sm:px-6">
       <header className="stitched flex items-center justify-between gap-3 border-b pb-4">
-        <Link href="/you" className="flex min-w-0 items-center gap-2 font-display text-[23px] font-bold text-ink no-underline">
-          <Cherries className="h-7 w-7 flex-none" /><span className="truncate">{group.name}</span>
+        <Link href="/you" aria-label={text(copy.a11yLabels.loopsLink, { name: group.name })} className="flex min-w-0 items-center gap-2 font-display text-[23px] font-bold text-ink no-underline">
+          <Cherries className="h-7 w-7 flex-none" /><span className="wrap-any">{group.name}</span>
         </Link>
         <span className="chip border bg-card px-2.5 py-1 text-[12px] font-bold capitalize text-ink-soft">{copy.common.roles[membership.access]}</span>
       </header>
       <LoopNav id={group.id} active="Overview" isOwner={isOwner} />
 
       {welcome === "1" || welcome === "no-picture" ? (
-        <div role="status" className="notice settle mb-5 border bg-accent-soft px-4 py-3 text-[14px] leading-relaxed">
+        <NoticeFocus spacing="mb-5">
           {copy.loop.welcome}
           {welcome === "no-picture" ? ` ${copy.loop.welcomeNoPicture}` : ""}
-        </div>
+        </NoticeFocus>
       ) : null}
 
       {nudged ? (
-        <div role="status" className="notice settle mb-5 border bg-accent-soft px-4 py-3 text-[14px] leading-relaxed">
+        <NoticeFocus spacing="mb-5">
           {nudged === "0"
             ? copy.loop.everyoneIn
             : nudged === "1"
               ? copy.loop.nudgedOne
               : text(copy.loop.nudged, { count: Number(nudged) })}
-        </div>
+        </NoticeFocus>
       ) : null}
 
       <p className="eyebrow">{copy.loop.eyebrow}</p>
@@ -102,34 +103,37 @@ export default function OverviewTab({ welcome, nudged }: { welcome?: string; nud
           <p className="mt-1 text-[15px] leading-relaxed text-ink-soft">
             {text(copy.loop.closes, { deadline: openIssueDeadlineLabel ?? "" })}
           </p>
-          <div className="mt-3 flex flex-wrap gap-1.5">
-            {progress.map((person) => (
-              <span
-                key={person.id}
-                className="rounded-full bg-field px-2.5 py-1 text-[12px] font-medium text-ink-soft"
-              >
-                {person.name ?? person.email.split("@")[0]}
-              </span>
-            ))}
-            {progress.length === 0 ? (
+          {progress.length > 0 ? (
+            <ul className="mt-3 flex list-none flex-wrap gap-1.5">
+              {progress.map((person) => (
+                <li
+                  key={person.id}
+                  className="rounded-full bg-field px-2.5 py-1 text-[12px] font-medium text-ink-soft"
+                >
+                  {person.name ?? person.email.split("@")[0]}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <div className="mt-3 flex flex-wrap gap-1.5">
               <span className="text-[13px] text-ink-muted">{copy.loop.nobody}</span>
-            ) : null}
-          </div>
+            </div>
+          )}
 
           {writers > 0 ? (
             openWaiting.length > 0 ? (
               <div className="mt-3">
                 <p className="text-[12px] font-medium text-ink-muted">{copy.loop.waitingTitle}</p>
-                <div className="mt-1.5 flex flex-wrap gap-1.5">
+                <ul className="mt-1.5 flex list-none flex-wrap gap-1.5">
                   {openWaiting.map((person) => (
-                    <span
+                    <li
                       key={person.id}
                       className="rounded-full border border-line px-2.5 py-1 text-[12px] font-medium text-ink-soft"
                     >
                       {person.name ?? person.email.split("@")[0]}
-                    </span>
+                    </li>
                   ))}
-                </div>
+                </ul>
               </div>
             ) : (
               <p className="mt-3 text-[13px] text-ink-muted">{copy.loop.everyoneIn}</p>
@@ -139,7 +143,7 @@ export default function OverviewTab({ welcome, nudged }: { welcome?: string; nud
           <div className="mt-4 flex flex-wrap items-center gap-3">
             <Link
               href={`/g/${group.id}/issues`}
-              className="text-[14px] font-medium text-accent hover:underline"
+              className="text-[14px] font-medium text-accent-ink hover:underline"
             >
               {copy.loop.seeRound}
             </Link>

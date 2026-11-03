@@ -49,6 +49,7 @@ type PictureStatus = "idle" | "saving" | "saved" | "removed" | "error";
 function HeaderPicture({ groupId, initial }: { groupId: string; initial: string | null }) {
   const router = useRouter();
   const input = useRef<HTMLInputElement>(null);
+  const change = useRef<HTMLButtonElement>(null);
   const [url, setUrl] = useState(initial);
   const [status, setStatus] = useState<PictureStatus>("idle");
   const [message, setMessage] = useState("");
@@ -64,6 +65,8 @@ function HeaderPicture({ groupId, initial }: { groupId: string; initial: string 
         setMessage(body.error ?? copy.stationery.headerError);
         return;
       }
+      // Remove leaves with the picture; Replace/Upload is the control that stays.
+      if (done === "removed") change.current?.focus();
       setUrl(body.url ?? null);
       setStatus(done);
       router.refresh();
@@ -94,11 +97,26 @@ function HeaderPicture({ groupId, initial }: { groupId: string; initial: string 
       <p className="mt-1 text-[13px] leading-snug text-ink-muted">{copy.stationery.headerHint}</p>
       <LoopBanner url={url} className="mt-3" />
       <div className="mt-3 flex flex-wrap gap-2">
-        <button type="button" className="btn btn-quiet h-10 text-[14px]" disabled={status === "saving"} onClick={() => input.current?.click()}>
+        <button
+          ref={change}
+          type="button"
+          className="btn btn-quiet h-10 text-[14px] aria-disabled:cursor-not-allowed aria-disabled:opacity-45"
+          aria-disabled={status === "saving" ? true : undefined}
+          onClick={() => {
+            if (status !== "saving") input.current?.click();
+          }}
+        >
           {url ? copy.stationery.headerReplace : copy.stationery.headerUpload}
         </button>
         {url ? (
-          <button type="button" className="btn btn-quiet h-10 text-[14px]" disabled={status === "saving"} onClick={() => void send({ method: "DELETE" }, "removed")}>
+          <button
+            type="button"
+            className="btn btn-quiet h-10 text-[14px] aria-disabled:cursor-not-allowed aria-disabled:opacity-45"
+            aria-disabled={status === "saving" ? true : undefined}
+            onClick={() => {
+              if (status !== "saving") void send({ method: "DELETE" }, "removed");
+            }}
+          >
             {copy.stationery.headerRemove}
           </button>
         ) : null}

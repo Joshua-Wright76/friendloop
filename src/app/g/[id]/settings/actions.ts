@@ -47,7 +47,7 @@ export async function rotateSharesAction(formData: FormData) {
 
   const rotated = await rotateShareLinks(groupId);
   revalidatePath(`/g/${groupId}`, "layout");
-  redirect(`/g/${groupId}/settings?shares=${rotated}`);
+  redirect(`/g/${groupId}/settings?shares=${rotated}-${Date.now()}`);
 }
 
 export async function pauseHereAction(formData: FormData) {

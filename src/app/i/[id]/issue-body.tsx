@@ -217,7 +217,7 @@ function SectionReplyCard({ reply, label }: { reply: IssueSectionReplyBlock; lab
             <span aria-hidden="true" className="font-display text-[24px] leading-none">&#9836;</span>
           )}
           <span className="min-w-0">
-            <span className="block truncate text-[14px] font-bold">{reply.linkTitle ?? reply.linkUrl}</span>
+            <span className="block wrap-any text-[14px] font-bold">{reply.linkTitle ?? reply.linkUrl}</span>
             <span className="block text-[12px] font-medium text-ink-soft capitalize">{reply.linkProvider}</span>
           </span>
         </a>
@@ -225,7 +225,7 @@ function SectionReplyCard({ reply, label }: { reply: IssueSectionReplyBlock; lab
       {reply.media.map((item) => (
         <figure key={item.url} className="m-0 mt-3">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={item.url} alt={item.caption ?? ""} className="w-full rounded-lg border border-line object-cover" />
+          <img src={item.url} alt={item.caption || text(copy.issue.photoAlt, { author: reply.author })} className="w-full rounded-lg border border-line object-cover" />
           {item.caption && label ? (
             <figcaption className="mt-1 text-[12.5px] leading-snug text-ink-soft">{item.caption}</figcaption>
           ) : null}
@@ -322,7 +322,7 @@ function AnswerCard({
         // eslint-disable-next-line @next/next/no-img-element
         <img
           src={answer.photoUrl}
-          alt={answer.body || text(copy.issue.photoAlt, { author: answer.author })}
+          alt={text(copy.issue.photoAlt, { author: answer.author })}
           className="mt-3 w-full rounded-lg border border-line object-cover"
         />
       ) : null}
@@ -351,10 +351,17 @@ function AnswerCard({
           <button
             key={reaction.emoji}
             type="button"
-            disabled={!canInteract || pending}
+            disabled={!canInteract}
+            // aria-disabled, not disabled, while a toggle is in flight: the pressed button keeps keyboard focus.
+            aria-disabled={pending ? true : undefined}
             aria-pressed={reaction.mine}
-            aria-label={text(copy.issue.reactAriaLabel, { emoji: reaction.emoji })}
-            onClick={() =>
+            aria-label={
+              reaction.count > 0
+                ? text(copy.a11yStatus.reactWithCount, { emoji: reaction.emoji, count: reaction.count })
+                : text(copy.issue.reactAriaLabel, { emoji: reaction.emoji })
+            }
+            onClick={() => {
+              if (pending) return;
               startTransition(async () => {
                 addLocal(reaction.emoji);
                 await toggleReaction({
@@ -363,14 +370,20 @@ function AnswerCard({
                   emoji: reaction.emoji,
                   viewerToken,
                 });
-              })
-            }
-            className={`reaction-chip flex h-8 items-center gap-1.5 rounded-full border px-2.5 text-[13px] transition-transform disabled:opacity-50 ${
+              });
+            }}
+            className={`reaction-chip flex h-8 items-center gap-1.5 rounded-full border px-2.5 text-[13px] transition-transform disabled:opacity-50 aria-disabled:opacity-50 ${
               reaction.mine
-                ? "border-accent-line bg-accent-soft text-accent-ink"
+                ? "border-accent bg-accent-soft text-accent-ink shadow-[inset_0_0_0_1px_var(--accent)]"
                 : "border-line text-ink-soft hover:bg-field"
             }`}
           >
+            {reaction.mine ? (
+              // A shape as well as a tint, so "you reacted" does not rest on colour alone.
+              <svg viewBox="0 0 20 20" aria-hidden="true" className="h-3.5 w-3.5 flex-none">
+                <path d="m4 10 4 4 8-9" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            ) : null}
             <span className={reaction.mine ? "reaction-selected" : ""} aria-hidden>{reaction.emoji}</span>
             {reaction.count > 0 ? (
               <span key={reaction.count} className="reaction-count numeric">{reaction.count}</span>

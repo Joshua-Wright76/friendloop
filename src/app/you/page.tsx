@@ -6,6 +6,7 @@ import { db } from "@/db";
 import { groups, memberships } from "@/db/schema";
 import { currentUser } from "@/lib/auth";
 import { Brand, Cherries, Tape } from "@/components/stationery";
+import { NoticeFocus } from "@/components/notice-focus";
 import { copy } from "@/lib/copy";
 import { signOutAction } from "./actions";
 import { TimezoneSync } from "./timezone-sync";
@@ -13,6 +14,7 @@ import { TimezoneSync } from "./timezone-sync";
 export const instant = false;
 
 export const metadata: Metadata = {
+  title: copy.pageTitles.yourLoops,
   robots: { index: false, follow: false },
 };
 
@@ -49,9 +51,7 @@ export default async function YouPage({ searchParams }: {
       </div>
 
       {deleted ? (
-        <div role="status" className="notice settle mt-5 border bg-accent-soft px-4 py-3 text-[14px] leading-relaxed">
-          {copy.you.deletedNotice}
-        </div>
+        <NoticeFocus spacing="mt-5">{copy.you.deletedNotice}</NoticeFocus>
       ) : null}
       {loops.length === 0 ? (
         <div className="card mt-8 p-6 pt-8">
@@ -62,9 +62,10 @@ export default async function YouPage({ searchParams }: {
           </p>
         </div>
       ) : (
-        <div className="mt-8 grid gap-5 sm:grid-cols-2">
+        <ul className="mt-8 grid gap-5 sm:grid-cols-2">
           {loops.map((loop, index) => (
-            <Link key={loop.id} href={`/g/${loop.id}`} className="card loop-card flex min-h-[190px] flex-col p-5 pt-6 no-underline">
+            <li key={loop.id} className="flex">
+            <Link href={`/g/${loop.id}`} className="card loop-card flex min-h-[190px] w-full flex-col p-5 pt-6 no-underline">
               {index === 0 ? <Tape tone="dots" position="right" /> : null}
               <span className="flex items-center gap-2">
                 <Cherries className="h-7 w-7 flex-none" />
@@ -79,8 +80,9 @@ export default async function YouPage({ searchParams }: {
                 {copy.you.openLoop} <span aria-hidden="true">→</span>
               </span>
             </Link>
+            </li>
           ))}
-        </div>
+        </ul>
       )}
 
     </main>

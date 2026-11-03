@@ -5,8 +5,11 @@ import { redirect } from "next/navigation";
 import { TimezoneField } from "../../new/timezone-field";
 import { deleteAction, pauseHereAction, rotateSharesAction, settingsAction } from "./actions";
 import { LoopNav } from "@/components/loop-nav";
+import { FieldLabel } from "@/components/field-label";
+import { NoticeFocus } from "@/components/notice-focus";
 import { StationeryForm } from "./stationery-form";
 import { Picker } from "@/components/picker";
+import { ConfirmAction } from "@/components/confirm-action";
 import { copy } from "@/lib/copy";
 import { useLoopData } from "../loop-data";
 
@@ -34,20 +37,20 @@ export default function SettingsTab({ notices }: { notices: { saved?: string; er
 
       <h1 className="text-[28px] font-semibold leading-tight tracking-[-0.025em] text-ink">{copy.settings.title}</h1>
 
-      {notices.saved ? <Notice>{copy.settings.savedNotice}</Notice> : null}
-      {notices.shares ? <Notice>{copy.settings.sharesResetNotice}</Notice> : null}
-      {notices.stationery === "1" ? <Notice>{copy.stationery.saved}</Notice> : null}
-      {notices.stationery === "adjusted" ? <Notice>{copy.stationery.savedAdjusted}</Notice> : null}
-      {notices.error === "stationery" ? <Notice tone="danger">{copy.stationery.error}</Notice> : null}
+      {notices.saved ? <NoticeFocus>{copy.settings.savedNotice}</NoticeFocus> : null}
+      {notices.shares ? <NoticeFocus key={notices.shares}>{copy.settings.sharesResetNotice}</NoticeFocus> : null}
+      {notices.stationery === "1" ? <NoticeFocus>{copy.stationery.saved}</NoticeFocus> : null}
+      {notices.stationery === "adjusted" ? <NoticeFocus>{copy.stationery.savedAdjusted}</NoticeFocus> : null}
+      {notices.error === "stationery" ? <NoticeFocus tone="danger">{copy.stationery.error}</NoticeFocus> : null}
       {notices.error === "confirm" ? (
-        <Notice tone="danger">{copy.settings.confirmError}</Notice>
+        <NoticeFocus tone="danger">{copy.settings.confirmError}</NoticeFocus>
       ) : null}
 
       <form action={settingsAction} className="card mt-5 p-5">
         <input type="hidden" name="groupId" value={id} />
 
         <label className="flex flex-col gap-1.5">
-          <span className="text-[13px] font-medium text-ink-soft">{copy.settings.name}</span>
+          <FieldLabel required>{copy.settings.name}</FieldLabel>
           <input name="name" defaultValue={group.name} required className="field h-[46px] py-0" />
         </label>
 
@@ -113,12 +116,22 @@ export default function SettingsTab({ notices }: { notices: { saved?: string; er
       />
 
       {group.shareEnabled ? (
-        <form action={rotateSharesAction} className="card mt-3 p-5">
-          <input type="hidden" name="groupId" value={id} />
+        <section className="card mt-3 p-5">
           <h2 className="text-[16px] font-semibold tracking-[-0.01em] text-ink">{copy.settings.sharesTitle}</h2>
           <p className="mt-1 text-[14px] leading-relaxed text-ink-soft">{copy.settings.sharesResetDescription}</p>
-          <button type="submit" className="btn btn-quiet mt-3">{copy.settings.sharesReset}</button>
-        </form>
+          {/* Resetting kills every link already sent, so it asks first (WCAG 3.3.4). */}
+          <ConfirmAction
+            className="mt-3"
+            action={rotateSharesAction}
+            fields={{ groupId: id }}
+            label={copy.settings.sharesReset}
+            triggerLabel={copy.settings.sharesReset}
+            question={copy.a11yLabels.resetSharesQuestion}
+            body={copy.a11yLabels.resetSharesBody}
+            confirmLabel={copy.a11yLabels.resetSharesConfirm}
+            cancelLabel={copy.a11yLabels.confirmCancel}
+          />
+        </section>
       ) : null}
 
       <div className="card mt-3 p-5">
@@ -146,32 +159,19 @@ export default function SettingsTab({ notices }: { notices: { saved?: string; er
         <p className="mt-1 text-[14px] leading-relaxed text-ink-soft">
           {copy.settings.deleteDescriptionPrefix} <strong>{group.name}</strong> {copy.settings.deleteDescriptionSuffix}
         </p>
-        <input
-          name="confirm"
-          required
-          aria-label={copy.settings.deleteAriaLabel}
-          placeholder={group.name}
-          className="field mt-3 h-[46px] py-0"
-        />
+        <label className="mt-3 flex flex-col gap-1.5">
+          <FieldLabel required>{copy.settings.deleteAriaLabel}</FieldLabel>
+          <input
+            name="confirm"
+            required
+            placeholder={group.name}
+            className="field h-[46px] py-0"
+          />
+        </label>
         <button type="submit" className="btn btn-danger mt-3 hover:opacity-90">
           {copy.settings.delete}
         </button>
       </form>
     </main>
-  );
-}
-
-function Notice({ children, tone }: { children: React.ReactNode; tone?: "danger" }) {
-  return (
-    <div
-      role="status"
-      className={`settle mt-4 rounded-xl border px-4 py-3 text-[14px] leading-relaxed ${
-        tone === "danger"
-          ? "notice border-danger/40 bg-danger/10 text-danger"
-          : "notice border-accent-line bg-accent-soft text-ink"
-      }`}
-    >
-      {children}
-    </div>
   );
 }

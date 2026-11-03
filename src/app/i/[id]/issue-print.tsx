@@ -7,6 +7,7 @@ import { reactionSummary } from "@/lib/print-view";
 import { printThemeCss, resolveTheme } from "@/lib/theme";
 import { Avatar } from "@/components/avatar";
 import { LoopBanner } from "@/components/loop-theme";
+import { DocumentTitle } from "@/components/document-title";
 import { copy, text } from "@/lib/copy";
 import { PrintButton } from "./print-button";
 
@@ -42,7 +43,7 @@ export function IssuePrint({
   return (
     <div className="print-sheet">
       <style dangerouslySetInnerHTML={{ __html: paper }} />
-      <title>{text(copy.print.documentTitle, { title, loop: group.name })}</title>
+      <DocumentTitle value={text(copy.print.documentTitle, { title, loop: group.name })} />
       <div className="print-wrap">
         <nav aria-label={copy.print.toolbarLabel} className="print-toolbar no-print">
           <Link href={backHref} className="print-back">
@@ -121,7 +122,7 @@ export function IssuePrint({
                     reply.media.map((item) => (
                       <figure key={item.url} className="print-figure">
                         {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={item.url} alt={item.caption ?? ""} />
+                        <img src={item.url} alt={item.caption ? "" : text(copy.issue.photoAlt, { author: reply.author })} />
                         {item.caption ? (
                           <figcaption>
                             <strong>{reply.author}</strong> — {item.caption}
@@ -149,7 +150,7 @@ export function IssuePrint({
                     {reply.media.map((item) => (
                       <figure key={item.url} className="print-figure">
                         {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={item.url} alt={item.caption ?? ""} />
+                        <img src={item.url} alt={item.caption || text(copy.issue.photoAlt, { author: reply.author })} />
                       </figure>
                     ))}
                     {reply.addedLater ? <p className="print-late">{copy.print.late}</p> : null}
@@ -195,7 +196,7 @@ function PrintAnswer({ answer }: { answer: IssueAnswer }) {
       {answer.photoUrl ? (
         <figure className="print-figure">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={answer.photoUrl} alt={answer.body || text(copy.issue.photoAlt, { author: answer.author })} />
+          <img src={answer.photoUrl} alt={text(copy.issue.photoAlt, { author: answer.author })} />
         </figure>
       ) : null}
       {answer.audioUrl ? (

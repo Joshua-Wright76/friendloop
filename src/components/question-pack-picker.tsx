@@ -11,6 +11,8 @@ type Props = {
   onToggleQuestion: (question: string) => void;
   onTogglePack: (questions: string[], select: boolean) => void;
   ariaLabel: string;
+  /** Level of the visually hidden heading; pack names sit one level below it. */
+  headingLevel?: 2 | 3;
 };
 
 /**
@@ -23,7 +25,10 @@ export function QuestionPackPicker({
   onToggleQuestion,
   onTogglePack,
   ariaLabel,
+  headingLevel = 3,
 }: Props) {
+  const ListHeading = `h${headingLevel}` as "h2" | "h3";
+  const PackHeading = `h${headingLevel + 1}` as "h3" | "h4";
   const [active, setActive] = useState<string[]>([]);
   const headingId = useId();
   const visible = visiblePacks(packs, active);
@@ -53,14 +58,14 @@ export function QuestionPackPicker({
         ))}
       </div>
 
-      <h3 id={headingId} className="sr-only">{ariaLabel}</h3>
+      <ListHeading id={headingId} className="sr-only">{ariaLabel}</ListHeading>
       <div className="mt-3 flex flex-col gap-3" role="group" aria-labelledby={headingId}>
         {visible.map((pack) => {
           const allPicked = pack.questions.every((question) => chosen.has(question));
           return (
             <section key={pack.id} className="card p-3 sm:p-4" role="group" aria-label={pack.name}>
               <div className="flex items-center justify-between gap-2 px-2">
-                <h4 className="font-display text-[20px] font-bold text-ink">{pack.name}</h4>
+                <PackHeading className="font-display text-[20px] font-bold text-ink">{pack.name}</PackHeading>
                 <button
                   type="button"
                   aria-label={text(
@@ -106,7 +111,7 @@ function FilterChip({ pressed, label, onClick }: { pressed: boolean; label: stri
           : "border-line text-ink-soft hover:bg-field"
       }`}
     >
-      {label}
+      {pressed ? <span aria-hidden="true">✓ </span> : null}{label}
     </button>
   );
 }

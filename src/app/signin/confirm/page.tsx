@@ -8,7 +8,7 @@ import { copy, text } from "@/lib/copy";
 export const instant = false;
 
 export const metadata: Metadata = {
-  title: copy.confirm.submit,
+  title: copy.pageTitles.confirm,
   robots: { index: false, follow: false },
 };
 

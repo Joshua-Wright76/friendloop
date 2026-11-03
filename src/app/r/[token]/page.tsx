@@ -14,7 +14,7 @@ export const instant = false;
 // A reply link is a credential. It must never appear in a search index, and it
 // must never leak through a Referer header if someone pastes it elsewhere.
 export const metadata: Metadata = {
-  title: copy.common.brand,
+  title: copy.pageTitles.reply,
   robots: { index: false, follow: false },
   referrer: "no-referrer",
 };

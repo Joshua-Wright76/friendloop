@@ -9,7 +9,7 @@ export const instant = false;
 
 // Same credential rules as the reply sheet: never indexed, never leaked.
 export const metadata: Metadata = {
-  title: copy.common.brand,
+  title: copy.pageTitles.suggest,
   robots: { index: false, follow: false },
   referrer: "no-referrer",
 };

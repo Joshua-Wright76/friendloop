@@ -162,8 +162,29 @@ npm run test:coverage       # 100% line/function coverage of src/lib, enforced
 npm run e2e                 # Playwright — starts its own Postgres if needed
 npm run check:flows -- --strict   # what CI enforces on every run
 npx playwright test e2e/accessibility.spec.ts  # WCAG 2.2 AA axe checks, both themes
+npx playwright test e2e/wcag-sweep.spec.ts e2e/wcag-states.spec.ts --project=desktop  # what axe cannot judge: see below
 E2E_BASE_URL=https://friendloop.dev npx playwright test --grep @probe   # read-only production smoke
 ```
+
+### Accessibility: WCAG 2.2 AA
+
+Three things hold the line, because no single one can:
+
+- **Tokens** — `src/lib/theme.test.ts` computes every text/background pair of every paper, in light and dark,
+  with any accent an owner can pick, including the worst background the gingham check pattern makes where its two
+  stripe layers cross (axe cannot read gradients).
+- **axe** — `e2e/accessibility.spec.ts` and `e2e/a11y-phone.spec.ts` run the WCAG 2.0–2.2 A/AA rules on the states a
+  test has to build by hand.
+- **The sweep** — `e2e/wcag-sweep.spec.ts` visits every screen the UI preview lists (the guard test fails when a screen
+  is added to `/dev/screens` and not to the sweep), every stationery preset and two hostile accents, in both themes, at
+  1280px and at 400% zoom (320×256), and measures what axe cannot: a 3:1 focus indicator on every Tab stop (compared
+  pixel by pixel), focus never covered by the fixed bars, no keyboard trap, every control reached by Tab, reflow, text
+  spacing, and a page title that says where you are. `e2e/wcag-states.spec.ts` does the same for what a person has to
+  open: dialogs, each wizard step, pickers, every disclosure. Helpers live in `e2e/support/wcag.ts`.
+
+What no automation can decide still needs a person: whether alt text and link names make sense, reading order, and
+whether a screen reader actually announces a status message. Voice notes have no transcript (WCAG 1.2.1); that is a
+product decision, not an oversight.
 
 ### Three layers, on purpose
 

@@ -43,6 +43,7 @@ test("K1 · the owner shapes the section list over time", async ({ page }) => {
 
   // Archiving takes it out of the running list.
   await item.getByRole("button", { name: "Archive" }).click();
+  await item.getByRole("button", { name: /^Yes, archive/ }).click(); // archiving asks first
   await expect(page.getByText("Section archived.")).toBeVisible();
   await expect(page.getByText("The potluck corner, revisited")).toHaveCount(0);
 });

@@ -1,10 +1,13 @@
 import { redirect } from "next/navigation";
+import type { Metadata } from "next";
 import { currentUser } from "@/lib/auth";
 import { SignInForm } from "./signin-form";
 import { Brand, Tape } from "@/components/stationery";
 import { copy } from "@/lib/copy";
 
 export const instant = false;
+
+export const metadata: Metadata = { title: copy.pageTitles.signIn };
 
 export default async function SignInPage() {
   if (await currentUser()) redirect("/you");

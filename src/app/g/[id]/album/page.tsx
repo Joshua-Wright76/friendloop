@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { AlbumBody } from "@/components/album-body";
 import { LoopNav } from "@/components/loop-nav";
@@ -9,6 +10,8 @@ import { viewerFor } from "@/lib/permissions";
 import { db } from "@/db";
 import { groups } from "@/db/schema";
 import { eq } from "drizzle-orm";
+
+export const metadata: Metadata = { title: copy.pageTitles.album };
 
 export default async function AlbumPage({
   params,

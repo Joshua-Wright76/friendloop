@@ -1,6 +1,9 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { Brand, Tape } from "@/components/stationery";
 import { copy } from "@/lib/copy";
+
+export const metadata: Metadata = { title: copy.pageTitles.notFound };
 
 export default function NotFound() {
   return (

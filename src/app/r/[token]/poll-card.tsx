@@ -1,5 +1,6 @@
 "use client";
 
+import { useRef } from "react";
 import { Tape } from "@/components/stationery";
 import { copy } from "@/lib/copy";
 
@@ -22,6 +23,7 @@ type Props = {
  * out. Nothing here shows what anyone else picked — results arrive with the issue.
  */
 export function PollCard({ id, index, prompt, options, multiple, picks, status, disabled, onChange }: Props) {
+  const firstOption = useRef<HTMLInputElement>(null);
   const toggle = (option: number) => {
     if (multiple) {
       onChange(picks.includes(option) ? picks.filter((pick) => pick !== option) : [...picks, option].sort((a, b) => a - b));
@@ -42,6 +44,7 @@ export function PollCard({ id, index, prompt, options, multiple, picks, status, 
           {options.map((option, optionIndex) => (
             <label key={option} className="poll-option">
               <input
+                ref={optionIndex === 0 ? firstOption : undefined}
                 type={multiple ? "checkbox" : "radio"}
                 name={`poll-${id}`}
                 checked={picks.includes(optionIndex)}
@@ -62,7 +65,17 @@ export function PollCard({ id, index, prompt, options, multiple, picks, status, 
           {status === "idle" ? copy.polls.sheet.hidden : null}
         </p>
         {picks.length > 0 ? (
-          <button type="button" disabled={disabled} onClick={() => onChange([])} className="btn btn-quiet min-h-11 px-4 text-[13px]">
+          <button
+            type="button"
+            aria-disabled={disabled ? true : undefined}
+            onClick={() => {
+              if (disabled) return;
+              // Clear leaves with the picks; the first option is where the keyboard carries on.
+              firstOption.current?.focus();
+              onChange([]);
+            }}
+            className="btn btn-quiet min-h-11 px-4 text-[13px] aria-disabled:cursor-not-allowed aria-disabled:opacity-45"
+          >
             {copy.polls.sheet.clear}
           </button>
         ) : null}

@@ -160,6 +160,9 @@ function CommentComposer({
   // comment could go without it, and the photo would turn up on the next one.
   const [preparing, setPreparing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Which control the error is about; errors that name no field stay unattached.
+  const [errorField, setErrorField] = useState<"body" | "photo" | null>(null);
+  const [posted, setPosted] = useState("");
   const [pending, startTransition] = useTransition();
   // One id per comment being written: sending it twice is still one comment.
   const [commentId, setCommentId] = useState(() => crypto.randomUUID());
@@ -168,6 +171,7 @@ function CommentComposer({
   const area = useRef<HTMLTextAreaElement>(null);
   const files = useRef<HTMLInputElement>(null);
   const listId = useId();
+  const errorId = `${listId}-error`;
   // Where the caret goes after a name is dropped in, applied once the new text is on screen.
   const pendingCaret = useRef<number | null>(null);
 
@@ -200,10 +204,15 @@ function CommentComposer({
   const submit = () => {
     if (preparing) return;
     const body = value.trim();
+    if (pending) return;
     if (!body && !photo) {
       setError(copy.issue.writeFirst);
+      setErrorField("body");
+      area.current?.focus();
       return;
     }
+    setPosted("");
+    setErrorField(null);
     const form = new FormData();
     form.set("id", commentId);
     form.set("body", body);
@@ -221,6 +230,7 @@ function CommentComposer({
           setError(data.error ?? copy.issue.postError);
           return;
         }
+        setPosted(copy.a11yStatus.commentPosted);
         setValue("");
         setCaret(0);
         setPicks([]);
@@ -259,10 +269,13 @@ function CommentComposer({
     setPreparing(false);
     if (!prepared.ok) {
       setError(copy.issue.errors.photoUnreadable);
+      setErrorField("photo");
       return;
     }
     setPhoto(prepared.file);
+    setPosted(text(copy.a11yStatus.photoAttached, { name: prepared.file.name }));
     setError(null);
+    setErrorField(null);
   };
 
   return (
@@ -276,7 +289,7 @@ function CommentComposer({
       {quote ? (
         <div className="mb-2 flex items-center justify-between gap-3 rounded-lg border border-line bg-accent-soft px-3 py-2 text-[13px] text-ink-soft">
           <span>{text(copy.issue.replyingTo, { author: quote.author })}</span>
-          <button type="button" onClick={onClearQuote} className="min-h-8 font-bold text-accent-ink underline underline-offset-4">
+          <button type="button" onClick={() => { onClearQuote(); area.current?.focus(); }} className="min-h-8 font-bold text-accent-ink underline underline-offset-4">
             {copy.issue.replyingToCancel}
           </button>
         </div>
@@ -290,12 +303,19 @@ function CommentComposer({
           setCaret(event.target.selectionStart);
           setHighlight(0);
           setDismissedAt(null);
+          setPosted("");
+          if (errorField === "body") {
+            setError(null);
+            setErrorField(null);
+          }
         }}
         onSelect={(event) => setCaret(event.currentTarget.selectionStart)}
         onKeyDown={onKeyDown}
         rows={2}
         placeholder={placeholder}
         aria-label={label}
+        aria-invalid={errorField === "body" ? "true" : undefined}
+        aria-describedby={errorField === "body" ? errorId : undefined}
         aria-autocomplete={mentionables.length > 0 ? "list" : undefined}
         aria-controls={open ? listId : undefined}
         aria-activedescendant={open ? `${listId}-${active}` : undefined}
@@ -311,10 +331,9 @@ function CommentComposer({
               role="option"
               aria-selected={index === active}
               className="mention-option"
-              onMouseDown={(event) => {
-                event.preventDefault();
-                choose(person);
-              }}
+              // Keep the textarea focused on press, but only act on release so a press can be aborted (2.5.2).
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={() => choose(person)}
             >
               <Avatar name={person.name} photoUrl={person.photoUrl} className="!h-7 !w-7 !text-[12px]" />
               {person.name}
@@ -323,7 +342,7 @@ function CommentComposer({
         </ul>
       ) : null}
       <p className="sr-only" role="status" aria-live="polite">
-        {open ? text(copy.issue.mentionCount, { count: options.length }) : ""}
+        {open ? text(copy.issue.mentionCount, { count: options.length }) : posted}
       </p>
 
       {mentionables.length > 0 ? (
@@ -332,8 +351,8 @@ function CommentComposer({
 
       {photo ? (
         <div className="mt-2 flex items-center justify-between gap-3 rounded-lg border border-line px-3 py-2 text-[13px] text-ink-soft">
-          <span className="min-w-0 truncate">{text(copy.issue.photoChosen, { name: photo.name })}</span>
-          <button type="button" onClick={() => setPhoto(null)} className="min-h-8 flex-none font-bold text-accent-ink underline underline-offset-4">
+          <span className="min-w-0 wrap-any">{text(copy.issue.photoChosen, { name: photo.name })}</span>
+          <button type="button" onClick={() => { setPhoto(null); setPosted(copy.a11yStatus.photoRemoved); area.current?.focus(); }} className="min-h-8 flex-none font-bold text-accent-ink underline underline-offset-4">
             {copy.issue.removePhoto}
           </button>
         </div>
@@ -348,15 +367,26 @@ function CommentComposer({
             hidden
             onChange={(event) => void onPickPhoto(event.target.files?.[0])}
           />
-          <button type="button" className="btn btn-quiet" disabled={preparing || pending} onClick={() => files.current?.click()}>
+          <button
+            type="button"
+            className="btn btn-quiet aria-disabled:cursor-not-allowed aria-disabled:opacity-45"
+            aria-disabled={preparing || pending ? true : undefined}
+            aria-describedby={errorField === "photo" ? errorId : undefined}
+            onClick={() => { if (!preparing && !pending) files.current?.click(); }}
+          >
             {preparing ? copy.issue.preparingPhoto : copy.issue.addPhoto}
           </button>
         </div>
-        <button type="submit" disabled={pending || preparing} className="btn btn-primary">
+        {/* aria-disabled, not disabled: the button the keyboard is on must keep focus while posting. */}
+        <button
+          type="submit"
+          aria-disabled={pending || preparing ? true : undefined}
+          className="btn btn-primary aria-disabled:cursor-not-allowed aria-disabled:opacity-45"
+        >
           {pending ? copy.issue.posting : copy.issue.post}
         </button>
       </div>
-      <p role={error ? "alert" : undefined} className="mt-2 text-[13px] text-danger">
+      <p id={errorId} role="alert" className="mt-2 text-[13px] text-danger">
         {error}
       </p>
     </form>
