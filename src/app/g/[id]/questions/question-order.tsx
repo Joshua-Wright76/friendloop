@@ -91,14 +91,14 @@ export function QuestionOrder({ groupId, questions: initial }: { groupId: string
               </div>
               <button type="button" draggable aria-disabled={pending ? true : undefined} data-question={question.id} data-control="handle" aria-label={text(copy.questions.moveItemLabel, { question: question.text })} title={copy.questions.dragHandle}
                 onDragStart={(event) => { if (pending) { event.preventDefault(); return; } draggedId.current = question.id; event.dataTransfer.effectAllowed = "move"; event.dataTransfer.setData("text/plain", question.id); }}
-                onDragEnd={() => { draggedId.current = null; }} className="question-drag-handle btn btn-quiet h-10 w-10 min-h-10 p-0 aria-disabled:cursor-not-allowed aria-disabled:opacity-45" onClick={() => { if (!pending) setMovingId(question.id); }}>
-                <svg viewBox="0 0 20 20" aria-hidden="true" className="h-5 w-5"><path d="M7 4h.01M13 4h.01M7 10h.01M13 10h.01M7 16h.01M13 16h.01" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" /></svg>
+                onDragEnd={() => { draggedId.current = null; }} className="question-drag-handle btn btn-quiet h-11 w-11 min-h-11 flex-none p-0! aria-disabled:cursor-not-allowed aria-disabled:opacity-45" onClick={() => { if (!pending) setMovingId(question.id); }}>
+                <svg viewBox="0 0 20 20" aria-hidden="true" className="h-5 w-5 flex-none" fill="currentColor">{[4, 10, 16].flatMap((y) => [7, 13].map((x) => <circle key={`${x}-${y}`} cx={x} cy={y} r="1.6" />))}</svg>
               </button>
             </div>
             <div className="question-order-controls mt-3 flex flex-wrap gap-2">
-              <button type="button" aria-disabled={pending || index === 0 ? true : undefined} data-question={question.id} data-control="up" aria-label={text(copy.a11yLabels.withQuestion, { label: copy.questions.up, question: question.text })} onClick={() => { if (pending || index === 0) return; refocus.current = { id: question.id, control: "up" }; void move(question.id, index - 1); }} className="question-step btn btn-quiet h-10 px-3 text-[13px] aria-disabled:cursor-not-allowed aria-disabled:opacity-45">{copy.questions.up}</button>
-              <button type="button" aria-disabled={pending || index === items.length - 1 ? true : undefined} data-question={question.id} data-control="down" aria-label={text(copy.a11yLabels.withQuestion, { label: copy.questions.down, question: question.text })} onClick={() => { if (pending || index === items.length - 1) return; refocus.current = { id: question.id, control: "down" }; void move(question.id, index + 1); }} className="question-step btn btn-quiet h-10 px-3 text-[13px] aria-disabled:cursor-not-allowed aria-disabled:opacity-45">{copy.questions.down}</button>
-              <button type="button" aria-disabled={pending ? true : undefined} data-question={question.id} data-control="move" aria-label={text(copy.a11yLabels.withQuestion, { label: copy.questions.move, question: question.text })} onClick={() => { if (!pending) setMovingId(question.id); }} className="question-mobile-move btn btn-quiet h-10 px-3 text-[13px] aria-disabled:cursor-not-allowed aria-disabled:opacity-45">{copy.questions.move}</button>
+              <button type="button" aria-disabled={pending || index === 0 ? true : undefined} data-question={question.id} data-control="up" aria-label={text(copy.a11yLabels.withQuestion, { label: copy.questions.up, question: question.text })} onClick={() => { if (pending || index === 0) return; refocus.current = { id: question.id, control: "up" }; void move(question.id, index - 1); }} className="question-step btn btn-quiet h-11 min-h-11 px-3 text-[13px] aria-disabled:cursor-not-allowed aria-disabled:opacity-45">{copy.questions.up}</button>
+              <button type="button" aria-disabled={pending || index === items.length - 1 ? true : undefined} data-question={question.id} data-control="down" aria-label={text(copy.a11yLabels.withQuestion, { label: copy.questions.down, question: question.text })} onClick={() => { if (pending || index === items.length - 1) return; refocus.current = { id: question.id, control: "down" }; void move(question.id, index + 1); }} className="question-step btn btn-quiet h-11 min-h-11 px-3 text-[13px] aria-disabled:cursor-not-allowed aria-disabled:opacity-45">{copy.questions.down}</button>
+              <button type="button" aria-disabled={pending ? true : undefined} data-question={question.id} data-control="move" aria-label={text(copy.a11yLabels.withQuestion, { label: copy.questions.move, question: question.text })} onClick={() => { if (!pending) setMovingId(question.id); }} className="question-mobile-move btn btn-quiet h-11 min-h-11 px-3 text-[13px] aria-disabled:cursor-not-allowed aria-disabled:opacity-45">{copy.questions.move}</button>
               <SkipControl groupId={groupId} question={question} />
               <ArchiveControl groupId={groupId} question={question} />
             </div>
@@ -111,7 +111,7 @@ export function QuestionOrder({ groupId, questions: initial }: { groupId: string
         <div className="move-sheet-content">
           <div className="mb-3 flex items-center justify-between gap-3">
             <h2 id="question-move-title" className="text-[20px] font-bold text-ink">{copy.questions.moveTitle}</h2>
-            <button type="button" onClick={() => dialog.current?.close()} className="btn btn-quiet h-10 px-3 text-[13px]">{copy.common.close}</button>
+            <button type="button" onClick={() => dialog.current?.close()} className="btn btn-quiet h-11 min-h-11 px-3 text-[13px]">{copy.common.close}</button>
           </div>
           <p id="question-move-description" className="mb-3 text-[14px] text-ink-soft">{copy.questions.moveDescription}</p>
           <div className="flex max-h-[55dvh] flex-col gap-2 overflow-y-auto">
@@ -133,7 +133,7 @@ function SkipControl({ groupId, question }: { groupId: string; question: Questio
     <form action={skipNextAction}>
       <input type="hidden" name="groupId" value={groupId} />
       <input type="hidden" name="questionId" value={question.id} />
-      <button type="submit" aria-label={text(copy.a11yLabels.withQuestion, { label, question: question.text })} className="btn btn-quiet h-10 px-3 text-[13px]">{label}</button>
+      <button type="submit" aria-label={text(copy.a11yLabels.withQuestion, { label, question: question.text })} className="btn btn-quiet h-11 min-h-11 px-3 text-[13px]">{label}</button>
     </form>
   );
 }

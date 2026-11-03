@@ -16,7 +16,7 @@ function Confirm({ name }: { name: string }) {
       onClick={(event) => {
         if (pending) event.preventDefault();
       }}
-      className="btn btn-primary h-10 text-[14px] aria-disabled:cursor-not-allowed aria-disabled:opacity-45"
+      className="btn btn-primary h-11 min-h-11 text-[14px] aria-disabled:cursor-not-allowed aria-disabled:opacity-45"
     >
       {pending ? copy.members.transferPending : text(copy.members.transferConfirm, { name })}
     </button>
@@ -53,7 +53,7 @@ export function TransferControl({ groupId, groupName, membershipId, name }: Prop
         ref={trigger}
         type="button"
         onClick={() => setAsking(true)}
-        className="btn btn-quiet h-9 min-h-9 px-3 text-[13px]"
+        className="btn btn-quiet min-h-11 px-4 text-[13px]"
       >
         {text(copy.members.transferAction, { name })}
       </button>
@@ -79,7 +79,7 @@ export function TransferControl({ groupId, groupName, membershipId, name }: Prop
       <p className="mt-1 text-[14px] leading-relaxed text-ink-soft">{text(copy.members.transferBody, { name })}</p>
       <div className="mt-3 flex flex-wrap gap-2">
         <Confirm name={name} />
-        <button type="button" onClick={cancel} className="btn btn-quiet h-10 text-[14px]">
+        <button type="button" onClick={cancel} className="btn btn-quiet h-11 min-h-11 text-[14px]">
           {copy.members.transferCancel}
         </button>
       </div>

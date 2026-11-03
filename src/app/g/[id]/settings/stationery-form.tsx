@@ -100,7 +100,7 @@ function HeaderPicture({ groupId, initial }: { groupId: string; initial: string 
         <button
           ref={change}
           type="button"
-          className="btn btn-quiet h-10 text-[14px] aria-disabled:cursor-not-allowed aria-disabled:opacity-45"
+          className="btn btn-quiet h-11 min-h-11 text-[14px] aria-disabled:cursor-not-allowed aria-disabled:opacity-45"
           aria-disabled={status === "saving" ? true : undefined}
           onClick={() => {
             if (status !== "saving") input.current?.click();
@@ -111,7 +111,7 @@ function HeaderPicture({ groupId, initial }: { groupId: string; initial: string 
         {url ? (
           <button
             type="button"
-            className="btn btn-quiet h-10 text-[14px] aria-disabled:cursor-not-allowed aria-disabled:opacity-45"
+            className="btn btn-quiet h-11 min-h-11 text-[14px] aria-disabled:cursor-not-allowed aria-disabled:opacity-45"
             aria-disabled={status === "saving" ? true : undefined}
             onClick={() => {
               if (status !== "saving") void send({ method: "DELETE" }, "removed");

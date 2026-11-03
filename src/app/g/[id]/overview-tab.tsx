@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { nudgeAction, pauseAction, sendNowAction } from "./actions";
-import { Cherries, Tape } from "@/components/stationery";
+import { Tape } from "@/components/stationery";
 import { LoopNav } from "@/components/loop-nav";
 import { NoticeFocus } from "@/components/notice-focus";
 import { copy, text } from "@/lib/copy";
@@ -12,7 +12,6 @@ import { useLoopData } from "./loop-data";
 export default function OverviewTab({ welcome, nudged }: { welcome?: string; nudged?: string }) {
   const { group, membership, people, questions, openIssue, openProgress, openWaiting, nextRoundLabel, openIssueDeadlineLabel, weekdayLabel } = useLoopData();
   const manages = membership.access !== "member";
-  const isOwner = membership.access === "owner";
   const nextLabel = nextRoundLabel;
   const progress = openProgress;
   const writers = people.filter((person) => person.participation === "contributor").length;
@@ -20,13 +19,7 @@ export default function OverviewTab({ welcome, nudged }: { welcome?: string; nud
 
   return (
     <main className="mx-auto w-full max-w-[680px] px-4 pb-16 pt-5 sm:px-6">
-      <header className="stitched flex items-center justify-between gap-3 border-b pb-4">
-        <Link href="/you" aria-label={text(copy.a11yLabels.loopsLink, { name: group.name })} className="flex min-w-0 items-center gap-2 font-display text-[23px] font-bold text-ink no-underline">
-          <Cherries className="h-7 w-7 flex-none" /><span className="wrap-any">{group.name}</span>
-        </Link>
-        <span className="chip border bg-card px-2.5 py-1 text-[12px] font-bold capitalize text-ink-soft">{copy.common.roles[membership.access]}</span>
-      </header>
-      <LoopNav id={group.id} active="Overview" isOwner={isOwner} />
+      <LoopNav id={group.id} name={group.name} access={membership.access} active="Overview" />
 
       {welcome === "1" || welcome === "no-picture" ? (
         <NoticeFocus spacing="mb-5">

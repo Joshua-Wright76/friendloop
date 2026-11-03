@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import { useState } from "react";
 import { redirect } from "next/navigation";
 import { TimezoneField } from "../../new/timezone-field";
 import { deleteAction, pauseHereAction, rotateSharesAction, settingsAction } from "./actions";
@@ -10,7 +10,7 @@ import { NoticeFocus } from "@/components/notice-focus";
 import { StationeryForm } from "./stationery-form";
 import { Picker } from "@/components/picker";
 import { ConfirmAction } from "@/components/confirm-action";
-import { copy } from "@/lib/copy";
+import { copy, text } from "@/lib/copy";
 import { useLoopData } from "../loop-data";
 
 const WEEKDAYS = copy.common.weekdays;
@@ -23,17 +23,15 @@ export default function SettingsTab({ notices }: { notices: { saved?: string; er
   const { group, membership } = useLoopData();
   const id = group.id;
   const isOwner = membership.access === "owner";
+  const [confirmation, setConfirmation] = useState("");
+  // The same comparison the server makes; the server still checks.
+  const confirmed = confirmation.trim() === group.name.trim();
 
   if (!isOwner) redirect(`/g/${id}`);
 
   return (
     <main className="mx-auto w-full max-w-[680px] px-4 pb-16 pt-5 sm:px-6">
-      <header className="mb-5">
-        <Link href={`/g/${id}`} className="text-[13px] font-medium text-ink-soft hover:text-ink">
-          ← {group.name}
-        </Link>
-      </header>
-      <LoopNav id={id} active="Settings" isOwner />
+      <LoopNav id={id} name={group.name} access={membership.access} active="Settings" />
 
       <h1 className="text-[28px] font-semibold leading-tight tracking-[-0.025em] text-ink">{copy.settings.title}</h1>
 
@@ -156,19 +154,25 @@ export default function SettingsTab({ notices }: { notices: { saved?: string; er
         <input type="hidden" name="groupId" value={id} />
         <input type="hidden" name="name" value={group.name} />
         <h2 className="text-[16px] font-semibold tracking-[-0.01em] text-ink">{copy.settings.deleteTitle}</h2>
-        <p className="mt-1 text-[14px] leading-relaxed text-ink-soft">
-          {copy.settings.deleteDescriptionPrefix} <strong>{group.name}</strong> {copy.settings.deleteDescriptionSuffix}
-        </p>
+        <p className="mt-1 text-[14px] leading-relaxed text-ink-soft">{copy.settings.deleteDescription}</p>
         <label className="mt-3 flex flex-col gap-1.5">
-          <FieldLabel required>{copy.settings.deleteAriaLabel}</FieldLabel>
+          <FieldLabel required>{text(copy.settings.deleteConfirmLabel, { name: group.name })}</FieldLabel>
           <input
             name="confirm"
             required
-            placeholder={group.name}
+            autoComplete="off"
+            value={confirmation}
+            onChange={(event) => setConfirmation(event.target.value)}
             className="field h-[46px] py-0"
           />
         </label>
-        <button type="submit" className="btn btn-danger mt-3 hover:opacity-90">
+        {/* aria-disabled, not disabled: it stays in the tab order and announces why it does nothing yet. */}
+        <button
+          type="submit"
+          aria-disabled={confirmed ? undefined : true}
+          onClick={(event) => { if (!confirmed) event.preventDefault(); }}
+          className="btn btn-danger mt-3 hover:opacity-90 aria-disabled:cursor-not-allowed aria-disabled:opacity-45 aria-disabled:hover:opacity-45"
+        >
           {copy.settings.delete}
         </button>
       </form>

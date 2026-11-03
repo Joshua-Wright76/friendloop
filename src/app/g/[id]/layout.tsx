@@ -2,6 +2,7 @@ import { Suspense, type ReactNode } from "react";
 import type { Metadata } from "next";
 import { and, asc, countDistinct, desc, eq, isNull } from "drizzle-orm";
 import { notFound, redirect } from "next/navigation";
+import { connection } from "next/server";
 import { db } from "@/db";
 import { groups, issues, memberships, questions, replies } from "@/db/schema";
 import { pendingSuggestions } from "@/lib/suggestions";
@@ -67,6 +68,8 @@ async function LoadedGroupLayout({ children, params }: Props) {
   if (!row) notFound();
 
   const { group, membership } = row;
+  // "Now" belongs to this request, never to a prerender.
+  await connection();
   const at = await getNow();
   const [people, questionRows, roundRows, answerRows, suggestionRows, sectionRows, eventRows] = await Promise.all([
     membersOf(group.id),
