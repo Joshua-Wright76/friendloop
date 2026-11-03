@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
-import { THEME_PRESET_KEYS } from "@/lib/theme";
+import { copy } from "@/lib/copy";
+import { THEME_PRESET_KEYS, previewTheme } from "@/lib/theme";
 import { UI_PREVIEW } from "@/lib/ui-preview";
 import { resetDatabase, rows } from "./support/db";
 import {
@@ -29,12 +30,12 @@ test.use({ reducedMotion: "reduce" });
 
 const P = UI_PREVIEW;
 const OWNER = P.ownerToken;
-// [label, href, expected status]
-const SCREENS: Array<[label: string, href: string, status?: number]> = [
+// [label, href, expected status, true when the screen IS a "closed"/error card]
+const SCREENS: Array<[label: string, href: string, status?: number, isClosedCard?: boolean]> = [
   ["Home", "/"],
   ["Check email", "/signin/check-email"],
   ["Confirm sign-in", `/signin/confirm?token=${P.magicToken}`],
-  ["Invalid reply link", "/r/not-a-token"],
+  ["Invalid reply link", "/r/not-a-token", 200, true],
   ["Your loops", "/you"],
   ["New loop", "/g/new"],
   ["Overview", `/g/${P.groupId}`],
@@ -53,7 +54,7 @@ const SCREENS: Array<[label: string, href: string, status?: number]> = [
   ["Album as reader", `/album/${P.groupId}?m=${P.aliceToken}`],
   ["Shared round", `/s/${P.shareToken}`],
   ["Shared round, print", `/s/${P.shareToken}?print`],
-  ["Not found", "/no-such-page", 404],
+  ["Not found", "/no-such-page", 404, true],
 ];
 
 async function enterPreview(page: Page) {
@@ -71,8 +72,27 @@ async function settle(page: Page) {
   await page.waitForLoadState("networkidle").catch(() => undefined);
 }
 
+/**
+ * Headings that mean the page rendered a "not here / closed / sign in" card instead of the screen under test.
+ * The status code cannot tell: a streamed 404 and a Closed card both answer 200.
+ */
+const NOT_THE_SCREEN = [
+  copy.common.notFound.title,
+  copy.reply.invalidTitle,
+  copy.reply.expiredTitle,
+  copy.reply.nothingOpenTitle,
+  copy.pageTitles.signIn,
+].map((title) => title.toLowerCase());
+
 /** Everything the sweep checks about one screen in one theme, at both viewports. */
-async function sweep(page: Page, name: string, href: string, theme: "light" | "dark", status = 200): Promise<Problems> {
+async function sweep(
+  page: Page,
+  name: string,
+  href: string,
+  theme: "light" | "dark",
+  status = 200,
+  options: { closedCard?: boolean; stationery?: { preset: string | null; accent: string | null } } = {},
+): Promise<Problems> {
   const problems: Problems = [];
   const label = `${name} ${theme}`;
   const wanted = new URL(href, "http://x").pathname;
@@ -84,7 +104,17 @@ async function sweep(page: Page, name: string, href: string, theme: "light" | "d
   // An audit of the sign-in page (or a 404) in place of the screen would pass for the wrong reason.
   expect(new URL(page.url()).pathname, `${label} redirected away from ${href}`).toBe(wanted);
   expect(response?.status(), `${label} responded with the wrong status`).toBe(status);
-  if (status === 200) await expect(page.locator("h1").first(), `${label} has no heading`).toBeVisible();
+  await expect(page.locator("h1").first(), `${label} has no heading`).toBeVisible();
+  if (!options.closedCard && href !== "/signin") {
+    const heading = ((await page.locator("h1").first().textContent()) ?? "").trim().toLowerCase();
+    expect(NOT_THE_SCREEN.some((title) => heading.startsWith(title)), `${label} rendered “${heading}” instead of the screen`).toBe(false);
+  }
+  if (options.stationery) {
+    // The paper under audit must be the one that was asked for, not whatever the preview seeded.
+    const expected = previewTheme(options.stationery)[theme].page.toLowerCase();
+    const actual = (await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue("--page"))).trim().toLowerCase();
+    expect(actual, `${label}: the page is not drawn on the stationery it was set to`).toBe(expected);
+  }
 
   problems.push(...(await axeProblems(page, label)));
   problems.push(...(await keyboardProblems(page, `${label} desktop`)));
@@ -124,12 +154,12 @@ test("the sweep covers every screen /dev/screens links to", async ({ page }) => 
   expect(stale.map(([name]) => name), "these SCREENS entries are no longer linked from /dev/screens").toEqual([]);
 });
 
-for (const [name, href, status] of SCREENS) {
+for (const [name, href, status, closedCard] of SCREENS) {
   test(`WCAG AA sweep · ${name}`, async ({ page }) => {
     test.setTimeout(10 * 60_000);
     await enterPreview(page);
     const problems: Problems = [];
-    for (const theme of ["light", "dark"] as const) problems.push(...(await sweep(page, name, href, theme, status)));
+    for (const theme of ["light", "dark"] as const) problems.push(...(await sweep(page, name, href, theme, status, { closedCard })));
     expect(problems, `\n${problems.join("\n")}\n`).toEqual([]);
   });
 }
@@ -157,11 +187,15 @@ for (const [label, preset, accent] of STATIONERY) {
     const problems: Problems = [];
     for (const [name, href] of [
       ["Overview", `/g/${P.groupId}`],
+      ["Members", `/g/${P.groupId}/members`],
+      ["Rounds", `/g/${P.groupId}/issues`],
       ["Settings", `/g/${P.groupId}/settings`],
       ["Reply", `/r/${OWNER}`],
       ["Round", `/i/${P.deliveredIssueId}?m=${OWNER}`],
     ] as const) {
-      for (const theme of ["light", "dark"] as const) problems.push(...(await sweep(page, `${name} (${label})`, href, theme)));
+      for (const theme of ["light", "dark"] as const) {
+        problems.push(...(await sweep(page, `${name} (${label})`, href, theme, 200, { stationery: { preset, accent } })));
+      }
     }
     expect(problems, `\n${problems.join("\n")}\n`).toEqual([]);
   });

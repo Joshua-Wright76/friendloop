@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { copy, text } from "@/lib/copy";
+import { FieldLabel } from "@/components/field-label";
 
 type Props = { token: string; displayName: string };
 
@@ -29,7 +30,12 @@ export function SuggestForm({ token, displayName }: Props) {
 
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (sending || question.trim().length === 0) return;
+    if (sending) return;
+    if (question.trim().length === 0) {
+      setError(copy.suggest.errors.text);
+      field.current?.focus();
+      return;
+    }
     setSending(true);
     setError(null);
     try {
@@ -55,7 +61,7 @@ export function SuggestForm({ token, displayName }: Props) {
 
   return (
     <>
-      <p role="status" aria-live="polite" className="sr-only">{sent ? copy.suggest.doneTitle : ""}</p>
+      <p role="status" aria-live="polite" className="sr-only">{sent ? copy.a11yStatus.suggestionSent : ""}</p>
       {sent ? (
         <div ref={done} tabIndex={-1} className="mt-5 outline-offset-4">
           <p className="text-[15px] font-semibold text-ink">{copy.suggest.doneTitle}</p>
@@ -63,8 +69,8 @@ export function SuggestForm({ token, displayName }: Props) {
         </div>
       ) : (
         <form onSubmit={onSubmit} className="mt-5">
-          <label htmlFor="suggestion-text" className="text-[13px] font-medium text-ink">
-            {copy.suggest.fieldLabel}
+          <label htmlFor="suggestion-text" className="block">
+            <FieldLabel required>{copy.suggest.fieldLabel}</FieldLabel>
           </label>
           <textarea
             ref={field}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useState, useTransition, type FormEvent, type KeyboardEvent } from "react";
+import { useId, useRef, useState, useTransition, type FormEvent, type KeyboardEvent } from "react";
 import { useRouter } from "next/navigation";
 import { copy, text } from "@/lib/copy";
 import { FieldLabel } from "@/components/field-label";
@@ -15,6 +15,7 @@ export function InviteForm({ groupId }: { groupId: string }) {
   const [error, setError] = useState("");
   const [status, setStatus] = useState("");
   const inputId = useId();
+  const field = useRef<HTMLInputElement>(null);
   const hintId = useId();
   const errorId = useId();
   const [pending, startTransition] = useTransition();
@@ -32,6 +33,7 @@ export function InviteForm({ groupId }: { groupId: string }) {
   }
 
   function onKeyDown(event: KeyboardEvent<HTMLInputElement>) {
+    if (pending) return;
     if (["Enter", ",", ";", " "].includes(event.key) && input.trim()) {
       event.preventDefault();
       add(input);
@@ -42,6 +44,7 @@ export function InviteForm({ groupId }: { groupId: string }) {
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (pending) return;
     if (input.trim()) add(input);
     const pendingEmails = input.trim()
       ? [...new Set([...emails, ...input.split(/[\s,;]+/).map((email) => email.trim().toLowerCase()).filter((email) => validEmail.test(email))])]
@@ -84,10 +87,22 @@ export function InviteForm({ groupId }: { groupId: string }) {
         {emails.map((email) => (
           <span key={email} className="inline-flex items-center gap-1 rounded-full border border-line bg-card px-2.5 py-1 text-[13px] text-ink">
             {email}
-            <button type="button" aria-label={text(copy.members.removeEmail, { email })} disabled={pending} onClick={() => setEmails(emails.filter((item) => item !== email))} className="flex h-6 w-6 flex-none items-center justify-center rounded-full text-ink-muted hover:bg-field hover:text-ink">×</button>
+            <button
+              type="button"
+              aria-label={text(copy.members.removeEmail, { email })}
+              aria-disabled={pending ? true : undefined}
+              onClick={() => {
+                if (pending) return;
+                // The chip leaves with its button, so the field is where the keyboard carries on.
+                setEmails(emails.filter((item) => item !== email));
+                field.current?.focus();
+              }}
+              className="flex h-6 w-6 flex-none items-center justify-center rounded-full text-ink-muted hover:bg-field hover:text-ink aria-disabled:cursor-not-allowed aria-disabled:opacity-45"
+            >×</button>
           </span>
         ))}
         <input
+          ref={field}
           id={inputId}
           value={input}
           onChange={(event) => setInput(event.target.value)}
@@ -97,13 +112,14 @@ export function InviteForm({ groupId }: { groupId: string }) {
           aria-required="true"
           aria-invalid={Boolean(error)}
           aria-describedby={error ? `${hintId} ${errorId}` : hintId}
-          disabled={pending}
+          readOnly={pending}
+          aria-disabled={pending ? true : undefined}
           className="min-w-[180px] flex-1 border-0 bg-transparent p-1 text-[14px] text-ink outline-none"
         />
       </div>
       {error ? <p id={errorId} role="alert" className="mt-2 text-[13px] text-danger">{error}</p> : null}
       <p role="status" className="mt-2 text-[13px] text-ink-soft empty:mt-0">{status}</p>
-      <button type="submit" disabled={pending} className="btn btn-primary mt-4 disabled:opacity-60">{pending ? copy.common.loading : copy.members.sendInvitations}</button>
+      <button type="submit" aria-disabled={pending ? true : undefined} className="btn btn-primary mt-4 aria-disabled:cursor-not-allowed aria-disabled:opacity-45">{pending ? copy.common.loading : copy.members.sendInvitations}</button>
     </form>
   );
 }

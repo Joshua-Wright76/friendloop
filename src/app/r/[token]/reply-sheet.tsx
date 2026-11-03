@@ -147,6 +147,11 @@ export function ReplySheet({
   const [audioPreviews, setAudioPreviews] = useState<Record<string, string | null>>({});
   const [recording, setRecording] = useState<{ questionId: string; startedAt: number } | null>(null);
   const [recordingElapsed, setRecordingElapsed] = useState(0);
+  // True from Stop until the recorder has finished: nothing may start or stop meanwhile.
+  const [stopping, setStopping] = useState(false);
+  const stoppingRef = useRef(false);
+  // Ids to try, in order, once the next render lands: where focus goes when its control unmounts.
+  const pendingFocus = useRef<string[] | null>(null);
   // Server snapshot stays false so the sheet renders identically on the server;
   // recording affordances appear once the browser says it can.
   const canRecord = useSyncExternalStore(
@@ -268,6 +273,20 @@ export function ReplySheet({
     if (states.includes("saved")) return "saved";
     return "idle";
   }, [questionStatuses, submitFailed]);
+
+  // A control that unmounts takes keyboard focus with it, so the handler names its successor.
+  useEffect(() => {
+    const ids = pendingFocus.current;
+    if (!ids) return;
+    pendingFocus.current = null;
+    for (const id of ids) {
+      const target = document.getElementById(id);
+      if (target) {
+        target.focus();
+        return;
+      }
+    }
+  });
 
   useEffect(() => {
     const pending = timers.current;
@@ -398,6 +417,7 @@ export function ReplySheet({
     setPhotoErrors((current) => ({ ...current, [questionId]: null }));
 
     if (!photoUrls[questionId]) {
+      pendingFocus.current = [`photo-${questionId}`];
       setPhotoStates((current) => ({ ...current, [questionId]: "removed" }));
       return;
     }
@@ -412,6 +432,7 @@ export function ReplySheet({
     photoLocks.current.delete(questionId);
 
     if (result.ok) {
+      pendingFocus.current = [`photo-${questionId}`];
       setPhotoUrls((current) => ({ ...current, [questionId]: null }));
       setPhotoStates((current) => ({ ...current, [questionId]: "removed" }));
     } else {
@@ -421,6 +442,7 @@ export function ReplySheet({
   }, [clearPhotoPreview, photoUrls, token]);
 
   const retryPhoto = useCallback((questionId: string) => {
+    pendingFocus.current = [`photo-${questionId}`];
     if (photoStates[questionId] === "uploadError") {
       const file = photoFiles.current.get(questionId);
       if (file) void uploadPhoto(questionId, file);
@@ -462,6 +484,8 @@ export function ReplySheet({
   }, [clearAudioPreview, token]);
 
   const stopRecording = useCallback((questionId: string, discard: boolean) => {
+    // A second Stop while the first is still finishing must change nothing.
+    if (stoppingRef.current) return;
     const active = recorder.current;
     if (!active || active.state === "inactive") {
       setRecording(null);
@@ -469,6 +493,8 @@ export function ReplySheet({
       return;
     }
     const startedAt = recording?.startedAt ?? Date.now();
+    stoppingRef.current = true;
+    setStopping(true);
     active.onstop = () => {
       const durationMs = Date.now() - startedAt;
       const type = active.mimeType || "audio/webm";
@@ -482,6 +508,8 @@ export function ReplySheet({
       }
       setRecording(null);
       setRecordingElapsed(0);
+      stoppingRef.current = false;
+      setStopping(false);
 
       if (discard || durationMs > MAX_AUDIO_DURATION_MS) {
         setAudioStates((current) => ({ ...current, [questionId]: "uploadError" }));
@@ -496,7 +524,7 @@ export function ReplySheet({
   }, [recording, uploadAudio]);
 
   const startRecording = useCallback(async (questionId: string) => {
-    if (recording || audioLocks.current.has(questionId)) return;
+    if (recording || stoppingRef.current || audioLocks.current.has(questionId)) return;
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const mime = [
@@ -577,6 +605,7 @@ export function ReplySheet({
     setAudioErrors((current) => ({ ...current, [questionId]: null }));
 
     if (!audioUrls[questionId]) {
+      pendingFocus.current = [`record-${questionId}`, `audio-${questionId}`];
       setAudioStates((current) => ({ ...current, [questionId]: "removed" }));
       return;
     }
@@ -587,6 +616,7 @@ export function ReplySheet({
     audioLocks.current.delete(questionId);
 
     if (result.ok) {
+      pendingFocus.current = [`record-${questionId}`, `audio-${questionId}`];
       setAudioUrls((current) => ({ ...current, [questionId]: null }));
       setAudioDurations((current) => ({ ...current, [questionId]: null }));
       setAudioStates((current) => ({ ...current, [questionId]: "removed" }));
@@ -597,6 +627,7 @@ export function ReplySheet({
   }, [audioUrls, clearAudioPreview, token]);
 
   const retryAudio = useCallback((questionId: string) => {
+    pendingFocus.current = [`record-${questionId}`, `audio-${questionId}`];
     if (audioStates[questionId] === "uploadError") {
       const pending = audioPending.current.get(questionId);
       if (pending) void uploadAudio(questionId, pending.blob, pending.filename, pending.durationMs);
@@ -605,9 +636,11 @@ export function ReplySheet({
     }
   }, [audioStates, removeAudio, uploadAudio]);
 
-  const saveSection = useCallback(async (issueSectionId: string) => {
+  const saveSection = useCallback(async (issueSectionId: string, urlOverride?: string) => {
     setSectionSaveStates((current) => ({ ...current, [issueSectionId]: "saving" }));
-    const url = sectionLinks[issueSectionId] ?? "";
+    // Clear first, so the same failure twice is announced twice.
+    setSectionErrors((current) => ({ ...current, [issueSectionId]: null }));
+    const url = urlOverride ?? sectionLinks[issueSectionId] ?? "";
     const caption = sectionCaptions[issueSectionId] ?? "";
     const result = await postReply(
       token,
@@ -625,6 +658,7 @@ export function ReplySheet({
 
   const saveSectionText = useCallback((issueSectionId: string) => {
     setSectionSaveStates((current) => ({ ...current, [issueSectionId]: "saving" }));
+    setSectionErrors((current) => ({ ...current, [issueSectionId]: null }));
     void writeSectionDraft(issueSectionId, sectionBodies[issueSectionId] ?? "")
       .then((result) => {
         setSectionSaveStates((current) => ({ ...current, [issueSectionId]: result.ok ? "saved" : "error" }));
@@ -637,6 +671,7 @@ export function ReplySheet({
     if (sectionUploadLocks.current.has(lockKey)) return;
     sectionUploadLocks.current.add(lockKey);
     setSectionNotices((current) => ({ ...current, [issueSectionId]: null }));
+    setSectionErrors((current) => ({ ...current, [issueSectionId]: null }));
     const result = await uploadReplySectionPhoto(token, issueSectionId, file, caption, position, copy.reply.errors.photoUploadFailed);
     sectionUploadLocks.current.delete(lockKey);
     if (result.ok) {
@@ -655,10 +690,13 @@ export function ReplySheet({
     }
   }, [token]);
 
-  const removeSectionPhoto = useCallback(async (issueSectionId: string, mediaId: string) => {
+  const removeSectionPhoto = useCallback(async (issueSectionId: string, mediaId: string, remaining: number) => {
     setSectionNotices((current) => ({ ...current, [issueSectionId]: null }));
+    setSectionErrors((current) => ({ ...current, [issueSectionId]: null }));
     const result = await removeReplySectionMedia(token, issueSectionId, mediaId, copy.reply.errors.photoRemoveFailed);
     if (result.ok) {
+      // The photo's own Remove button is gone; the empty slot is the natural next stop.
+      pendingFocus.current = [`section-photo-${issueSectionId}-${remaining}`];
       setSectionMediaLists((current) => ({
         ...current,
         [issueSectionId]: (current[issueSectionId] ?? []).filter((item) => item.id !== mediaId),
@@ -681,6 +719,8 @@ export function ReplySheet({
       const revision = revisions.current.get(questionId) ?? 0;
       const nonEmpty = body.trim().length > 0;
       setQuestionStatuses((current) => ({ ...current, [questionId]: "saving" }));
+      // Clear first, so the same failure twice is announced twice.
+      setError(null);
       const result = await writeDraft(questionId, body);
       if ((revisions.current.get(questionId) ?? 0) !== revision) return;
       if (result.ok) {
@@ -724,6 +764,7 @@ export function ReplySheet({
       pollRevisions.current.set(questionId, revision);
       setPollPicks((current) => ({ ...current, [questionId]: next }));
       setPollStatuses((current) => ({ ...current, [questionId]: "saving" }));
+      setError(null);
       const result = await writePoll(questionId, JSON.stringify(next));
       if (pollRevisions.current.get(questionId) !== revision) return;
       if (result.ok) {
@@ -805,19 +846,19 @@ export function ReplySheet({
 
       setSent(true);
       setAnimateSentStamp(true);
-      setAnnouncement(text(copy.reply.sent, { deadline: deadline.inLoopZone }));
+      setAnnouncement(copy.a11yStatus.sentAnnouncement);
     } catch {
       setError(copy.reply.genericError);
       setSubmitFailed(true);
     } finally {
       setSending(false);
     }
-  }, [bodies, deadline.inLoopZone, name, questions, token, writeDraft]);
+  }, [bodies, name, questions, token, writeDraft]);
 
   return (
     <>
       <header className="reply-topbar stitched sticky top-0 z-20 border-b bg-page/85 backdrop-blur-md">
-        <div className="mx-auto flex h-16 w-full max-w-[600px] items-center justify-between gap-3 px-4">
+        <div className="mx-auto flex min-h-16 w-full max-w-[600px] items-center justify-between gap-3 px-4 py-2">
           <span className="flex min-w-0 items-center gap-2 font-display text-[23px] font-bold text-ink">
             <Cherries className="h-7 w-7 flex-none" /><span className="wrap-any">{loopName}</span>
           </span>
@@ -908,10 +949,14 @@ export function ReplySheet({
                 />
               );
             }
+            // Names carry the card's number, not its text, so each stays unique and none repeats the question.
+            const forQuestion = (label: string) => text(copy.a11yLabels.forQuestionNumber, { label, n: index + 1 });
             const photoState = photoStates[question.id] ?? "idle";
             const photoUrl = photoUrls[question.id];
             const preview = photoPreviews[question.id];
             const photoBusyForCard = photoState === "uploading" || photoState === "removing";
+            // aria-disabled, not disabled: a control the keyboard is on must not drop focus mid-request.
+            const photoBlocked = sending || photoBusyForCard;
             const showRemove = Boolean(photoUrl || preview || photoState === "uploadError" || photoState === "removeError");
             const photoStatusText = photoState === "uploading"
               ? copy.reply.photoUploading
@@ -933,7 +978,8 @@ export function ReplySheet({
                 audioState === "removeError",
             );
             const isRecordingHere = recording?.questionId === question.id;
-            const recordBlocked = sending || voiceBusyForCard || Boolean(recording);
+            const voiceBlocked = sending || voiceBusyForCard;
+            const recordBlocked = sending || voiceBusyForCard || Boolean(recording) || stopping;
             const audioStatusText = audioState === "uploading"
               ? copy.reply.voiceUploading
               : audioState === "removing"
@@ -957,7 +1003,7 @@ export function ReplySheet({
                   {questionStatuses[question.id] === "saved" ? <span>{copy.reply.questionStates.saved}</span> : null}
                   {questionStatuses[question.id] === "error" ? <span>{copy.reply.questionStates.error}</span> : null}
                   {questionStatuses[question.id] === "error" ? (
-                    <button type="button" className="min-h-11 underline underline-offset-2" onClick={() => void persist(question.id, bodies[question.id] ?? "")}>
+                    <button type="button" className="min-h-11 underline underline-offset-2" onClick={() => { pendingFocus.current = [`reply-${question.id}`]; void persist(question.id, bodies[question.id] ?? ""); }}>
                       {copy.reply.retry}
                     </button>
                   ) : null}
@@ -997,28 +1043,33 @@ export function ReplySheet({
                   type="file"
                   accept={PHOTO_ACCEPT}
                   className="peer sr-only"
-                  disabled={sending || photoBusyForCard}
-                  aria-label={text(copy.a11yLabels.withQuestion, { label: photoUrl ? copy.reply.replacePhoto : copy.reply.addPhoto, question: question.text })}
+                  aria-disabled={photoBlocked ? true : undefined}
+                  aria-label={forQuestion(photoUrl ? copy.reply.replacePhoto : copy.reply.addPhoto)}
                   aria-describedby={`photo-help-${question.id}`}
+                  onClick={(event) => {
+                    if (photoBlocked) event.preventDefault();
+                  }}
                   onChange={(event) => {
                     const file = event.currentTarget.files?.[0];
                     event.currentTarget.value = "";
-                    if (file) selectPhoto(question.id, file);
+                    if (file && !photoBlocked) selectPhoto(question.id, file);
                   }}
                 />
                 <label
                   htmlFor={`photo-${question.id}`}
-                  className="btn btn-quiet min-h-11 px-4 text-[13px] peer-disabled:pointer-events-none peer-disabled:opacity-45 peer-focus-visible:outline peer-focus-visible:outline-3 peer-focus-visible:outline-accent-ink peer-focus-visible:outline-offset-2"
+                  className="btn btn-quiet min-h-11 px-4 text-[13px] peer-aria-disabled:opacity-45 peer-focus-visible:outline peer-focus-visible:outline-3 peer-focus-visible:outline-accent-ink peer-focus-visible:outline-offset-2"
                 >
                   {photoUrl ? copy.reply.replacePhoto : copy.reply.addPhoto}
                 </label>
                 {showRemove ? (
                   <button
                     type="button"
-                    className="btn btn-quiet min-h-11 px-4 text-[13px]"
-                    aria-label={text(copy.a11yLabels.withQuestion, { label: copy.reply.removePhoto, question: question.text })}
-                    onClick={() => void removePhoto(question.id)}
-                    disabled={sending || photoBusyForCard}
+                    className="btn btn-quiet min-h-11 px-4 text-[13px] aria-disabled:cursor-not-allowed aria-disabled:opacity-45"
+                    aria-label={forQuestion(copy.reply.removePhoto)}
+                    aria-disabled={photoBlocked ? true : undefined}
+                    onClick={() => {
+                      if (!photoBlocked) void removePhoto(question.id);
+                    }}
                   >
                     {copy.reply.removePhoto}
                   </button>
@@ -1035,24 +1086,27 @@ export function ReplySheet({
               {(photoState === "removeError" || (photoState === "uploadError" && retryablePhotos[question.id])) ? (
                 <button
                   type="button"
-                  className="mt-1 min-h-11 text-[13px] font-bold text-ink underline underline-offset-2"
-                  onClick={() => retryPhoto(question.id)}
-                  disabled={sending || photoBusyForCard}
+                  className="mt-1 min-h-11 text-[13px] font-bold text-ink underline underline-offset-2 aria-disabled:cursor-not-allowed aria-disabled:opacity-45"
+                  aria-disabled={photoBlocked ? true : undefined}
+                  onClick={() => {
+                    if (!photoBlocked) retryPhoto(question.id);
+                  }}
                 >
                   {photoState === "removeError" ? copy.reply.retryPhotoRemove : copy.reply.retryPhotoUpload}
                 </button>
               ) : null}
             </section>
 
-            <div role="group" aria-label={text(copy.a11yLabels.withQuestion, { label: copy.reply.voiceRecord, question: question.text })} className="mt-4 border-t border-line pt-4">
+            <div role="group" aria-label={forQuestion(copy.reply.voiceRecord)} className="mt-4 border-t border-line pt-4">
               <div className={isRecordingHere ? "flex items-center justify-between gap-3" : "flex flex-wrap items-center gap-2"}>
                 {/* One button for Record and Stop, so keyboard focus stays where it was. */}
                 {canRecord || isRecordingHere ? (
                   <button
+                    id={`record-${question.id}`}
                     type="button"
                     className={`btn ${isRecordingHere ? "btn-primary" : "btn-quiet"} min-h-11 px-4 text-[13px] aria-disabled:cursor-not-allowed aria-disabled:opacity-45`}
-                    aria-label={text(copy.a11yLabels.withQuestion, { label: isRecordingHere ? copy.reply.voiceStop : audioUrl ? copy.reply.voiceReplace : copy.reply.voiceRecord, question: question.text })}
-                    aria-disabled={!isRecordingHere && recordBlocked ? true : undefined}
+                    aria-label={forQuestion(isRecordingHere ? copy.reply.voiceStop : audioUrl ? copy.reply.voiceReplace : copy.reply.voiceRecord)}
+                    aria-disabled={(isRecordingHere ? stopping : recordBlocked) ? true : undefined}
                     onClick={() => {
                       if (isRecordingHere) stopRecording(question.id, false);
                       else if (!recordBlocked) void startRecording(question.id);
@@ -1073,26 +1127,31 @@ export function ReplySheet({
                       type="file"
                       accept={AUDIO_ACCEPT}
                       className="peer sr-only"
-                      disabled={sending || voiceBusyForCard || Boolean(recording)}
+                      aria-disabled={voiceBlocked || recording ? true : undefined}
+                      onClick={(event) => {
+                        if (voiceBlocked || recording) event.preventDefault();
+                      }}
                       onChange={(event) => {
                         const file = event.target.files?.[0];
-                        if (file) pickAudioFile(question.id, file);
+                        if (file && !voiceBlocked && !recording) pickAudioFile(question.id, file);
                         event.target.value = "";
                       }}
                     />
                     <label
                       htmlFor={`audio-${question.id}`}
-                      className="btn btn-quiet min-h-11 px-4 text-[13px] peer-disabled:pointer-events-none peer-disabled:opacity-45 peer-focus-visible:outline peer-focus-visible:outline-3 peer-focus-visible:outline-accent-ink peer-focus-visible:outline-offset-2"
+                      className="btn btn-quiet min-h-11 px-4 text-[13px] peer-aria-disabled:opacity-45 peer-focus-visible:outline peer-focus-visible:outline-3 peer-focus-visible:outline-accent-ink peer-focus-visible:outline-offset-2"
                     >
                       {copy.reply.voicePick}
                     </label>
                     {showVoiceRemove ? (
                       <button
                         type="button"
-                        className="btn btn-quiet min-h-11 px-4 text-[13px]"
-                        aria-label={text(copy.a11yLabels.withQuestion, { label: copy.reply.voiceRemove, question: question.text })}
-                        onClick={() => void removeAudio(question.id)}
-                        disabled={sending || voiceBusyForCard}
+                        className="btn btn-quiet min-h-11 px-4 text-[13px] aria-disabled:cursor-not-allowed aria-disabled:opacity-45"
+                        aria-label={forQuestion(copy.reply.voiceRemove)}
+                        aria-disabled={voiceBlocked ? true : undefined}
+                        onClick={() => {
+                          if (!voiceBlocked) void removeAudio(question.id);
+                        }}
                       >
                         {copy.reply.voiceRemove}
                       </button>
@@ -1120,9 +1179,11 @@ export function ReplySheet({
               {(audioState === "removeError" || (audioState === "uploadError" && retryableAudio[question.id] && !recording)) ? (
                 <button
                   type="button"
-                  className="mt-1 min-h-11 text-[13px] font-bold text-ink underline underline-offset-2"
-                  onClick={() => retryAudio(question.id)}
-                  disabled={sending || voiceBusyForCard}
+                  className="mt-1 min-h-11 text-[13px] font-bold text-ink underline underline-offset-2 aria-disabled:cursor-not-allowed aria-disabled:opacity-45"
+                  aria-disabled={voiceBlocked ? true : undefined}
+                  onClick={() => {
+                    if (!voiceBlocked) retryAudio(question.id);
+                  }}
                 >
                   {audioState === "removeError" ? copy.reply.voiceRetryRemove : copy.reply.voiceRetryUpload}
                 </button>
@@ -1154,6 +1215,7 @@ export function ReplySheet({
                   {section.kind === "music" ? (
                     <div className="mt-3 flex flex-col gap-2">
                       <input
+                        id={`section-link-${section.id}`}
                         value={sectionLinks[section.id] ?? ""}
                         onChange={(event) => setSectionLinks((current) => ({ ...current, [section.id]: event.target.value }))}
                         placeholder={copy.reply.sectionMusicPlaceholder}
@@ -1183,12 +1245,15 @@ export function ReplySheet({
                         {(sectionLinks[section.id] ?? "") ? (
                           <button
                             type="button"
-                            className="btn btn-quiet min-h-11 px-4 text-[13px]"
+                            className="btn btn-quiet min-h-11 px-4 text-[13px] aria-disabled:cursor-not-allowed aria-disabled:opacity-45"
+                            aria-disabled={sending ? true : undefined}
                             onClick={() => {
+                              if (sending) return;
+                              // This button leaves with the link; the field it cleared is where focus goes.
+                              pendingFocus.current = [`section-link-${section.id}`];
                               setSectionLinks((current) => ({ ...current, [section.id]: "" }));
-                              void saveSection(section.id);
+                              void saveSection(section.id, "");
                             }}
-                            disabled={sending}
                           >
                             {copy.reply.sectionMusicClear}
                           </button>
@@ -1236,9 +1301,11 @@ export function ReplySheet({
                             ) : null}
                             <button
                               type="button"
-                              className="mt-1 min-h-11 text-[13px] font-bold text-ink underline underline-offset-2"
-                              onClick={() => void removeSectionPhoto(section.id, item.id)}
-                              disabled={sending}
+                              className="mt-1 min-h-11 text-[13px] font-bold text-ink underline underline-offset-2 aria-disabled:cursor-not-allowed aria-disabled:opacity-45"
+                              aria-disabled={sending ? true : undefined}
+                              onClick={() => {
+                                if (!sending) void removeSectionPhoto(section.id, item.id, media.length - 1);
+                              }}
                             >
                               {copy.reply.sectionRemovePhoto}
                             </button>
@@ -1258,9 +1325,12 @@ export function ReplySheet({
                       <p role="status" aria-live="polite" className={sectionNotices[section.id] ? "mt-2 text-[13px] text-ink-muted" : undefined}>
                         {sectionNotices[section.id]}
                       </p>
-                      <p role="alert" className={sectionErrors[section.id] ? "mt-2 text-[13px] leading-relaxed text-danger" : undefined}>
-                        {sectionErrors[section.id]}
-                      </p>
+                      {/* Standard sections already carry their one alert above the photos. */}
+                      {section.kind === "photo_wall" ? (
+                        <p role="alert" className={sectionErrors[section.id] ? "mt-2 text-[13px] leading-relaxed text-danger" : undefined}>
+                          {sectionErrors[section.id]}
+                        </p>
+                      ) : null}
                     </div>
                   ) : null}
                 </div>
@@ -1364,17 +1434,20 @@ function PhotoSlot({
         type="file"
         accept={PHOTO_ACCEPT}
         className="peer sr-only"
-        disabled={disabled}
+        aria-disabled={disabled ? true : undefined}
+        onClick={(event) => {
+          if (disabled) event.preventDefault();
+        }}
         onChange={(event) => {
           const file = event.target.files?.[0];
-          if (file) onPick(file, caption);
+          if (file && !disabled) onPick(file, caption);
           setCaption("");
           event.target.value = "";
         }}
       />
       <label
         htmlFor={id}
-        className="btn btn-quiet min-h-11 px-4 text-[13px] peer-disabled:pointer-events-none peer-disabled:opacity-45 peer-focus-visible:outline peer-focus-visible:outline-3 peer-focus-visible:outline-accent-ink peer-focus-visible:outline-offset-2"
+        className="btn btn-quiet min-h-11 px-4 text-[13px] peer-aria-disabled:opacity-45 peer-focus-visible:outline peer-focus-visible:outline-3 peer-focus-visible:outline-accent-ink peer-focus-visible:outline-offset-2"
       >
         {kind === "photo_wall" ? copy.reply.sectionAddPhoto : copy.reply.sectionAddPhoto}
       </label>

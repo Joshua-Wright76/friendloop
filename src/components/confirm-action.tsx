@@ -7,7 +7,15 @@ import { copy } from "@/lib/copy";
 function Confirm({ label }: { label: string }) {
   const { pending } = useFormStatus();
   return (
-    <button type="submit" disabled={pending} className="btn btn-primary min-h-11 px-4 text-[13px]">
+    // aria-disabled, not disabled: the button the keyboard is on must not vanish mid-request.
+    <button
+      type="submit"
+      aria-disabled={pending ? true : undefined}
+      onClick={(event) => {
+        if (pending) event.preventDefault();
+      }}
+      className="btn btn-primary min-h-11 px-4 text-[13px] aria-disabled:cursor-not-allowed aria-disabled:opacity-45"
+    >
       {pending ? copy.common.loading : label}
     </button>
   );
@@ -44,6 +52,7 @@ export function ConfirmAction({
   const title = useRef<HTMLParagraphElement>(null);
   const cancelled = useRef(false);
   const titleId = useId();
+  const bodyId = useId();
 
   useEffect(() => {
     if (asking) title.current?.focus();
@@ -79,6 +88,7 @@ export function ConfirmAction({
       action={action}
       role="group"
       aria-labelledby={titleId}
+      aria-describedby={bodyId}
       onKeyDown={(event) => {
         if (event.key === "Escape") cancel();
       }}
@@ -88,7 +98,7 @@ export function ConfirmAction({
         <input key={name} type="hidden" name={name} value={value} />
       ))}
       <p id={titleId} ref={title} tabIndex={-1} className="text-[15px] font-bold text-ink outline-none">{question}</p>
-      <p className="mt-1 text-[14px] leading-relaxed text-ink-soft">{body}</p>
+      <p id={bodyId} className="mt-1 text-[14px] leading-relaxed text-ink-soft">{body}</p>
       <div className="mt-3 flex flex-wrap gap-2">
         <Confirm label={confirmLabel} />
         <button type="button" onClick={cancel} className="btn btn-quiet min-h-11 px-4 text-[13px]">

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { removeAction, resendAction } from "./actions";
+import { ConfirmAction } from "@/components/confirm-action";
 import { MemberRolePicker } from "./member-role-picker";
 import { TransferControl } from "./transfer-control";
 import { Avatar } from "@/components/avatar";
@@ -114,13 +115,17 @@ export default function MembersTab({ notices }: {
               ) : null}
 
               {manages && person.access !== "owner" ? (
-                <form action={removeAction} className="mt-3 flex justify-end">
-                  <input type="hidden" name="groupId" value={id} />
-                  <input type="hidden" name="membershipId" value={person.id} />
-                  <button type="submit" aria-label={text(copy.a11yLabels.removeMember, { name: person.name ?? person.email })} className="btn btn-danger h-9 min-h-9 px-3 text-[13px]">
-                    {copy.members.remove}
-                  </button>
-                </form>
+                <ConfirmAction
+                  className="mt-3 flex justify-end"
+                  action={removeAction}
+                  fields={{ groupId: id, membershipId: person.id }}
+                  label={copy.members.remove}
+                  triggerLabel={text(copy.a11yLabels.removeMember, { name: person.name ?? person.email })}
+                  question={text(copy.a11yLabels.removeMemberQuestion, { name: person.name ?? person.email })}
+                  body={copy.a11yLabels.removeMemberBody}
+                  confirmLabel={text(copy.a11yLabels.removeMemberConfirm, { name: person.name ?? person.email })}
+                  cancelLabel={copy.a11yLabels.confirmCancel}
+                />
               ) : null}
             </li>
           );

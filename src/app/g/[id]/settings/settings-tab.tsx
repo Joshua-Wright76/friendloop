@@ -9,6 +9,7 @@ import { FieldLabel } from "@/components/field-label";
 import { NoticeFocus } from "@/components/notice-focus";
 import { StationeryForm } from "./stationery-form";
 import { Picker } from "@/components/picker";
+import { ConfirmAction } from "@/components/confirm-action";
 import { copy } from "@/lib/copy";
 import { useLoopData } from "../loop-data";
 
@@ -115,12 +116,22 @@ export default function SettingsTab({ notices }: { notices: { saved?: string; er
       />
 
       {group.shareEnabled ? (
-        <form action={rotateSharesAction} className="card mt-3 p-5">
-          <input type="hidden" name="groupId" value={id} />
+        <section className="card mt-3 p-5">
           <h2 className="text-[16px] font-semibold tracking-[-0.01em] text-ink">{copy.settings.sharesTitle}</h2>
           <p className="mt-1 text-[14px] leading-relaxed text-ink-soft">{copy.settings.sharesResetDescription}</p>
-          <button type="submit" className="btn btn-quiet mt-3">{copy.settings.sharesReset}</button>
-        </form>
+          {/* Resetting kills every link already sent, so it asks first (WCAG 3.3.4). */}
+          <ConfirmAction
+            className="mt-3"
+            action={rotateSharesAction}
+            fields={{ groupId: id }}
+            label={copy.settings.sharesReset}
+            triggerLabel={copy.settings.sharesReset}
+            question={copy.a11yLabels.resetSharesQuestion}
+            body={copy.a11yLabels.resetSharesBody}
+            confirmLabel={copy.a11yLabels.resetSharesConfirm}
+            cancelLabel={copy.a11yLabels.confirmCancel}
+          />
+        </section>
       ) : null}
 
       <div className="card mt-3 p-5">

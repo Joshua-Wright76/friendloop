@@ -1,5 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import type { Page } from "@playwright/test";
+import type { RunOptions } from "axe-core";
 
 /**
  * The WCAG 2.2 AA checks axe cannot make, as helpers a spec composes.
@@ -37,6 +38,9 @@ const EXTRA_RULES = new Set([
  */
 export const ZOOM_400 = { width: 320, height: 256 } as const;
 
+/** axe reads `options.checks[id]` at run time; its own type for RunOptions just does not list it. */
+const IGNORE_PSEUDO = { checks: { "color-contrast": { options: { ignorePseudo: true } } } } as unknown as RunOptions;
+
 export type Problems = string[];
 
 type AxeNode = { target: unknown[]; any: Array<{ message?: string }> };
@@ -49,7 +53,12 @@ function describeNodes(nodes: AxeNode[]): string {
 }
 
 export async function axeProblems(page: Page, label: string): Promise<Problems> {
-  const result = await new AxeBuilder({ page }).withTags([...AXE_TAGS, "best-practice"]).analyze();
+  // ignorePseudo: a 1.5px decorative ::before line (the margin rule on `.paper` cards) must not make axe give
+  // up on every text node near it; the contrast is then really measured.
+  const result = await new AxeBuilder({ page })
+    .withTags([...AXE_TAGS, "best-practice"])
+    .options(IGNORE_PSEUDO)
+    .analyze();
   const out: Problems = [];
   for (const violation of result.violations) {
     const wcag = violation.tags.some((tag) => AXE_TAGS.includes(tag));
@@ -66,9 +75,30 @@ export async function axeProblems(page: Page, label: string): Promise<Problems> 
     // Likewise for reasons that are not about a colour pair at all: a glyph with no text in it, an empty
     // input (its placeholder colour is a token, tested), and decoration drawn by a pseudo-element.
     // (The sticky reply bars are deliberately layered over the page, which axe reports as "overlapped".)
-    const KNOWN = /background gradient|only non-text characters|has no value|pseudo element|partially obscured|overlaps other elements|overlapped by another element/;
+    const KNOWN = /background gradient|only non-text characters|has no value/;
     const unverified = incomplete.nodes.filter((node) => !node.any.some((check) => KNOWN.test(check.message ?? "")));
     if (!unverified.length) continue;
+    // Text under or over the page's fixed chrome (feedback/theme buttons, sticky reply bars) is
+    // "overlapped" to axe. Measure it again with that chrome out of the way before calling it unverified.
+    const overlapped = unverified.filter((node) => node.any.some((check) => /overlap|obscured/.test(check.message ?? "")));
+    if (overlapped.length === unverified.length) {
+      const handle = await page.addStyleTag({ content: ".feedback-button, .theme-switch, .reply-topbar, .reply-actionbar { visibility: hidden !important; }" });
+      try {
+        const again = await new AxeBuilder({ page })
+          .withRules(["color-contrast"])
+          .options(IGNORE_PSEUDO)
+          .include(overlapped.map((node) => node.target.join(" ")).slice(0, 25))
+          .analyze();
+        for (const violation of again.violations) out.push(`${label}: axe ${violation.id} (${violation.nodes.length}, with fixed bars hidden) — ${describeNodes(violation.nodes)}`);
+        for (const remaining of again.incomplete) {
+          const left = remaining.nodes.filter((node) => !node.any.some((check) => KNOWN.test(check.message ?? "")));
+          if (left.length) out.push(`${label}: axe could not verify contrast even with fixed bars hidden (${left.length}) — ${describeNodes(left)}`);
+        }
+      } finally {
+        await handle.evaluate((node) => (node as Element).remove());
+      }
+      continue;
+    }
     incomplete.nodes = unverified;
     out.push(`${label}: axe could not verify contrast (${incomplete.nodes.length}) — ${describeNodes(incomplete.nodes)}`);
   }
@@ -96,8 +126,12 @@ async function wideElements(page: Page): Promise<string[]> {
       return `${el.tagName.toLowerCase()}${klass ? "." + klass : ""}`;
     };
     const scrolls = document.documentElement.scrollWidth - viewportWidth;
+    // The one place content may scroll sideways: the loop's tab strip. Anything else that scrolls
+    // sideways (a dialog, a list) is two-dimensional scrolling, which 1.4.10 does not allow.
+    const ALLOWED = ".loop-nav";
     const inScroller = (el: Element) => {
       for (let p = el.parentElement; p && p !== document.body; p = p.parentElement) {
+        if (!p.matches(ALLOWED)) continue;
         const o = getComputedStyle(p);
         if (o.overflowX === "auto" || o.overflowX === "scroll") return true;
       }
@@ -113,6 +147,10 @@ async function wideElements(page: Page): Promise<string[]> {
       if (rect.right > viewportWidth + 1 || rect.left < -1) {
         if (style.position !== "fixed" && scrolls <= 0 && rect.left >= -1) continue; // clipped away by an ancestor: reported below
         names.push(`${describe(el)} spans ${Math.round(rect.left)}–${Math.round(rect.right)} “${(el.textContent ?? "").trim().slice(0, 30)}”`);
+      }
+      // A scroller of its own that scrolls sideways is 2-D scrolling (the tab strip is the exception).
+      if (rect.width > 2 && (style.overflowX === "auto" || style.overflowX === "scroll") && !el.matches(ALLOWED) && el.scrollWidth > el.clientWidth + 1) {
+        names.push(`${describe(el)} scrolls sideways by ${el.scrollWidth - el.clientWidth}px`);
       }
       // A wrapper that hides its overflow makes whatever is cut off unreachable.
       // (a 1px wrapper is a visually-hidden label, which hides its text on purpose)
@@ -187,6 +225,7 @@ function measureClipping(): Clipping {
 /* ------------------------------ keyboard sweep ---------------------------- */
 
 type Stop = {
+  plain: string | null;
   index: number;
   name: string;
   scrollX: number;
@@ -248,12 +287,42 @@ async function collectStops(page: Page, max: number): Promise<{ stops: Stop[]; p
       break;
     }
     seen.add(info.index);
-    const stop: Stop = { ...info, focused: null };
-    if (stop.clip) stop.focused = (await page.screenshot({ clip: stop.clip })).toString("base64");
+    const stop: Stop = { ...info, focused: null, plain: null };
+    if (stop.clip) {
+      stop.focused = (await page.screenshot({ clip: stop.clip })).toString("base64");
+      // The unfocused baseline is taken right here, with the page exactly as it is: capturing it after
+      // the sweep would count every lazy image and inner scroll that moved in between as a "focus ring".
+      await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+      stop.plain = (await page.screenshot({ clip: stop.clip })).toString("base64");
+      await page.evaluate((index) => (document.querySelector(`[data-a11y-stop="${index}"]`) as HTMLElement | null)?.focus({ preventScroll: true }), info.index);
+    }
     stops.push(stop);
   }
   if (!wrapped) problems.push(`keyboard sweep stopped at its ${max}-stop cap before the end of the page; later controls were not checked`);
   if (stops.length === 0) problems.push("Tab reached nothing (the sweep would otherwise pass vacuously)");
+  else {
+    const modal = await page.evaluate(() => Boolean(document.querySelector("dialog[open]")));
+    if (!modal && !/skip-link/.test(stops[0].name)) problems.push(`the first Tab stop is ${stops[0].name}, not the skip link`);
+    // Every tabbable, visible control must have been reached: a sweep that skips one has not checked it.
+    const missed = await page.evaluate(() => {
+      const modalOpen = document.querySelector("dialog[open]");
+      const scope: ParentNode = modalOpen ?? document;
+      const visible = (el: Element) => {
+        const r = el.getBoundingClientRect();
+        const cs = getComputedStyle(el);
+        if (cs.visibility === "hidden" || cs.display === "none") return false;
+        for (let p: Element | null = el; p; p = p.parentElement) if (p.hasAttribute("inert") || p.getAttribute("aria-hidden") === "true" && !p.closest("[data-a11y-allow]")) { if (p.hasAttribute("inert")) return false; }
+        return r.width > 0 && r.height > 0;
+      };
+      const list = Array.from(scope.querySelectorAll('a[href], button:not([disabled]), input:not([type="hidden"]):not([disabled]), select:not([disabled]), textarea:not([disabled]), summary, audio[controls], [tabindex]:not([tabindex="-1"])'));
+      return list
+        .filter((el) => visible(el) && !el.closest("details:not([open]) > :not(summary)") && !(el instanceof HTMLInputElement && el.type === "radio") && (el as HTMLElement).tabIndex >= 0)
+        .filter((el) => !el.hasAttribute("data-a11y-stop"))
+        .slice(0, 5)
+        .map((el) => `${el.tagName.toLowerCase()}${typeof el.className === "string" && el.className ? "." + el.className.trim().split(/\s+/).slice(0, 2).join(".") : ""} “${(el.getAttribute("aria-label") || el.textContent || "").trim().replace(/\s+/g, " ").slice(0, 28)}”`);
+    });
+    for (const name of missed) problems.push(`Tab never reached ${name}`);
+  }
   return { stops, problems };
 }
 
@@ -399,7 +468,7 @@ export async function focusedProblems(page: Page, label: string): Promise<Proble
   try {
     const info = await page.evaluate(describeFocus);
     if (!info) return [`${label}: nothing has focus`];
-    const stop: Stop = { ...info, focused: null };
+    const stop: Stop = { ...info, focused: null, plain: null };
     const out: Problems = [];
     if (stop.offscreen) return [`${label}: focus lands outside the viewport on ${stop.name}`];
     if (stop.covered) out.push(`${label}: ${stop.name} is covered by ${stop.covered} when focused`);
@@ -441,13 +510,8 @@ export async function keyboardProblems(page: Page, label: string, max = 400): Pr
     for (const stop of stops) {
       if (stop.offscreen) { out.push(`${label}: focus lands outside the viewport on ${stop.name}`); continue; }
       if (stop.covered) out.push(`${label}: ${stop.name} is covered by ${stop.covered} when focused`);
-      if (!stop.clip || !stop.focused) continue;
-      await page.evaluate(([x, y]) => {
-        (document.activeElement as HTMLElement | null)?.blur();
-        window.scrollTo(x, y);
-      }, [stop.scrollX, stop.scrollY] as const);
-      const unfocused = (await page.screenshot({ clip: stop.clip })).toString("base64");
-      const { strong, changed } = await changedPixels(helper, stop.focused, unfocused);
+      if (!stop.clip || !stop.focused || !stop.plain) continue;
+      const { strong, changed } = await changedPixels(helper, stop.focused, stop.plain);
       const bad = changed === 0 ? "no visible focus indicator on" : !enoughPixels(strong, stop.clip) ? "focus indicator is below 3:1 on" : null;
       if (bad) {
         out.push(`${label}: ${bad} ${stop.name}${changed ? ` (${strong}/${changed} px)` : ""}`);
@@ -457,7 +521,7 @@ export async function keyboardProblems(page: Page, label: string, max = 400): Pr
           mkdirSync(dir, { recursive: true });
           const slug = `${label}-${stop.index}`.replace(/[^a-z0-9]+/gi, "_");
           writeFileSync(`${dir}/${slug}-focused.png`, Buffer.from(stop.focused, "base64"));
-          writeFileSync(`${dir}/${slug}-plain.png`, Buffer.from(unfocused, "base64"));
+          writeFileSync(`${dir}/${slug}-plain.png`, Buffer.from(stop.plain, "base64"));
         }
       }
     }

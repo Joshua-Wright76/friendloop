@@ -118,7 +118,7 @@ function answersHtml(answers: AnswerBlock[], url: string, c: EmailPalette): stri
   return answers
     .map((answer) => {
       const photo = answer.photoUrl
-        ? `<img src="${escapeHtml(answer.photoUrl)}" alt="${escapeHtml(copy.a11yLabels.photoFrom.replace("{name}", answer.author))}" width="520" style="display:block;width:100%;max-width:520px;border:1px solid ${c.line};border-radius:6px;margin:14px 0 0" />`
+        ? `<img src="${escapeHtml(answer.photoUrl)}" alt="${escapeHtml(text(copy.a11yLabels.photoFrom, { name: answer.author }))}" width="520" style="display:block;width:100%;max-width:520px;border:1px solid ${c.line};border-radius:6px;margin:14px 0 0" />`
         : "";
       // Email never attempts to play audio; the web issue is the canonical player.
       const voice = answer.audioUrl

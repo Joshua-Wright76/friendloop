@@ -565,7 +565,7 @@ export function NewLoopForm({ packs }: { packs: QuestionPack[] }) {
               </button>
               </div>
               {emailError ? <p id={errorId} role="alert" className="mt-2 text-[13px] leading-relaxed text-danger">{emailError}</p> : null}
-              {emailNotice ? <p role="status" className="mt-2 text-[13px] leading-relaxed text-ink-soft">{emailNotice}</p> : null}
+              <p role="status" className={emailNotice ? "mt-2 text-[13px] leading-relaxed text-ink-soft" : undefined}>{emailNotice}</p>
               <p className="mt-3 text-[13px] leading-relaxed text-ink-muted">{copy.newLoop.wizard.readers.optional}</p>
             </div>
           </>

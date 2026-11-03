@@ -33,7 +33,7 @@ const ROTATION_OPTIONS = [
   ...Array.from({ length: 10 }, (_, index) => ({ value: String(index + 1), label: String(index + 1) })),
 ];
 
-export default function QuestionsTab({ notices }: { notices: { added?: string; archived?: string; rotation?: string; fromPacks?: string; suggestion?: string; section?: string; poll?: string; event?: string } }) {
+export default function QuestionsTab({ notices }: { notices: { added?: string; archived?: string; skip?: string; rotation?: string; fromPacks?: string; suggestion?: string; section?: string; poll?: string; event?: string } }) {
   const { group, membership, questions: pool, suggestions, sections } = useLoopData();
   const id = group.id;
   const manages = membership.access !== "member";
@@ -68,6 +68,7 @@ export default function QuestionsTab({ notices }: { notices: { added?: string; a
 
       {notices.added ? <NoticeFocus>{copy.questions.addedNotice}</NoticeFocus> : null}
       {notices.archived ? <NoticeFocus>{copy.questions.archivedNotice}</NoticeFocus> : null}
+      {notices.skip ? <NoticeFocus>{copy.questions.skipSavedNotice}</NoticeFocus> : null}
       {notices.suggestion === "added" ? <NoticeFocus>{copy.questions.suggestionAddedNotice}</NoticeFocus> : null}
       {notices.suggestion === "declined" ? <NoticeFocus>{copy.questions.suggestionDeclinedNotice}</NoticeFocus> : null}
       {notices.suggestion === "gone" ? <NoticeFocus>{copy.questions.suggestionGoneNotice}</NoticeFocus> : null}

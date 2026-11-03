@@ -22,9 +22,8 @@ export function QuestionOrder({ groupId, questions: initial }: { groupId: string
   const [pending, startTransition] = useTransition();
   const dialog = useRef<HTMLDialogElement>(null);
   const draggedId = useRef<string | null>(null);
-  const list = useRef<HTMLOListElement>(null);
-  // Where keyboard focus should land if the control it was on is moved or removed.
-  const refocus = useRef<{ id: string; control: string } | "list" | null>(null);
+  // Where keyboard focus should land if the control it was on is moved.
+  const refocus = useRef<{ id: string; control: string } | null>(null);
 
   useEffect(() => {
     if (movingId) dialog.current?.showModal();
@@ -35,10 +34,7 @@ export function QuestionOrder({ groupId, questions: initial }: { groupId: string
     const target = refocus.current;
     if (!target) return;
     if (!document.activeElement || document.activeElement === document.body) {
-      const element = target === "list"
-        ? list.current
-        : document.querySelector<HTMLElement>(`[data-question="${CSS.escape(target.id)}"][data-control="${target.control}"]`);
-      element?.focus();
+      document.querySelector<HTMLElement>(`[data-question="${CSS.escape(target.id)}"][data-control="${target.control}"]`)?.focus();
     }
     if (!pending) refocus.current = null;
   }, [orderedIds, items.length, pending]);
@@ -71,7 +67,7 @@ export function QuestionOrder({ groupId, questions: initial }: { groupId: string
 
   return (
     <>
-      <ol ref={list} tabIndex={-1} className="mt-5 flex flex-col gap-2.5 outline-none" aria-label={copy.questions.listLabel}>
+      <ol className="mt-5 flex flex-col gap-2.5" aria-label={copy.questions.listLabel}>
         {items.map((question, index) => (
           <li key={question.id} onDragOver={(event) => event.preventDefault()} onDrop={(event) => {
             event.preventDefault();
@@ -93,11 +89,11 @@ export function QuestionOrder({ groupId, questions: initial }: { groupId: string
               </button>
             </div>
             <div className="question-order-controls mt-3 flex flex-wrap gap-2">
-              <button type="button" aria-disabled={pending || index === 0 ? true : undefined} data-question={question.id} data-control="up" onClick={() => { if (pending || index === 0) return; refocus.current = { id: question.id, control: "up" }; void move(question.id, index - 1); }} className="question-step btn btn-quiet h-10 px-3 text-[13px] aria-disabled:cursor-not-allowed aria-disabled:opacity-45">{copy.questions.up}</button>
-              <button type="button" aria-disabled={pending || index === items.length - 1 ? true : undefined} data-question={question.id} data-control="down" onClick={() => { if (pending || index === items.length - 1) return; refocus.current = { id: question.id, control: "down" }; void move(question.id, index + 1); }} className="question-step btn btn-quiet h-10 px-3 text-[13px] aria-disabled:cursor-not-allowed aria-disabled:opacity-45">{copy.questions.down}</button>
-              <button type="button" aria-disabled={pending ? true : undefined} data-question={question.id} data-control="move" onClick={() => { if (!pending) setMovingId(question.id); }} className="question-mobile-move btn btn-quiet h-10 px-3 text-[13px] aria-disabled:cursor-not-allowed aria-disabled:opacity-45">{copy.questions.move}</button>
-              <SkipControl groupId={groupId} question={question} onDone={setAnnouncement} />
-              <ArchiveControl groupId={groupId} question={question} onDone={setAnnouncement} onSubmit={() => { refocus.current = "list"; }} />
+              <button type="button" aria-disabled={pending || index === 0 ? true : undefined} data-question={question.id} data-control="up" aria-label={text(copy.a11yLabels.withQuestion, { label: copy.questions.up, question: question.text })} onClick={() => { if (pending || index === 0) return; refocus.current = { id: question.id, control: "up" }; void move(question.id, index - 1); }} className="question-step btn btn-quiet h-10 px-3 text-[13px] aria-disabled:cursor-not-allowed aria-disabled:opacity-45">{copy.questions.up}</button>
+              <button type="button" aria-disabled={pending || index === items.length - 1 ? true : undefined} data-question={question.id} data-control="down" aria-label={text(copy.a11yLabels.withQuestion, { label: copy.questions.down, question: question.text })} onClick={() => { if (pending || index === items.length - 1) return; refocus.current = { id: question.id, control: "down" }; void move(question.id, index + 1); }} className="question-step btn btn-quiet h-10 px-3 text-[13px] aria-disabled:cursor-not-allowed aria-disabled:opacity-45">{copy.questions.down}</button>
+              <button type="button" aria-disabled={pending ? true : undefined} data-question={question.id} data-control="move" aria-label={text(copy.a11yLabels.withQuestion, { label: copy.questions.move, question: question.text })} onClick={() => { if (!pending) setMovingId(question.id); }} className="question-mobile-move btn btn-quiet h-10 px-3 text-[13px] aria-disabled:cursor-not-allowed aria-disabled:opacity-45">{copy.questions.move}</button>
+              <SkipControl groupId={groupId} question={question} />
+              <ArchiveControl groupId={groupId} question={question} />
             </div>
           </li>
         ))}
@@ -123,24 +119,23 @@ export function QuestionOrder({ groupId, questions: initial }: { groupId: string
   );
 }
 
-function SkipControl({ groupId, question, onDone }: { groupId: string; question: Question; onDone: (message: string) => void }) {
-  async function submit(formData: FormData) {
-    await skipNextAction(formData);
-    onDone(text(question.skipNext ? copy.a11yStatus.questionBackIn : copy.a11yStatus.questionSkipped, { question: question.text }));
-  }
-  return <form action={submit}><input type="hidden" name="groupId" value={groupId} /><input type="hidden" name="questionId" value={question.id} /><button type="submit" className="btn btn-quiet h-10 px-3 text-[13px]">{question.skipNext ? copy.questions.backIn : copy.questions.skipNext}</button></form>;
+function SkipControl({ groupId, question }: { groupId: string; question: Question }) {
+  // The action redirects back to this page with a notice, which NoticeFocus announces.
+  const label = question.skipNext ? copy.questions.backIn : copy.questions.skipNext;
+  return (
+    <form action={skipNextAction}>
+      <input type="hidden" name="groupId" value={groupId} />
+      <input type="hidden" name="questionId" value={question.id} />
+      <button type="submit" aria-label={text(copy.a11yLabels.withQuestion, { label, question: question.text })} className="btn btn-quiet h-10 px-3 text-[13px]">{label}</button>
+    </form>
+  );
 }
 
-function ArchiveControl({ groupId, question, onDone, onSubmit }: { groupId: string; question: Question; onDone: (message: string) => void; onSubmit: () => void }) {
-  async function submit(formData: FormData) {
-    onSubmit();
-    await archiveAction(formData);
-    onDone(text(copy.a11yStatus.questionArchived, { question: question.text }));
-  }
+function ArchiveControl({ groupId, question }: { groupId: string; question: Question }) {
   // Archiving takes the question out of the pool for good, so it asks first (WCAG 3.3.4).
   return (
     <ConfirmAction
-      action={submit}
+      action={archiveAction}
       fields={{ groupId, questionId: question.id }}
       label={copy.questions.archive}
       triggerLabel={text(copy.a11yLabels.archiveQuestion, { question: question.text })}

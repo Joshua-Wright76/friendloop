@@ -19,9 +19,7 @@ export default function ErrorPage({
 
   // A client error boundary cannot export metadata; name the page for the tab and for screen readers.
   useEffect(() => {
-    const previous = document.title;
     document.title = `${copy.pageTitles.somethingWrong} · ${copy.common.brand}`;
-    return () => { document.title = previous; };
   }, []);
 
   return (

@@ -102,7 +102,7 @@ export async function skipNextAction(formData: FormData) {
   const questionId = String(formData.get("questionId") ?? "");
   await toggleSkipNext(groupId, questionId);
   revalidatePath(`/g/${groupId}`, "layout");
-  redirect(`/g/${groupId}/questions`);
+  redirect(`/g/${groupId}/questions?skip=1`);
 }
 
 export async function acceptSuggestionAction(formData: FormData) {
