@@ -70,15 +70,24 @@ export async function removeAction(formData: FormData) {
   redirect(`/g/${groupId}/members?removed=1`);
 }
 
+/**
+ * Contributor or reader, from the member's picker. `setParticipation` keeps the
+ * owner a contributor and everyone else a reader in `from_you` mode.
+ */
 export async function participationAction(formData: FormData) {
   const groupId = String(formData.get("groupId") ?? "");
   const membershipId = String(formData.get("membershipId") ?? "");
   const participation = formData.get("participation") === "reader" ? "reader" : "contributor";
   await requireManager(groupId);
 
-  await setParticipation(groupId, membershipId, participation);
-  revalidatePath(`/g/${groupId}`, "layout");
-  redirect(`/g/${groupId}/members`);
+  try {
+    const updated = await setParticipation(groupId, membershipId, participation);
+    if (!updated) return { ok: false as const };
+    revalidatePath(`/g/${groupId}`, "layout");
+    return { ok: true as const };
+  } catch {
+    return { ok: false as const };
+  }
 }
 
 export async function accessAction(formData: FormData) {

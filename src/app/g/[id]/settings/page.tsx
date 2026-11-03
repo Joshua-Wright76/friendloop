@@ -1,12 +1,15 @@
+import { Suspense } from "react";
 import type { Metadata } from "next";
 import { copy } from "@/lib/copy";
+import LoopLoading from "../loading";
 import { LoopTabContent } from "../tab-content";
 
 export const metadata: Metadata = { title: copy.pageTitles.settings };
 
-export default async function SettingsPage({ searchParams }: {
-  searchParams: Promise<{ saved?: string; error?: string; shares?: string; stationery?: string }>;
-}) {
-  const notices = await searchParams;
-  return <LoopTabContent tab="settings" notices={notices} />;
+export default function SettingsPage() {
+  return (
+    <Suspense fallback={<LoopLoading />}>
+      <LoopTabContent tab="settings" />
+    </Suspense>
+  );
 }

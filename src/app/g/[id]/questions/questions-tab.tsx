@@ -1,7 +1,6 @@
 "use client";
 
-import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   acceptSuggestionAction,
   addAction,
@@ -50,16 +49,12 @@ export default function QuestionsTab({ notices }: { notices: { added?: string; a
       ? [...current, ...questions.filter((question) => !current.includes(question))]
       : current.filter((question) => !questions.includes(question)));
   };
-  const addable = newQuestionTexts(picked, poolTexts).length;
+  // Picks the pool already has (say, just added) never count or travel with the form.
+  const fresh = newQuestionTexts(picked, poolTexts);
 
   return (
     <main className="mx-auto w-full max-w-[680px] px-4 pb-16 pt-5 sm:px-6">
-      <header className="mb-5">
-        <Link href={`/g/${id}`} className="text-[13px] font-medium text-ink-soft hover:text-ink">
-          {copy.common.backToLoop}
-        </Link>
-      </header>
-      <LoopNav id={id} active="Questions" isOwner={membership.access === "owner"} />
+      <LoopNav id={id} name={group.name} access={membership.access} active="Questions" />
 
       <h1 className="text-[28px] font-semibold leading-tight tracking-[-0.025em] text-ink">{copy.questions.title}</h1>
       <p className="mt-1.5 text-[15px] leading-relaxed text-ink-soft">
@@ -191,38 +186,38 @@ export default function QuestionsTab({ notices }: { notices: { added?: string; a
         </form>
       ) : null}
 
+      {manages ? <PollForm groupId={id} /> : null}
+
       {manages ? (
-        <form action={addPollAction} id="poll-form" className="card mt-5 p-5">
+        <form action={addFromPacksAction} className="card mt-5 p-5">
           <input type="hidden" name="groupId" value={id} />
-          <h2 className="text-[16px] font-semibold tracking-[-0.01em] text-ink">{copy.polls.authoring.title}</h2>
-          <p className="mt-1 text-[14px] leading-relaxed text-ink-soft">{copy.polls.authoring.description}</p>
-          <label htmlFor="poll-prompt" className="mt-3 block text-[13px] font-bold text-ink-soft">{copy.polls.authoring.promptLabel} {copy.a11yLabels.required}</label>
-          <input
-            id="poll-prompt"
-            name="prompt"
-            required
-            maxLength={POLL_PROMPT_MAX}
-            placeholder={copy.polls.authoring.promptPlaceholder}
-            className="field mt-1 h-[46px] py-0"
-          />
-          <div className="mt-3 flex flex-col gap-2">
-            {Array.from({ length: POLL_MAX_OPTIONS }, (_, index) => (
-              <label key={index} className="flex flex-col gap-1.5">
-                <FieldLabel required={index < 2}>{text(copy.polls.authoring.optionLabel, { number: index + 1 })}</FieldLabel>
-                <input
-                  name="option"
-                  required={index < 2}
-                  maxLength={POLL_OPTION_MAX}
-                  placeholder={copy.polls.authoring.optionPlaceholder}
-                  className="field h-[46px] py-0"
-                />
-              </label>
-            ))}
+          <h2 className="text-[16px] font-semibold tracking-[-0.01em] text-ink">{copy.questions.packsTitle}</h2>
+          <p className="mt-1 text-[14px] leading-relaxed text-ink-soft">{copy.questions.packsDescription}</p>
+          <div className="pack-addbar">
+            <span className="text-[14px] font-bold text-ink-soft numeric">
+              {text(copy.common.selectedCount, { count: fresh.length })}
+            </span>
+            {/* aria-disabled, not disabled: the button stays reachable and says why nothing happens yet. */}
+            <button
+              type="submit"
+              aria-disabled={fresh.length === 0 ? true : undefined}
+              onClick={(event) => { if (fresh.length === 0) event.preventDefault(); }}
+              className="btn btn-primary min-h-11 px-5 text-[14px] aria-disabled:cursor-not-allowed aria-disabled:opacity-45"
+            >
+              {copy.questions.addToPool}
+            </button>
           </div>
-          <label className="mt-3 flex min-h-11 items-center gap-2 text-[14px] text-ink">
-            <input type="checkbox" name="multiple" className="h-5 w-5 accent-accent" /> {copy.polls.authoring.multipleLabel}
-          </label>
-          <button type="submit" className="btn btn-primary mt-3">{copy.polls.authoring.add}</button>
+          <QuestionPackPicker
+            packs={QUESTION_PACKS}
+            selected={picked}
+            inPool={poolTexts}
+            onToggleQuestion={toggleQuestion}
+            onTogglePack={togglePack}
+            ariaLabel={copy.questions.packsTitle}
+          />
+          {fresh.map((question) => (
+            <input key={question} type="hidden" name="question" value={question} />
+          ))}
         </form>
       ) : null}
 
@@ -338,31 +333,69 @@ export default function QuestionsTab({ notices }: { notices: { added?: string; a
 
       {manages ? <EventsPanel /> : null}
 
-      {manages ? (
-        <form action={addFromPacksAction} className="card mt-5 p-5">
-          <input type="hidden" name="groupId" value={id} />
-          <h2 className="text-[16px] font-semibold tracking-[-0.01em] text-ink">{copy.questions.packsTitle}</h2>
-          <p className="mt-1 text-[14px] leading-relaxed text-ink-soft">{copy.questions.packsDescription}</p>
-          <QuestionPackPicker
-            packs={QUESTION_PACKS}
-            selected={picked}
-            onToggleQuestion={toggleQuestion}
-            onTogglePack={togglePack}
-            ariaLabel={copy.questions.packsTitle}
-          />
-          {picked.map((question) => (
-            <input key={question} type="hidden" name="question" value={question} />
-          ))}
-          <div className="mt-4 flex items-center gap-3">
-            <span className="chip border bg-card px-2.5 py-1 text-[12px] font-bold text-ink-soft numeric">
-              {text(copy.common.selectedCount, { count: picked.length })}
-            </span>
-            <button type="submit" disabled={addable === 0} className="btn btn-primary">
-              {copy.questions.addToPool}
-            </button>
-          </div>
-        </form>
-      ) : null}
+
+
+
     </main>
+  );
+}
+
+/** A poll starts with the two options it needs; more appear one at a time, up to six. */
+function PollForm({ groupId }: { groupId: string }) {
+  const [options, setOptions] = useState(2);
+  const added = useRef(false);
+  const list = useRef<HTMLDivElement>(null);
+
+  // The new field takes focus, so the keyboard carries on typing where the option appeared.
+  useEffect(() => {
+    if (!added.current) return;
+    added.current = false;
+    list.current?.querySelectorAll("input")[options - 1]?.focus();
+  }, [options]);
+
+  return (
+    <form action={addPollAction} id="poll-form" className="card mt-5 p-5">
+      <input type="hidden" name="groupId" value={groupId} />
+      <h2 className="text-[16px] font-semibold tracking-[-0.01em] text-ink">{copy.polls.authoring.title}</h2>
+      <p className="mt-1 text-[14px] leading-relaxed text-ink-soft">{copy.polls.authoring.description}</p>
+      <label htmlFor="poll-prompt" className="mt-3 block text-[13px] font-bold text-ink-soft">{copy.polls.authoring.promptLabel} {copy.a11yLabels.required}</label>
+      <input
+        id="poll-prompt"
+        name="prompt"
+        required
+        maxLength={POLL_PROMPT_MAX}
+        placeholder={copy.polls.authoring.promptPlaceholder}
+        className="field mt-1 h-[46px] py-0"
+      />
+      <div ref={list} className="mt-3 flex flex-col gap-2">
+        {Array.from({ length: options }, (_, index) => (
+          <label key={index} className="flex flex-col gap-1.5">
+            <FieldLabel required={index < 2}>{text(copy.polls.authoring.optionLabel, { number: index + 1 })}</FieldLabel>
+            <input
+              name="option"
+              required={index < 2}
+              maxLength={POLL_OPTION_MAX}
+              placeholder={copy.polls.authoring.optionPlaceholder}
+              className="field h-[46px] py-0"
+            />
+          </label>
+        ))}
+      </div>
+      {options < POLL_MAX_OPTIONS ? (
+        <button
+          type="button"
+          onClick={() => { added.current = true; setOptions((count) => Math.min(count + 1, POLL_MAX_OPTIONS)); }}
+          className="btn btn-quiet mt-2 min-h-11 px-4 text-[13px]"
+        >
+          {copy.polls.authoring.addOption}
+        </button>
+      ) : null}
+      <label className="mt-3 flex min-h-11 items-center gap-2 text-[14px] text-ink">
+        <input type="checkbox" name="multiple" className="h-5 w-5 accent-accent" /> {copy.polls.authoring.multipleLabel}
+      </label>
+      <div>
+        <button type="submit" className="btn btn-primary mt-3">{copy.polls.authoring.add}</button>
+      </div>
+    </form>
   );
 }
