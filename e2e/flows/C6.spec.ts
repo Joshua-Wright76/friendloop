@@ -25,17 +25,19 @@ test("C6 · questions can be picked across packs and added to the pool", async (
   await signIn(page, "owner@friendloop.test");
   await page.goto(`/g/${loop.groupId}/questions`);
 
-  await page.getByRole("button", { name: "Silly hypotheticals", exact: true }).click();
+  // Only the first pack starts open; the rest are one row each, with their counts.
   const silly = page.getByRole("group", { name: "Silly hypotheticals", exact: true });
-  await expect(page.getByRole("group", { name: "Food", exact: true })).toHaveCount(0);
+  await expect(silly.getByRole("checkbox")).toHaveCount(0);
+  await page.getByRole("button", { name: /^Silly hypotheticals/ }).click();
   await silly.getByRole("checkbox").nth(0).check();
   await silly.getByRole("checkbox").nth(1).check();
 
-  await page.getByRole("button", { name: "Tiny joys", exact: true }).click();
-  await expect(page.getByRole("group", { name: "Silly hypotheticals", exact: true })).toBeVisible();
-  await expect(page.getByRole("group", { name: "Tiny joys", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: /^Tiny joys/ }).click();
   const tiny = page.getByRole("group", { name: "Tiny joys", exact: true });
   await tiny.getByRole("checkbox").nth(2).check();
+  // Picks in a folded pack still count.
+  await page.getByRole("button", { name: /^Silly hypotheticals/ }).click();
+  await expect(silly.getByRole("checkbox")).toHaveCount(0);
 
   await expect(page.getByText("3 selected")).toBeVisible();
   await page.getByRole("button", { name: "Add to the pool" }).click();
@@ -67,9 +69,21 @@ test("C6 · a whole pack adds at once and questions already in the pool are skip
     ...pack("Travel").questions,
   ]);
 
-  // Re-select the whole pack plus one question the pool does not have yet.
-  await page.getByRole("button", { name: "Add all questions in Travel" }).click();
-  const fresh = pack("Everyday").questions[2];
+  // The pack's questions are now in the pool: ticked, fixed, and labelled, with nothing left to add.
+  await page.getByRole("button", { name: /^Travel/ }).click();
+  const travel = page.getByRole("group", { name: "Travel", exact: true });
+  await expect(travel.getByRole("checkbox").first()).toBeChecked();
+  await expect(travel.getByRole("checkbox").first()).toBeDisabled();
+  await expect(travel.getByText("In your pool")).toHaveCount(pack("Travel").questions.length);
+  await expect(page.getByRole("button", { name: "Add all questions in Travel" })).toHaveCount(0);
+
+  // "Add all" on a pack that is partly in the pool picks only the new ones.
+  const everyday = pack("Everyday").questions;
+  await page.getByRole("button", { name: "Add all questions in Everyday" }).click();
+  await expect(page.getByText(`${everyday.length - 2} selected`)).toBeVisible();
+  await page.getByRole("button", { name: "Remove all questions in Everyday" }).click();
+  await expect(page.getByText("0 selected")).toBeVisible();
+  const fresh = everyday[2];
   await page.getByRole("group", { name: "Everyday", exact: true }).getByText(fresh).click();
   await page.getByRole("button", { name: "Add to the pool" }).click();
   await expect(page.getByText("1 question added.")).toBeVisible();

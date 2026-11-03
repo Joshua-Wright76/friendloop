@@ -25,6 +25,10 @@ test("L1 · the owner adds a poll that lives in the pool like any question", asy
   await page.getByLabel("Poll question").fill("Where should we camp?");
   await page.getByLabel("Option 1").fill("The lake");
   await page.getByLabel("Option 2").fill("The mountains");
+  // Two option fields to start; more appear one at a time, and the new one takes focus.
+  await expect(page.getByLabel("Option 3")).toHaveCount(0);
+  await page.getByRole("button", { name: "Add option" }).click();
+  await expect(page.getByLabel("Option 3")).toBeFocused();
   await page.getByLabel("Option 3").fill("The coast");
   await page.getByLabel("People can pick more than one").check();
   await page.getByRole("button", { name: "Add poll" }).click();
