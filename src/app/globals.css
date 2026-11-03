@@ -383,6 +383,11 @@ body:has(.reply-actionbar:not([hidden])) .feedback-button { bottom: calc(92px + 
 .home-title em { color: var(--accent); font-style: normal; }
 .home-card { padding: clamp(24px, 5vw, 44px); }
 .home-doodle { position: absolute; width: 74px; height: 74px; right: 28px; top: -34px; transform: rotate(12deg); }
+.home-heart { display: inline-block; width: .62em; height: .56em; vertical-align: .02em; transform: rotate(-8deg); }
+.home-how-title { font-size: 27px !important; }
+.home-steps { display: grid; gap: 14px; margin: 0; padding: 0; list-style: none; }
+@media (min-width: 720px) { .home-steps { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; } }
+.home-step { display: flex; align-items: flex-start; gap: 12px; padding-top: 12px; border-top: 2px dashed var(--accent-line); }
 .loop-card { transition: transform 160ms ease, box-shadow 160ms ease; }
 .loop-card:hover { transform: translateY(-2px) rotate(-.2deg); box-shadow: var(--shadow-lift); }
 .reply-topbar { background: color-mix(in srgb, var(--card) 92%, transparent) !important; }

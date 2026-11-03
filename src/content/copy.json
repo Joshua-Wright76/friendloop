@@ -16,7 +16,8 @@
     "notFound": {
       "title": "This page isn't here",
       "body": "The link may have been replaced, or the loop was deleted.",
-      "home": "Back to Friendloop"
+      "home": "Back to Friendloop",
+      "yourLoops": "Back to your loops"
     },
     "errorPage": {
       "title": "Something went wrong",
@@ -86,16 +87,34 @@
   },
   "home": {
     "signIn": "Sign in",
+    "yourLoops": "Your loops",
     "titleStart": "A private newsletter,",
-    "titleAccent": "written by us <3",
+    "titleAccent": "written by us",
     "titleAccentSpoken": "written by us, with love",
-    "description": "Weekly newsletters written by your friends!",
-    "startLoop": "Start a loop"
+    "description": "Every week, month or season, your group gets a few questions. Everyone answers in their own time, and the answers come back as one issue you all read.",
+    "startLoop": "Start a loop",
+    "howTitle": "How it works",
+    "steps": [
+      {
+        "title": "Questions go out",
+        "body": "On the day you pick, everyone in the loop gets a few questions by email."
+      },
+      {
+        "title": "Friends answer from the link",
+        "body": "Each person opens the link in their email and writes back, whenever suits them."
+      },
+      {
+        "title": "Everyone gets the issue",
+        "body": "When the round closes, all the answers arrive together as one issue for the whole group."
+      }
+    ],
+    "noAccount": "Your friends don't need an account or an app."
   },
   "signIn": {
-    "eyebrow": "Hello again,",
+    "eyebrow": "Hello,",
     "title": "Sign in",
-    "subtitle": "For the person who runs the loop.",
+    "subtitle": "New or returning, we'll email you a link. There's no password to remember.",
+    "memberHint": "Answering questions? Use the link in your loop's email.",
     "emailLabel": "Your email",
     "emailPlaceholder": "you@example.com",
     "sending": "Sending…",
