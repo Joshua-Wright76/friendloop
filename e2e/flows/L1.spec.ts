@@ -45,7 +45,7 @@ test("L1 · the owner adds a poll that lives in the pool like any question", asy
   await expect(item).toContainText("The mountains");
 
   // It reorders and archives like a question.
-  await item.getByRole("button", { name: "Up", exact: true }).click();
+  await item.getByRole("button", { name: /^Up\b/ }).click();
   await expect(pool.locator(":scope > li").nth(1)).toContainText("Where should we camp?");
   await expect.poll(async () =>
     (await rows<{ text: string }>("select text from questions where group_id = $1 order by position", [loop.groupId])).map((row) => row.text),

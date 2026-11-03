@@ -62,6 +62,15 @@ export function ConfirmAction({
     }
   }, [asking]);
 
+  // The panel closes when the action finishes, so a page that stays mounted (settings) is not left asking.
+  async function run(formData: FormData) {
+    try {
+      await action(formData);
+    } finally {
+      setAsking(false);
+    }
+  }
+
   function cancel() {
     cancelled.current = true;
     setAsking(false);
@@ -85,7 +94,7 @@ export function ConfirmAction({
 
   return (
     <form
-      action={action}
+      action={run}
       role="group"
       aria-labelledby={titleId}
       aria-describedby={bodyId}

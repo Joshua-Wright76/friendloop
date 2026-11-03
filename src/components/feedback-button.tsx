@@ -132,7 +132,7 @@ export function FeedbackButton() {
               <button type="button" className="btn btn-quiet" onClick={close}>
                 {copy.feedback.cancel}
               </button>
-              <button type="submit" className="btn btn-primary" disabled={status === "sending" || !message.trim()}>
+              <button type="submit" className="btn btn-primary aria-disabled:cursor-not-allowed aria-disabled:opacity-45" aria-disabled={status === "sending" || !message.trim() ? true : undefined}>
                 {status === "sending" ? copy.feedback.sending : copy.feedback.send}
               </button>
             </div>

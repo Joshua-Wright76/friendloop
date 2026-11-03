@@ -265,6 +265,7 @@ function CommentComposer({
       setErrorField("photo");
     } else {
       setPhoto(file);
+      setPosted(text(copy.a11yStatus.photoAttached, { name: file.name }));
       setError(null);
       setErrorField(null);
     }
@@ -282,7 +283,7 @@ function CommentComposer({
       {quote ? (
         <div className="mb-2 flex items-center justify-between gap-3 rounded-lg border border-line bg-accent-soft px-3 py-2 text-[13px] text-ink-soft">
           <span>{text(copy.issue.replyingTo, { author: quote.author })}</span>
-          <button type="button" onClick={onClearQuote} className="min-h-8 font-bold text-accent-ink underline underline-offset-4">
+          <button type="button" onClick={() => { onClearQuote(); area.current?.focus(); }} className="min-h-8 font-bold text-accent-ink underline underline-offset-4">
             {copy.issue.replyingToCancel}
           </button>
         </div>
@@ -324,10 +325,9 @@ function CommentComposer({
               role="option"
               aria-selected={index === active}
               className="mention-option"
-              onMouseDown={(event) => {
-                event.preventDefault();
-                choose(person);
-              }}
+              // Keep the textarea focused on press, but only act on release so a press can be aborted (2.5.2).
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={() => choose(person)}
             >
               <Avatar name={person.name} photoUrl={person.photoUrl} className="!h-7 !w-7 !text-[12px]" />
               {person.name}
@@ -346,7 +346,7 @@ function CommentComposer({
       {photo ? (
         <div className="mt-2 flex items-center justify-between gap-3 rounded-lg border border-line px-3 py-2 text-[13px] text-ink-soft">
           <span className="min-w-0 wrap-any">{text(copy.issue.photoChosen, { name: photo.name })}</span>
-          <button type="button" onClick={() => setPhoto(null)} className="min-h-8 flex-none font-bold text-accent-ink underline underline-offset-4">
+          <button type="button" onClick={() => { setPhoto(null); setPosted(copy.a11yStatus.photoRemoved); area.current?.focus(); }} className="min-h-8 flex-none font-bold text-accent-ink underline underline-offset-4">
             {copy.issue.removePhoto}
           </button>
         </div>

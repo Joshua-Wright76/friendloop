@@ -38,7 +38,7 @@ export default function SettingsTab({ notices }: { notices: { saved?: string; er
       <h1 className="text-[28px] font-semibold leading-tight tracking-[-0.025em] text-ink">{copy.settings.title}</h1>
 
       {notices.saved ? <NoticeFocus>{copy.settings.savedNotice}</NoticeFocus> : null}
-      {notices.shares ? <NoticeFocus>{copy.settings.sharesResetNotice}</NoticeFocus> : null}
+      {notices.shares ? <NoticeFocus key={notices.shares}>{copy.settings.sharesResetNotice}</NoticeFocus> : null}
       {notices.stationery === "1" ? <NoticeFocus>{copy.stationery.saved}</NoticeFocus> : null}
       {notices.stationery === "adjusted" ? <NoticeFocus>{copy.stationery.savedAdjusted}</NoticeFocus> : null}
       {notices.error === "stationery" ? <NoticeFocus tone="danger">{copy.stationery.error}</NoticeFocus> : null}

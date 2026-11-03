@@ -107,7 +107,7 @@ function sectionsHtml(sections: SectionEmailBlock[], c: EmailPalette): string {
         })
         .join("");
       return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 18px;background:${c.card};border:1px dashed ${c.lineStrong};border-radius:6px"><tr><td style="padding:20px 22px">
-  <div style="font:700 20px/1.2 ${DISPLAY_FONT};color:${c.ink}">${escapeHtml(`${section.emoji ?? ""} ${section.title}`.trim())}</div>
+  <h2 style="margin:0;font:700 20px/1.2 ${DISPLAY_FONT};color:${c.ink}">${escapeHtml(`${section.emoji ?? ""} ${section.title}`.trim())}</h2>
   ${rows || `<div style="margin:10px 0 0;font:400 14px/1.5 ${BODY_FONT};color:${c.muted}">${escapeHtml(copy.emails.sectionEmpty)}</div>`}
 </td></tr></table>`;
     })
@@ -128,7 +128,7 @@ function answersHtml(answers: AnswerBlock[], url: string, c: EmailPalette): stri
         ? `<div style="font:400 12px/1.5 ${BODY_FONT};color:${c.muted};margin-top:10px">${escapeHtml(copy.emails.addedLater)}</div>`
         : "";
       return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 18px;background:${c.card};border:1px solid ${c.line};border-radius:6px"><tr><td style="padding:22px 22px 20px">
-  <div style="font:700 24px/1.2 ${DISPLAY_FONT};color:${c.ink}">${escapeHtml(answer.question)}</div>
+  <h2 style="margin:0;font:700 24px/1.2 ${DISPLAY_FONT};color:${c.ink}">${escapeHtml(answer.question)}</h2>
   <div style="font:800 14px/1.5 ${BODY_FONT};color:${c.soft};margin:16px 0 4px">${escapeHtml(answer.author)}</div>
   <div style="font:400 16px/1.65 ${BODY_FONT};color:${c.ink};white-space:pre-wrap">${escapeHtml(answer.body)}</div>
   ${photo}${voice}${note}

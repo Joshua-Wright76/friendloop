@@ -67,8 +67,8 @@ export default function QuestionsTab({ notices }: { notices: { added?: string; a
       </p>
 
       {notices.added ? <NoticeFocus>{copy.questions.addedNotice}</NoticeFocus> : null}
-      {notices.archived ? <NoticeFocus>{copy.questions.archivedNotice}</NoticeFocus> : null}
-      {notices.skip ? <NoticeFocus>{copy.questions.skipSavedNotice}</NoticeFocus> : null}
+      {notices.archived ? <NoticeFocus key={notices.archived}>{copy.questions.archivedNotice}</NoticeFocus> : null}
+      {notices.skip ? <NoticeFocus key={notices.skip}>{copy.questions.skipSavedNotice}</NoticeFocus> : null}
       {notices.suggestion === "added" ? <NoticeFocus>{copy.questions.suggestionAddedNotice}</NoticeFocus> : null}
       {notices.suggestion === "declined" ? <NoticeFocus>{copy.questions.suggestionDeclinedNotice}</NoticeFocus> : null}
       {notices.suggestion === "gone" ? <NoticeFocus>{copy.questions.suggestionGoneNotice}</NoticeFocus> : null}

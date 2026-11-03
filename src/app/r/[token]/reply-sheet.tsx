@@ -1429,6 +1429,18 @@ function PhotoSlot({
   const [caption, setCaption] = useState("");
   return (
     <div className="mt-2 flex flex-wrap items-center gap-2">
+      {kind === "photo_wall" ? (
+        <input
+          value={caption}
+          onChange={(event) => setCaption(event.target.value)}
+          placeholder={copy.reply.sectionPhotoCaptionPlaceholder}
+          aria-label={copy.reply.sectionCaptionLabel}
+          aria-required="true"
+          maxLength={200}
+          disabled={disabled}
+          className="field h-[46px] min-w-44 flex-1 py-0"
+        />
+      ) : null}
       <input
         id={id}
         type="file"
@@ -1451,17 +1463,6 @@ function PhotoSlot({
       >
         {kind === "photo_wall" ? copy.reply.sectionAddPhoto : copy.reply.sectionAddPhoto}
       </label>
-      {kind === "photo_wall" ? (
-        <input
-          value={caption}
-          onChange={(event) => setCaption(event.target.value)}
-          placeholder={copy.reply.sectionPhotoCaptionPlaceholder}
-          aria-label={copy.reply.sectionCaptionLabel}
-          maxLength={200}
-          disabled={disabled}
-          className="field h-[46px] min-w-44 flex-1 py-0"
-        />
-      ) : null}
     </div>
   );
 }
