@@ -765,11 +765,12 @@
   },
   "reply": {
     "invalidTitle": "This link doesn't work anymore",
-    "invalidBody": "It was replaced or removed. Ask whoever runs the loop to send you a fresh link",
+    "invalidBody": "It was replaced or removed.",
+    "invalidNext": "Look for a newer email from your loop. Each round's email has a fresh link. If you can't find one, ask whoever runs the loop to send you a new link.",
     "expiredTitle": "This invitation has expired",
     "expiredBody": "Invitations to {groupName} last two weeks. Ask whoever runs the loop to send you a new one.",
     "readerTitle": "You're a reader in {groupName}",
-    "readerBody": "Nothing to answer here, you'll get the issue in your inbox when it's published",
+    "readerBody": "Nothing to answer here. You'll get the issue in your inbox when it's published.",
     "nothingOpenTitle": "Nothing open right now",
     "nothingOpenBody": "{groupName} isn't taking answers at the moment. You'll get an email when the next round opens.",
     "hi": "Hi {name},",
@@ -784,8 +785,8 @@
     "viewerTimezone": "({time} where you are)",
     "sent": "Sent. You can change these until {deadline}.",
     "confirmation": {
-      "sentTitle": "Sent!",
-      "updatedTitle": "Changes sent!",
+      "sentTitle": "Sent",
+      "updatedTitle": "Changes sent",
       "body": "Your answers are in for {round}.",
       "delivery": "It goes out to everyone {deadline}. Until then, you can change anything.",
       "edit": "Edit my answers"
@@ -799,7 +800,7 @@
     "replacePhoto": "Replace photo",
     "removePhoto": "Remove photo",
     "photoPreview": "Photo answer preview",
-    "photoFormats": "JPEG, PNG, WebP, or GIF · big photos are resized for you",
+    "photoFormats": "JPEG, PNG, WebP, or GIF. Big photos are resized for you.",
     "photoUploading": "Uploading photo…",
     "photoSaved": "Photo saved",
     "photoRemoving": "Removing photo…",
@@ -811,13 +812,14 @@
       "saved": "Saved",
       "error": "Not saved"
     },
-    "notSaved": "Not saved. check your connection",
+    "notSaved": "Not saved. Check your connection.",
     "privacy": "{displayName}, only the people in {loopName} will read this.",
     "sentState": "Sent",
     "answered": "{answered} of {total} answered",
     "sending": "Sending…",
     "saveChanges": "Save changes",
     "sendAnswers": "Send answers",
+    "nothingToSend": "Write one answer to send. The rest can wait.",
     "genericError": "Something went wrong.",
     "errors": {
       "json": "Expected a JSON body.",
@@ -859,6 +861,7 @@
       "error": "We couldn't save that. Try again."
     },
     "voiceRecord": "Record a voice note",
+    "voiceGroup": "Voice note",
     "voiceStop": "Stop recording",
     "voiceRecording": "Recording… {elapsed}",
     "voiceReplace": "Record again",
@@ -1038,7 +1041,7 @@
       "preheader": "Closes {deadlineLabel}.",
       "heading": "{issueHeading} is open",
       "body": "{questionCount} {plural}, no rush. Closes {deadlineLabel}.",
-      "writingNote": "Write as much or as little as you like, even just a sentence counts!",
+      "writingNote": "Write as much or as little as you like. Even one sentence counts.",
       "cta": "Answer {questionCount} {plural}",
       "footer": "{groupName} · you can change your answers until it closes",
       "text": "{groupName} {issueRef} is open: {questionCount} {plural}.\n\n{url}\n\nCloses {deadlineLabel}."
@@ -1080,7 +1083,7 @@
       "preheader": "Nobody answered, so nothing was sent.",
       "heading": "Nothing to send this round",
       "body": "Nobody answered this round's questions in {groupName}, so we skipped it rather than send an empty issue.",
-      "resumeBody": "The loop is paused. Pick it back up whenever the group is ready",
+      "resumeBody": "The loop is paused. Pick it back up whenever the group is ready.",
       "cta": "Open the loop",
       "footer": "{groupName} · sent by Friendloop",
       "text": "Nobody answered, so {groupName} skipped this round and paused.\n\n{url}"

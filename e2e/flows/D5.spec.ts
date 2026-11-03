@@ -21,7 +21,7 @@ test("D5 · sending marks the answers submitted and says so", async ({ page }) =
   await page.getByRole("button", { name: "Send answers" }).click();
 
   // A screen of its own says it went, with focus on it, and the sheet steps aside.
-  const heading = page.getByRole("heading", { name: "Sent!" });
+  const heading = page.getByRole("heading", { name: "Sent", exact: true });
   await expect(heading).toBeVisible();
   await expect(heading).toBeFocused();
   await expect(page.getByText("Your answers are in for Round 1.")).toBeVisible();

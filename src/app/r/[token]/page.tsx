@@ -1,10 +1,10 @@
-import Link from "next/link";
 import type { Metadata } from "next";
 import { describeDeadline } from "@/lib/schedule";
 import { resolveToken, sheetFor } from "@/lib/reply";
 import { sectionsForSheet } from "@/lib/sections";
 import { LoopTheme } from "@/components/loop-theme";
 import { ProfilePhoto } from "@/components/profile-photo";
+import { Brand, Tape } from "@/components/stationery";
 import { ReplySheet } from "./reply-sheet";
 import { copy, text } from "@/lib/copy";
 
@@ -21,14 +21,17 @@ export const metadata: Metadata = {
 
 type Person = { token: string; name: string; photoUrl: string | null };
 
-function Closed({ title, body, person }: { title: string; body: string; person?: Person }) {
+function Closed({ title, body, next, person }: { title: string; body: string; next?: string; person?: Person }) {
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-[560px] flex-col justify-center px-4 py-10">
-      <div className="card p-6">
-        <h1 className="text-[22px] font-semibold leading-tight tracking-[-0.02em] text-ink">
+      <div className="mb-8 self-start"><Brand /></div>
+      <div className="card p-6 pt-8">
+        <Tape tone="stripe" position="center" />
+        <h1 className="text-[24px] font-semibold leading-tight tracking-[-0.022em] text-ink">
           {title}
         </h1>
         <p className="mt-2 text-[15px] leading-relaxed text-ink-soft">{body}</p>
+        {next ? <p className="mt-3 text-[15px] font-bold leading-relaxed text-ink">{next}</p> : null}
         {person ? (
           // Someone following their invitation may land before any round is open (or
           // as a reader). Their photo is still theirs to set, so it is offered here.
@@ -38,11 +41,6 @@ function Closed({ title, body, person }: { title: string; body: string; person?:
           </div>
         ) : null}
       </div>
-      <p className="mt-6 text-center text-[13px] text-ink-muted">
-        <Link href="/" className="underline decoration-line-strong underline-offset-4">
-          {copy.common.brand}
-        </Link>
-      </p>
     </main>
   );
 }
@@ -60,6 +58,7 @@ export default async function ReplyPage({ params }: { params: Promise<{ token: s
       <Closed
         title={copy.reply.invalidTitle}
         body={copy.reply.invalidBody}
+        next={copy.reply.invalidNext}
       />
     );
   }
