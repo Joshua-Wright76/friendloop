@@ -18,7 +18,7 @@ function browserTimezone(): string {
 }
 
 /** Asks nothing extra, but submits the browser's zone so deadlines can be local. */
-export function ConfirmForm({ token }: { token: string }) {
+export function ConfirmForm({ token, name }: { token: string; name?: string | null }) {
   const timezone = useSyncExternalStore(subscribeToNothing, browserTimezone, () => "");
 
   return (
@@ -31,6 +31,7 @@ export function ConfirmForm({ token }: { token: string }) {
           name="name"
           maxLength={MAX_DISPLAY_NAME}
           autoComplete="given-name"
+          defaultValue={name ?? undefined}
           placeholder={copy.confirm.namePlaceholder}
           className="field h-[46px] py-0"
         />

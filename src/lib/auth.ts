@@ -12,6 +12,8 @@ import { sendEmail } from "./email/send";
 import { signInUrl } from "./urls";
 
 export const SESSION_COOKIE = "fl_session";
+/** The address a sign-in link was just sent to, echoed on the check-email page. */
+export const CHECK_EMAIL_COOKIE = "fl_signin_email";
 const SESSION_DAYS = 30;
 const LINK_MINUTES = 15;
 

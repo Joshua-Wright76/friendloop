@@ -15,6 +15,9 @@ test("A1 · requesting a link sends exactly one and points at the inbox", async 
 
   await expect(page).toHaveURL(/\/signin\/check-email$/);
   await expect(page.getByRole("heading", { name: "Check your inbox" })).toBeVisible();
+  // The address is said back, so a typo is caught here, with a way back to fix it.
+  await expect(page.getByText(email, { exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Use a different email" })).toHaveAttribute("href", "/signin");
 
   const sent = await rows<{ count: number }>(
     "select count(*)::int as count from outbox where kind = 'signin'",

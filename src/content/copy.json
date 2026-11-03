@@ -124,6 +124,9 @@
   "checkEmail": {
     "title": "Check your inbox",
     "body": "There's a sign-in link on its way. It works once and expires in 15 minutes.",
+    "sentTo": "We sent a sign-in link to",
+    "sentToEnd": ". It works once and expires in 15 minutes.",
+    "differentEmail": "Use a different email",
     "previewCaptured": "This preview captures email instead of sending it, ",
     "previewLogged": "Every preview email is kept as a copy. ",
     "openOutbox": "open the dev outbox",
@@ -132,7 +135,8 @@
   },
   "confirm": {
     "newLink": "Send me a new link",
-    "title": "Sign in as {email}",
+    "title": "One more tap",
+    "signingInAs": "You're signing in as",
     "fallbackName": "yourself",
     "submit": "Sign in",
     "nameLabel": "Your name",
