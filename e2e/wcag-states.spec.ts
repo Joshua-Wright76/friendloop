@@ -83,13 +83,16 @@ test("WCAG AA states · every step of the new-loop wizard, and its validation er
     await expect(page.getByText("Give the loop a name.")).toBeVisible();
     out.push(...(await axeProblems(page, `wizard error ${label}`)));
     await page.getByLabel("Loop title").fill("The Sunday Loop");
-    for (let step = 1; step <= 5; step += 1) {
-      await expect(page.getByRole("progressbar", { name: "Loop setup progress" })).toHaveAttribute("aria-valuenow", String(step));
+    const progress = page.getByRole("progressbar", { name: "Loop setup progress" });
+    const total = Number(await progress.getAttribute("aria-valuemax"));
+    expect(total, "the wizard reports no steps").toBeGreaterThan(1);
+    for (let step = 1; step <= total; step += 1) {
+      await expect(progress).toHaveAttribute("aria-valuenow", String(step));
       out.push(...(await axeProblems(page, `wizard step ${step} ${label}`)));
       out.push(...(await keyboardProblems(page, `wizard step ${step} ${label}`)));
       out.push(...(await textSpacingProblems(page, `wizard step ${step} ${label}`)));
       out.push(...(await reflowProblems(page, `wizard step ${step} ${label}`)));
-      if (step === 5) break;
+      if (step === total) break;
       await page.getByRole("button", { name: NEXT }).click();
     }
     return out;
