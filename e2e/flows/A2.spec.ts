@@ -23,7 +23,7 @@ test("A2 · the emailed link signs you in and puts you on your own page", async 
 
   await expect(page).toHaveURL(/\/you$/);
   await expect(page.getByRole("heading", { name: "Your loops" })).toBeVisible();
-  // Scoped on purpose: navigation keeps the previous route mounted, so the bare
-  // address also matches the confirm page's heading.
-  await expect(page.locator("header").getByText(email, { exact: true })).toBeVisible();
+  // The full sentence on purpose: the confirm page, which navigation may keep
+  // mounted, also shows the bare address.
+  await expect(page.getByText(`Signed in as ${email}`, { exact: true })).toBeVisible();
 });
