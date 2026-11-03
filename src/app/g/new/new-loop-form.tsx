@@ -132,7 +132,9 @@ export function NewLoopForm({ packs }: { packs: QuestionPack[] }) {
   const [headerFile, setHeaderFile] = useState<File | null>(null);
   const [headerPreview, setHeaderPreview] = useState<string | null>(null);
   const [headerError, setHeaderError] = useState("");
+  const [headerPreparing, setHeaderPreparing] = useState(false);
   const headerInput = useRef<HTMLInputElement>(null);
+  const previewUrl = useRef<string | null>(null);
   const [questionDraft, setQuestionDraft] = useState("");
   const [sectionTitle, setSectionTitle] = useState("");
   const [sectionDescription, setSectionDescription] = useState("");
@@ -160,6 +162,14 @@ export function NewLoopForm({ packs }: { packs: QuestionPack[] }) {
   useEffect(() => {
     stepHeading.current?.focus();
   }, [step]);
+
+  // Release the picture preview when the wizard goes away.
+  useEffect(() => {
+    const urls = previewUrl;
+    return () => {
+      if (urls.current) URL.revokeObjectURL(urls.current);
+    };
+  }, []);
 
   function toggleQuestion(question: string) {
     setPicked((current) => current.includes(question)
@@ -230,27 +240,30 @@ export function NewLoopForm({ packs }: { packs: QuestionPack[] }) {
     if (headerInput.current) headerInput.current.value = "";
     if (!picked) return;
     setHeaderError("");
+    setHeaderPreparing(true);
     const prepared = await prepareImage(picked, BANNER_TARGET);
+    setHeaderPreparing(false);
     if (!prepared.ok) {
       setHeaderError(copy.identity.errors.unreadable);
       return;
     }
-    const file = prepared.file;
-    setHeaderFile(file);
-    setHeaderPreview((previous) => {
-      if (previous) URL.revokeObjectURL(previous);
-      return URL.createObjectURL(file);
-    });
+    setHeaderFile(prepared.file);
+    showHeaderPreview(URL.createObjectURL(prepared.file));
   }
 
   function clearHeader() {
     setHeaderFile(null);
     setHeaderError("");
-    setHeaderPreview((previous) => {
-      if (previous) URL.revokeObjectURL(previous);
-      return null;
-    });
+    showHeaderPreview(null);
     if (headerInput.current) headerInput.current.value = "";
+  }
+
+  // The preview's object URL is made and released here, in the handlers, never
+  // inside a state updater (which React may run twice).
+  function showHeaderPreview(url: string | null) {
+    if (previewUrl.current) URL.revokeObjectURL(previewUrl.current);
+    previewUrl.current = url;
+    setHeaderPreview(url);
   }
 
   // The picture lives in state, not in a file input, because the step that holds
@@ -441,7 +454,7 @@ export function NewLoopForm({ packs }: { packs: QuestionPack[] }) {
                   onChange={(event) => void chooseHeader(event.target.files?.[0])}
                 />
                 <p aria-live="polite" className={`mt-1.5 text-[12px] ${headerError ? "text-danger" : "text-ink-muted"}`}>
-                  {headerError || (headerFile ? copy.newLoop.wizard.look.pictureChosen : "")}
+                  {headerError || (headerPreparing ? copy.newLoop.wizard.look.picturePreparing : headerFile ? copy.newLoop.wizard.look.pictureChosen : "")}
                 </p>
               </div>
             </div>
@@ -674,7 +687,7 @@ export function NewLoopForm({ packs }: { packs: QuestionPack[] }) {
         ) : (
           <button
             type="submit"
-            disabled={pending}
+            disabled={pending || headerPreparing}
             className="btn btn-primary min-h-12 flex-1 disabled:opacity-60"
           >
             {pending ? copy.newLoop.wizard.creating : copy.newLoop.wizard.create}

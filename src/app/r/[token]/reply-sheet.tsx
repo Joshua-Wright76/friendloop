@@ -189,6 +189,7 @@ export function ReplySheet({
   const recorder = useRef<MediaRecorder | null>(null);
   const recordingChunks = useRef<Blob[]>([]);
   const recordingTimer = useRef<ReturnType<typeof setInterval> | null>(null);
+  const recordingStarting = useRef(false);
   const latestBodies = useRef<Record<string, string>>(
     Object.fromEntries(questions.map((question) => [question.id, question.body])),
   );
@@ -213,6 +214,8 @@ export function ReplySheet({
   const [sectionErrors, setSectionErrors] = useState<Record<string, string | null>>({});
   const [sectionNotices, setSectionNotices] = useState<Record<string, string | null>>({});
   const sectionUploadLocks = useRef(new Set<string>());
+  // Sections with a photo being shrunk or uploaded right now: Send waits for them.
+  const [sectionUploading, setSectionUploading] = useState<Record<string, boolean>>({});
 
   const total = questions.length;
   const writeDraft = useMemo(
@@ -268,8 +271,10 @@ export function ReplySheet({
     [pollStatuses],
   );
   const photoBusy = useMemo(
-    () => Object.values(photoStates).some((state) => state === "uploading" || state === "removing"),
-    [photoStates],
+    () =>
+      Object.values(photoStates).some((state) => state === "uploading" || state === "removing") ||
+      Object.values(sectionUploading).some(Boolean),
+    [photoStates, sectionUploading],
   );
   const status: SaveStatus = useMemo(() => {
     const states = Object.values(questionStatuses);
@@ -505,9 +510,12 @@ export function ReplySheet({
   }, [recording, uploadAudio]);
 
   const startRecording = useCallback(async (questionId: string) => {
-    if (recording || audioLocks.current.has(questionId)) return;
+    // A second tap while the permission prompt is up would open a second stream.
+    if (recording || recordingStarting.current || audioLocks.current.has(questionId)) return;
+    recordingStarting.current = true;
+    let stream: MediaStream | null = null;
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const mime = [
         "audio/webm;codecs=opus",
         "audio/webm",
@@ -534,6 +542,9 @@ export function ReplySheet({
         setRecordingElapsed(elapsed);
       }, 200);
     } catch (error) {
+      // If the microphone opened but the recorder couldn't start, let it go again,
+      // or the phone keeps showing the microphone in use.
+      stream?.getTracks().forEach((track) => track.stop());
       // Say what actually went wrong: a refused permission and a missing
       // microphone call for different things from the person.
       const name = error instanceof DOMException ? error.name : "";
@@ -542,9 +553,13 @@ export function ReplySheet({
         ? copy.reply.voiceBlocked
         : name === "NotFoundError" || name === "OverconstrainedError"
           ? copy.reply.voiceNoMic
-          : copy.reply.voiceNoRecorder;
+          : name === "NotReadableError" || name === "AbortError"
+            ? copy.reply.voiceMicBusy
+            : copy.reply.voiceNoRecorder;
       setAudioStates((current) => ({ ...current, [questionId]: "uploadError" }));
       setAudioErrors((current) => ({ ...current, [questionId]: message }));
+    } finally {
+      recordingStarting.current = false;
     }
   }, [recording, stopRecording]);
 
@@ -648,14 +663,22 @@ export function ReplySheet({
     const lockKey = `${issueSectionId}:${position}`;
     if (sectionUploadLocks.current.has(lockKey)) return;
     sectionUploadLocks.current.add(lockKey);
+    setSectionUploading((current) => ({ ...current, [issueSectionId]: true }));
+    setSectionErrors((current) => ({ ...current, [issueSectionId]: null }));
+    setSectionNotices((current) => ({ ...current, [issueSectionId]: copy.reply.sectionUploading }));
+    const done = () => {
+      sectionUploadLocks.current.delete(lockKey);
+      setSectionUploading((current) => ({ ...current, [issueSectionId]: false }));
+    };
     const prepared = await prepareImage(picked, PHOTO_TARGET);
     if (!prepared.ok) {
-      sectionUploadLocks.current.delete(lockKey);
+      done();
+      setSectionNotices((current) => ({ ...current, [issueSectionId]: null }));
       setSectionErrors((current) => ({ ...current, [issueSectionId]: copy.reply.errors.photoUnreadable }));
       return;
     }
     const result = await uploadReplySectionPhoto(token, issueSectionId, prepared.file, caption, position, copy.reply.errors.photoUploadFailed);
-    sectionUploadLocks.current.delete(lockKey);
+    done();
     if (result.ok) {
       setSectionMediaLists((current) => ({
         ...current,
@@ -668,6 +691,7 @@ export function ReplySheet({
       setSectionNotices((current) => ({ ...current, [issueSectionId]: copy.reply.sectionUploaded }));
       setSectionErrors((current) => ({ ...current, [issueSectionId]: null }));
     } else {
+      setSectionNotices((current) => ({ ...current, [issueSectionId]: null }));
       setSectionErrors((current) => ({ ...current, [issueSectionId]: result.error }));
     }
   }, [token]);
@@ -770,7 +794,7 @@ export function ReplySheet({
   }, [name, token]);
 
   const onSend = useCallback(async () => {
-    if (photoLocks.current.size > 0) return;
+    if (photoLocks.current.size > 0 || sectionUploadLocks.current.size > 0) return;
     for (const timer of timers.current.values()) clearTimeout(timer);
     timers.current.clear();
     setSending(true);
@@ -1332,7 +1356,7 @@ export function ReplySheet({
                           sectionId={section.id}
                           kind={section.kind}
                           position={media.length}
-                          disabled={sending}
+                          disabled={sending || Boolean(sectionUploading[section.id])}
                           onPick={(file, caption) => void uploadSectionPhoto(section.id, section.kind, file, caption, media.length)}
                         />
                       ) : null}

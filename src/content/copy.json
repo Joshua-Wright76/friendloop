@@ -264,7 +264,8 @@
       "look": {
         "title": "Choose its paper and picture",
         "description": "Optional. Pick the stationery your loop is written on and a header picture. You can change both later in the settings.",
-        "pictureChosen": "Picture ready. It's added when you create the loop."
+        "pictureChosen": "Picture ready. It's added when you create the loop.",
+        "picturePreparing": "Preparing picture…"
       },
       "sections": {
         "title": "Add a few prompts",
@@ -820,7 +821,7 @@
       "unknownAction": "Unknown action.",
       "missingPhoto": "Choose a photo to upload.",
       "invalidPhoto": "Choose a JPEG, PNG, WebP, or GIF image.",
-      "photoTooLarge": "Photos must be 5 MB or smaller.",
+      "photoTooLarge": "Photos must be 4 MB or smaller.",
       "photoUploadFailed": "We couldn't upload that photo. Try again.",
       "photoUnreadable": "We couldn't read that photo. Try a JPEG or PNG.",
       "photoRemoveFailed": "We couldn't remove that photo. Try again.",
@@ -871,6 +872,7 @@
     "voiceInsecure": "Recording only works on a secure (https) page, and this one isn't. You can attach an audio file instead.",
     "voiceBlocked": "This browser is blocking the microphone for this page. Allow it in the site settings and try again, or attach an audio file instead.",
     "voiceNoMic": "We couldn't find a microphone. You can attach an audio file instead.",
+    "voiceMicBusy": "Another app is using the microphone. Close it and try again, or attach an audio file instead.",
     "voiceDurationLabel": "Voice note, {duration}",
     "voiceFormats": "m4a, mp3, webm, or ogg, up to 3 minutes.",
     "sectionsHeading": "And a little extra",
@@ -888,6 +890,7 @@
     "sectionPhotoCaptionPlaceholder": "What's in this photo?",
     "sectionUploading": "Uploading…",
     "sectionUploaded": "Photo added.",
+    "sectionUploading": "Adding photo…",
     "sectionRemoved": "Photo removed.",
     "sectionErrors": {
       "json": "Expected a JSON body.",
@@ -895,7 +898,7 @@
       "unknownAction": "Unknown action.",
       "missingPhoto": "Choose a photo to upload.",
       "invalidPhoto": "Choose a JPEG, PNG, WebP, or GIF image.",
-      "photoTooLarge": "Photos must be 5 MB or smaller.",
+      "photoTooLarge": "Photos must be 4 MB or smaller.",
       "photoUploadFailed": "We couldn't upload that photo. Try again.",
       "photoUnreadable": "We couldn't read that photo. Try a JPEG or PNG.",
       "photoRemoveFailed": "We couldn't remove that photo. Try again.",
@@ -952,7 +955,7 @@
       "commentsOff": "Comments are turned off for this loop.",
       "answerGone": "That answer isn't there to comment on.",
       "quoteGone": "The comment you were answering has been removed.",
-      "photoTooLarge": "That photo is over 5 MB. Try a smaller one.",
+      "photoTooLarge": "That photo is over 4 MB. Try a smaller one.",
       "photoInvalid": "Use a JPEG, PNG, WebP or GIF photo.",
       "photoUnreadable": "We couldn't read that photo. Try a JPEG or PNG.",
       "photoFailed": "The photo didn't make it. Try again?",
@@ -975,6 +978,7 @@
     "quoteRemoved": "A comment that has since been removed.",
     "quoteBy": "{author} wrote",
     "addPhoto": "Add a photo",
+    "preparingPhoto": "Preparing photo…",
     "removePhoto": "Remove photo",
     "photoChosen": "Photo: {name}",
     "commentPhotoAlt": "Photo from {author}'s comment",

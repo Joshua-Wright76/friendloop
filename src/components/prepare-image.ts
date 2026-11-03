@@ -6,7 +6,7 @@
  * them, and "your photo is too big" is not something a person can act on. So the
  * browser does the shrinking: it decodes the picture (honouring the camera's
  * rotation), scales the long edge down, and re-encodes it as a JPEG until it
- * fits. A picture that already fits is sent untouched.
+ * fits — which also strips the location the camera wrote into the file.
  */
 
 export type ImageTarget = {
@@ -60,6 +60,24 @@ function jpegName(name: string): string {
 }
 
 export async function prepareImage(file: File, target: ImageTarget): Promise<PreparedImage> {
+  try {
+    return await prepare(file, target);
+  } catch (error) {
+    // A decode or canvas failure (out of memory on a huge photo, say) must never
+    // leave a caller waiting; it is simply a picture we couldn't read.
+    console.warn("Unable to prepare a picture", error);
+    return { ok: false };
+  }
+}
+
+/**
+ * Camera photos (JPEG, WebP, HEIC) are always redrawn, even when they already fit:
+ * the redraw drops the EXIF block, and with it where the photo was taken. PNGs
+ * (screenshots, drawings) and GIFs that fit are left as they are.
+ */
+const KEEP_AS_IS = new Set(["image/png", "image/gif"]);
+
+async function prepare(file: File, target: ImageTarget): Promise<PreparedImage> {
   const fits = file.size <= target.maxBytes;
   const supported = PASS_THROUGH.has(file.type);
 
@@ -73,13 +91,15 @@ export async function prepareImage(file: File, target: ImageTarget): Promise<Pre
     return fits && supported ? { ok: true, file } : { ok: false };
   }
 
+  // One canvas for every attempt, emptied afterwards: iOS Safari caps the total
+  // canvas memory a page may hold and is slow to give it back.
+  const canvas = document.createElement("canvas");
   try {
     const longest = Math.max(decoded.width, decoded.height);
-    if (fits && supported && longest <= target.maxEdge) return { ok: true, file };
+    if (fits && KEEP_AS_IS.has(file.type) && longest <= target.maxEdge) return { ok: true, file };
 
     let scale = Math.min(1, target.maxEdge / longest);
     for (let attempt = 0; attempt < 6; attempt += 1) {
-      const canvas = document.createElement("canvas");
       canvas.width = Math.max(1, Math.round(decoded.width * scale));
       canvas.height = Math.max(1, Math.round(decoded.height * scale));
       const context = canvas.getContext("2d");
@@ -99,6 +119,8 @@ export async function prepareImage(file: File, target: ImageTarget): Promise<Pre
     }
     return { ok: false };
   } finally {
+    canvas.width = 0;
+    canvas.height = 0;
     decoded.release();
   }
 }

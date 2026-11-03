@@ -3,6 +3,7 @@ import { resetDatabase, rows } from "../support/db";
 import { signIn } from "../support/harness";
 import { chooseFile, seedWorld } from "../support/identity";
 import { cameraPhoto, measureUpload } from "../support/camera";
+import { TINY_PNG } from "../support/comments";
 
 test.use({ viewport: { width: 1280, height: 900 } });
 
@@ -64,15 +65,44 @@ test("T1 · a full-size camera photo goes up everywhere a photo can, and is stor
   expect(Math.max(banner.width, banner.height)).toBeLessThanOrEqual(2400);
 });
 
-test("T1 · a small photo is sent exactly as it is, and something that is not a picture is turned away kindly", async ({ page }) => {
-  const { alice } = await seedWorld();
+test("T1 · a camera photo loses its location even when it already fits, a small PNG goes as it is, and a non-picture is turned away", async ({ page }) => {
+  const { alice, delivered } = await seedWorld();
+  await page.goto(`/r/${alice.token}`);
+
+  // A small JPEG carrying an EXIF block, the way a phone writes where a photo was taken.
+  const plain = await cameraPhoto(page, { width: 400, height: 300 });
+  const exif = Buffer.concat([Buffer.from("Exif\0\0", "binary"), Buffer.from("GPS 52.3676N 4.9041E HOME-ADDRESS")]);
+  const app1 = Buffer.concat([Buffer.from([0xff, 0xe1, (exif.length + 2) >> 8, (exif.length + 2) & 0xff]), exif]);
+  const tagged = Buffer.concat([plain.subarray(0, 2), app1, plain.subarray(2)]);
+  expect(tagged.includes("HOME-ADDRESS")).toBe(true);
+  const located = page.locator("section").filter({ hasText: "What are you looking forward to" });
+  await chooseFile(page, "Add a photo", { name: "IMG_0001.JPG", mimeType: "image/jpeg", buffer: tagged }, located);
+  await expect(located.getByText("Photo saved")).toBeVisible({ timeout: 30_000 });
+  const [stored] = await rows<{ photo_url: string }>(
+    "select photo_url from replies where membership_id = $1 and photo_url is not null",
+    [alice.id],
+  );
+  const body = await (await page.request.get(stored.photo_url)).body();
+  expect(body.includes("HOME-ADDRESS"), "the location never leaves the phone").toBe(false);
+
+  // A small PNG (a screenshot, a drawing) is sent byte for byte.
+  await page.goto(`/i/${delivered.issueId}?m=${alice.token}`);
+  const form = page.getByLabel("Comment", { exact: true }).locator("xpath=ancestor::form");
+  await form.locator('input[type="file"]').setInputFiles({ name: "sketch.png", mimeType: "image/png", buffer: TINY_PNG });
+  await expect(page.getByText("Photo: sketch.png")).toBeVisible();
+  await page.getByRole("button", { name: "Post", exact: true }).click();
+  await expect(page.getByRole("img", { name: /Photo from .* comment/ })).toBeVisible();
+  const [comment] = await rows<{ photo_url: string }>("select photo_url from comments where membership_id = $1", [alice.id]);
+  expect(Buffer.compare(await (await page.request.get(comment.photo_url)).body(), TINY_PNG)).toBe(0);
+
   await page.goto(`/r/${alice.token}`);
 
   // Not an image at all: said plainly, nothing stored.
   const firstQuestion = page.locator("section").filter({ hasText: "What made you laugh this week" });
   await chooseFile(page, "Add a photo", { name: "notes.txt", mimeType: "text/plain", buffer: Buffer.from("hello") }, firstQuestion);
   await expect(page.getByText("We couldn't read that photo. Try a JPEG or PNG.")).toBeVisible();
-  expect(await rows("select 1 from replies where membership_id = $1 and photo_url is not null", [alice.id])).toHaveLength(0);
+  // Still only the one photo from above.
+  expect(await rows("select 1 from replies where membership_id = $1 and photo_url is not null", [alice.id])).toHaveLength(1);
 
   // Bytes that claim to be a huge PNG but aren't: also kind, never a spinner that doesn't end.
   await chooseFile(page, "Add a photo", { name: "broken.png", mimeType: "image/png", buffer: Buffer.alloc(6 * MB) }, firstQuestion);

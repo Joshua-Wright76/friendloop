@@ -73,4 +73,8 @@ test("J4 · a refused microphone permission and a missing microphone each get th
   await page.evaluate(() => { (window as unknown as { __mic: string }).__mic = "NotFoundError"; });
   await record.click();
   await expect(page.getByText("We couldn't find a microphone.").first()).toBeVisible();
+
+  await page.evaluate(() => { (window as unknown as { __mic: string }).__mic = "NotReadableError"; });
+  await record.click();
+  await expect(page.getByText("Another app is using the microphone.").first()).toBeVisible();
 });

@@ -3,10 +3,10 @@
 import { redirect } from "next/navigation";
 import { currentUser } from "@/lib/auth";
 import { getNow } from "@/lib/clock";
-import { setHeaderImage, saveTheme } from "@/lib/identity";
+import { setHeaderImage } from "@/lib/identity";
 import { createLoop, inviteMembers } from "@/lib/manage";
 import { MAX_BANNER_BYTES, validatePhoto } from "@/lib/photo-validation";
-import { isPresetKey, normalizeHex } from "@/lib/theme";
+import { DEFAULT_PRESET, isPresetKey, normalizeHex } from "@/lib/theme";
 import { copy } from "@/lib/copy";
 import { isValidTimezone } from "@/lib/timezone";
 
@@ -79,12 +79,23 @@ export async function createLoopAction(
     cadenceWeeks,
     questions: texts,
     at,
+    // Stored with the loop in the same insert, so the look can never half-apply.
+    // Gingham with no accent is stored as nothing, exactly as the settings do.
+    themePreset: preset && preset !== DEFAULT_PRESET ? preset : null,
+    themeAccent: normalizeHex(accent),
   });
 
-  await saveTheme(groupId, { preset, accent });
-  // Validated above, so a failure here is the store itself; the loop is made and
-  // the picture can be added again from the settings.
-  const pictureSaved = header ? (await setHeaderImage(groupId, header)).ok : true;
+  // Validated above, so a failure here is the store or the database; the loop is
+  // made, invitations still go out, and the picture can be added from the settings.
+  let pictureSaved = true;
+  if (header) {
+    try {
+      pictureSaved = (await setHeaderImage(groupId, header)).ok;
+    } catch (error) {
+      console.error("Unable to save the new loop's header picture", error);
+      pictureSaved = false;
+    }
+  }
 
   if (emails.length > 0) {
     await inviteMembers({
