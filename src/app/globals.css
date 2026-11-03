@@ -561,6 +561,30 @@ html:has(.wizard-navigation) { scroll-padding-block-end: min(calc(96px + env(saf
 .print-wall { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 12px; }
 .print-wall > .print-figure { margin: 0; }
 .print-wall > .print-figure > img { max-height: 3.2in; }
+/* Music cards wear the provider's colours in both themes; text pairs pass 4.5:1. */
+.music-card { --music-bg: var(--accent-soft); --music-ink: var(--ink); --music-sub: var(--ink-soft); --music-rule: var(--line); margin-top: 12px; overflow: hidden; border-radius: 12px; background: var(--music-bg); color: var(--music-ink); }
+.music-card-spotify { --music-bg: #1db954; --music-ink: #000; --music-sub: rgb(0 0 0 / .72); --music-rule: rgb(0 0 0 / .16); }
+.music-card-bandcamp { --music-bg: #1da0c3; --music-ink: #000; --music-sub: rgb(0 0 0 / .72); --music-rule: rgb(0 0 0 / .16); }
+.music-card-qobuz { --music-bg: #000; --music-ink: #fff; --music-sub: rgb(255 255 255 / .72); --music-rule: rgb(255 255 255 / .18); }
+html[data-theme="dark"] .music-card-qobuz { box-shadow: inset 0 0 0 1px rgb(255 255 255 / .16); }
+.music-card-head { display: flex; align-items: center; gap: 12px; padding: 12px; color: inherit; text-decoration: none; }
+.music-card-head:focus-visible { outline-color: var(--music-ink); outline-offset: -4px; border-radius: 12px; }
+.music-card-art { width: 52px; height: 52px; flex: none; border-radius: 6px; object-fit: cover; }
+.music-card-art-empty { display: grid; place-items: center; background: rgb(0 0 0 / .14); }
+.music-card-qobuz .music-card-art-empty { background: rgb(255 255 255 / .12); }
+.music-card-art-empty .music-card-icon { width: 24px; height: 24px; }
+.music-card-provider { display: flex; align-items: center; gap: 5px; margin-top: 2px; color: var(--music-sub); font-size: 12px; font-weight: 700; }
+.music-card-icon { width: 14px; height: 14px; flex: none; }
+.music-card-icon-wide { width: 19px; }
+.music-card-art-empty .music-card-icon-wide { width: 34px; height: 26px; }
+.music-card-out { flex: none; color: var(--music-sub); font-size: 16px; font-weight: 700; }
+.music-card-tracks { margin: 0; padding: 4px 12px 10px; border-top: 1px solid var(--music-rule); list-style: none; font-size: 13px; }
+.music-card-tracks li { display: flex; align-items: baseline; gap: 10px; padding: 5px 0; }
+.music-card-num { width: 16px; flex: none; color: var(--music-sub); font-size: 12px; text-align: right; }
+.music-card-sub { color: var(--music-sub); font-size: 12px; }
+.music-card-more { padding-left: 26px !important; color: var(--music-sub); font-size: 12px; font-weight: 700; }
+.print-card-tracks { margin: 6px 0 0; padding-left: 18px; color: var(--ink-soft); font-size: 12px; }
+
 .print-card { margin-top: 12px; padding: 10px 12px; border: 1.5px solid var(--line-strong); border-radius: 8px; background: #fff; break-inside: avoid; }
 .print-card-title { margin: 0; color: var(--ink); font-size: 14px; font-weight: 800; overflow-wrap: anywhere; }
 .print-card-meta { margin: 2px 0 0; color: var(--ink-soft); font-size: 12px; }

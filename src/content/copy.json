@@ -1016,7 +1016,10 @@
     "askedBy": "asked by {name}",
     "voiceLabel": "Voice note, {duration}",
     "photosAdded": "added {count} photos — see the web issue",
-    "sectionEmpty": "Nothing here yet."
+    "sectionEmpty": "Nothing here yet.",
+    "musicSongs": "Songs",
+    "musicMoreSongs": "+{count} more songs",
+    "musicMoreSongsOne": "+1 more song"
   },
   "share": {
     "eyebrow": "Fresh from the loop",

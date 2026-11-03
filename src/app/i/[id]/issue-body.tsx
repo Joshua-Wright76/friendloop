@@ -9,6 +9,7 @@ import type { IssueComment } from "@/lib/comment-view";
 import type { IssueAnswer, IssueBlock, IssuePoll, IssueSectionBlock, IssueSectionReplyBlock } from "@/lib/issue-view";
 import type { PersonGroup } from "@/lib/issue-reading";
 import { Avatar } from "@/components/avatar";
+import { MusicCard } from "@/components/music-card";
 import { PhotoLightbox, useLightbox, type LightboxPhoto } from "@/components/photo-lightbox";
 import { Tape } from "@/components/stationery";
 import { copy, text } from "@/lib/copy";
@@ -253,23 +254,14 @@ function SectionReplyCard({ reply, label }: { reply: IssueSectionReplyBlock; lab
         <p className="mt-2 whitespace-pre-wrap text-[16px] leading-relaxed text-ink">{reply.body}</p>
       ) : null}
       {reply.linkUrl ? (
-        <a
-          href={reply.linkUrl}
-          target="_blank"
-          rel="noreferrer"
-          className="mt-3 flex items-center gap-3 rounded-lg border border-line bg-accent-soft p-3 text-ink no-underline"
-        >
-          {reply.linkArtwork ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={reply.linkArtwork} alt="" className="h-12 w-12 flex-none rounded-md object-cover" />
-          ) : (
-            <span aria-hidden="true" className="font-display text-[24px] leading-none">&#9836;</span>
-          )}
-          <span className="min-w-0">
-            <span className="block wrap-any text-[14px] font-bold">{reply.linkTitle ?? reply.linkUrl}</span>
-            <span className="block text-[12px] font-medium text-ink-soft capitalize">{reply.linkProvider}</span>
-          </span>
-        </a>
+        <MusicCard
+          url={reply.linkUrl}
+          provider={reply.linkProvider}
+          title={reply.linkTitle}
+          artworkUrl={reply.linkArtwork}
+          tracks={reply.linkTracks}
+          trackCount={reply.linkTrackCount}
+        />
       ) : null}
       {reply.media.map((item) => (
         <figure key={item.url} className="m-0 mt-3">

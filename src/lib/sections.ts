@@ -15,6 +15,7 @@ import { copy } from "./copy.ts";
 import { deleteStoredPhoto, storePhoto } from "./photo-storage";
 import { resolveToken, type WriteResult } from "./reply";
 import { validatePhoto } from "./photo-validation";
+import { metadataUrl, parseMusicPage, type MusicMeta, type MusicProvider, type MusicTrack } from "./music-meta.ts";
 
 export const SECTION_TITLE_MAX = 80;
 export const SECTION_DESCRIPTION_MAX = 200;
@@ -22,7 +23,9 @@ export const MUSIC_CAPTION_MAX = 120;
 export const PHOTO_WALL_MAX = 6;
 
 export type SectionKind = "standard" | "photo_wall" | "music";
-export type MusicProvider = "spotify" | "bandcamp" | "qobuz";
+export type { MusicProvider, MusicTrack };
+
+export type MusicCard = { title: string; artworkUrl: string | null; tracks: MusicTrack[]; trackCount: number };
 
 export type MusicLinkCheck =
   | { ok: true; provider: MusicProvider }
@@ -55,7 +58,7 @@ export function checkMusicLink(raw: string): MusicLinkCheck {
     host === "play.qobuz.com" ||
     host.endsWith(".qobuz.com")
   ) {
-    if (/^\/[a-z0-9-]+\/(album|track|interpreter|playlist|label)\//i.test(path) || /^\/(album|track|interpreter|playlist|label)\//i.test(path)) {
+    if (/^\/[a-z0-9-]+\/(album|track|interpreter|playlists?|label)\//i.test(path) || /^\/(album|track|interpreter|playlists?|label)\//i.test(path)) {
       return { ok: true, provider: "qobuz" };
     }
     return { ok: false, error: copy.suggest.errors.musicLink };
@@ -72,17 +75,19 @@ export function checkMusicLink(raw: string): MusicLinkCheck {
 const MUSIC_FETCH_TIMEOUT_MS = 4_000;
 
 /** Read-through cache for music card metadata; misses degrade to a plain card. */
-export async function musicCardFor(
-  provider: MusicProvider,
-  url: string,
-): Promise<{ title: string; artworkUrl: string | null }> {
+export async function musicCardFor(provider: MusicProvider, url: string): Promise<MusicCard> {
   const [cached] = await db.select().from(musicLinks).where(eq(musicLinks.url, url)).limit(1);
   const fresh = cached && Date.now() - cached.fetchedAt.getTime() < 30 * 24 * 60 * 60 * 1000;
   if (cached && fresh) {
-    return { title: cached.title ?? fallbackTitle(url), artworkUrl: cached.artworkUrl };
+    return {
+      title: cached.title ?? fallbackTitle(url),
+      artworkUrl: cached.artworkUrl,
+      tracks: cached.tracks ?? [],
+      trackCount: cached.trackCount ?? 0,
+    };
   }
 
-  let meta: { title: string | null; artworkUrl: string | null } | null = null;
+  let meta: MusicMeta | null = null;
   try {
     meta = await fetchMusicMeta(provider, url);
   } catch {
@@ -92,16 +97,22 @@ export async function musicCardFor(
   const resolved = {
     title: meta?.title ?? cached?.title ?? fallbackTitle(url),
     artworkUrl: meta?.artworkUrl ?? cached?.artworkUrl ?? null,
+    tracks: meta?.tracks ?? cached?.tracks ?? [],
+    trackCount: meta?.trackCount ?? cached?.trackCount ?? 0,
   };
 
   if (meta) {
+    const values = {
+      title: meta.title,
+      artworkUrl: meta.artworkUrl,
+      tracks: meta.tracks,
+      trackCount: meta.trackCount,
+      fetchedAt: new Date(),
+    };
     await db
       .insert(musicLinks)
-      .values({ url, provider, title: meta.title, artworkUrl: meta.artworkUrl, fetchedAt: new Date() })
-      .onConflictDoUpdate({
-        target: musicLinks.url,
-        set: { title: meta.title, artworkUrl: meta.artworkUrl, fetchedAt: new Date() },
-      });
+      .values({ url, provider, ...values })
+      .onConflictDoUpdate({ target: musicLinks.url, set: values });
   }
 
   return resolved;
@@ -117,30 +128,10 @@ function fallbackTitle(url: string): string {
   }
 }
 
-async function fetchMusicMeta(
-  provider: MusicProvider,
-  url: string,
-): Promise<{ title: string | null; artworkUrl: string | null } | null> {
-  const response = await fetchWithTimeout(metadataEndpoint(provider, url));
+async function fetchMusicMeta(provider: MusicProvider, url: string): Promise<MusicMeta | null> {
+  const response = await fetchWithTimeout(metadataUrl(provider, url));
   if (!response.ok) return null;
-
-  if (provider === "qobuz") {
-    const html = await response.text();
-    const title = /<meta[^>]+property="og:title"[^>]+content="([^"]+)"/i.exec(html)?.[1] ?? null;
-    const artwork = /<meta[^>]+property="og:image"[^>]+content="([^"]+)"/i.exec(html)?.[1] ?? null;
-    if (!title && !artwork) return null;
-    return { title: decodeEntities(title), artworkUrl: artwork };
-  }
-
-  const data = (await response.json()) as { title?: string; thumbnail_url?: string };
-  if (!data.title && !data.thumbnail_url) return null;
-  return { title: data.title ?? null, artworkUrl: data.thumbnail_url ?? null };
-}
-
-function metadataEndpoint(provider: MusicProvider, url: string): string {
-  if (provider === "spotify") return `https://open.spotify.com/oembed?url=${encodeURIComponent(url)}`;
-  if (provider === "bandcamp") return `https://bandcamp.com/oembed?url=${encodeURIComponent(url)}&format=json`;
-  return url;
+  return parseMusicPage(provider, await response.text());
 }
 
 async function fetchWithTimeout(url: string): Promise<Response> {
@@ -154,16 +145,6 @@ async function fetchWithTimeout(url: string): Promise<Response> {
   } finally {
     clearTimeout(timer);
   }
-}
-
-function decodeEntities(value: string | null): string | null {
-  if (!value) return null;
-  return value
-    .replace(/&amp;/g, "&")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'");
 }
 
 /** Snapshot the loop's active sections into a fresh issue, after the questions. */

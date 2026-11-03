@@ -446,6 +446,9 @@ export const musicLinks = pgTable("music_links", {
   provider: text("provider").notNull(),
   title: text("title"),
   artworkUrl: text("artwork_url"),
+  /** The first few songs, for the card; trackCount is the full length. */
+  tracks: jsonb("tracks").$type<Array<{ title: string; artist: string | null; seconds: number | null }>>(),
+  trackCount: integer("track_count"),
   fetchedAt: timestamp("fetched_at", { withTimezone: true }).defaultNow().notNull(),
 });
 

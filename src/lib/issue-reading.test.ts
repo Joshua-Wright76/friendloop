@@ -43,6 +43,8 @@ function sectionReply(replyId: string, authorId: string, authorName: string): Is
     linkProvider: null,
     linkTitle: null,
     linkArtwork: null,
+    linkTracks: [],
+    linkTrackCount: 0,
     addedLater: false,
     media: [],
   };
