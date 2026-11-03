@@ -55,7 +55,7 @@ export function MusicCard({
           {shown.map((track, index) => (
             <li key={`${index}-${track.title}`}>
               <span className="music-card-num numeric">{index + 1}</span>
-              <span className="min-w-0 flex-1 truncate">
+              <span className="min-w-0 flex-1 wrap-any">
                 {track.title}
                 {mixed && track.artist ? <span className="music-card-sub"> · {track.artist}</span> : null}
               </span>
