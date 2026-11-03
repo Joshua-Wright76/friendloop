@@ -1079,7 +1079,7 @@
       "shareFooter": "{groupName} · shareable link: {shareUrl}",
       "replyFooter": "{groupName} · open the issue to read and comment",
       "text": "{groupName} · {issueRef}\n\n{url}\n\n{answers}",
-      "textAnswer": "{question}\n{author}: {body}"
+      "textAnswer": "{author}: {body}"
     },
     "paused": {
       "subject": "{groupName} paused itself",
@@ -1093,6 +1093,13 @@
     },
     "voiceNote": "Voice note · {duration}",
     "voiceNoteListen": "Listen on the web issue",
+    "openIn": "Open in {provider}",
+    "openLink": "Open the link",
+    "musicProviders": {
+      "spotify": "Spotify",
+      "bandcamp": "Bandcamp",
+      "qobuz": "Qobuz"
+    },
     "photosAdded": "added {count} photos — see the web issue",
     "sectionEmpty": "Nothing here yet.",
     "roundRef": "round {number}",

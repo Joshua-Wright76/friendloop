@@ -150,3 +150,45 @@ test("a named round replaces its number in the subject, headings and sentences",
   });
   assert.match(mention.text, /a comment on Camping weekend of Friday Loop/);
 });
+
+test("the delivery email asks each question once and shows a poll's results once", () => {
+  const results = "Results: The lake: 2 · The mountains: 0";
+  const email = deliveryEmail({
+    groupName: "Friday Loop", issueNumber: 2, url: "https://friendloop.dev/i/1",
+    answers: [
+      { question: "What made you laugh?", author: "Dev", body: "The cat." },
+      { question: "What made you laugh?", author: "Sam", body: "The geese." },
+      { question: "Where should we camp?", author: "Dev", body: "Chose: The lake", pollResults: results },
+      { question: "Where should we camp?", author: "Sam", body: "Chose: The lake", pollResults: results },
+    ],
+  });
+  assert.equal(email.html.split("What made you laugh?").length - 1, 1);
+  assert.equal(email.html.split("Where should we camp?").length - 1, 1);
+  assert.equal(email.html.split(results).length - 1, 1);
+  assert.match(email.html, /Dev[\s\S]*The cat\.[\s\S]*Sam[\s\S]*The geese\./);
+  assert.ok(email.text.includes(`What made you laugh?\nDev: The cat.\nSam: The geese.`));
+  assert.ok(email.text.includes(`Where should we camp?\n${results}\nDev: Chose: The lake\nSam: Chose: The lake`));
+});
+
+test("a music pick's link says where it opens", () => {
+  const email = deliveryEmail({
+    groupName: "Friday Loop", issueNumber: 2, url: "https://friendloop.dev/i/1", answers: [],
+    sections: [{
+      title: "Music picks", emoji: null,
+      answers: [
+        { author: "Dev", body: "Road trip", linkUrl: "https://open.spotify.com/album/abc" },
+        { author: "Sam", body: "Live set", linkUrl: "https://someone.bandcamp.com/album/x" },
+      ],
+    }],
+  });
+  assert.match(email.html, />Open in Spotify<\/a>/);
+  assert.match(email.html, />Open in Bandcamp<\/a>/);
+  assert.doesNotMatch(email.html, /Listen on the web issue/);
+});
+
+test("music link labels fall back to a plain one", async () => {
+  const { musicLinkLabel } = await import("./templates.ts");
+  assert.equal(musicLinkLabel("https://play.qobuz.com/album/1"), "Open in Qobuz");
+  assert.equal(musicLinkLabel("https://example.com/song"), "Open the link");
+  assert.equal(musicLinkLabel("not a url"), "Open the link");
+});

@@ -36,12 +36,14 @@ const ANSWERS: AnswerBlock[] = [
   {
     question: "Where should we camp this summer?",
     author: "Alex",
-    body: "Chose: The lake\nResults: The lake: 2 · The mountains: 1 · The coast: 0 · Backyard tents: 0",
+    body: "Chose: The lake",
+    pollResults: "Results: The lake: 2 · The mountains: 1 · The coast: 0 · Backyard tents: 0",
   },
   {
     question: "Where should we camp this summer?",
     author: "Alice",
-    body: "Chose: The lake\nResults: The lake: 2 · The mountains: 1 · The coast: 0 · Backyard tents: 0",
+    body: "Chose: The lake",
+    pollResults: "Results: The lake: 2 · The mountains: 1 · The coast: 0 · Backyard tents: 0",
   },
 ];
 
