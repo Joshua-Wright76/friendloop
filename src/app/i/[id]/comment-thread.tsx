@@ -10,7 +10,8 @@ import {
   type Mentionable,
 } from "@/lib/mention-picker";
 import type { MentionPick } from "@/lib/mentions";
-import { MAX_PHOTO_BYTES, PHOTO_ACCEPT } from "@/lib/photo-validation";
+import { PHOTO_ACCEPT } from "@/lib/photo-validation";
+import { PHOTO_TARGET, prepareImage } from "@/components/prepare-image";
 import { Avatar } from "@/components/avatar";
 import { copy, text } from "@/lib/copy";
 
@@ -245,17 +246,17 @@ function CommentComposer({
     }
   };
 
-  const onPickPhoto = (file: File | undefined) => {
-    if (!file) return;
-    if (file.size > MAX_PHOTO_BYTES) {
-      setError(copy.issue.errors.photoTooLarge);
-    } else if (!PHOTO_ACCEPT.split(",").includes(file.type)) {
-      setError(copy.issue.errors.photoInvalid);
-    } else {
-      setPhoto(file);
-      setError(null);
-    }
+  const onPickPhoto = async (picked: File | undefined) => {
     if (files.current) files.current.value = "";
+    if (!picked) return;
+    // Camera-roll photos are shrunk here rather than refused for their size.
+    const prepared = await prepareImage(picked, PHOTO_TARGET);
+    if (!prepared.ok) {
+      setError(copy.issue.errors.photoUnreadable);
+      return;
+    }
+    setPhoto(prepared.file);
+    setError(null);
   };
 
   return (
@@ -339,7 +340,7 @@ function CommentComposer({
             type="file"
             accept={PHOTO_ACCEPT}
             hidden
-            onChange={(event) => onPickPhoto(event.target.files?.[0])}
+            onChange={(event) => void onPickPhoto(event.target.files?.[0])}
           />
           <button type="button" className="btn btn-quiet" onClick={() => files.current?.click()}>
             {copy.issue.addPhoto}

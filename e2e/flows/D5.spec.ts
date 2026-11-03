@@ -20,11 +20,19 @@ test("D5 · sending marks the answers submitted and says so", async ({ page }) =
 
   await page.getByRole("button", { name: "Send answers" }).click();
 
-  await expect(page.getByText(/Sent\. You can change these until/)).toBeVisible();
+  // A screen of its own says it went, with focus on it, and the sheet steps aside.
+  const heading = page.getByRole("heading", { name: "Sent!" });
+  await expect(heading).toBeVisible();
+  await expect(heading).toBeFocused();
+  await expect(page.getByText("Your answers are in for Round 1.")).toBeVisible();
   // The confirmation repeats the real deadline, computed on the server.
-  await expect(
-    page.getByText(/Sent\. You can change these until Friday 9:05 AM/),
-  ).toBeVisible();
+  await expect(page.getByText("It goes out to everyone Friday 9:05 AM. Until then, you can change anything.")).toBeVisible();
+  await expect(page.getByLabel("What made you laugh this week?")).toBeHidden();
+
+  // "Edit my answers" brings the sheet back, answers intact, ready to change.
+  await page.getByRole("button", { name: "Edit my answers" }).click();
+  await expect(page.getByLabel("What made you laugh this week?")).toHaveValue("A cat fist bump.");
+  await expect(page.getByText(/Sent\. You can change these until Friday 9:05 AM/)).toBeVisible();
   await expect(page.getByRole("button", { name: "Save changes" })).toBeVisible();
 
   const saved = await rows<{ status: string; submitted_at: string | null }>(

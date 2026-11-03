@@ -8,6 +8,11 @@ import { Picker } from "@/components/picker";
 import { copy, text } from "@/lib/copy";
 import type { QuestionPack } from "@/lib/question-packs";
 import { QuestionPackPicker } from "@/components/question-pack-picker";
+import { PaperFields } from "@/components/paper-fields";
+import { LoopBanner } from "@/components/loop-theme";
+import { PHOTO_ACCEPT } from "@/lib/photo-validation";
+import { BANNER_TARGET, prepareImage } from "@/components/prepare-image";
+import { DEFAULT_PRESET, normalizeHex } from "@/lib/theme";
 
 const WEEKDAYS = copy.common.weekdays;
 const HOURS = Array.from({ length: 24 }, (_, hour) => hour);
@@ -122,6 +127,12 @@ export function NewLoopForm({ packs }: { packs: QuestionPack[] }) {
   const [emailError, setEmailError] = useState("");
   const [emailNotice, setEmailNotice] = useState("");
   const [personalNote, setPersonalNote] = useState("");
+  const [preset, setPreset] = useState(DEFAULT_PRESET);
+  const [accent, setAccent] = useState("");
+  const [headerFile, setHeaderFile] = useState<File | null>(null);
+  const [headerPreview, setHeaderPreview] = useState<string | null>(null);
+  const [headerError, setHeaderError] = useState("");
+  const headerInput = useRef<HTMLInputElement>(null);
   const [questionDraft, setQuestionDraft] = useState("");
   const [sectionTitle, setSectionTitle] = useState("");
   const [sectionDescription, setSectionDescription] = useState("");
@@ -215,8 +226,46 @@ export function NewLoopForm({ packs }: { packs: QuestionPack[] }) {
     }
   }
 
+  async function chooseHeader(picked: File | undefined) {
+    if (headerInput.current) headerInput.current.value = "";
+    if (!picked) return;
+    setHeaderError("");
+    const prepared = await prepareImage(picked, BANNER_TARGET);
+    if (!prepared.ok) {
+      setHeaderError(copy.identity.errors.unreadable);
+      return;
+    }
+    const file = prepared.file;
+    setHeaderFile(file);
+    setHeaderPreview((previous) => {
+      if (previous) URL.revokeObjectURL(previous);
+      return URL.createObjectURL(file);
+    });
+  }
+
+  function clearHeader() {
+    setHeaderFile(null);
+    setHeaderError("");
+    setHeaderPreview((previous) => {
+      if (previous) URL.revokeObjectURL(previous);
+      return null;
+    });
+    if (headerInput.current) headerInput.current.value = "";
+  }
+
+  // The picture lives in state, not in a file input, because the step that holds
+  // the input is unmounted whenever the person moves on.
+  function submit(formData: FormData) {
+    if (headerFile) formData.set("headerImage", headerFile);
+    action(formData);
+  }
+
   function goNext() {
     setStepError("");
+    if (step === 1 && accent.trim() !== "" && !normalizeHex(accent)) {
+      setStepError(copy.newLoop.errors.theme);
+      return;
+    }
     if (step === 0) {
       if (name.trim().length < 2) {
         setStepError(copy.newLoop.errors.name);
@@ -227,7 +276,7 @@ export function NewLoopForm({ packs }: { packs: QuestionPack[] }) {
         return;
       }
     }
-    if (step === 3) {
+    if (step === 4) {
       if (emailDraft.trim() && !addEmails(emailDraft)) return;
       if (questions.length === 0) {
         setStepError(copy.newLoop.errors.noQuestions);
@@ -251,7 +300,7 @@ export function NewLoopForm({ packs }: { packs: QuestionPack[] }) {
 
   return (
     <form
-      action={action}
+      action={submit}
       className="new-loop-wizard"
       onSubmit={(event) => {
         if (step !== copy.newLoop.wizard.steps.length - 1) event.preventDefault();
@@ -264,6 +313,8 @@ export function NewLoopForm({ packs }: { packs: QuestionPack[] }) {
       <input type="hidden" name="timezone" value={timezone} />
       <input type="hidden" name="participation" value="contributor" />
       <input type="hidden" name="personalNote" value={personalNote} />
+      <input type="hidden" name="preset" value={preset} />
+      <input type="hidden" name="accent" value={normalizeHex(accent) ?? ""} />
       {questions.map((question, index) => <input key={`${index}:${question}`} type="hidden" name="question" value={question} />)}
       {emails.map((email) => <input key={email} type="hidden" name="email" value={email} />)}
 
@@ -359,6 +410,46 @@ export function NewLoopForm({ packs }: { packs: QuestionPack[] }) {
 
         {step === 1 ? (
           <>
+            <h1 ref={stepHeading} tabIndex={-1} id="wizard-step-heading" className="wizard-heading">{copy.newLoop.wizard.look.title}</h1>
+            <p className="wizard-description">{copy.newLoop.wizard.look.description}</p>
+            <div className="card relative mt-6 p-5 pt-7 sm:p-6 sm:pt-8">
+              <Tape tone="dots" />
+              {/* The hidden fields at the top of the form submit the choice, so moving
+                  on from this step never loses it. */}
+              <PaperFields preset={preset} onPreset={setPreset} accent={accent} onAccent={setAccent} />
+
+              <div className="mt-6 border-t border-dashed border-line pt-4">
+                <p className="text-[13px] font-medium text-ink-soft">{copy.stationery.headerLegend}</p>
+                <p className="mt-1 text-[13px] leading-snug text-ink-muted">{copy.stationery.headerHint}</p>
+                <LoopBanner url={headerPreview} className="mt-3" />
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <button type="button" className="btn btn-quiet h-10 text-[14px]" onClick={() => headerInput.current?.click()}>
+                    {headerFile ? copy.stationery.headerReplace : copy.stationery.headerUpload}
+                  </button>
+                  {headerFile ? (
+                    <button type="button" className="btn btn-quiet h-10 text-[14px]" onClick={clearHeader}>
+                      {copy.stationery.headerRemove}
+                    </button>
+                  ) : null}
+                </div>
+                <input
+                  ref={headerInput}
+                  type="file"
+                  hidden
+                  accept={PHOTO_ACCEPT}
+                  aria-label={copy.stationery.headerInput}
+                  onChange={(event) => void chooseHeader(event.target.files?.[0])}
+                />
+                <p aria-live="polite" className={`mt-1.5 text-[12px] ${headerError ? "text-danger" : "text-ink-muted"}`}>
+                  {headerError || (headerFile ? copy.newLoop.wizard.look.pictureChosen : "")}
+                </p>
+              </div>
+            </div>
+          </>
+        ) : null}
+
+        {step === 2 ? (
+          <>
             <div className="flex flex-wrap items-end justify-between gap-2">
               <div>
                 <h1 ref={stepHeading} tabIndex={-1} id="wizard-step-heading" className="wizard-heading">{copy.newLoop.wizard.questions.title}</h1>
@@ -408,7 +499,7 @@ export function NewLoopForm({ packs }: { packs: QuestionPack[] }) {
           </>
         ) : null}
 
-        {step === 2 ? (
+        {step === 3 ? (
           <>
             <h1 ref={stepHeading} tabIndex={-1} id="wizard-step-heading" className="wizard-heading">{copy.newLoop.wizard.sections.title}</h1>
             <p className="wizard-description">{copy.newLoop.wizard.sections.description}</p>
@@ -470,7 +561,7 @@ export function NewLoopForm({ packs }: { packs: QuestionPack[] }) {
           </>
         ) : null}
 
-        {step === 3 ? (
+        {step === 4 ? (
           <>
             <h1 ref={stepHeading} tabIndex={-1} id="wizard-step-heading" className="wizard-heading">{copy.newLoop.wizard.readers.title}</h1>
             <p className="wizard-description">{copy.newLoop.wizard.readers.groupDescription}</p>
@@ -521,7 +612,7 @@ export function NewLoopForm({ packs }: { packs: QuestionPack[] }) {
           </>
         ) : null}
 
-        {step === 4 ? (
+        {step === 5 ? (
           <>
             <h1 ref={stepHeading} tabIndex={-1} id="wizard-step-heading" className="wizard-heading">{copy.newLoop.wizard.note.title}</h1>
             <p className="wizard-description">{copy.newLoop.wizard.note.description}</p>

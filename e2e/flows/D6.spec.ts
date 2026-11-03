@@ -17,16 +17,22 @@ test("D6 · a submitted answer can still be rewritten, not duplicated", async ({
   const answer = page.getByLabel("What made you laugh this week?");
   await answer.fill("First version.");
   await page.getByRole("button", { name: "Send answers" }).click();
-  await expect(page.getByRole("button", { name: "Save changes" })).toBeVisible();
-  await expect(page.locator(".sent-stamp")).toHaveClass(/sent-stamp-animate/);
+  await expect(page.getByRole("heading", { name: "Sent!" })).toBeVisible();
+  await expect(page.locator(".sent-stamp:visible")).toHaveClass(/sent-stamp-animate/);
 
+  await page.getByRole("button", { name: "Edit my answers" }).click();
   await answer.fill("Second version, with the good detail.");
   await page.getByRole("button", { name: "Save changes" }).click();
+  // A second send confirms again, as a change rather than a first send.
+  await expect(page.getByRole("heading", { name: "Changes sent!" })).toBeVisible();
+  await page.getByRole("button", { name: "Edit my answers" }).click();
   // The overall save status, which several parts of the sheet label "Saved".
   await expect(page.locator("[data-save-status]")).toHaveText("Saved");
 
+  // Coming back later opens the sheet itself, with its quiet "Sent" note.
   await page.reload();
-  await expect(page.locator(".sent-stamp")).not.toHaveClass(/sent-stamp-animate/);
+  await expect(page.getByRole("button", { name: "Save changes" })).toBeVisible();
+  await expect(page.locator(".sent-stamp:visible")).not.toHaveClass(/sent-stamp-animate/);
   await expect(page.getByLabel("What made you laugh this week?")).toHaveValue(
     "Second version, with the good detail.",
   );

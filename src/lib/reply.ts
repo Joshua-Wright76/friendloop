@@ -17,7 +17,13 @@ export const INVITE_DAYS = 14;
 export type TokenContext =
   | { state: "invalid" }
   | { state: "expired"; groupName: string }
-  | { state: "reader"; groupName: string; groupId: string }
+  | {
+      state: "reader";
+      groupName: string;
+      groupId: string;
+      membership: typeof memberships.$inferSelect;
+      group: typeof groups.$inferSelect;
+    }
   | {
       state: "ok";
       membership: typeof memberships.$inferSelect;
@@ -49,7 +55,7 @@ export async function resolveToken(token: string): Promise<TokenContext> {
   if (pendingTooLong) return { state: "expired", groupName: group.name };
 
   if (membership.participation === "reader") {
-    return { state: "reader", groupName: group.name, groupId: group.id };
+    return { state: "reader", groupName: group.name, groupId: group.id, membership, group };
   }
 
   const [issue] = await db
