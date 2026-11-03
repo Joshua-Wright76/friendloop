@@ -3,7 +3,10 @@
 import { redirect } from "next/navigation";
 import { currentUser } from "@/lib/auth";
 import { getNow } from "@/lib/clock";
+import { setHeaderImage } from "@/lib/identity";
 import { createLoop, inviteMembers } from "@/lib/manage";
+import { MAX_BANNER_BYTES, validatePhoto } from "@/lib/photo-validation";
+import { DEFAULT_PRESET, isPresetKey, normalizeHex } from "@/lib/theme";
 import { copy } from "@/lib/copy";
 import { isValidTimezone } from "@/lib/timezone";
 
@@ -48,6 +51,21 @@ export async function createLoopAction(
   const emails = [...new Set(rawEmails)];
   const personalNote = String(formData.get("personalNote") ?? "").trim().slice(0, 1000);
 
+  // The look is optional, but a bad one is refused before anything exists, so a
+  // typo in the accent never leaves a half-made loop behind.
+  const preset = String(formData.get("preset") ?? "");
+  const accent = String(formData.get("accent") ?? "");
+  if (preset !== "" && !isPresetKey(preset)) return { error: copy.newLoop.errors.theme };
+  if (accent.trim() !== "" && !normalizeHex(accent)) return { error: copy.newLoop.errors.theme };
+
+  const picture = formData.get("headerImage");
+  let header: { bytes: Uint8Array; type: string } | null = null;
+  if (picture instanceof File && picture.size > 0) {
+    if (picture.size > MAX_BANNER_BYTES) return { error: copy.identity.errors.bannerTooLarge };
+    header = { bytes: new Uint8Array(await picture.arrayBuffer()), type: picture.type };
+    if (!validatePhoto(header.bytes, header.type).ok) return { error: copy.identity.errors.invalidImage };
+  }
+
   const at = await getNow();
   const groupId = await createLoop({
     ownerUserId: user.id,
@@ -61,7 +79,23 @@ export async function createLoopAction(
     cadenceWeeks,
     questions: texts,
     at,
+    // Stored with the loop in the same insert, so the look can never half-apply.
+    // Gingham with no accent is stored as nothing, exactly as the settings do.
+    themePreset: preset && preset !== DEFAULT_PRESET ? preset : null,
+    themeAccent: normalizeHex(accent),
   });
+
+  // Validated above, so a failure here is the store or the database; the loop is
+  // made, invitations still go out, and the picture can be added from the settings.
+  let pictureSaved = true;
+  if (header) {
+    try {
+      pictureSaved = (await setHeaderImage(groupId, header)).ok;
+    } catch (error) {
+      console.error("Unable to save the new loop's header picture", error);
+      pictureSaved = false;
+    }
+  }
 
   if (emails.length > 0) {
     await inviteMembers({
@@ -74,5 +108,5 @@ export async function createLoopAction(
     });
   }
 
-  redirect(`/g/${groupId}?welcome=1&day=${WEEKDAYS[promptWeekday] ?? WEEKDAYS[5]}`);
+  redirect(`/g/${groupId}?welcome=${pictureSaved ? "1" : "no-picture"}&day=${WEEKDAYS[promptWeekday] ?? WEEKDAYS[5]}`);
 }

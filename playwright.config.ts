@@ -9,12 +9,14 @@ import { defineConfig, devices } from "@playwright/test";
  * send in the outbox table, and `E2E=1` lets a test move the clock with
  * `x-e2e-now`. Production probes read the same way through a token-scoped route.
  */
+// `scripts/e2e-db.mjs run` picks free ports so several suites can run at once.
 const TEST_PORT = Number(process.env.E2E_PORT ?? 3100);
 const baseURL = process.env.E2E_BASE_URL ?? `http://localhost:${TEST_PORT}`;
 const isProd = Boolean(process.env.E2E_BASE_URL);
 
 /** The stub the provider-path tests reach through `RESEND_BASE_URL`. */
-const FAKE_MAIL_URL = process.env.E2E_FAKE_MAIL_URL ?? "http://127.0.0.1:3101";
+const FAKE_MAIL_URL = process.env.E2E_FAKE_MAIL_URL
+  ?? `http://127.0.0.1:${process.env.E2E_FAKE_MAIL_PORT ?? 3101}`;
 
 process.env.CRON_SECRET ??= "e2e-cron-secret";
 if (!isProd) {

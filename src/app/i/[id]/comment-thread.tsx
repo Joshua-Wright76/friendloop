@@ -10,7 +10,8 @@ import {
   type Mentionable,
 } from "@/lib/mention-picker";
 import type { MentionPick } from "@/lib/mentions";
-import { MAX_PHOTO_BYTES, PHOTO_ACCEPT } from "@/lib/photo-validation";
+import { PHOTO_ACCEPT } from "@/lib/photo-validation";
+import { PHOTO_TARGET, prepareImage } from "@/components/prepare-image";
 import { Avatar } from "@/components/avatar";
 import { copy, text } from "@/lib/copy";
 
@@ -155,6 +156,9 @@ function CommentComposer({
   const [caret, setCaret] = useState(0);
   const [picks, setPicks] = useState<MentionPick[]>([]);
   const [photo, setPhoto] = useState<File | null>(null);
+  // While a picked photo is being shrunk, Post and the picker wait: otherwise the
+  // comment could go without it, and the photo would turn up on the next one.
+  const [preparing, setPreparing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // Which control the error is about; errors that name no field stay unattached.
   const [errorField, setErrorField] = useState<"body" | "photo" | null>(null);
@@ -198,6 +202,7 @@ function CommentComposer({
   };
 
   const submit = () => {
+    if (preparing) return;
     const body = value.trim();
     if (pending) return;
     if (!body && !photo) {
@@ -255,21 +260,22 @@ function CommentComposer({
     }
   };
 
-  const onPickPhoto = (file: File | undefined) => {
-    if (!file) return;
-    if (file.size > MAX_PHOTO_BYTES) {
-      setError(copy.issue.errors.photoTooLarge);
-      setErrorField("photo");
-    } else if (!PHOTO_ACCEPT.split(",").includes(file.type)) {
-      setError(copy.issue.errors.photoInvalid);
-      setErrorField("photo");
-    } else {
-      setPhoto(file);
-      setPosted(text(copy.a11yStatus.photoAttached, { name: file.name }));
-      setError(null);
-      setErrorField(null);
-    }
+  const onPickPhoto = async (picked: File | undefined) => {
     if (files.current) files.current.value = "";
+    if (!picked) return;
+    // Camera-roll photos are shrunk here rather than refused for their size.
+    setPreparing(true);
+    const prepared = await prepareImage(picked, PHOTO_TARGET);
+    setPreparing(false);
+    if (!prepared.ok) {
+      setError(copy.issue.errors.photoUnreadable);
+      setErrorField("photo");
+      return;
+    }
+    setPhoto(prepared.file);
+    setPosted(text(copy.a11yStatus.photoAttached, { name: prepared.file.name }));
+    setError(null);
+    setErrorField(null);
   };
 
   return (
@@ -359,21 +365,22 @@ function CommentComposer({
             type="file"
             accept={PHOTO_ACCEPT}
             hidden
-            onChange={(event) => onPickPhoto(event.target.files?.[0])}
+            onChange={(event) => void onPickPhoto(event.target.files?.[0])}
           />
           <button
             type="button"
-            className="btn btn-quiet"
+            className="btn btn-quiet aria-disabled:cursor-not-allowed aria-disabled:opacity-45"
+            aria-disabled={preparing || pending ? true : undefined}
             aria-describedby={errorField === "photo" ? errorId : undefined}
-            onClick={() => files.current?.click()}
+            onClick={() => { if (!preparing && !pending) files.current?.click(); }}
           >
-            {copy.issue.addPhoto}
+            {preparing ? copy.issue.preparingPhoto : copy.issue.addPhoto}
           </button>
         </div>
         {/* aria-disabled, not disabled: the button the keyboard is on must keep focus while posting. */}
         <button
           type="submit"
-          aria-disabled={pending ? true : undefined}
+          aria-disabled={pending || preparing ? true : undefined}
           className="btn btn-primary aria-disabled:cursor-not-allowed aria-disabled:opacity-45"
         >
           {pending ? copy.issue.posting : copy.issue.post}

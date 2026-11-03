@@ -388,7 +388,7 @@ test("a photo rides along under the same caps as an answer's", async (t) => {
   const big = new Uint8Array(MAX_PHOTO_BYTES + 1);
   big.set(PNG);
   const tooBig = await postComment({ issueId: issue.issueId, viewerToken: alice.token, body: "x", photo: { bytes: big, type: "image/png" } });
-  assert.deepEqual(tooBig, { ok: false, status: 413, error: "That photo is over 5 MB. Try a smaller one." });
+  assert.deepEqual(tooBig, { ok: false, status: 413, error: "That photo is over 4 MB. Try a smaller one." });
   assert.equal((await rows("select 1 from comments")).length, 1);
 });
 

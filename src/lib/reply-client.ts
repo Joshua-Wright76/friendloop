@@ -1,6 +1,3 @@
-import { upload as uploadBlob } from "@vercel/blob/client";
-import { copy } from "./copy.ts";
-import { validatePhoto } from "./photo-validation.ts";
 
 export type SaveResult = { ok: true; savedAt: string } | { ok: false; error: string };
 export type PhotoSaveResult =
@@ -31,6 +28,11 @@ export async function postReply(
   }
 }
 
+/**
+ * Photos go through our own route, as one small request. The browser has already
+ * shrunk them (see prepare-image), so they sit well inside Vercel's 4.5 MB body
+ * limit and no direct-to-Blob hand-off, with its callback and polling, is needed.
+ */
 export async function uploadReplyPhoto(
   token: string,
   issueQuestionId: string,
@@ -39,50 +41,6 @@ export async function uploadReplyPhoto(
   fetcher: typeof fetch = fetch,
 ): Promise<PhotoSaveResult> {
   try {
-    if (process.env.NODE_ENV === "production") {
-      const inspected = validatePhoto(new Uint8Array(await file.arrayBuffer()), file.type);
-      if (!inspected.ok) {
-        return {
-          ok: false,
-          error: inspected.reason === "too-large"
-            ? copy.reply.errors.photoTooLarge
-            : copy.reply.errors.invalidPhoto,
-        };
-      }
-
-      const randomName = Array.from(crypto.getRandomValues(new Uint8Array(32)))
-        .map((byte) => byte.toString(16).padStart(2, "0"))
-        .join("");
-      const blob = await uploadBlob(`reply-photos/${randomName}.${inspected.format.extension}`, file, {
-        access: "public",
-        contentType: inspected.format.contentType,
-        handleUploadUrl: `/api/reply/${token}/photo`,
-        clientPayload: JSON.stringify({ issueQuestionId }),
-      });
-
-      const deadline = Date.now() + 15_000;
-      while (true) {
-        const response = await fetcher(`/api/reply/${token}/photo`, {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ action: "checkBlob", issueQuestionId, photoUrl: blob.url }),
-        });
-        const data = (await response.json()) as {
-          ok?: boolean;
-          pending?: boolean;
-          photoUrl?: string;
-          error?: string;
-        };
-        if (response.ok && data.ok && data.photoUrl) {
-          return { ok: true, savedAt: new Date().toISOString(), photoUrl: data.photoUrl };
-        }
-        if (!data.pending || Date.now() >= deadline) {
-          return { ok: false, error: data.error ?? genericError };
-        }
-        await new Promise((resolve) => setTimeout(resolve, 250));
-      }
-    }
-
     const form = new FormData();
     form.set("issueQuestionId", issueQuestionId);
     form.set("photo", file, file.name);

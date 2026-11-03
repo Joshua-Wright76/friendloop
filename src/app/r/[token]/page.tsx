@@ -4,6 +4,7 @@ import { describeDeadline } from "@/lib/schedule";
 import { resolveToken, sheetFor } from "@/lib/reply";
 import { sectionsForSheet } from "@/lib/sections";
 import { LoopTheme } from "@/components/loop-theme";
+import { ProfilePhoto } from "@/components/profile-photo";
 import { ReplySheet } from "./reply-sheet";
 import { copy, text } from "@/lib/copy";
 
@@ -18,7 +19,9 @@ export const metadata: Metadata = {
   referrer: "no-referrer",
 };
 
-function Closed({ title, body }: { title: string; body: string }) {
+type Person = { token: string; name: string; photoUrl: string | null };
+
+function Closed({ title, body, person }: { title: string; body: string; person?: Person }) {
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-[560px] flex-col justify-center px-4 py-10">
       <div className="card p-6">
@@ -26,6 +29,14 @@ function Closed({ title, body }: { title: string; body: string }) {
           {title}
         </h1>
         <p className="mt-2 text-[15px] leading-relaxed text-ink-soft">{body}</p>
+        {person ? (
+          // Someone following their invitation may land before any round is open (or
+          // as a reader). Their photo is still theirs to set, so it is offered here.
+          <div className="mt-4 border-t border-dashed border-line pt-4">
+            <p className="mb-2 text-[13px] font-medium text-ink-soft">{copy.identity.profile.title}</p>
+            <ProfilePhoto endpoint={`/api/reply/${person.token}/profile-photo`} name={person.name} photoUrl={person.photoUrl} />
+          </div>
+        ) : null}
       </div>
       <p className="mt-6 text-center text-[13px] text-ink-muted">
         <Link href="/" className="underline decoration-line-strong underline-offset-4">
@@ -34,6 +45,10 @@ function Closed({ title, body }: { title: string; body: string }) {
       </p>
     </main>
   );
+}
+
+function personOf(token: string, membership: { name: string | null; email: string; photoUrl: string | null }): Person {
+  return { token, name: membership.name ?? membership.email.split("@")[0], photoUrl: membership.photoUrl };
 }
 
 export default async function ReplyPage({ params }: { params: Promise<{ token: string }> }) {
@@ -60,20 +75,28 @@ export default async function ReplyPage({ params }: { params: Promise<{ token: s
 
   if (context.state === "reader") {
     return (
-      <Closed
-        title={text(copy.reply.readerTitle, { groupName: context.groupName })}
-        body={copy.reply.readerBody}
-      />
+      <>
+        <LoopTheme preset={context.group.themePreset} accent={context.group.themeAccent} />
+        <Closed
+          title={text(copy.reply.readerTitle, { groupName: context.groupName })}
+          body={copy.reply.readerBody}
+          person={personOf(token, context.membership)}
+        />
+      </>
     );
   }
 
   const sheet = await sheetFor(token);
   if (!sheet || !sheet.context.issue) {
     return (
-      <Closed
-        title={copy.reply.nothingOpenTitle}
-        body={text(copy.reply.nothingOpenBody, { groupName: context.group.name })}
-      />
+      <>
+        <LoopTheme preset={context.group.themePreset} accent={context.group.themeAccent} />
+        <Closed
+          title={copy.reply.nothingOpenTitle}
+          body={text(copy.reply.nothingOpenBody, { groupName: context.group.name })}
+          person={personOf(token, context.membership)}
+        />
+      </>
     );
   }
 

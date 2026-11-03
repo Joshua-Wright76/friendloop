@@ -93,7 +93,7 @@ export function EventsPanel() {
           </div>
           <div>
             <label htmlFor="event-emoji" className="block text-[13px] font-bold text-ink-soft">{copy.events.emojiLabel}</label>
-            <input id="event-emoji" name="emoji" maxLength={8} placeholder={copy.events.section.defaultEmoji} className="field mt-1 h-[46px] py-0" />
+            <input id="event-emoji" name="emoji" maxLength={8} placeholder={copy.events.section.defaultEmoji} className="field emoji-field mt-1 h-[46px] py-0" />
           </div>
         </div>
         <button type="submit" className="btn btn-primary mt-3">{copy.events.add}</button>

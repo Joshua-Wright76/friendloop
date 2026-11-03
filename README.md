@@ -239,6 +239,16 @@ Set `TEST_DATABASE_URL` to skip all of that and use your own database instead â€
 that is what CI does with a Neon branch. Tests truncate their tables between
 runs, so the cluster is safe to share with nothing else.
 
+Suites can run at the same time from separate checkouts (git worktrees). Each
+`npm run e2e` or `npm run test:integration` creates its own
+`friendloop_test_run_<pid>_<id>` database in the cluster and drops it when it
+exits. A run that was killed leaves its database behind, and the next run drops
+it. Each run also picks free ports for the app and the Resend stub; set
+`E2E_PORT` / `E2E_FAKE_MAIL_PORT` to pin them. The `.next` build belongs to the
+checkout, so a second Playwright run in the same folder stops right away
+(`.e2e-run.lock`). `e2e:db:stop` and `e2e:db:reset` affect every run sharing the
+cluster, so don't use them while another suite is running.
+
 Flow coverage is not a vibe: `specs/flows.md` lists every user-visible flow, each
 `done` flow must have `e2e/flows/<ID>.spec.ts`, and CI fails while any flow is still
 `todo`.

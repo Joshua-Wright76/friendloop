@@ -28,8 +28,11 @@ export default function OverviewTab({ welcome, nudged }: { welcome?: string; nud
       </header>
       <LoopNav id={group.id} active="Overview" isOwner={isOwner} />
 
-      {welcome === "1" ? (
-        <NoticeFocus spacing="mb-5">{copy.loop.welcome}</NoticeFocus>
+      {welcome === "1" || welcome === "no-picture" ? (
+        <NoticeFocus spacing="mb-5">
+          {copy.loop.welcome}
+          {welcome === "no-picture" ? ` ${copy.loop.welcomeNoPicture}` : ""}
+        </NoticeFocus>
       ) : null}
 
       {nudged ? (

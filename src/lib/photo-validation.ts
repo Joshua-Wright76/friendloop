@@ -1,9 +1,13 @@
-export const MAX_PHOTO_BYTES = 5 * 1024 * 1024;
+/**
+ * Photos are one multipart request, and Vercel refuses bodies over 4.5 MB, so the
+ * cap sits under it. The browser shrinks camera photos well below this anyway.
+ */
+export const MAX_PHOTO_BYTES = 4 * 1024 * 1024;
 /** A profile picture is shown at a few dozen pixels; this is plenty. */
 export const MAX_AVATAR_BYTES = 2 * 1024 * 1024;
 /**
  * The header picture rides a multipart request, and Vercel refuses bodies over
- * 4.5 MB, so the cap sits just under it rather than at the answer-photo 5 MB.
+ * 4.5 MB, so the cap sits just under it, like the answer-photo cap.
  */
 export const MAX_BANNER_BYTES = 4 * 1024 * 1024;
 export const PHOTO_ACCEPT = "image/jpeg,image/png,image/webp,image/gif";

@@ -24,7 +24,6 @@ const STUBS = new Map([
   ["next/navigation", path.join(ROOT, "test", "stubs", "next-navigation.mjs")],
   ["next/server", path.join(ROOT, "test", "stubs", "next-server.mjs")],
   ["@vercel/blob", path.join(ROOT, "test", "stubs", "vercel-blob.mjs")],
-  ["@vercel/blob/client", path.join(ROOT, "test", "stubs", "vercel-blob-client.mjs")],
 ]);
 
 function firstExisting(candidates) {

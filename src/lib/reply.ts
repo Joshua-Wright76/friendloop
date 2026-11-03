@@ -17,7 +17,13 @@ export const INVITE_DAYS = 14;
 export type TokenContext =
   | { state: "invalid" }
   | { state: "expired"; groupName: string }
-  | { state: "reader"; groupName: string; groupId: string }
+  | {
+      state: "reader";
+      groupName: string;
+      groupId: string;
+      membership: typeof memberships.$inferSelect;
+      group: typeof groups.$inferSelect;
+    }
   | {
       state: "ok";
       membership: typeof memberships.$inferSelect;
@@ -49,7 +55,7 @@ export async function resolveToken(token: string): Promise<TokenContext> {
   if (pendingTooLong) return { state: "expired", groupName: group.name };
 
   if (membership.participation === "reader") {
-    return { state: "reader", groupName: group.name, groupId: group.id };
+    return { state: "reader", groupName: group.name, groupId: group.id, membership, group };
   }
 
   const [issue] = await db
@@ -149,29 +155,6 @@ export async function deletePhotoIfUnreferenced(photoUrl: string): Promise<void>
     .where(eq(replies.photoUrl, photoUrl))
     .limit(1);
   if (!reference) await deleteStoredPhoto(photoUrl);
-}
-
-/** Check whether the signed Blob completion callback has saved an uploaded photo. */
-export async function photoSavedFor(input: {
-  token: string;
-  issueQuestionId: string;
-  photoUrl: string;
-}): Promise<{ ok: true; saved: boolean } | Extract<WriteResult, { ok: false }>> {
-  const gate = await ensureWritableQuestion(input.token, input.issueQuestionId);
-  if (!gate.ok) return gate.result;
-
-  const [reply] = await db
-    .select({ photoUrl: replies.photoUrl })
-    .from(replies)
-    .where(
-      and(
-        eq(replies.issueId, gate.context.issue.id),
-        eq(replies.issueQuestionId, gate.question.id),
-        eq(replies.membershipId, gate.context.membership.id),
-      ),
-    )
-    .limit(1);
-  return { ok: true, saved: reply?.photoUrl === input.photoUrl };
 }
 
 /** Save a photo without changing the existing text answer. */
