@@ -1416,6 +1416,7 @@
     "open": "Send feedback",
     "title": "Tell us anything",
     "hint": "Found a bug, or have an idea? A sentence is plenty.",
+    "audience": "This goes to the people who build Friendloop, not to your loop.",
     "label": "Your message",
     "placeholder": "What happened, or what would be better?",
     "send": "Send",

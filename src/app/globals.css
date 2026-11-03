@@ -310,15 +310,6 @@ html[data-theme="dark"] .tape { opacity: .6; }
 html[data-theme="dark"] .theme-switch-track { background: var(--accent); }
 html[data-theme="dark"] .theme-switch-track > span { transform: translateX(12px); }
 body:has(.reply-actionbar:not([hidden])) .theme-switch { bottom: calc(92px + env(safe-area-inset-bottom)); }
-@media (max-width: 520px) {
-  /* The feedback and theme pills float over the bottom corners; reserve room
-     so the last controls on every page can scroll clear of them. */
-  /* Full-height pages (min-h-dvh mains, the print sheet) already fill the
-     screen and would scroll by the padding, so they are left alone. */
-  body:not(:has(.min-h-dvh, .print-sheet)) { padding-bottom: calc(72px + env(safe-area-inset-bottom)); }
-  .theme-switch { right: 12px; }
-  .theme-switch-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
-}
 
 .feedback-button {
   position: fixed;
@@ -341,9 +332,23 @@ body:has(.reply-actionbar:not([hidden])) .theme-switch { bottom: calc(92px + env
 .feedback-button:hover { background: var(--accent-soft); }
 .feedback-button-icon { width: 18px; height: 18px; }
 body:has(.reply-actionbar:not([hidden])) .feedback-button { bottom: calc(92px + env(safe-area-inset-bottom)); }
-@media (max-width: 520px) {
-  .feedback-button { left: 12px; padding: 0; width: 44px; justify-content: center; }
-  .feedback-button-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+/* The wizard's sticky Back/Next bar: where the column is wide enough to reach the corners, the pills sit above it. */
+@media (min-width: 761px) and (max-width: 1099px) {
+  body:has(.wizard-navigation) :is(.theme-switch, .feedback-button) { bottom: calc(92px + env(safe-area-inset-bottom)); }
+}
+/* On a phone or a narrow window the pills would float over whatever is under the
+   bottom corners (a textarea, a poll option, the Send bar's neighbours). There they
+   stop floating and become an ordinary row at the very end of the page instead. */
+@media (max-width: 760px) {
+  .site-chrome { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; width: 100%; max-width: 600px; margin: 0 auto; padding: 8px 16px calc(20px + env(safe-area-inset-bottom)); }
+  .site-chrome :is(.theme-switch, .feedback-button) { position: static; box-shadow: none; backdrop-filter: none; background: var(--card); }
+  .site-chrome :is(.theme-switch, .feedback-button):focus-visible { box-shadow: 0 0 0 6px var(--card); }
+  /* The reply sheet's Send bar is fixed to the bottom edge: the row stops above it. */
+  body:has(.reply-actionbar:not([hidden])) .site-chrome { padding-bottom: calc(96px + env(safe-area-inset-bottom)); }
+  /* Full-height pages leave room for the row, so it shows without a scroll. */
+  #main-content > .min-h-dvh, #main-content > .min-h-svh { min-height: calc(100svh - 72px - env(safe-area-inset-bottom)); }
+  /* Nothing floats any more, so the focused control only has to clear the sticky bars. */
+  html { scroll-padding-block-end: 16px; }
 }
 .wizard-dialog.feedback-dialog { width: min(440px, calc(100vw - 28px)); }
 
@@ -557,6 +562,7 @@ body:has(.reply-actionbar:not([hidden])) .feedback-button { bottom: calc(92px + 
   html:has(.print-sheet) body::before { display: none; }
   html:has(.print-sheet) .theme-switch,
   html:has(.print-sheet) .feedback-button,
+  html:has(.print-sheet) .site-chrome,
   html:has(.print-sheet) .skip-link,
   .no-print { display: none !important; }
   .print-sheet { min-height: 0; }

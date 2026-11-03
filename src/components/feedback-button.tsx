@@ -113,6 +113,7 @@ export function FeedbackButton() {
           <form onSubmit={send}>
             <h2 id="feedback-title" className="text-ink">{copy.feedback.title}</h2>
             <p className="mt-1.5 text-[14px] leading-relaxed text-ink-soft">{copy.feedback.hint}</p>
+            <p className="mt-1 text-[13px] leading-relaxed text-ink-muted">{copy.feedback.audience}</p>
             <label htmlFor="feedback-message" className="sr-only">{copy.feedback.label}</label>
             <textarea
               id="feedback-message"
