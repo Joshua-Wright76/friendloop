@@ -86,7 +86,8 @@ test("on a phone the theme and feedback controls sit after the page, never over 
   expect(await theme.evaluate((element) => getComputedStyle(element).position)).toBe("static");
 
   // At the very bottom of the reply sheet, both clear the fixed Send bar.
-  await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+  await page.evaluate(() => window.scrollTo({ top: document.documentElement.scrollHeight, behavior: "instant" }));
+  await expect.poll(() => page.evaluate(() => Math.ceil(window.scrollY + window.innerHeight) >= document.documentElement.scrollHeight - 1)).toBe(true);
   const bar = await page.locator(".reply-actionbar").boundingBox();
   for (const control of [feedback, theme]) {
     const box = await control.boundingBox();
