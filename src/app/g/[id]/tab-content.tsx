@@ -20,6 +20,7 @@ type Notices = {
   event?: string;
   skip?: string;
   opened?: string;
+  alreadyOpen?: string;
   named?: string;
   saved?: string;
   error?: string;
@@ -31,7 +32,7 @@ type Props =
   | { tab: "overview"; welcome?: string; nudged?: string }
   | { tab: "members"; notices: Pick<Notices, "invited" | "resent" | "removed" | "transferred" | "transferError"> }
   | { tab: "questions"; notices: Pick<Notices, "added" | "archived" | "skip" | "suggestion" | "section" | "poll" | "event"> }
-  | { tab: "issues"; notices: Pick<Notices, "opened" | "named">; filter?: { memberId: string; roundIds: string[] } | null }
+  | { tab: "issues"; notices: Pick<Notices, "opened" | "alreadyOpen" | "named">; filter?: { memberId: string; roundIds: string[] } | null }
   | { tab: "settings"; notices: Pick<Notices, "saved" | "error" | "shares" | "stationery"> };
 
 export function LoopTabContent(props: Props) {

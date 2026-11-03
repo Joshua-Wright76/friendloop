@@ -1,6 +1,7 @@
 import { and, asc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
 import {
+  events,
   groups,
   issueSections,
   memberships,
@@ -238,6 +239,10 @@ async function ensureWritableSection(token: string, issueSectionId: string): Pro
   }
   if (section.adminOnly && membership.access === "member") {
     return { ok: false, result: { ok: false, status: 403, error: copy.reply.errors.reader } };
+  }
+  if ((await celebratedMembers([section])).get(section.id) === membership.id) {
+    // The birthday person never sees their own card, so they can't write to it.
+    return { ok: false, result: { ok: false, status: 409, error: copy.reply.errors.wrongQuestion } };
   }
 
   return {
@@ -490,6 +495,28 @@ export async function removeSectionMediaFor(input: {
   return { ok: true, savedAt: at.toISOString() };
 }
 
+/**
+ * Section id → the member an event section celebrates. A birthday card is a
+ * surprise, so its own subject must not be asked to fill it in.
+ */
+async function celebratedMembers(
+  rows: { id: string; eventId: string | null }[],
+): Promise<Map<string, string>> {
+  const eventIds = [...new Set(rows.map((row) => row.eventId).filter((id): id is string => Boolean(id)))];
+  if (eventIds.length === 0) return new Map();
+  const found = await db
+    .select({ id: events.id, membershipId: events.membershipId })
+    .from(events)
+    .where(inArray(events.id, eventIds));
+  const byEvent = new Map(found.map((event) => [event.id, event.membershipId]));
+  const result = new Map<string, string>();
+  for (const row of rows) {
+    const member = row.eventId ? byEvent.get(row.eventId) : null;
+    if (member) result.set(row.id, member);
+  }
+  return result;
+}
+
 /** The sheet's section payload: visible snapshots plus this member's answers. */
 export async function sectionsForSheet(token: string, issueId: string) {
   const context = await resolveToken(token);
@@ -501,7 +528,12 @@ export async function sectionsForSheet(token: string, issueId: string) {
     .where(eq(issueSections.issueId, issueId))
     .orderBy(asc(issueSections.position));
 
-  const visible = rows.filter((section) => !section.adminOnly || context.membership.access !== "member");
+  const celebrated = await celebratedMembers(rows);
+  const visible = rows.filter(
+    (section) =>
+      (!section.adminOnly || context.membership.access !== "member") &&
+      celebrated.get(section.id) !== context.membership.id,
+  );
   if (visible.length === 0) return [];
 
   const mine = await db

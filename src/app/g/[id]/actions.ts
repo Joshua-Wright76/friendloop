@@ -15,7 +15,8 @@ export async function sendNowAction(formData: FormData) {
   const at = await getNow();
   const issue = await openIssueNow(groupId, at);
   revalidatePath(`/g/${groupId}`, "layout");
-  if (issue) redirect(`/g/${groupId}/issues?opened=${issue.number}`);
+  if (issue?.created) redirect(`/g/${groupId}/issues?opened=${issue.number}`);
+  if (issue) redirect(`/g/${groupId}/issues?alreadyOpen=${issue.number}`);
   redirect(`/g/${groupId}/issues`);
 }
 

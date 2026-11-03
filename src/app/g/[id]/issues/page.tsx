@@ -8,7 +8,7 @@ export const metadata: Metadata = { title: copy.pageTitles.rounds };
 
 export default async function IssuesPage({ params, searchParams }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ opened?: string; named?: string; member?: string | string[] }>;
+  searchParams: Promise<{ opened?: string; alreadyOpen?: string; named?: string; member?: string | string[] }>;
 }) {
   const [{ id }, { member, ...notices }] = await Promise.all([params, searchParams]);
 

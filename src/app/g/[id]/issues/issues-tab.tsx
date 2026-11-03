@@ -14,7 +14,7 @@ export default function IssuesTab({
   notices,
   filter,
 }: {
-  notices: { opened?: string; named?: string };
+  notices: { opened?: string; alreadyOpen?: string; named?: string };
   filter: { memberId: string; roundIds: string[] } | null;
 }) {
   const { group, membership, rounds: allRounds, openIssue: open, people } = useLoopData();
@@ -49,6 +49,7 @@ export default function IssuesTab({
       </p>
 
       {notices.opened ? <NoticeFocus>{text(copy.rounds.openedNotice, { number: notices.opened })}</NoticeFocus> : null}
+      {notices.alreadyOpen ? <NoticeFocus>{text(copy.rounds.alreadyOpenNotice, { number: notices.alreadyOpen })}</NoticeFocus> : null}
       {notices.named === "1" ? <NoticeFocus>{copy.rounds.nameSaved}</NoticeFocus> : null}
       {notices.named === "0" ? <NoticeFocus>{copy.rounds.nameCleared}</NoticeFocus> : null}
 
