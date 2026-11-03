@@ -493,8 +493,9 @@ export function ReplySheet({
 
   const startRecording = useCallback(async (questionId: string) => {
     if (recording || audioLocks.current.has(questionId)) return;
+    let stream: MediaStream | null = null;
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const mime = [
         "audio/webm;codecs=opus",
         "audio/webm",
@@ -521,6 +522,9 @@ export function ReplySheet({
         setRecordingElapsed(elapsed);
       }, 200);
     } catch (error) {
+      // If the mic opened but the recorder could not start, release it so the
+      // browser's recording indicator does not stay on.
+      stream?.getTracks().forEach((track) => track.stop());
       // A refused or dismissed microphone prompt is not a missing recorder;
       // say which so the person knows a settings change will fix it.
       const blocked = error instanceof DOMException

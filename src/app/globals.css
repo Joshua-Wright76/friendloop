@@ -293,7 +293,9 @@ body:has(.reply-actionbar) .theme-switch { bottom: calc(92px + env(safe-area-ins
 @media (max-width: 520px) {
   /* The feedback and theme pills float over the bottom corners; reserve room
      so the last controls on every page can scroll clear of them. */
-  body { padding-bottom: calc(72px + env(safe-area-inset-bottom)); }
+  /* Full-height pages (min-h-dvh mains, the print sheet) already fill the
+     screen and would scroll by the padding, so they are left alone. */
+  body:not(:has(.min-h-dvh, .print-sheet)) { padding-bottom: calc(72px + env(safe-area-inset-bottom)); }
   .theme-switch { right: 12px; }
   .theme-switch-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 }
