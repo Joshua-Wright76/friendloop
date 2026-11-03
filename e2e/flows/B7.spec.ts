@@ -19,9 +19,9 @@ async function toLookStep(page: Page, title: string) {
   await expect(page.getByRole("heading", { name: "Choose its paper and picture" })).toBeVisible();
 }
 
-/** From the paper step through the questions, prompts, readers and note to the end. */
+/** From the paper step through the questions, invitations and note to the end. */
 async function createFromLookStep(page: Page) {
-  for (let index = 0; index < 4; index += 1) await page.getByRole("button", { name: NEXT }).click();
+  for (let index = 0; index < 3; index += 1) await page.getByRole("button", { name: NEXT }).click();
   await page.getByRole("button", { name: "Create loop" }).click();
   await expect(page).toHaveURL(/\/g\/([0-9a-f-]+)\?welcome=1/);
 }
