@@ -74,7 +74,7 @@ test("C6 · a whole pack adds at once and questions already in the pool are skip
   const travel = page.getByRole("group", { name: "Travel", exact: true });
   await expect(travel.getByRole("checkbox").first()).toBeChecked();
   await expect(travel.getByRole("checkbox").first()).toBeDisabled();
-  await expect(travel.getByText("In your pool")).toHaveCount(pack("Travel").questions.length);
+  await expect(travel.getByText("In your pool", { exact: true })).toHaveCount(pack("Travel").questions.length);
   await expect(page.getByRole("button", { name: "Add all questions in Travel" })).toHaveCount(0);
 
   // "Add all" on a pack that is partly in the pool picks only the new ones.

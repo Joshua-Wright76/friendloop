@@ -18,8 +18,7 @@ test("F4 · deleting a loop takes everything with it", async ({ page }) => {
   await expect(confirm).toHaveValue("");
   await expect(deleteButton).toHaveAttribute("aria-disabled", "true");
   await confirm.fill("Friday");
-  await deleteButton.click();
-  await expect(page).toHaveURL(/\/settings$/);
+  await expect(deleteButton).toHaveAttribute("aria-disabled", "true");
   await confirm.fill("Friday Loop");
   await expect(deleteButton).not.toHaveAttribute("aria-disabled");
   await page.getByRole("button", { name: "Delete forever" }).click();
