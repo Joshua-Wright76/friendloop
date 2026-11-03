@@ -24,7 +24,7 @@ export default function Home() {
           <Tape tone="dots" position="left" />
           <Cherries className="home-doodle" />
           <h1 className="home-title font-bold text-ink">
-            {copy.home.titleStart} <em>{copy.home.titleAccent}</em>
+            {copy.home.titleStart} <em><span aria-hidden="true">{copy.home.titleAccent}</span><span className="sr-only">{copy.home.titleAccentSpoken}</span></em>
           </h1>
           <p className="mt-6 max-w-[48ch] text-[17px] leading-relaxed text-ink-soft">
             {copy.home.description}

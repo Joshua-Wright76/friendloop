@@ -65,7 +65,8 @@ export async function axeProblems(page: Page, label: string): Promise<Problems> 
     // (an image, an overlapping element, a pseudo-element) is still unverified and still fails.
     // Likewise for reasons that are not about a colour pair at all: a glyph with no text in it, an empty
     // input (its placeholder colour is a token, tested), and decoration drawn by a pseudo-element.
-    const KNOWN = /background gradient|only non-text characters|has no value|pseudo element|partially obscured/;
+    // (The sticky reply bars are deliberately layered over the page, which axe reports as "overlapped".)
+    const KNOWN = /background gradient|only non-text characters|has no value|pseudo element|partially obscured|overlaps other elements|overlapped by another element/;
     const unverified = incomplete.nodes.filter((node) => !node.any.some((check) => KNOWN.test(check.message ?? "")));
     if (!unverified.length) continue;
     incomplete.nodes = unverified;

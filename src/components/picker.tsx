@@ -167,7 +167,8 @@ export function Picker({ name, defaultValue, value: controlledValue, options, ar
             : event.key === "End"
               ? filtered.length - 1
               : event.key === "ArrowDown"
-                ? (active + 1) % filtered.length
+                // From the search box the highlighted option is the first stop; stepping past it would skip a match.
+                ? (event.target === search.current ? active : (active + 1) % filtered.length)
                 : (active - 1 + filtered.length) % filtered.length;
           move(next);
         } else if (open && event.key === "Enter" && event.target === search.current && filtered[active]) {

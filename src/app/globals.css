@@ -266,7 +266,9 @@ select.field { cursor: pointer; }
 html[data-theme="dark"] .tape { opacity: .6; }
 @media (hover: hover) and (pointer: fine) {
   .card:has(> .tape) { transition: transform 180ms ease, box-shadow 180ms ease; }
-  .card:has(> .tape):hover { transform: translateY(-1px) rotate(-.08deg); box-shadow: var(--shadow-lift); }
+  .card:has(> .tape):hover { box-shadow: var(--shadow-lift); }
+  /* A transform makes the card the containing block of anything position:fixed inside it, which would pull an open bottom sheet (the pickers) out of the viewport. */
+  .card:has(> .tape):hover:not(:has(.picker-sheet)) { transform: translateY(-1px) rotate(-.08deg); }
   .card:has(> .tape):hover > .tape { filter: brightness(1.04); }
 }
 
