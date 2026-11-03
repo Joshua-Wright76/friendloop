@@ -1,7 +1,8 @@
 import { Suspense, type ReactNode } from "react";
 import type { Metadata } from "next";
-import { and, asc, desc, eq, isNull, sql } from "drizzle-orm";
+import { and, asc, countDistinct, desc, eq, isNull } from "drizzle-orm";
 import { notFound, redirect } from "next/navigation";
+import { connection } from "next/server";
 import { db } from "@/db";
 import { groups, issues, memberships, questions, replies } from "@/db/schema";
 import { pendingSuggestions } from "@/lib/suggestions";
@@ -67,8 +68,10 @@ async function LoadedGroupLayout({ children, params }: Props) {
   if (!row) notFound();
 
   const { group, membership } = row;
+  // "Now" belongs to this request, never to a prerender.
+  await connection();
   const at = await getNow();
-  const [people, questionRows, roundRows, suggestionRows, sectionRows, eventRows] = await Promise.all([
+  const [people, questionRows, roundRows, answerRows, suggestionRows, sectionRows, eventRows] = await Promise.all([
     membersOf(group.id),
     db.select({
       id: questions.id,
@@ -92,28 +95,34 @@ async function LoadedGroupLayout({ children, params }: Props) {
       deliversAt: issues.deliversAt,
       deliveredAt: issues.deliveredAt,
       shareToken: issues.shareToken,
-      answers: sql<number>`(
-        select count(*)::int from ${replies}
-        where ${replies.issueId} = ${issues.id} and ${replies.status} = 'submitted'
-      )`,
     })
       .from(issues)
       .where(eq(issues.groupId, group.id))
       .orderBy(desc(issues.number)),
+    // People who sent answers, per round. A separate grouped query: a correlated
+    // subquery in a single-table select renders unqualified columns, which then
+    // resolve against `replies` itself and always counted zero.
+    db.select({ issueId: replies.issueId, people: countDistinct(replies.membershipId) })
+      .from(replies)
+      .innerJoin(issues, eq(issues.id, replies.issueId))
+      .where(and(eq(issues.groupId, group.id), eq(replies.status, "submitted")))
+      .groupBy(replies.issueId),
     pendingSuggestions(group.id),
     sectionsOf(group.id),
     membership.access === "member" ? Promise.resolve([]) : eventsOf(group, at),
   ]);
 
+  const answeredBy = new Map(answerRows.map((row) => [row.issueId, row.people]));
   const rounds: LoopData["rounds"] = roundRows.map((round) => ({
     ...round,
+    answers: answeredBy.get(round.id) ?? 0,
     shareUrl:
       group.shareEnabled && round.shareToken ? url(`/s/${round.shareToken}`) : null,
   }));
   const openIssue = rounds.find((round) => round.status === "open") ?? null;
   const openProgress = openIssue
     ? await db
-        .select({ id: memberships.id, name: memberships.name, email: memberships.email })
+        .selectDistinct({ id: memberships.id, name: memberships.name, email: memberships.email })
         .from(replies)
         .innerJoin(memberships, eq(memberships.id, replies.membershipId))
         .where(and(eq(replies.issueId, openIssue.id), eq(replies.status, "submitted")))

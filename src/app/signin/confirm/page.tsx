@@ -1,9 +1,12 @@
 import Link from "next/link";
 import type { Metadata } from "next";
+import { eq } from "drizzle-orm";
+import { db } from "@/db";
+import { users } from "@/db/schema";
 import { peekMagicLink } from "@/lib/auth";
 import { ConfirmForm } from "./confirm-form";
 import { Brand, Tape } from "@/components/stationery";
-import { copy, text } from "@/lib/copy";
+import { copy } from "@/lib/copy";
 
 export const instant = false;
 
@@ -22,6 +25,12 @@ export default async function ConfirmPage({
   const { token, problem } = await searchParams;
   const peek = token ? await peekMagicLink(token) : null;
 
+  // Someone who has signed in before already told us their name; offer it back
+  // rather than an empty box. Only for a live link, which proves the address.
+  const knownName = peek?.state === "valid"
+    ? (await db.select({ name: users.name }).from(users).where(eq(users.email, peek.email)).limit(1))[0]?.name ?? null
+    : null;
+
   const failure = problem
     ? PROBLEMS[problem] ?? PROBLEMS.unknown
     : peek && peek.state !== "valid"
@@ -29,10 +38,10 @@ export default async function ConfirmPage({
       : null;
 
   return (
-    <main className="mx-auto flex min-h-dvh w-fit max-w-full flex-col justify-center px-4 py-10">
+    <main className="mx-auto flex min-h-dvh w-full max-w-[440px] flex-col justify-center px-4 py-10">
       <div className="mb-8 self-start"><Brand /></div>
 
-      <div className="card w-fit min-w-[280px] max-w-full p-6 pt-8">
+      <div className="card p-6 pt-8">
         <Tape tone="stripe" position="center" />
         {failure ? (
           <>
@@ -46,10 +55,16 @@ export default async function ConfirmPage({
           </>
         ) : (
           <>
-            <h1 className="text-[24px] font-semibold leading-tight tracking-[-0.022em] text-ink [overflow-wrap:anywhere]">
-              {text(copy.confirm.title, { email: peek?.state === "valid" ? peek.email : copy.confirm.fallbackName })}
+            <h1 className="text-[24px] font-semibold leading-tight tracking-[-0.022em] text-ink">
+              {copy.confirm.title}
             </h1>
-            <ConfirmForm token={token ?? ""} />
+            <p className="mt-1.5 text-[15px] leading-relaxed text-ink-soft">
+              {copy.confirm.signingInAs}{" "}
+              <strong className="block font-extrabold text-ink [overflow-wrap:anywhere]">
+                {peek?.state === "valid" ? peek.email : copy.confirm.fallbackName}
+              </strong>
+            </p>
+            <ConfirmForm token={token ?? ""} name={knownName} />
           </>
         )}
       </div>

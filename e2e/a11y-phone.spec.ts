@@ -47,7 +47,7 @@ test("WCAG AA · the reply sheet on a phone, with the sheet open", async ({ page
 
   // The confirmation that replaces the sheet once the answers are sent.
   await page.getByRole("button", { name: "Send answers" }).click();
-  await expect(page.getByRole("heading", { name: "Sent!" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Sent", exact: true })).toBeVisible();
   await audit(page, "/r (sent)");
 });
 

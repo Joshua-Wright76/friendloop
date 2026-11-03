@@ -14,7 +14,7 @@ export default function IssuesTab({
   notices,
   filter,
 }: {
-  notices: { opened?: string; named?: string };
+  notices: { opened?: string; alreadyOpen?: string; named?: string };
   filter: { memberId: string; roundIds: string[] } | null;
 }) {
   const { group, membership, rounds: allRounds, openIssue: open, people } = useLoopData();
@@ -32,12 +32,7 @@ export default function IssuesTab({
 
   return (
     <main className="mx-auto w-full max-w-[680px] px-4 pb-16 pt-5 sm:px-6">
-      <header className="mb-5">
-        <Link href={`/g/${id}`} className="text-[13px] font-medium text-ink-soft hover:text-ink">
-          ← {group.name}
-        </Link>
-      </header>
-      <LoopNav id={id} active="Rounds" isOwner={membership.access === "owner"} />
+      <LoopNav id={id} name={group.name} access={membership.access} active="Rounds" />
 
       <h1 className="text-[28px] font-semibold leading-tight tracking-[-0.025em] text-ink">{copy.rounds.title}</h1>
       <p className="mt-1.5 text-[15px] leading-relaxed text-ink-soft">
@@ -49,6 +44,7 @@ export default function IssuesTab({
       </p>
 
       {notices.opened ? <NoticeFocus>{text(copy.rounds.openedNotice, { number: notices.opened })}</NoticeFocus> : null}
+      {notices.alreadyOpen ? <NoticeFocus>{text(copy.rounds.alreadyOpenNotice, { number: notices.alreadyOpen })}</NoticeFocus> : null}
       {notices.named === "1" ? <NoticeFocus>{copy.rounds.nameSaved}</NoticeFocus> : null}
       {notices.named === "0" ? <NoticeFocus>{copy.rounds.nameCleared}</NoticeFocus> : null}
 
@@ -96,8 +92,8 @@ export default function IssuesTab({
 
             {isOwner ? (
               <details className="mt-2">
-                <summary aria-label={text(copy.a11yLabels.renameRound, { title: issueTitle(copy.rounds.round, round.number, round.name) })} className="inline-flex min-h-11 cursor-pointer items-center text-[14px] font-medium text-ink-soft underline decoration-dashed underline-offset-4">
-                  {copy.rounds.rename}
+                <summary aria-label={text(round.name ? copy.a11yLabels.renameNamedRound : copy.a11yLabels.renameRound, { title: issueTitle(copy.rounds.round, round.number, round.name) })} className="inline-flex min-h-11 cursor-pointer items-center text-[14px] font-medium text-ink-soft underline decoration-dashed underline-offset-4">
+                  {round.name ? copy.rounds.renameNamed : copy.rounds.rename}
                 </summary>
                 <form action={renameIssueAction} className="mt-1 flex flex-col gap-2">
                   <input type="hidden" name="groupId" value={id} />
@@ -113,7 +109,7 @@ export default function IssuesTab({
                     />
                   </label>
                   <p className="text-[12px] leading-relaxed text-ink-muted">{text(copy.rounds.nameHint, { number: round.number })}</p>
-                  <button type="submit" className="btn btn-quiet h-10 self-start text-[14px]">{copy.rounds.nameSave}</button>
+                  <button type="submit" className="btn btn-quiet h-11 min-h-11 self-start text-[14px]">{copy.rounds.nameSave}</button>
                 </form>
               </details>
             ) : null}

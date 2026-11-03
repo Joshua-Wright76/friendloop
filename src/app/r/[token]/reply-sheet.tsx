@@ -2,7 +2,7 @@
 
 /* eslint-disable @next/next/no-img-element -- Uploaded photos use local URLs in development and Blob URLs in production. */
 
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import type { Deadline } from "@/lib/schedule";
 import { LoopBanner } from "@/components/loop-theme";
@@ -283,7 +283,21 @@ export function ReplySheet({
       Object.values(sectionUploading).some(Boolean),
     [photoStates, sectionUploading],
   );
-  const sendBlocked = sending || photoBusy || audioBusy || pollBusy || (!sent && answered === 0 && !sectionAnswered);
+  const sendBlocked = sending || photoBusy || audioBusy || pollBusy;
+  // Nothing written yet: Send stays operable and points at the first question instead.
+  // The name is not an answer.
+  const nothingToSend = !sent && answered === 0 && !sectionAnswered;
+  const [nudged, setNudged] = useState(false);
+  // Once something is written the note has done its job; clearing it again doesn't bring it back.
+  if (nudged && !nothingToSend) setNudged(false);
+  const showNudge = nudged && nothingToSend;
+  const questionList = useRef<HTMLDivElement>(null);
+  const sectionList = useRef<HTMLElement>(null);
+  const nudgeMessage = useRef<HTMLParagraphElement>(null);
+  // The deadline in the loop's zone, and the reader's own when it differs.
+  const deadlineBoth = viewerTime
+    ? `${deadline.inLoopZone} ${text(copy.reply.viewerTimezone, { time: viewerTime })}`
+    : deadline.inLoopZone;
   const status: SaveStatus = useMemo(() => {
     const states = Object.values(questionStatuses);
     if (submitFailed || states.includes("error")) return "error";
@@ -913,6 +927,17 @@ export function ReplySheet({
     confirmationHeading.current?.focus();
   }, [confirmation]);
 
+  /** Send with nothing in it: say so beside the first question and put the cursor there. */
+  const nudgeToFirstQuestion = useCallback(() => {
+    setNudged(true);
+    const fields = "textarea, input[type=radio], input[type=checkbox], input:not([type])";
+    const first =
+      questionList.current?.querySelector<HTMLElement>(fields) ??
+      sectionList.current?.querySelector<HTMLElement>(fields);
+    first?.focus({ preventScroll: true });
+    nudgeMessage.current?.scrollIntoView({ block: "start", behavior: "smooth" });
+  }, []);
+
   const editAnswers = useCallback(() => {
     setConfirmation(null);
     // The sheet is unhidden on the next paint; move there once it is.
@@ -955,7 +980,7 @@ export function ReplySheet({
               {text(copy.reply.confirmation.body, { round: issueTitle(copy.reply.round, roundNumber, roundName) })}
             </p>
             <p className="mt-1 text-[14px] leading-relaxed text-ink-soft">
-              {text(copy.reply.confirmation.delivery, { deadline: deadline.inLoopZone })}
+              {text(copy.reply.confirmation.delivery, { deadline: deadlineBoth })}
             </p>
             <button type="button" onClick={editAnswers} className="btn btn-primary mt-6 min-h-12 w-full sm:w-auto sm:px-8">
               {copy.reply.confirmation.edit}
@@ -1032,12 +1057,21 @@ export function ReplySheet({
               <path d="M10 1.7a8.3 8.3 0 100 16.6 8.3 8.3 0 000-16.6zm3.8 6.4l-4.4 4.7a.9.9 0 01-1.3 0L6.2 10.9a.9.9 0 111.3-1.3l1.2 1.3 3.8-4a.9.9 0 011.3 1.2z" />
             </svg>
             <p className="text-[14px] leading-relaxed text-ink">
-              {text(copy.reply.sent, { deadline: deadline.inLoopZone })}
+              {text(copy.reply.sent, { deadline: deadlineBoth })}
             </p>
           </div>
         ) : null}
 
-        <div className="mt-7 flex flex-col gap-6">
+        <p
+          ref={nudgeMessage}
+          id="reply-nothing-to-send"
+          role="alert"
+          className={showNudge ? "notice mt-6 scroll-mt-24 border bg-accent-soft px-4 py-3 text-[14px] font-bold leading-relaxed text-ink" : "scroll-mt-24"}
+        >
+          {showNudge ? copy.reply.nothingToSend : null}
+        </p>
+
+        <div ref={questionList} className={showNudge ? "mt-4 flex flex-col gap-6" : "mt-7 flex flex-col gap-6"}>
           {questions.map((question, index) => {
             if (question.kind === "poll") {
               return (
@@ -1097,8 +1131,7 @@ export function ReplySheet({
                     : audioErrors[question.id];
 
             return (
-            <Fragment key={question.id}>
-            <section className="card paper ride-in block p-5 pt-7">
+            <section key={question.id} className="card paper ride-in block p-5 pt-7">
               <Tape tone={(["dots", "stripe", "mint", "check"] as const)[index % 4]} position={index % 2 ? "right" : "left"} />
               <div className="mb-3 flex items-start justify-between gap-3">
                 <label htmlFor={`reply-${question.id}`} className="font-display text-[25px] font-bold leading-[1.15] text-ink">
@@ -1143,47 +1176,140 @@ export function ReplySheet({
                 />
               ) : null}
 
-              <div className="mt-4 flex flex-wrap items-center gap-3">
-                <input
-                  id={`photo-${question.id}`}
-                  type="file"
-                  accept={PHOTO_ACCEPT}
-                  className="peer sr-only"
-                  aria-disabled={photoBlocked ? true : undefined}
-                  aria-label={forQuestion(photoUrl ? copy.reply.replacePhoto : copy.reply.addPhoto)}
-                  aria-describedby={`photo-help-${question.id}`}
-                  onClick={(event) => {
-                    if (photoBlocked) event.preventDefault();
-                  }}
-                  onChange={(event) => {
-                    const file = event.currentTarget.files?.[0];
-                    event.currentTarget.value = "";
-                    if (file && !photoBlocked) void selectPhoto(question.id, file);
-                  }}
+              {(audioPreview || audioUrl) ? (
+                <audio
+                  controls
+                  preload="metadata"
+                  src={audioPreview ?? audioUrl ?? ""}
+                  aria-label={text(copy.reply.voiceDurationLabel, { duration: formatAudioDuration(audioDurations[question.id] ?? 0) })}
+                  className="mt-3 w-full"
                 />
-                <label
-                  htmlFor={`photo-${question.id}`}
-                  className="btn btn-quiet min-h-11 px-4 text-[13px] peer-aria-disabled:opacity-45 peer-focus-visible:outline peer-focus-visible:outline-3 peer-focus-visible:outline-accent-ink peer-focus-visible:outline-offset-2"
-                >
-                  {photoUrl ? copy.reply.replacePhoto : copy.reply.addPhoto}
-                </label>
-                {showRemove ? (
-                  <button
-                    type="button"
-                    className="btn btn-quiet min-h-11 px-4 text-[13px] aria-disabled:cursor-not-allowed aria-disabled:opacity-45"
-                    aria-label={forQuestion(copy.reply.removePhoto)}
+              ) : null}
+
+              {/* Photo and voice share one quiet row inside the card they belong to. */}
+              <div className="mt-4 flex flex-wrap items-center gap-x-5 border-t border-dashed border-line pt-1">
+                <div className="flex flex-wrap items-center gap-x-5">
+                  <input
+                    id={`photo-${question.id}`}
+                    type="file"
+                    accept={PHOTO_ACCEPT}
+                    className="peer sr-only"
                     aria-disabled={photoBlocked ? true : undefined}
-                    onClick={() => {
-                      if (!photoBlocked) void removePhoto(question.id);
+                    aria-label={forQuestion(photoUrl ? copy.reply.replacePhoto : copy.reply.addPhoto)}
+                    aria-describedby={`photo-help-${question.id}`}
+                    onClick={(event) => {
+                      if (photoBlocked) event.preventDefault();
                     }}
+                    onChange={(event) => {
+                      const file = event.currentTarget.files?.[0];
+                      event.currentTarget.value = "";
+                      if (file && !photoBlocked) void selectPhoto(question.id, file);
+                    }}
+                  />
+                  <label
+                    htmlFor={`photo-${question.id}`}
+                    className="inline-flex min-h-11 items-center rounded-sm text-[13px] font-bold text-ink-soft underline decoration-line-strong underline-offset-4 hover:text-ink peer-aria-disabled:opacity-45 peer-focus-visible:outline peer-focus-visible:outline-3 peer-focus-visible:outline-accent-ink peer-focus-visible:outline-offset-2"
                   >
-                    {copy.reply.removePhoto}
-                  </button>
-                ) : null}
-                <span id={`photo-help-${question.id}`} className="text-[12px] leading-relaxed text-ink-muted">
-                  {copy.reply.photoFormats}
-                </span>
+                    {photoUrl ? copy.reply.replacePhoto : copy.reply.addPhoto}
+                  </label>
+                  {showRemove ? (
+                    <button
+                      type="button"
+                      className="inline-flex min-h-11 items-center rounded-sm text-[13px] font-bold text-ink-soft underline decoration-line-strong underline-offset-4 hover:text-ink aria-disabled:cursor-not-allowed aria-disabled:opacity-45"
+                      aria-label={forQuestion(copy.reply.removePhoto)}
+                      aria-disabled={photoBlocked ? true : undefined}
+                      onClick={() => {
+                        if (!photoBlocked) void removePhoto(question.id);
+                      }}
+                    >
+                      {copy.reply.removePhoto}
+                    </button>
+                  ) : null}
+                </div>
+
+                <div role="group" aria-label={forQuestion(copy.reply.voiceGroup)} className="flex flex-wrap items-center gap-x-5">
+                  {isRecordingHere ? (
+                    // Visual only: a ticking live region would be read out every second.
+                    <p className="text-[13px] font-medium text-ink numeric" aria-hidden="true">
+                      {text(copy.reply.voiceRecording, { elapsed: formatAudioDuration(recordingElapsed) })}
+                    </p>
+                  ) : null}
+                  {/* One button for Record and Stop, so keyboard focus stays where it was. */}
+                  {canRecord || isRecordingHere ? (
+                    <button
+                      id={`record-${question.id}`}
+                      type="button"
+                      className={`${isRecordingHere ? "btn btn-primary min-h-11 px-4 text-[13px]" : "inline-flex min-h-11 items-center rounded-sm text-[13px] font-bold text-ink-soft underline decoration-line-strong underline-offset-4 hover:text-ink"} aria-disabled:cursor-not-allowed aria-disabled:opacity-45`}
+                      aria-label={forQuestion(isRecordingHere ? copy.reply.voiceStop : audioUrl ? copy.reply.voiceReplace : copy.reply.voiceRecord)}
+                      aria-describedby={`voice-help-${question.id}`}
+                      aria-disabled={(isRecordingHere ? stopping : recordBlocked) ? true : undefined}
+                      onClick={() => {
+                        if (isRecordingHere) stopRecording(question.id, false);
+                        else if (!recordBlocked) void startRecording(question.id);
+                      }}
+                    >
+                      {isRecordingHere ? copy.reply.voiceStop : audioUrl ? copy.reply.voiceReplace : copy.reply.voiceRecord}
+                    </button>
+                  ) : null}
+                  {isRecordingHere ? null : (
+                    <>
+                      <input
+                        id={`audio-${question.id}`}
+                        type="file"
+                        accept={AUDIO_ACCEPT}
+                        className="peer sr-only"
+                        aria-describedby={`voice-help-${question.id}`}
+                        aria-disabled={voiceBlocked || recording ? true : undefined}
+                        onClick={(event) => {
+                          if (voiceBlocked || recording) event.preventDefault();
+                        }}
+                        onChange={(event) => {
+                          const file = event.target.files?.[0];
+                          if (file && !voiceBlocked && !recording) pickAudioFile(question.id, file);
+                          event.target.value = "";
+                        }}
+                      />
+                      <label
+                        htmlFor={`audio-${question.id}`}
+                        className="inline-flex min-h-11 items-center rounded-sm text-[13px] font-bold text-ink-soft underline decoration-line-strong underline-offset-4 hover:text-ink peer-aria-disabled:opacity-45 peer-focus-visible:outline peer-focus-visible:outline-3 peer-focus-visible:outline-accent-ink peer-focus-visible:outline-offset-2"
+                      >
+                        {copy.reply.voicePick}
+                      </label>
+                      {showVoiceRemove ? (
+                        <button
+                          type="button"
+                          className="inline-flex min-h-11 items-center rounded-sm text-[13px] font-bold text-ink-soft underline decoration-line-strong underline-offset-4 hover:text-ink aria-disabled:cursor-not-allowed aria-disabled:opacity-45"
+                          aria-label={forQuestion(copy.reply.voiceRemove)}
+                          aria-disabled={voiceBlocked ? true : undefined}
+                          onClick={() => {
+                            if (!voiceBlocked) void removeAudio(question.id);
+                          }}
+                        >
+                          {copy.reply.voiceRemove}
+                        </button>
+                      ) : null}
+                    </>
+                  )}
+                </div>
               </div>
+              {!canRecord && !audioUrl && !isRecordingHere ? (
+                <p className="mt-2 text-[12px] leading-relaxed text-ink-muted">
+                  {secureContext ? copy.reply.voiceNoRecorder : copy.reply.voiceInsecure}
+                </p>
+              ) : null}
+              {/* Format and size limits stay with the controls for assistive tech, and show when something went wrong. */}
+              <p
+                id={`photo-help-${question.id}`}
+                className={photoState === "uploadError" ? "mt-2 text-[12px] leading-relaxed text-ink-muted" : "sr-only"}
+              >
+                {copy.reply.photoFormats}
+              </p>
+              <p
+                id={`voice-help-${question.id}`}
+                className={audioState === "uploadError" ? "mt-2 text-[12px] leading-relaxed text-ink-muted" : "sr-only"}
+              >
+                {copy.reply.voiceFormats}
+              </p>
               <LiveMessage
                 id={`photo-status-${question.id}`}
                 message={photoStatusText}
@@ -1200,84 +1326,6 @@ export function ReplySheet({
                 >
                   {photoState === "removeError" ? copy.reply.retryPhotoRemove : copy.reply.retryPhotoUpload}
                 </button>
-              ) : null}
-            </section>
-
-            <div role="group" aria-label={forQuestion(copy.reply.voiceRecord)} className="mt-4 border-t border-line pt-4">
-              <div className={isRecordingHere ? "flex items-center justify-between gap-3" : "flex flex-wrap items-center gap-2"}>
-                {/* One button for Record and Stop, so keyboard focus stays where it was. */}
-                {canRecord || isRecordingHere ? (
-                  <button
-                    id={`record-${question.id}`}
-                    type="button"
-                    className={`btn ${isRecordingHere ? "btn-primary" : "btn-quiet"} min-h-11 px-4 text-[13px] aria-disabled:cursor-not-allowed aria-disabled:opacity-45`}
-                    aria-label={forQuestion(isRecordingHere ? copy.reply.voiceStop : audioUrl ? copy.reply.voiceReplace : copy.reply.voiceRecord)}
-                    aria-disabled={(isRecordingHere ? stopping : recordBlocked) ? true : undefined}
-                    onClick={() => {
-                      if (isRecordingHere) stopRecording(question.id, false);
-                      else if (!recordBlocked) void startRecording(question.id);
-                    }}
-                  >
-                    {isRecordingHere ? copy.reply.voiceStop : audioUrl ? copy.reply.voiceReplace : copy.reply.voiceRecord}
-                  </button>
-                ) : null}
-                {isRecordingHere ? (
-                  // Visual only: a ticking live region would be read out every second.
-                  <p className="order-first text-[13px] font-medium text-ink numeric" aria-hidden="true">
-                    {text(copy.reply.voiceRecording, { elapsed: formatAudioDuration(recordingElapsed) })}
-                  </p>
-                ) : (
-                  <>
-                    <input
-                      id={`audio-${question.id}`}
-                      type="file"
-                      accept={AUDIO_ACCEPT}
-                      className="peer sr-only"
-                      aria-disabled={voiceBlocked || recording ? true : undefined}
-                      onClick={(event) => {
-                        if (voiceBlocked || recording) event.preventDefault();
-                      }}
-                      onChange={(event) => {
-                        const file = event.target.files?.[0];
-                        if (file && !voiceBlocked && !recording) pickAudioFile(question.id, file);
-                        event.target.value = "";
-                      }}
-                    />
-                    <label
-                      htmlFor={`audio-${question.id}`}
-                      className="btn btn-quiet min-h-11 px-4 text-[13px] peer-aria-disabled:opacity-45 peer-focus-visible:outline peer-focus-visible:outline-3 peer-focus-visible:outline-accent-ink peer-focus-visible:outline-offset-2"
-                    >
-                      {copy.reply.voicePick}
-                    </label>
-                    {showVoiceRemove ? (
-                      <button
-                        type="button"
-                        className="btn btn-quiet min-h-11 px-4 text-[13px] aria-disabled:cursor-not-allowed aria-disabled:opacity-45"
-                        aria-label={forQuestion(copy.reply.voiceRemove)}
-                        aria-disabled={voiceBlocked ? true : undefined}
-                        onClick={() => {
-                          if (!voiceBlocked) void removeAudio(question.id);
-                        }}
-                      >
-                        {copy.reply.voiceRemove}
-                      </button>
-                    ) : null}
-                    {!canRecord && !audioUrl ? (
-                      <span className="text-[12px] leading-relaxed text-ink-muted">
-                        {secureContext ? copy.reply.voiceNoRecorder : copy.reply.voiceInsecure}
-                      </span>
-                    ) : null}
-                  </>
-                )}
-              </div>
-              {(audioPreview || audioUrl) ? (
-                <audio
-                  controls
-                  preload="none"
-                  src={audioPreview ?? audioUrl ?? ""}
-                  aria-label={text(copy.reply.voiceDurationLabel, { duration: formatAudioDuration(audioDurations[question.id] ?? 0) })}
-                  className="mt-2 w-full"
-                />
               ) : null}
               <LiveMessage
                 id={`audio-status-${question.id}`}
@@ -1296,15 +1344,13 @@ export function ReplySheet({
                   {audioState === "removeError" ? copy.reply.voiceRetryRemove : copy.reply.voiceRetryUpload}
                 </button>
               ) : null}
-              <p className="mt-1 text-[12px] leading-relaxed text-ink-muted">{copy.reply.voiceFormats}</p>
-            </div>
-            </Fragment>
+            </section>
             );
           })}
         </div>
 
         {sections.length > 0 ? (
-          <section className="mt-8" aria-label={copy.reply.sectionsHeading}>
+          <section ref={sectionList} className="mt-8" aria-label={copy.reply.sectionsHeading}>
             <h2 className="font-display text-[25px] font-bold leading-[1.15] text-ink">{copy.reply.sectionsHeading}</h2>
             {sections.map((section) => {
               const media = sectionMediaLists[section.id] ?? [];
@@ -1489,9 +1535,12 @@ export function ReplySheet({
           <button
             type="button"
             onClick={() => {
-              if (!sendBlocked) void onSend();
+              if (sendBlocked) return;
+              if (nothingToSend) nudgeToFirstQuestion();
+              else void onSend();
             }}
             aria-disabled={sendBlocked ? true : undefined}
+            aria-describedby={showNudge ? "reply-nothing-to-send" : undefined}
             className="btn btn-primary aria-disabled:cursor-not-allowed aria-disabled:opacity-45"
           >
             {sending ? copy.reply.sending : sent ? copy.reply.saveChanges : copy.reply.sendAnswers}

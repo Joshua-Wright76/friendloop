@@ -26,6 +26,9 @@ export default async function SignInPage() {
           {copy.signIn.subtitle}
         </p>
         <SignInForm />
+        <p className="mt-5 border-t border-dashed border-line pt-4 text-[14px] leading-relaxed text-ink-soft">
+          {copy.signIn.memberHint}
+        </p>
       </div>
 
     </main>

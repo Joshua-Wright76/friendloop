@@ -54,7 +54,7 @@ export function AlbumGallery({ groups }: { groups: GalleryGroup[] }) {
                   <figure className="card m-0 p-3">
                     <audio
                       controls
-                      preload="none"
+                      preload="metadata"
                       src={item.url}
                       aria-label={text(copy.album.voiceFrom, {
                         author: item.author,

@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { removeAction, resendAction } from "./actions";
 import { ConfirmAction } from "@/components/confirm-action";
 import { MemberRolePicker } from "./member-role-picker";
@@ -23,12 +22,7 @@ export default function MembersTab({ notices }: {
 
   return (
     <main className="mx-auto w-full max-w-[680px] px-4 pb-16 pt-5 sm:px-6">
-      <header className="mb-5 flex items-center justify-between gap-3">
-        <Link href={`/g/${id}`} className="text-[13px] font-medium text-ink-soft hover:text-ink">
-          ← {group.name}
-        </Link>
-      </header>
-      <LoopNav id={id} active="People" isOwner={isOwner} />
+      <LoopNav id={id} name={group.name} access={membership.access} active="People" />
 
       <h1 className="text-[28px] font-semibold leading-tight tracking-[-0.025em] text-ink">{copy.members.title}</h1>
 
@@ -42,9 +36,11 @@ export default function MembersTab({ notices }: {
         <div className="card mt-5 p-5">
           <h2 className="text-[18px] font-bold text-ink">{copy.members.firstPersonTitle}</h2>
           <p className="mt-1 text-[14px] leading-relaxed text-ink-soft">{copy.members.firstPersonBody}</p>
-          <a href="#invite-people" className="btn btn-primary mt-4 inline-flex">{copy.members.firstPersonAction}</a>
         </div>
       ) : null}
+
+      {/* Inviting is the owner's most common job here, so the form comes before the list. */}
+      {manages ? <InviteForm groupId={id} /> : null}
 
       <ul className="mt-5 flex flex-col gap-2.5">
         {people.map((person) => {
@@ -68,6 +64,8 @@ export default function MembersTab({ notices }: {
                     membershipId={person.id}
                     memberName={person.name ?? person.email}
                     current={person.access}
+                    participation={person.participation}
+                    fixedReader={group.mode === "from_you"}
                   />
                 ) : (
                   <span className="flex-none rounded-full border border-line px-2.5 py-1 text-[12px] font-medium capitalize text-ink-soft">
@@ -106,7 +104,7 @@ export default function MembersTab({ notices }: {
                     <form action={resendAction}>
                       <input type="hidden" name="groupId" value={id} />
                       <input type="hidden" name="membershipId" value={person.id} />
-                      <button type="submit" aria-label={text(copy.a11yLabels.resendInvite, { name: person.name ?? person.email })} className="inline-flex min-h-6 items-center px-1 text-[13px] font-medium text-ink-soft underline decoration-dashed underline-offset-4 hover:text-ink">
+                      <button type="submit" aria-label={text(copy.a11yLabels.resendInvite, { name: person.name ?? person.email })} className="inline-flex min-h-11 items-center px-1 text-[13px] font-medium text-ink-soft underline decoration-dashed underline-offset-4 hover:text-ink">
                         {copy.members.resendInvite}
                       </button>
                     </form>
@@ -131,10 +129,6 @@ export default function MembersTab({ notices }: {
           );
         })}
       </ul>
-
-      {manages ? (
-        <InviteForm groupId={id} />
-      ) : null}
     </main>
   );
 }

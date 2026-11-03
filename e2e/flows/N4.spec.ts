@@ -67,7 +67,9 @@ test("N4 · clearing the name puts the number back, and only the owner is offere
 
   await page.goto(`/g/${loop.groupId}/issues`);
   const card = page.locator(".card").filter({ has: page.getByText("Camping weekend", { exact: true }) });
-  await card.getByText("Name this round").click();
+  // A named round offers a rename, not a first name.
+  await expect(card.getByText("Name this round")).toHaveCount(0);
+  await card.getByText("Rename", { exact: true }).click();
   await expect(card.getByLabel("Name for round 1")).toHaveValue("Camping weekend");
   await card.getByLabel("Name for round 1").fill("   ");
   await card.getByRole("button", { name: "Save name" }).click();
@@ -87,5 +89,6 @@ test("N4 · clearing the name puts the number back, and only the owner is offere
   await adminPage.goto(`/g/${loop.groupId}/issues`);
   await expect(adminPage.getByText("Round 1", { exact: true })).toBeVisible();
   await expect(adminPage.getByText("Name this round")).toHaveCount(0);
+  await expect(adminPage.getByText("Rename", { exact: true })).toHaveCount(0);
   await adminContext.close();
 });

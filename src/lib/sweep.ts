@@ -185,7 +185,8 @@ async function deliverDueIssues(at: Date): Promise<{ delivered: number; skipped:
     const answers: AnswerBlock[] = rows.map((row) => ({
       question: row.question,
       author: row.authorName ?? row.authorEmail.split("@")[0],
-      body: row.kind === "poll" ? pollEmailBody(row, rows) : row.body,
+      body: row.kind === "poll" ? pollEmailChoice(row) : row.body,
+      pollResults: row.kind === "poll" ? pollEmailResults(row, rows) : null,
       photoUrl: row.photoUrl,
       audioUrl: row.audioUrl,
       audioDurationMs: row.audioDurationMs,
@@ -272,22 +273,26 @@ async function deliverDueIssues(at: Date): Promise<{ delivered: number; skipped:
   return { delivered, skipped };
 }
 
-/** How a poll answer reads in the delivery email: the pick, then the quiet tally. */
-function pollEmailBody(
-  row: { questionId: string; pollOptions: string[] | null; pollChoices: number[] },
-  rows: Array<{ questionId: string; pollChoices: number[] }>,
-): string {
+/** How a poll answer reads in the delivery email: the pick. */
+function pollEmailChoice(row: { pollOptions: string[] | null; pollChoices: number[] }): string {
   const options = row.pollOptions ?? [];
-  const chose = text(copy.polls.emails.chose, {
+  return text(copy.polls.emails.chose, {
     choices: row.pollChoices.flatMap((index) => options[index] ?? []).join(", "),
   });
+}
+
+/** The quiet tally, shown once under the poll's question. */
+function pollEmailResults(
+  row: { questionId: string; pollOptions: string[] | null },
+  rows: Array<{ questionId: string; pollChoices: number[] }>,
+): string {
   const tally = tallyPoll(
-    options,
+    row.pollOptions ?? [],
     rows.filter((other) => other.questionId === row.questionId).map((other) => other.pollChoices),
   )
     .map((item) => text(copy.polls.issue.tallyLabel, { option: item.option, votes: item.votes }))
     .join(" · ");
-  return `${chose}\n${text(copy.polls.emails.results, { tally })}`;
+  return text(copy.polls.emails.results, { tally });
 }
 
 async function skipIssue(input: {

@@ -7,8 +7,6 @@ test.beforeEach(async () => {
 });
 
 test("prefetching sign-in and new-loop routes does not call connection() in a private cache", async ({ page }) => {
-  await signIn(page, uniqueEmail("prefetch"));
-
   const connectionErrors: string[] = [];
   const prefetchedRoutes = new Set<string>();
   page.on("request", (request) => {
@@ -24,10 +22,17 @@ test("prefetching sign-in and new-loop routes does not call connection() in a pr
     }
   });
 
+  // Signed out, the landing page offers Sign in; signed in, it offers Your loops instead.
   await page.goto("/");
   const signInLink = page.getByRole("link", { name: "Sign in", exact: true });
   await signInLink.hover();
   await expect.poll(() => prefetchedRoutes.has("/signin")).toBe(true);
+
+  await signIn(page, uniqueEmail("prefetch"));
+  await page.goto("/");
+  await expect(page.getByRole("link", { name: "Sign in", exact: true })).toHaveCount(0);
+  await page.getByRole("link", { name: "Your loops", exact: true }).hover();
+  await expect.poll(() => prefetchedRoutes.has("/you")).toBe(true);
 
   await page.goto("/you");
   await page.getByRole("link", { name: /new loop/i }).hover();

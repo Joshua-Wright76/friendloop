@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { nudgeAction, pauseAction, sendNowAction } from "./actions";
-import { Cherries, Tape } from "@/components/stationery";
+import { Tape } from "@/components/stationery";
 import { LoopNav } from "@/components/loop-nav";
 import { NoticeFocus } from "@/components/notice-focus";
 import { copy, text } from "@/lib/copy";
@@ -12,7 +12,6 @@ import { useLoopData } from "./loop-data";
 export default function OverviewTab({ welcome, nudged }: { welcome?: string; nudged?: string }) {
   const { group, membership, people, questions, openIssue, openProgress, openWaiting, nextRoundLabel, openIssueDeadlineLabel, weekdayLabel } = useLoopData();
   const manages = membership.access !== "member";
-  const isOwner = membership.access === "owner";
   const nextLabel = nextRoundLabel;
   const progress = openProgress;
   const writers = people.filter((person) => person.participation === "contributor").length;
@@ -20,13 +19,7 @@ export default function OverviewTab({ welcome, nudged }: { welcome?: string; nud
 
   return (
     <main className="mx-auto w-full max-w-[680px] px-4 pb-16 pt-5 sm:px-6">
-      <header className="stitched flex items-center justify-between gap-3 border-b pb-4">
-        <Link href="/you" aria-label={text(copy.a11yLabels.loopsLink, { name: group.name })} className="flex min-w-0 items-center gap-2 font-display text-[23px] font-bold text-ink no-underline">
-          <Cherries className="h-7 w-7 flex-none" /><span className="wrap-any">{group.name}</span>
-        </Link>
-        <span className="chip border bg-card px-2.5 py-1 text-[12px] font-bold capitalize text-ink-soft">{copy.common.roles[membership.access]}</span>
-      </header>
-      <LoopNav id={group.id} active="Overview" isOwner={isOwner} />
+      <LoopNav id={group.id} name={group.name} access={membership.access} active="Overview" />
 
       {welcome === "1" || welcome === "no-picture" ? (
         <NoticeFocus spacing="mb-5">
@@ -56,43 +49,8 @@ export default function OverviewTab({ welcome, nudged }: { welcome?: string; nud
         })}
       </p>
 
-      <div className="card ride-in mt-6 p-5 pt-7">
-        <Tape tone="stripe" />
-        <p className="eyebrow">
-          {group.pausedAt ? copy.loop.paused : copy.loop.nextRound}
-        </p>
-        <h2 className="mt-2 text-ink">
-          {group.pausedAt ? copy.loop.nothingScheduled : nextLabel.inLoopZone}
-        </h2>
-        <p className="mt-2 text-[14px] leading-relaxed text-ink-soft">
-          {group.pausedAt
-            ? copy.loop.pausedDescription
-            : nextLabel.inViewerZone
-              ? text(copy.loop.viewerTimezone, { time: nextLabel.inViewerZone })
-              : copy.loop.opensForAnswers}
-        </p>
-
-        {manages ? (
-          <div className="mt-4 flex flex-wrap gap-2">
-            <form action={sendNowAction}>
-              <input type="hidden" name="groupId" value={group.id} />
-              <button type="submit" className="btn btn-primary h-10 text-[14px]">
-                {copy.loop.sendNow}
-              </button>
-            </form>
-            <form action={pauseAction}>
-              <input type="hidden" name="groupId" value={group.id} />
-              <input type="hidden" name="paused" value={group.pausedAt ? "0" : "1"} />
-              <button type="submit" className="btn btn-quiet h-10 text-[14px]">
-                {group.pausedAt ? copy.loop.resume : copy.loop.pause}
-              </button>
-            </form>
-          </div>
-        ) : null}
-      </div>
-
       {openIssue ? (
-        <div className="card ride-in mt-5 p-5 pt-7">
+        <div className="card ride-in mt-6 p-5 pt-7">
           <Tape tone="dots" position="right" />
           <div className="flex items-baseline justify-between gap-3">
             <p className="text-[13px] font-medium text-ink-muted">{issueTitle(copy.loop.round, openIssue.number, openIssue.name)}</p>
@@ -143,14 +101,14 @@ export default function OverviewTab({ welcome, nudged }: { welcome?: string; nud
           <div className="mt-4 flex flex-wrap items-center gap-3">
             <Link
               href={`/g/${group.id}/issues`}
-              className="text-[14px] font-medium text-accent-ink hover:underline"
+              className="inline-flex min-h-11 items-center text-[14px] font-medium text-accent-ink hover:underline"
             >
               {copy.loop.seeRound}
             </Link>
             {manages && openWaiting.length > 0 ? (
               <form action={nudgeAction}>
                 <input type="hidden" name="groupId" value={group.id} />
-                <button type="submit" className="btn btn-quiet h-9 min-h-9 px-3 text-[13px]">
+                <button type="submit" className="btn btn-quiet h-11 min-h-11 px-4 text-[14px]">
                   {copy.loop.nudge}
                 </button>
               </form>
@@ -158,6 +116,45 @@ export default function OverviewTab({ welcome, nudged }: { welcome?: string; nud
           </div>
         </div>
       ) : null}
+
+      <div className={`card ride-in ${openIssue ? "mt-5" : "mt-6"} p-5 pt-7`}>
+        <Tape tone="stripe" />
+        <p className="eyebrow">
+          {group.pausedAt ? copy.loop.paused : copy.loop.nextRound}
+        </p>
+        <h2 className="mt-2 text-ink">
+          {group.pausedAt ? copy.loop.nothingScheduled : nextLabel.inLoopZone}
+        </h2>
+        <p className="mt-2 text-[14px] leading-relaxed text-ink-soft">
+          {group.pausedAt
+            ? copy.loop.pausedDescription
+            : nextLabel.inViewerZone
+              ? text(copy.loop.viewerTimezone, { time: nextLabel.inViewerZone })
+              : copy.loop.opensForAnswers}
+        </p>
+
+        {manages ? (
+          <div className="mt-4 flex flex-wrap gap-2">
+            {/* One round at a time: while one is open, "Send now" would only
+                return it, so it isn't offered. */}
+            {openIssue ? null : (
+              <form action={sendNowAction}>
+                <input type="hidden" name="groupId" value={group.id} />
+                <button type="submit" className="btn btn-primary h-11 text-[14px]">
+                  {copy.loop.sendNow}
+                </button>
+              </form>
+            )}
+            <form action={pauseAction}>
+              <input type="hidden" name="groupId" value={group.id} />
+              <input type="hidden" name="paused" value={group.pausedAt ? "0" : "1"} />
+              <button type="submit" className="btn btn-quiet h-11 text-[14px]">
+                {group.pausedAt ? copy.loop.resume : copy.loop.pause}
+              </button>
+            </form>
+          </div>
+        ) : null}
+      </div>
 
       <div className="mt-5 grid grid-cols-2 gap-4">
         <Link href={`/g/${group.id}/members`} className="card loop-card px-4 py-4 no-underline">

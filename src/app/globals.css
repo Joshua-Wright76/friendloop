@@ -190,12 +190,12 @@ select.field { cursor: pointer; }
 .picker-empty { margin: 0; padding: 14px 10px; color: var(--ink-muted); font-size: 13px; text-align: center; }
 .picker-scrim { display: none; }
 .picker-sheet-heading { display: none; }
-.member-role-form { flex: none; }
-.member-role-picker { width: 122px; }
-.member-role-picker .picker-trigger { min-height: 32px; padding: 4px 9px 4px 11px; border-color: var(--line-strong); border-radius: 999px; background: var(--page); font-size: 12px; font-weight: 600; }
+.member-role-form { display: flex; flex: none; flex-direction: column; align-items: flex-end; gap: 6px; }
+.member-role-picker { width: 132px; }
+.member-role-picker .picker-trigger { min-height: 44px; padding: 4px 9px 4px 11px; border-color: var(--line-strong); border-radius: 999px; background: var(--page); font-size: 12px; font-weight: 600; }
 .member-role-picker .picker-chevron { width: 14px; height: 14px; }
 .member-role-picker .picker-popover { left: auto; right: 0; min-width: 140px; }
-.member-role-picker .picker-option { min-height: 36px; font-size: 13px; }
+.member-role-picker .picker-option { min-height: 44px; font-size: 13px; }
 @keyframes picker-in { from { transform: translateY(-4px) scale(.99); } to { transform: none; } }
 @keyframes picker-sheet-in { from { transform: translateY(18px); } to { transform: translateY(0); } }
 @media (max-width: 639px) {
@@ -310,15 +310,6 @@ html[data-theme="dark"] .tape { opacity: .6; }
 html[data-theme="dark"] .theme-switch-track { background: var(--accent); }
 html[data-theme="dark"] .theme-switch-track > span { transform: translateX(12px); }
 body:has(.reply-actionbar:not([hidden])) .theme-switch { bottom: calc(92px + env(safe-area-inset-bottom)); }
-@media (max-width: 520px) {
-  /* The feedback and theme pills float over the bottom corners; reserve room
-     so the last controls on every page can scroll clear of them. */
-  /* Full-height pages (min-h-dvh mains, the print sheet) already fill the
-     screen and would scroll by the padding, so they are left alone. */
-  body:not(:has(.min-h-dvh, .print-sheet)) { padding-bottom: calc(72px + env(safe-area-inset-bottom)); }
-  .theme-switch { right: 12px; }
-  .theme-switch-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
-}
 
 .feedback-button {
   position: fixed;
@@ -341,9 +332,23 @@ body:has(.reply-actionbar:not([hidden])) .theme-switch { bottom: calc(92px + env
 .feedback-button:hover { background: var(--accent-soft); }
 .feedback-button-icon { width: 18px; height: 18px; }
 body:has(.reply-actionbar:not([hidden])) .feedback-button { bottom: calc(92px + env(safe-area-inset-bottom)); }
-@media (max-width: 520px) {
-  .feedback-button { left: 12px; padding: 0; width: 44px; justify-content: center; }
-  .feedback-button-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+/* The wizard's sticky Back/Next bar: where the column is wide enough to reach the corners, the pills sit above it. */
+@media (min-width: 761px) and (max-width: 1099px) {
+  body:has(.wizard-navigation) :is(.theme-switch, .feedback-button) { bottom: calc(92px + env(safe-area-inset-bottom)); }
+}
+/* On a phone or a narrow window the pills would float over whatever is under the
+   bottom corners (a textarea, a poll option, the Send bar's neighbours). There they
+   stop floating and become an ordinary row at the very end of the page instead. */
+@media (max-width: 760px) {
+  .site-chrome { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; width: 100%; max-width: 600px; margin: 0 auto; padding: 8px 16px calc(20px + env(safe-area-inset-bottom)); }
+  .site-chrome :is(.theme-switch, .feedback-button) { position: static; box-shadow: none; backdrop-filter: none; background: var(--card); }
+  .site-chrome :is(.theme-switch, .feedback-button):focus-visible { box-shadow: 0 0 0 6px var(--card); }
+  /* The reply sheet's Send bar is fixed to the bottom edge: the row stops above it. */
+  body:has(.reply-actionbar:not([hidden])) .site-chrome { padding-bottom: calc(96px + env(safe-area-inset-bottom)); }
+  /* Full-height pages leave room for the row, so it shows without a scroll. */
+  #main-content > .min-h-dvh, #main-content > .min-h-svh { min-height: calc(100svh - 72px - env(safe-area-inset-bottom)); }
+  /* Nothing floats any more, so the focused control only has to clear the sticky bars. */
+  html { scroll-padding-block-end: 16px; }
 }
 .wizard-dialog.feedback-dialog { width: min(440px, calc(100vw - 28px)); }
 
@@ -359,7 +364,11 @@ body:has(.reply-actionbar:not([hidden])) .feedback-button { bottom: calc(92px + 
 .notice { border: 1.5px dashed var(--accent-line) !important; border-radius: 6px !important; color: var(--ink) !important; }
 .chip { position: relative; border-radius: 5px 999px 999px 5px !important; border-color: var(--line-strong) !important; padding-left: 22px !important; }
 .chip::before { content: ""; position: absolute; left: 9px; top: 50%; width: 6px; height: 6px; margin-top: -3px; border-radius: 50%; background: var(--page); box-shadow: inset 0 0 0 1px var(--line-strong); }
-.loop-nav { display: flex; gap: 2px; margin: 18px 0 24px; padding: 0 4px; overflow-x: auto; border-bottom: 1px solid var(--line); scrollbar-width: none; }
+.loop-nav { position: relative; display: flex; gap: 2px; margin: 18px 0 24px; padding: 0 4px; overflow-x: auto; border-bottom: 1px solid var(--line); scrollbar-width: none; scroll-padding-inline: 40px; }
+/* More tabs off to one side: the edge fades out so a clipped tab reads as "scroll for more". */
+.loop-nav[data-fade-end] { mask-image: linear-gradient(to right, #000 calc(100% - 44px), transparent); }
+.loop-nav[data-fade-start] { mask-image: linear-gradient(to left, #000 calc(100% - 44px), transparent); }
+.loop-nav[data-fade-start][data-fade-end] { mask-image: linear-gradient(to right, transparent, #000 44px, #000 calc(100% - 44px), transparent); }
 .loop-nav a { min-height: 44px; display: inline-flex; align-items: center; padding: 0 11px; border-bottom: 3px solid transparent; color: var(--ink-soft); font-size: 14px; font-weight: 700; text-decoration: none; white-space: nowrap; }
 .loop-nav a:hover { color: var(--ink); }
 /* The strip scrolls, so an outside ring would be clipped: draw it inside the 44px tab. */
@@ -378,6 +387,11 @@ body:has(.reply-actionbar:not([hidden])) .feedback-button { bottom: calc(92px + 
 .home-title em { color: var(--accent); font-style: normal; }
 .home-card { padding: clamp(24px, 5vw, 44px); }
 .home-doodle { position: absolute; width: 74px; height: 74px; right: 28px; top: -34px; transform: rotate(12deg); }
+.home-heart { display: inline-block; width: .62em; height: .56em; vertical-align: .02em; transform: rotate(-8deg); }
+.home-how-title { font-size: 27px !important; }
+.home-steps { display: grid; gap: 14px; margin: 0; padding: 0; list-style: none; }
+@media (min-width: 720px) { .home-steps { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; } }
+.home-step { display: flex; align-items: flex-start; gap: 12px; padding-top: 12px; border-top: 2px dashed var(--accent-line); }
 .loop-card { transition: transform 160ms ease, box-shadow 160ms ease; }
 .loop-card:hover { transform: translateY(-2px) rotate(-.2deg); box-shadow: var(--shadow-lift); }
 .reply-topbar { background: color-mix(in srgb, var(--card) 92%, transparent) !important; }
@@ -461,9 +475,23 @@ body:has(.reply-actionbar:not([hidden])) .feedback-button { bottom: calc(92px + 
 .wizard-question-row { display: flex; align-items: flex-start; gap: 12px; min-height: 48px; padding: 12px 8px; border-bottom: 1px dashed var(--line); cursor: pointer; }
 .wizard-question-row:last-child { border-bottom: 0; }
 .wizard-question-row:hover { background: color-mix(in srgb, var(--accent-soft) 45%, transparent); }
+.wizard-question-row.is-in-pool { cursor: default; }
+.wizard-question-row.is-in-pool:hover { background: transparent; }
+.wizard-question-row.is-in-pool > span { color: var(--ink-soft); }
+.pool-tag { display: inline-block; margin-left: 8px; padding: 1px 8px; border: 1px solid var(--accent-line); border-radius: 999px; background: var(--accent-soft); color: var(--accent-ink); font-size: 12px; font-weight: 800; line-height: 1.5; vertical-align: 1px; white-space: nowrap; }
+.pack-card { padding: 6px 10px 6px 6px; }
+.pack-toggle { display: flex; width: 100%; min-height: 56px; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 6px; color: var(--ink); text-align: left; cursor: pointer; }
+.pack-toggle:hover { background: color-mix(in srgb, var(--accent-soft) 45%, transparent); }
+.pack-chevron { width: 18px; height: 18px; flex: none; color: var(--ink-muted); transition: transform 160ms ease; }
+.pack-toggle[aria-expanded="true"] .pack-chevron { transform: rotate(90deg); }
+/* The pick count and Add button ride along while the owner browses the packs; focus is kept clear of them (2.4.11). */
+.pack-addbar { position: sticky; z-index: 5; top: 8px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; margin-top: 14px; padding: 8px 8px 8px 14px; border: 1.5px solid var(--line-strong); border-radius: 999px; background: color-mix(in srgb, var(--card) 94%, transparent); box-shadow: var(--shadow-lift); backdrop-filter: blur(12px); }
+html:has(.pack-addbar) { scroll-padding-block-start: 84px; }
+@media (prefers-reduced-motion: reduce) { .pack-chevron { transition: none; } }
 .wizard-saved-prompt { display: flex; align-items: center; gap: 10px; min-height: 60px; padding: 10px 12px; border: 1px solid var(--line-strong); border-radius: 6px; background: var(--card); box-shadow: var(--shadow); }
 .wizard-preset { display: flex; min-height: 86px; align-items: flex-start; gap: 12px; padding: 13px; border: 1.5px solid var(--line); border-radius: 6px; background: var(--card); color: var(--ink); text-align: left; cursor: pointer; }
 .wizard-preset:hover { border-color: var(--line-strong); }
+.wizard-preset--idea { min-height: 60px; align-items: center; }
 .wizard-preset--selected { border-color: var(--accent); background: var(--accent-soft); box-shadow: inset 0 0 0 1px var(--accent-line); }
 .wizard-preset__emoji { width: 27px; flex: none; font-size: 21px; line-height: 1.2; }
 .wizard-preset__title, .wizard-role__title { display: block; font-weight: 800; line-height: 1.3; }
@@ -471,7 +499,10 @@ body:has(.reply-actionbar:not([hidden])) .feedback-button { bottom: calc(92px + 
 .wizard-preset__check { display: grid; width: 20px; height: 20px; flex: none; place-items: center; color: var(--accent-ink); }
 .wizard-role { min-height: 76px; padding: 13px; border: 1.5px solid var(--line); border-radius: 6px; background: var(--card); color: var(--ink); text-align: left; cursor: pointer; }
 .wizard-role--selected { border-color: var(--accent); background: var(--accent-soft); box-shadow: inset 0 0 0 1px var(--accent-line); }
-.wizard-navigation { display: flex; align-items: center; gap: 10px; margin-top: 3px; padding: 12px 0 max(12px, env(safe-area-inset-bottom)); border-top: 1px dashed var(--accent-line); background: transparent; }
+/* Back/Next stay in reach while a long step (the question packs) scrolls under them. */
+.wizard-navigation { position: sticky; z-index: 30; bottom: 0; display: flex; align-items: center; gap: 10px; margin: 3px -16px 0; padding: 12px 16px max(12px, env(safe-area-inset-bottom)); border-top: 2px dashed var(--accent-line); background: var(--card); box-shadow: 0 -8px 20px rgb(61 42 48 / .08); }
+@media (min-width: 640px) { .wizard-navigation { margin-inline: -24px; padding-inline: 24px; border-radius: 6px 6px 0 0; } }
+html:has(.wizard-navigation) { scroll-padding-block-end: min(calc(96px + env(safe-area-inset-bottom)), 40vh); }
 .wizard-dialog { width: min(560px, calc(100vw - 28px)); max-width: none; max-height: calc(100dvh - 32px); margin: auto; padding: clamp(18px, 4vw, 26px); overflow-y: auto; border: 1px solid var(--line-strong); border-radius: 8px; background: var(--card); color: var(--ink); box-shadow: var(--shadow-lift); }
 .wizard-dialog--wide { width: min(720px, calc(100vw - 28px)); }
 .wizard-dialog::backdrop { background: rgb(43 24 28 / .5); }
@@ -581,6 +612,7 @@ html[data-theme="dark"] .music-card-qobuz { box-shadow: inset 0 0 0 1px rgb(255 
   html:has(.print-sheet) body::before { display: none; }
   html:has(.print-sheet) .theme-switch,
   html:has(.print-sheet) .feedback-button,
+  html:has(.print-sheet) .site-chrome,
   html:has(.print-sheet) .skip-link,
   .no-print { display: none !important; }
   .print-sheet { min-height: 0; }

@@ -21,22 +21,24 @@ test.beforeEach(async () => {
   await resetDatabase();
 });
 
-test("B2 · defaults and section prompts become the ordered question pool", async ({ page }) => {
+test("B2 · defaults and a quick idea become the ordered question pool", async ({ page }) => {
   await signIn(page, uniqueEmail("owner"));
   await moveToDetails(page, "Book Club");
 
   const questions = page.getByRole("checkbox");
   await expect(questions.nth(0)).toBeChecked();
   await expect(questions.nth(1)).toBeChecked();
-  await page.getByRole("button", { name: NEXT }).click();
-  await page.getByRole("button", { name: /Bright spots/ }).click();
+  // The ideas sit on the same step and are stored as the plain question.
+  const idea = page.getByRole("button", { name: /What was one good moment from your week\?/ });
+  await idea.click();
+  await expect(idea).toHaveAttribute("aria-pressed", "true");
   await page.getByRole("button", { name: NEXT }).click();
   await continueFromReaders(page);
 
   await page.getByRole("button", { name: "Preview the first issue" }).click();
   const preview = page.getByRole("dialog", { name: "A first look" });
   await expect(preview.getByText("Book Club")).toBeVisible();
-  await expect(preview.getByText("Bright spots: What was one good moment from your week?")).toBeVisible();
+  await expect(preview.getByText("What was one good moment from your week?")).toBeVisible();
   await preview.getByRole("button", { name: "Close issue preview" }).click();
   await page.getByRole("button", { name: "Create loop" }).click();
   await expect(page).toHaveURL(/\/g\/[0-9a-f-]+/);
@@ -49,7 +51,7 @@ test("B2 · defaults and section prompts become the ordered question pool", asyn
   expect(pool.map((row) => row.text)).toEqual([
     "What made you laugh this week?",
     "What are you looking forward to?",
-    "Bright spots: What was one good moment from your week?",
+    "What was one good moment from your week?",
   ]);
   expect(pool.map((row) => row.position)).toEqual([0, 1, 2]);
 });
@@ -58,24 +60,25 @@ test("B2 · the question bank can start with more than eight prompts", async ({ 
   await signIn(page, uniqueEmail("owner"));
   await moveToDetails(page, "Long Table");
 
+  // Only the first pack starts open; the rest fold out on demand.
   const questions = page.getByRole("checkbox");
-  const total = QUESTION_PACKS.reduce((count, pack) => count + pack.questions.length, 0);
-  await expect(questions).toHaveCount(total);
+  await expect(questions).toHaveCount(QUESTION_PACKS[0].questions.length);
   await questions.nth(0).uncheck();
   await questions.nth(1).uncheck();
 
-  // Questions can be picked across packs without leaving the filter.
-  await page.getByRole("button", { name: "Tiny joys", exact: true }).click();
+  // Questions can be picked across packs, several open at once.
+  await page.getByRole("button", { name: /^Tiny joys/ }).click();
   const tiny = page.getByRole("group", { name: "Tiny joys", exact: true });
-  await expect(questions).toHaveCount(QUESTION_PACKS.find((pack) => pack.name === "Tiny joys")!.questions.length);
+  await expect(tiny.getByRole("checkbox")).toHaveCount(
+    QUESTION_PACKS.find((pack) => pack.name === "Tiny joys")!.questions.length,
+  );
   for (let index = 0; index < 4; index += 1) await tiny.getByRole("checkbox").nth(index).check();
 
-  await page.getByRole("button", { name: "Food", exact: true }).click();
+  await page.getByRole("button", { name: /^Food/ }).click();
   const food = page.getByRole("group", { name: "Food", exact: true });
   for (let index = 0; index < 5; index += 1) await food.getByRole("checkbox").nth(index).check();
 
   await expect(page.getByText("9 selected")).toBeVisible();
-  await page.getByRole("button", { name: NEXT }).click();
   await page.getByRole("button", { name: NEXT }).click();
   await page.getByRole("button", { name: NEXT }).click();
   await page.getByRole("button", { name: "Create loop" }).click();

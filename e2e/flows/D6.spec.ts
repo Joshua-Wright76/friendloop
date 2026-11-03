@@ -17,14 +17,14 @@ test("D6 · a submitted answer can still be rewritten, not duplicated", async ({
   const answer = page.getByLabel("What made you laugh this week?");
   await answer.fill("First version.");
   await page.getByRole("button", { name: "Send answers" }).click();
-  await expect(page.getByRole("heading", { name: "Sent!" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Sent", exact: true })).toBeVisible();
   await expect(page.locator(".sent-stamp:visible")).toHaveClass(/sent-stamp-animate/);
 
   await page.getByRole("button", { name: "Edit my answers" }).click();
   await answer.fill("Second version, with the good detail.");
   await page.getByRole("button", { name: "Save changes" }).click();
   // A second send confirms again, as a change rather than a first send.
-  await expect(page.getByRole("heading", { name: "Changes sent!" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Changes sent", exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Edit my answers" }).click();
   // The overall save status, which several parts of the sheet label "Saved".
   await expect(page.locator("[data-save-status]")).toHaveText("Saved");
@@ -72,9 +72,16 @@ test("D6 · clearing a draft resolves the overall save status after an older wri
   await expect.poll(() => delayedBody).toBe("A draft that gets cleared.");
   await answer.fill("");
 
-  await expect(page.getByRole("button", { name: "Send answers" })).toBeDisabled();
+  // With nothing left to send, Send stays operable and points at the first question.
+  const send = page.getByRole("button", { name: "Send answers" });
+  await expect(send).toBeEnabled();
+  await expect(send).not.toHaveAttribute("aria-disabled", "true");
   // The late, slower write for the text you deleted is discarded, so the status
   // settles instead of being stuck on "Saving…".
   await expect(page.locator("[data-save-status]")).not.toHaveText(/Saving/);
   await expect(page.locator("[data-save-status]")).toHaveText("");
+
+  await send.click();
+  await expect(page.getByRole("alert").filter({ hasText: "Write one answer to send. The rest can wait." })).toBeVisible();
+  await expect(answer).toBeFocused();
 });
