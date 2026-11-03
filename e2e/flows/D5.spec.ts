@@ -25,8 +25,11 @@ test("D5 · sending marks the answers submitted and says so", async ({ page }) =
   await expect(heading).toBeVisible();
   await expect(heading).toBeFocused();
   await expect(page.getByText("Your answers are in for Round 1.")).toBeVisible();
-  // The confirmation repeats the real deadline, computed on the server.
-  await expect(page.getByText("It goes out to everyone Friday 9:05 AM. Until then, you can change anything.")).toBeVisible();
+  // The confirmation repeats the real deadline, computed on the server, and the
+  // reader's own time when their zone differs from the loop's, as the sheet does.
+  await expect(
+    page.getByText(/^It goes out to everyone Friday 9:05 AM( \(.+ where you are\))?\. Until then, you can change anything\.$/),
+  ).toBeVisible();
   await expect(page.getByLabel("What made you laugh this week?")).toBeHidden();
 
   // "Edit my answers" brings the sheet back, answers intact, ready to change.

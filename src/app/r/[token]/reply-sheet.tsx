@@ -288,6 +288,8 @@ export function ReplySheet({
   // The name is not an answer.
   const nothingToSend = !sent && answered === 0 && !sectionAnswered;
   const [nudged, setNudged] = useState(false);
+  // Once something is written the note has done its job; clearing it again doesn't bring it back.
+  if (nudged && !nothingToSend) setNudged(false);
   const showNudge = nudged && nothingToSend;
   const questionList = useRef<HTMLDivElement>(null);
   const sectionList = useRef<HTMLElement>(null);
