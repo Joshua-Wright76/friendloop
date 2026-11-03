@@ -96,7 +96,7 @@ function AccessibleDialog({
           <h2 id={titleId} className="font-display text-[30px] font-bold leading-tight text-ink">{title}</h2>
           {description ? <p id={descriptionId} className="mt-1 text-[14px] leading-relaxed text-ink-soft">{description}</p> : null}
         </div>
-        <button type="button" aria-label={closeLabel} onClick={onClose} className="btn btn-quiet h-11 min-h-11 w-11 flex-none px-0">
+        <button type="button" aria-label={closeLabel} onClick={onClose} className="btn btn-quiet h-11 min-h-11 w-11 flex-none p-0!">
           <IconClose />
         </button>
       </div>
@@ -384,7 +384,7 @@ export function NewLoopForm({ packs }: { packs: QuestionPack[] }) {
                     type="button"
                     aria-label={text(copy.newLoop.wizard.questions.removeQuestion, { number: index + 1 })}
                     onClick={() => setCustomQuestions((current) => current.filter((item) => item.id !== question.id))}
-                    className="btn btn-quiet h-10 min-h-10 w-10 flex-none px-0"
+                    className="btn btn-quiet h-11 min-h-11 w-11 flex-none p-0!"
                   >
                     <IconRemove />
                   </button>
@@ -446,7 +446,7 @@ export function NewLoopForm({ packs }: { packs: QuestionPack[] }) {
                   type="button"
                   aria-label={text(copy.newLoop.wizard.sections.remove, { number: index + 1 })}
                   onClick={() => setCustomSections((current) => current.filter((item) => item.id !== section.id))}
-                  className="btn btn-quiet h-10 min-h-10 w-10 flex-none px-0"
+                  className="btn btn-quiet h-11 min-h-11 w-11 flex-none p-0!"
                 >
                   <IconRemove />
                 </button>
@@ -476,14 +476,14 @@ export function NewLoopForm({ packs }: { packs: QuestionPack[] }) {
             <p className="wizard-description">{copy.newLoop.wizard.readers.groupDescription}</p>
             <div className="mt-5">
               <label htmlFor="reader-emails" className="mb-2 block text-[14px] font-bold text-ink">{copy.newLoop.wizard.readers.emailLabel}</label>
-              <div className="flex items-start gap-3">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:gap-3">
               <div
-                className={`field flex min-h-[52px] flex-1 flex-wrap items-center gap-2 p-2 ${emailError ? "border-danger" : ""}`}
+                className={`field flex min-h-[52px] min-w-0 flex-1 flex-wrap items-center gap-2 p-2 ${emailError ? "border-danger" : ""}`}
                 onClick={(event) => event.currentTarget.querySelector("input")?.focus()}
               >
                 {emails.map((email) => (
-                  <span key={email} className="chip inline-flex min-h-9 items-center gap-1.5 border bg-card pr-1 text-[13px] font-bold text-ink">
-                    <span>{email}</span>
+                  <span key={email} className="chip inline-flex min-h-9 max-w-full items-center gap-1.5 border bg-card pr-1 text-[13px] font-bold text-ink">
+                    <span className="min-w-0 truncate">{email}</span>
                     <button
                       type="button"
                       aria-label={text(copy.newLoop.wizard.readers.removeEmail, { email })}
@@ -507,10 +507,10 @@ export function NewLoopForm({ packs }: { packs: QuestionPack[] }) {
                   aria-invalid={Boolean(emailError)}
                   aria-describedby={emailError ? errorId : undefined}
                   autoComplete="email"
-                  className="min-w-[180px] flex-1 border-0 bg-transparent p-1 text-[14px] text-ink outline-none"
+                  className="min-w-[8rem] flex-1 border-0 bg-transparent p-1 text-[14px] text-ink outline-none"
                 />
               </div>
-              <button type="button" onClick={() => addEmails(emailDraft)} className="btn btn-quiet h-[46px] min-h-[46px] flex-none px-4 text-[13px]">
+              <button type="button" onClick={() => addEmails(emailDraft)} className="btn btn-quiet h-[46px] min-h-[46px] flex-none self-start px-4 text-[13px]">
                 {copy.newLoop.wizard.readers.addEmail}
               </button>
               </div>

@@ -520,9 +520,16 @@ export function ReplySheet({
         }
         setRecordingElapsed(elapsed);
       }, 200);
-    } catch {
+    } catch (error) {
+      // A refused or dismissed microphone prompt is not a missing recorder;
+      // say which so the person knows a settings change will fix it.
+      const blocked = error instanceof DOMException
+        && (error.name === "NotAllowedError" || error.name === "SecurityError");
       setAudioStates((current) => ({ ...current, [questionId]: "uploadError" }));
-      setAudioErrors((current) => ({ ...current, [questionId]: copy.reply.voiceNoRecorder }));
+      setAudioErrors((current) => ({
+        ...current,
+        [questionId]: blocked ? copy.reply.voiceMicBlocked : copy.reply.voiceNoRecorder,
+      }));
     }
   }, [recording, stopRecording]);
 
