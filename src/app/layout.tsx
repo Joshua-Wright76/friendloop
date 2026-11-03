@@ -56,8 +56,11 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       <body className="min-h-full">
         <a href="#main-content" className="skip-link">{copy.common.skipToContent}</a>
         <div id="main-content" tabIndex={-1}>{children}</div>
-        <FeedbackButton />
-        <ThemeSwitch />
+        {/* Floating pills on a wide screen; on a phone, a plain row after the page (globals.css). */}
+        <div className="site-chrome">
+          <FeedbackButton />
+          <ThemeSwitch />
+        </div>
       </body>
     </html>
   );

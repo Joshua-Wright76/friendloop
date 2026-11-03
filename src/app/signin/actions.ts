@@ -1,7 +1,8 @@
 "use server";
 
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { requestMagicLink } from "@/lib/auth";
+import { CHECK_EMAIL_COOKIE, normalizeEmail, requestMagicLink } from "@/lib/auth";
 import { copy } from "@/lib/copy";
 
 export type SignInState = { error?: string };
@@ -16,6 +17,16 @@ export async function requestLink(
   }
 
   await requestMagicLink(email);
+  // The next page repeats the address back, so a typo is caught there. It is only
+  // ever what this browser just typed, never anything looked up, and it is set
+  // whether or not the address has an account.
+  (await cookies()).set(CHECK_EMAIL_COOKIE, normalizeEmail(email), {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    path: "/signin",
+    maxAge: 15 * 60,
+  });
   // Same destination whether or not the address has ever been seen.
   redirect("/signin/check-email");
 }

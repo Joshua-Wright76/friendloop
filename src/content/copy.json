@@ -16,7 +16,8 @@
     "notFound": {
       "title": "This page isn't here",
       "body": "The link may have been replaced, or the loop was deleted.",
-      "home": "Back to Friendloop"
+      "home": "Back to Friendloop",
+      "yourLoops": "Back to your loops"
     },
     "errorPage": {
       "title": "Something went wrong",
@@ -86,16 +87,34 @@
   },
   "home": {
     "signIn": "Sign in",
+    "yourLoops": "Your loops",
     "titleStart": "A private newsletter,",
-    "titleAccent": "written by us <3",
+    "titleAccent": "written by us",
     "titleAccentSpoken": "written by us, with love",
-    "description": "Weekly newsletters written by your friends!",
-    "startLoop": "Start a loop"
+    "description": "Every week, month or season, your group gets a few questions. Everyone answers in their own time, and the answers come back as one issue you all read.",
+    "startLoop": "Start a loop",
+    "howTitle": "How it works",
+    "steps": [
+      {
+        "title": "Questions go out",
+        "body": "On the day you pick, everyone in the loop gets a few questions by email."
+      },
+      {
+        "title": "Friends answer from the link",
+        "body": "Each person opens the link in their email and writes back, whenever suits them."
+      },
+      {
+        "title": "Everyone gets the issue",
+        "body": "When the round closes, all the answers arrive together as one issue for the whole group."
+      }
+    ],
+    "noAccount": "Your friends don't need an account or an app."
   },
   "signIn": {
-    "eyebrow": "Hello again,",
+    "eyebrow": "Hello,",
     "title": "Sign in",
-    "subtitle": "For the person who runs the loop.",
+    "subtitle": "New or returning, we'll email you a link. There's no password to remember.",
+    "memberHint": "Answering questions? Use the link in your loop's email.",
     "emailLabel": "Your email",
     "emailPlaceholder": "you@example.com",
     "sending": "Sending…",
@@ -105,6 +124,9 @@
   "checkEmail": {
     "title": "Check your inbox",
     "body": "There's a sign-in link on its way. It works once and expires in 15 minutes.",
+    "sentTo": "We sent a sign-in link to",
+    "sentToEnd": ". It works once and expires in 15 minutes.",
+    "differentEmail": "Use a different email",
     "previewCaptured": "This preview captures email instead of sending it, ",
     "previewLogged": "Every preview email is kept as a copy. ",
     "openOutbox": "open the dev outbox",
@@ -113,7 +135,8 @@
   },
   "confirm": {
     "newLink": "Send me a new link",
-    "title": "Sign in as {email}",
+    "title": "One more tap",
+    "signingInAs": "You're signing in as",
     "fallbackName": "yourself",
     "submit": "Sign in",
     "nameLabel": "Your name",
@@ -140,7 +163,14 @@
     "emptyTitle": "A blank page, in a good way.",
     "emptyBody": "No loops yet. Start one, or wait for an invite",
     "openLoop": "Open loop",
-    "deletedNotice": "That loop is gone."
+    "deletedNotice": "That loop is gone.",
+    "signedInAs": "Signed in as {email}",
+    "status": {
+      "open": "Round {number} closes {date} · {answered} of {writers} in",
+      "delivered": "Last issue delivered {date}",
+      "first": "First questions go out {date}",
+      "paused": "Paused"
+    }
   },
   "newLoop": {
     "pageTitle": "New loop",
@@ -202,8 +232,7 @@
         "Name and rhythm",
         "Paper and picture",
         "Choose questions",
-        "Add prompts",
-        "Add readers",
+        "Invite your people",
         "Your note"
       ],
       "details": {
@@ -214,6 +243,13 @@
         "nameIdeas": "Name ideas",
         "cadence": "How often should it arrive?",
         "schedule": "Choose the day and local time for each round.",
+        "scheduleSummary": "Questions go out {when} at {hour}:00. Answers close a week later, and the issue goes to everyone then.",
+        "scheduleWhen": {
+          "1": "every {weekday}",
+          "2": "every other {weekday}",
+          "4": "every fourth {weekday}",
+          "13": "on a {weekday} every 13 weeks"
+        },
         "ideasButton": "See name ideas",
         "ideasTitle": "Name ideas",
         "ideasDescription": "Choose a starting point, then make it yours.",
@@ -259,8 +295,26 @@
         "removeQuestion": "Remove question {number}",
         "customQuestion": "Your question",
         "closeQuestion": "Close question editor",
-        "empty": "No questions selected yet. You can add a question here or choose a prompt on the next step.",
-        "questionCount": "{count} questions"
+        "empty": "No questions selected yet. Pick some above, add your own, or tap one of the ideas below.",
+        "ideasTitle": "A few more ideas",
+        "ideasDescription": "Tap one to add it to your questions.",
+        "ideas": [
+          {
+            "id": "bright-spots",
+            "emoji": "☀️",
+            "question": "What was one good moment from your week?"
+          },
+          {
+            "id": "currently",
+            "emoji": "🎧",
+            "question": "What have you been enjoying lately?"
+          },
+          {
+            "id": "good-recommendation",
+            "emoji": "📚",
+            "question": "What would you recommend to a friend?"
+          }
+        ]
       },
       "look": {
         "title": "Choose its paper and picture",
@@ -268,57 +322,9 @@
         "pictureChosen": "Picture ready. It's added when you create the loop.",
         "picturePreparing": "Preparing picture…"
       },
-      "sections": {
-        "title": "Add a few prompts",
-        "description": "Choose a prompt or write your own. Each one becomes a regular text question.",
-        "custom": "Write a custom prompt",
-        "questionFormat": "{title}: {description}",
-        "customTitle": "Write a prompt",
-        "titleLabel": "Prompt title",
-        "titlePlaceholder": "A little something",
-        "descriptionLabel": "Question or prompt",
-        "descriptionPlaceholder": "What would you like people to share?",
-        "save": "Add prompt",
-        "remove": "Remove prompt {number}",
-        "selected": "Added",
-        "customBadge": "Your prompt",
-        "closeCustom": "Close prompt editor",
-        "presets": [
-          {
-            "id": "bright-spots",
-            "emoji": "☀️",
-            "title": "Bright spots",
-            "description": "What was one good moment from your week?"
-          },
-          {
-            "id": "currently",
-            "emoji": "🎧",
-            "title": "Currently into",
-            "description": "What have you been enjoying lately?"
-          },
-          {
-            "id": "little-wins",
-            "emoji": "🌱",
-            "title": "Little wins",
-            "description": "What is something small you are proud of?"
-          },
-          {
-            "id": "good-recommendation",
-            "emoji": "📚",
-            "title": "Pass it along",
-            "description": "What would you recommend to a friend?"
-          },
-          {
-            "id": "on-your-mind",
-            "emoji": "💭",
-            "title": "On your mind",
-            "description": "What has been taking up space in your thoughts?"
-          }
-        ]
-      },
       "readers": {
-        "title": "Add readers",
-        "groupDescription": "Invite your people to answer and read each issue.",
+        "title": "Invite your people",
+        "groupDescription": "Everyone you add gets the questions by email, answers from a link, and reads each issue. Nobody needs an account.",
         "fromYouDescription": "Your readers will receive the issues you write. These invitations are always reader-only.",
         "emailLabel": "Email addresses",
         "emailPlaceholder": "Add an email address",
@@ -344,8 +350,9 @@
         "previewDescription": "This is the shape of an issue. Answers will appear after each round.",
         "previewSchedule": "Schedule: {cadence}; rounds start on {weekday} at {hour}:00 ({timezone}).",
         "previewQuestions": "Questions in the first issue",
-        "previewNoReaders": "You can add readers now or invite them later.",
+        "previewNoReaders": "Nobody is invited yet. You can invite people from the loop later.",
         "previewReaders": "{count} people will be invited.",
+        "previewReadersOne": "1 person will be invited.",
         "previewNote": "Invitation note",
         "emptyNote": "No personal note added.",
         "closePreview": "Close issue preview",
@@ -1429,6 +1436,7 @@
     "open": "Send feedback",
     "title": "Tell us anything",
     "hint": "Found a bug, or have an idea? A sentence is plenty.",
+    "audience": "This goes to the people who build Friendloop, not to your loop.",
     "label": "Your message",
     "placeholder": "What happened, or what would be better?",
     "send": "Send",
@@ -1474,8 +1482,6 @@
     "removeEventBody": "The event is deleted for good and can't be brought back.",
     "removeEventConfirm": "Yes, remove {title}",
     "confirmCancel": "Not yet",
-    "sectionTitleMissing": "Add a title for this section.",
-    "sectionPromptMissing": "Add a prompt for this section.",
     "photoFrom": "Photo from {name}"
   },
   "a11yStatus": {
