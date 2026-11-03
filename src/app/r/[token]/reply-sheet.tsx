@@ -819,7 +819,7 @@ export function ReplySheet({
       <header className="reply-topbar stitched sticky top-0 z-20 border-b bg-page/85 backdrop-blur-md">
         <div className="mx-auto flex h-16 w-full max-w-[600px] items-center justify-between gap-3 px-4">
           <span className="flex min-w-0 items-center gap-2 font-display text-[23px] font-bold text-ink">
-            <Cherries className="h-7 w-7 flex-none" /><span className="truncate">{loopName}</span>
+            <Cherries className="h-7 w-7 flex-none" /><span className="wrap-any">{loopName}</span>
           </span>
           <span className="chip flex h-7 items-center border bg-card px-3 text-[12px] font-bold text-ink-soft numeric">
             {text(copy.reply.answered, { answered, total })}
@@ -998,7 +998,7 @@ export function ReplySheet({
                   accept={PHOTO_ACCEPT}
                   className="peer sr-only"
                   disabled={sending || photoBusyForCard}
-                  aria-label={photoUrl ? copy.reply.replacePhoto : copy.reply.addPhoto}
+                  aria-label={text(copy.a11yLabels.withQuestion, { label: photoUrl ? copy.reply.replacePhoto : copy.reply.addPhoto, question: question.text })}
                   aria-describedby={`photo-help-${question.id}`}
                   onChange={(event) => {
                     const file = event.currentTarget.files?.[0];
@@ -1016,6 +1016,7 @@ export function ReplySheet({
                   <button
                     type="button"
                     className="btn btn-quiet min-h-11 px-4 text-[13px]"
+                    aria-label={text(copy.a11yLabels.withQuestion, { label: copy.reply.removePhoto, question: question.text })}
                     onClick={() => void removePhoto(question.id)}
                     disabled={sending || photoBusyForCard}
                   >
@@ -1043,13 +1044,14 @@ export function ReplySheet({
               ) : null}
             </section>
 
-            <section aria-label={copy.reply.voiceRecord} className="mt-4 border-t border-line pt-4">
+            <div role="group" aria-label={text(copy.a11yLabels.withQuestion, { label: copy.reply.voiceRecord, question: question.text })} className="mt-4 border-t border-line pt-4">
               <div className={isRecordingHere ? "flex items-center justify-between gap-3" : "flex flex-wrap items-center gap-2"}>
                 {/* One button for Record and Stop, so keyboard focus stays where it was. */}
                 {canRecord || isRecordingHere ? (
                   <button
                     type="button"
                     className={`btn ${isRecordingHere ? "btn-primary" : "btn-quiet"} min-h-11 px-4 text-[13px] aria-disabled:cursor-not-allowed aria-disabled:opacity-45`}
+                    aria-label={text(copy.a11yLabels.withQuestion, { label: isRecordingHere ? copy.reply.voiceStop : audioUrl ? copy.reply.voiceReplace : copy.reply.voiceRecord, question: question.text })}
                     aria-disabled={!isRecordingHere && recordBlocked ? true : undefined}
                     onClick={() => {
                       if (isRecordingHere) stopRecording(question.id, false);
@@ -1088,6 +1090,7 @@ export function ReplySheet({
                       <button
                         type="button"
                         className="btn btn-quiet min-h-11 px-4 text-[13px]"
+                        aria-label={text(copy.a11yLabels.withQuestion, { label: copy.reply.voiceRemove, question: question.text })}
                         onClick={() => void removeAudio(question.id)}
                         disabled={sending || voiceBusyForCard}
                       >
@@ -1125,7 +1128,7 @@ export function ReplySheet({
                 </button>
               ) : null}
               <p className="mt-1 text-[12px] leading-relaxed text-ink-muted">{copy.reply.voiceFormats}</p>
-            </section>
+            </div>
             </Fragment>
             );
           })}
@@ -1229,7 +1232,7 @@ export function ReplySheet({
                           <img src={item.url} alt={item.caption || copy.reply.photoPreview} className="h-16 w-16 flex-none rounded-md border border-line object-cover" />
                           <div className="min-w-0 flex-1">
                             {item.caption ? (
-                              <p className="truncate text-[13px] text-ink">{item.caption}</p>
+                              <p className="wrap-any text-[13px] text-ink">{item.caption}</p>
                             ) : null}
                             <button
                               type="button"
@@ -1294,7 +1297,8 @@ export function ReplySheet({
         <ReminderPreference token={token} initial={reminderPreference} />
       </main>
 
-      <div
+      <section
+        aria-label={copy.a11yLabels.sendBar}
         className="reply-actionbar stitched-top fixed inset-x-0 bottom-0 z-20 border-t backdrop-blur-md"
         style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}
       >
@@ -1314,7 +1318,7 @@ export function ReplySheet({
             {sending ? copy.reply.sending : sent ? copy.reply.saveChanges : copy.reply.sendAnswers}
           </button>
         </div>
-      </div>
+      </section>
     </>
   );
 }

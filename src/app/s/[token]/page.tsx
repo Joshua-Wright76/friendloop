@@ -54,7 +54,7 @@ export default async function SharePage({
       <LoopBanner url={view.group.headerImageUrl} className="mb-5" />
       <header className="stitched mb-8 flex items-center justify-between gap-3 border-b pb-4">
         <span className="flex min-w-0 items-center gap-2 font-display text-[23px] font-bold text-ink">
-          <Cherries className="h-7 w-7 flex-none" /><span className="truncate">{view.group.name}</span>
+          <Cherries className="h-7 w-7 flex-none" /><span className="wrap-any">{view.group.name}</span>
         </span>
         <span className="chip border bg-card px-2.5 py-1 text-[12px] font-bold text-ink-soft numeric">{text(copy.share.round, { number: view.issue.number })}</span>
       </header>

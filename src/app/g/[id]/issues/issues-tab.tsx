@@ -130,7 +130,7 @@ export default function IssuesTab({
 
             {round.shareUrl ? (
               <div className="mt-2 flex items-center justify-between gap-2 rounded-lg bg-field px-2.5 py-1.5">
-                <span className="min-w-0 truncate text-[12px] text-ink-muted">
+                <span className="min-w-0 wrap-any text-[12px] text-ink-muted">
                   {round.shareUrl.replace(/^https?:\/\//, "")}
                 </span>
                 <CopyLink url={round.shareUrl} />

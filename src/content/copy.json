@@ -1408,6 +1408,8 @@
     "editSection": "Edit {title}",
     "moveSectionUp": "Move section up: {title}",
     "moveSectionDown": "Move section down: {title}",
+    "withQuestion": "{label}: {question}",
+    "sendBar": "Send your answers",
     "archiveSection": "Archive {title}",
     "archiveQuestion": "Archive {question}",
     "archiveQuestionQuestion": "Archive this question?",

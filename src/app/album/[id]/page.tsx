@@ -59,7 +59,7 @@ export default async function TokenAlbumPage({
       <LoopBanner url={group.headerImageUrl} className="mb-5" />
       <header className="stitched mb-8 flex items-center justify-between gap-3 border-b pb-4">
         <span className="flex min-w-0 items-center gap-2 font-display text-[23px] font-bold text-ink">
-          <Cherries className="h-7 w-7 flex-none" /><span className="truncate">{group.name}</span>
+          <Cherries className="h-7 w-7 flex-none" /><span className="wrap-any">{group.name}</span>
         </span>
       </header>
       <p className="eyebrow">{copy.album.eyebrow}</p>

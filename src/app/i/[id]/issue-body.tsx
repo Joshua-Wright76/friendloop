@@ -190,7 +190,7 @@ function SectionReplyCard({ reply, label }: { reply: IssueSectionReplyBlock; lab
             <span aria-hidden="true" className="font-display text-[24px] leading-none">&#9836;</span>
           )}
           <span className="min-w-0">
-            <span className="block truncate text-[14px] font-bold">{reply.linkTitle ?? reply.linkUrl}</span>
+            <span className="block wrap-any text-[14px] font-bold">{reply.linkTitle ?? reply.linkUrl}</span>
             <span className="block text-[12px] font-medium text-ink-soft capitalize">{reply.linkProvider}</span>
           </span>
         </a>

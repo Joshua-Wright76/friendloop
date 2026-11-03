@@ -7,6 +7,7 @@ import { reactionSummary } from "@/lib/print-view";
 import { printThemeCss, resolveTheme } from "@/lib/theme";
 import { Avatar } from "@/components/avatar";
 import { LoopBanner } from "@/components/loop-theme";
+import { DocumentTitle } from "@/components/document-title";
 import { copy, text } from "@/lib/copy";
 import { PrintButton } from "./print-button";
 
@@ -42,7 +43,7 @@ export function IssuePrint({
   return (
     <div className="print-sheet">
       <style dangerouslySetInnerHTML={{ __html: paper }} />
-      <title>{text(copy.print.documentTitle, { title, loop: group.name })}</title>
+      <DocumentTitle value={text(copy.print.documentTitle, { title, loop: group.name })} />
       <div className="print-wrap">
         <nav aria-label={copy.print.toolbarLabel} className="print-toolbar no-print">
           <Link href={backHref} className="print-back">

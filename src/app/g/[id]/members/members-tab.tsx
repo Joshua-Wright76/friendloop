@@ -54,11 +54,11 @@ export default function MembersTab({ notices }: {
                 <div className="flex min-w-0 items-center gap-3">
                   <Avatar name={person.name ?? person.email} photoUrl={person.photoUrl} />
                   <div className="min-w-0">
-                    <p className="truncate text-[15px] font-medium text-ink">
+                    <p className="wrap-any text-[15px] font-medium text-ink">
                       {person.name ?? person.email.split("@")[0]}
                       {isYou ? <span className="ml-1.5 text-[13px] text-ink-muted">{copy.members.you}</span> : null}
                     </p>
-                    <p className="truncate text-[13px] text-ink-muted">{person.email}</p>
+                    <p className="wrap-any text-[13px] text-ink-muted">{person.email}</p>
                   </div>
                 </div>
                 {manages && person.access !== "owner" ? (

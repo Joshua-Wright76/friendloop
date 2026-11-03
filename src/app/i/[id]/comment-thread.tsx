@@ -345,7 +345,7 @@ function CommentComposer({
 
       {photo ? (
         <div className="mt-2 flex items-center justify-between gap-3 rounded-lg border border-line px-3 py-2 text-[13px] text-ink-soft">
-          <span className="min-w-0 truncate">{text(copy.issue.photoChosen, { name: photo.name })}</span>
+          <span className="min-w-0 wrap-any">{text(copy.issue.photoChosen, { name: photo.name })}</span>
           <button type="button" onClick={() => setPhoto(null)} className="min-h-8 flex-none font-bold text-accent-ink underline underline-offset-4">
             {copy.issue.removePhoto}
           </button>

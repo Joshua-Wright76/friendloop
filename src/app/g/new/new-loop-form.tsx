@@ -312,7 +312,7 @@ export function NewLoopForm({ packs }: { packs: QuestionPack[] }) {
           <span className="text-[13px] font-bold text-ink-soft">
             {text(copy.newLoop.wizard.details.stepCounter, { current: step + 1, total: copy.newLoop.wizard.steps.length })}
           </span>
-          <span className="min-w-0 truncate text-[13px] font-bold text-ink">{currentStepLabel}</span>
+          <span className="min-w-0 wrap-any text-[13px] font-bold text-ink">{currentStepLabel}</span>
         </div>
         <div
           className="wizard-progress__track"
@@ -526,9 +526,9 @@ export function NewLoopForm({ packs }: { packs: QuestionPack[] }) {
             <p className="wizard-description">{copy.newLoop.wizard.readers.groupDescription}</p>
             <div className="mt-5">
               <label htmlFor="reader-emails" className="mb-2 block text-[14px] font-bold text-ink">{copy.newLoop.wizard.readers.emailLabel}</label>
-              <div className="flex items-start gap-3">
+              <div className="flex flex-wrap items-start gap-3">
               <div
-                className={`field flex min-h-[52px] flex-1 flex-wrap items-center gap-2 p-2 ${emailError ? "border-danger" : ""}`}
+                className={`field flex min-h-[52px] min-w-[12rem] flex-1 flex-wrap items-center gap-2 p-2 ${emailError ? "border-danger" : ""}`}
                 onClick={(event) => event.currentTarget.querySelector("input")?.focus()}
               >
                 {emails.map((email) => (
