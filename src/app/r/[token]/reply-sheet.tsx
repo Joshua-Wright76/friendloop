@@ -14,7 +14,8 @@ import { issueTitle } from "@/lib/issue-name";
 import { copy, text } from "@/lib/copy";
 import { formatTimeInZone } from "@/lib/format";
 import { MAX_DISPLAY_NAME } from "@/lib/names";
-import { MAX_PHOTO_BYTES, PHOTO_ACCEPT } from "@/lib/photo-validation";
+import { PHOTO_ACCEPT } from "@/lib/photo-validation";
+import { PHOTO_TARGET, prepareImage } from "@/components/prepare-image";
 import {
   MAX_AUDIO_BYTES,
   MAX_AUDIO_DURATION_MS,
@@ -154,6 +155,13 @@ export function ReplySheet({
     () => typeof MediaRecorder !== "undefined" && Boolean(navigator.mediaDevices?.getUserMedia),
     () => false,
   );
+  // A page served over plain http (a phone reaching a dev machine by its address, say) has no
+  // microphone API at all and the browser never asks, which looks like "can't record".
+  const secureContext = useSyncExternalStore(
+    subscribeToNothing,
+    () => window.isSecureContext,
+    () => true,
+  );
   const [pollPicks, setPollPicks] = useState<Record<string, number[]>>(() =>
     Object.fromEntries(questions.map((question) => [question.id, question.pollChoices])),
   );
@@ -161,6 +169,11 @@ export function ReplySheet({
   const pollRevisions = useRef(new Map<string, number>());
   const [sent, setSent] = useState(() => questions.some((question) => question.submitted));
   const [animateSentStamp, setAnimateSentStamp] = useState(false);
+  // After a send, the sheet steps aside for a confirmation; "Edit my answers" brings it back.
+  // The sheet stays mounted (only hidden) so nothing in it — drafts, photos, previews — is lost.
+  const [confirmation, setConfirmation] = useState<null | "sent" | "updated">(null);
+  const confirmationHeading = useRef<HTMLHeadingElement>(null);
+  const sheetHeading = useRef<HTMLHeadingElement>(null);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -176,6 +189,7 @@ export function ReplySheet({
   const recorder = useRef<MediaRecorder | null>(null);
   const recordingChunks = useRef<Blob[]>([]);
   const recordingTimer = useRef<ReturnType<typeof setInterval> | null>(null);
+  const recordingStarting = useRef(false);
   const latestBodies = useRef<Record<string, string>>(
     Object.fromEntries(questions.map((question) => [question.id, question.body])),
   );
@@ -200,6 +214,8 @@ export function ReplySheet({
   const [sectionErrors, setSectionErrors] = useState<Record<string, string | null>>({});
   const [sectionNotices, setSectionNotices] = useState<Record<string, string | null>>({});
   const sectionUploadLocks = useRef(new Set<string>());
+  // Sections with a photo being shrunk or uploaded right now: Send waits for them.
+  const [sectionUploading, setSectionUploading] = useState<Record<string, boolean>>({});
 
   const total = questions.length;
   const writeDraft = useMemo(
@@ -255,8 +271,10 @@ export function ReplySheet({
     [pollStatuses],
   );
   const photoBusy = useMemo(
-    () => Object.values(photoStates).some((state) => state === "uploading" || state === "removing"),
-    [photoStates],
+    () =>
+      Object.values(photoStates).some((state) => state === "uploading" || state === "removing") ||
+      Object.values(sectionUploading).some(Boolean),
+    [photoStates, sectionUploading],
   );
   const status: SaveStatus = useMemo(() => {
     const states = Object.values(questionStatuses);
@@ -360,23 +378,23 @@ export function ReplySheet({
     clearPhotoPreview(questionId);
   }, [clearPhotoPreview, token]);
 
-  const selectPhoto = useCallback((questionId: string, file: File) => {
-    const supportedTypes = PHOTO_ACCEPT.split(",");
-    const error = file.size > MAX_PHOTO_BYTES
-      ? copy.reply.errors.photoTooLarge
-      : file.type && !supportedTypes.includes(file.type)
-        ? copy.reply.errors.invalidPhoto
-        : null;
+  const selectPhoto = useCallback(async (questionId: string, picked: File) => {
+    if (photoLocks.current.has(questionId)) return;
+    // Camera-roll photos are shrunk here, so a 9 MB picture is no different to send than a 2 MB one.
+    setPhotoStates((current) => ({ ...current, [questionId]: "uploading" }));
+    setPhotoErrors((current) => ({ ...current, [questionId]: null }));
+    const prepared = await prepareImage(picked, PHOTO_TARGET);
 
-    if (error) {
+    if (!prepared.ok) {
       photoFiles.current.delete(questionId);
       setRetryablePhotos((current) => ({ ...current, [questionId]: false }));
       clearPhotoPreview(questionId);
       setPhotoStates((current) => ({ ...current, [questionId]: "uploadError" }));
-      setPhotoErrors((current) => ({ ...current, [questionId]: error }));
+      setPhotoErrors((current) => ({ ...current, [questionId]: copy.reply.errors.photoUnreadable }));
       return;
     }
 
+    const file = prepared.file;
     photoFiles.current.set(questionId, file);
     setRetryablePhotos((current) => ({ ...current, [questionId]: true }));
     const oldObjectUrl = photoObjectUrls.current.get(questionId);
@@ -492,7 +510,9 @@ export function ReplySheet({
   }, [recording, uploadAudio]);
 
   const startRecording = useCallback(async (questionId: string) => {
-    if (recording || audioLocks.current.has(questionId)) return;
+    // A second tap while the permission prompt is up would open a second stream.
+    if (recording || recordingStarting.current || audioLocks.current.has(questionId)) return;
+    recordingStarting.current = true;
     let stream: MediaStream | null = null;
     try {
       stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -522,18 +542,24 @@ export function ReplySheet({
         setRecordingElapsed(elapsed);
       }, 200);
     } catch (error) {
-      // If the mic opened but the recorder could not start, release it so the
-      // browser's recording indicator does not stay on.
+      // If the microphone opened but the recorder couldn't start, let it go again,
+      // or the phone keeps showing the microphone in use.
       stream?.getTracks().forEach((track) => track.stop());
-      // A refused or dismissed microphone prompt is not a missing recorder;
-      // say which so the person knows a settings change will fix it.
-      const blocked = error instanceof DOMException
-        && (error.name === "NotAllowedError" || error.name === "SecurityError");
+      // Say what actually went wrong: a refused permission and a missing
+      // microphone call for different things from the person.
+      const name = error instanceof DOMException ? error.name : "";
+      console.warn("Voice recording could not start", name || error);
+      const message = name === "NotAllowedError" || name === "SecurityError"
+        ? copy.reply.voiceBlocked
+        : name === "NotFoundError" || name === "OverconstrainedError"
+          ? copy.reply.voiceNoMic
+          : name === "NotReadableError" || name === "AbortError"
+            ? copy.reply.voiceMicBusy
+            : copy.reply.voiceNoRecorder;
       setAudioStates((current) => ({ ...current, [questionId]: "uploadError" }));
-      setAudioErrors((current) => ({
-        ...current,
-        [questionId]: blocked ? copy.reply.voiceMicBlocked : copy.reply.voiceNoRecorder,
-      }));
+      setAudioErrors((current) => ({ ...current, [questionId]: message }));
+    } finally {
+      recordingStarting.current = false;
     }
   }, [recording, stopRecording]);
 
@@ -633,12 +659,26 @@ export function ReplySheet({
       });
   }, [sectionBodies, writeSectionDraft]);
 
-  const uploadSectionPhoto = useCallback(async (issueSectionId: string, kind: SheetSection["kind"], file: File, caption: string, position: number) => {
+  const uploadSectionPhoto = useCallback(async (issueSectionId: string, kind: SheetSection["kind"], picked: File, caption: string, position: number) => {
     const lockKey = `${issueSectionId}:${position}`;
     if (sectionUploadLocks.current.has(lockKey)) return;
     sectionUploadLocks.current.add(lockKey);
-    const result = await uploadReplySectionPhoto(token, issueSectionId, file, caption, position, copy.reply.errors.photoUploadFailed);
-    sectionUploadLocks.current.delete(lockKey);
+    setSectionUploading((current) => ({ ...current, [issueSectionId]: true }));
+    setSectionErrors((current) => ({ ...current, [issueSectionId]: null }));
+    setSectionNotices((current) => ({ ...current, [issueSectionId]: copy.reply.sectionUploading }));
+    const done = () => {
+      sectionUploadLocks.current.delete(lockKey);
+      setSectionUploading((current) => ({ ...current, [issueSectionId]: false }));
+    };
+    const prepared = await prepareImage(picked, PHOTO_TARGET);
+    if (!prepared.ok) {
+      done();
+      setSectionNotices((current) => ({ ...current, [issueSectionId]: null }));
+      setSectionErrors((current) => ({ ...current, [issueSectionId]: copy.reply.errors.photoUnreadable }));
+      return;
+    }
+    const result = await uploadReplySectionPhoto(token, issueSectionId, prepared.file, caption, position, copy.reply.errors.photoUploadFailed);
+    done();
     if (result.ok) {
       setSectionMediaLists((current) => ({
         ...current,
@@ -651,6 +691,7 @@ export function ReplySheet({
       setSectionNotices((current) => ({ ...current, [issueSectionId]: copy.reply.sectionUploaded }));
       setSectionErrors((current) => ({ ...current, [issueSectionId]: null }));
     } else {
+      setSectionNotices((current) => ({ ...current, [issueSectionId]: null }));
       setSectionErrors((current) => ({ ...current, [issueSectionId]: result.error }));
     }
   }, [token]);
@@ -753,7 +794,7 @@ export function ReplySheet({
   }, [name, token]);
 
   const onSend = useCallback(async () => {
-    if (photoLocks.current.size > 0) return;
+    if (photoLocks.current.size > 0 || sectionUploadLocks.current.size > 0) return;
     for (const timer of timers.current.values()) clearTimeout(timer);
     timers.current.clear();
     setSending(true);
@@ -801,6 +842,7 @@ export function ReplySheet({
         return;
       }
 
+      setConfirmation(sent ? "updated" : "sent");
       setSent(true);
       setAnimateSentStamp(true);
     } catch {
@@ -809,7 +851,23 @@ export function ReplySheet({
     } finally {
       setSending(false);
     }
-  }, [bodies, name, questions, token, writeDraft]);
+  }, [bodies, name, questions, sent, token, writeDraft]);
+
+  // Each view starts at the top with focus on its heading, so a screen reader hears the change.
+  useEffect(() => {
+    if (confirmation === null) return;
+    window.scrollTo({ top: 0 });
+    confirmationHeading.current?.focus();
+  }, [confirmation]);
+
+  const editAnswers = useCallback(() => {
+    setConfirmation(null);
+    // The sheet is unhidden on the next paint; move there once it is.
+    requestAnimationFrame(() => {
+      window.scrollTo({ top: 0 });
+      sheetHeading.current?.focus();
+    });
+  }, []);
 
   return (
     <>
@@ -824,12 +882,51 @@ export function ReplySheet({
         </div>
       </header>
 
-      <main className="mx-auto w-full max-w-[600px] px-4 pb-36 pt-7">
+      {confirmation ? (
+        <main className="mx-auto w-full max-w-[600px] px-4 pb-16 pt-7" aria-labelledby="reply-confirmation-heading">
+          <LoopBanner url={headerImageUrl} className="mb-5" />
+          <section className="card relative mt-2 p-6 pt-8 text-center sm:p-8 sm:pt-10">
+            <Tape tone="dots" />
+            <svg viewBox="0 0 20 20" aria-hidden className={`sent-stamp mx-auto h-14 w-14${animateSentStamp ? " sent-stamp-animate" : ""}`}>
+              <path d="M10 1.7a8.3 8.3 0 100 16.6 8.3 8.3 0 000-16.6zm3.8 6.4l-4.4 4.7a.9.9 0 01-1.3 0L6.2 10.9a.9.9 0 111.3-1.3l1.2 1.3 3.8-4a.9.9 0 011.3 1.2z" />
+            </svg>
+            <h1
+              ref={confirmationHeading}
+              tabIndex={-1}
+              id="reply-confirmation-heading"
+              className="mt-4 text-ink outline-none"
+            >
+              {confirmation === "updated" ? copy.reply.confirmation.updatedTitle : copy.reply.confirmation.sentTitle}
+            </h1>
+            <p className="mt-2 text-[16px] leading-relaxed text-ink">
+              {text(copy.reply.confirmation.body, { round: issueTitle(copy.reply.round, roundNumber, roundName) })}
+            </p>
+            <p className="mt-1 text-[14px] leading-relaxed text-ink-soft">
+              {text(copy.reply.confirmation.delivery, { deadline: deadline.inLoopZone })}
+            </p>
+            <button type="button" onClick={editAnswers} className="btn btn-primary mt-6 min-h-12 w-full sm:w-auto sm:px-8">
+              {copy.reply.confirmation.edit}
+            </button>
+            {canSuggest ? (
+              <p className="mt-4 text-[13px] leading-relaxed text-ink-muted">
+                <Link
+                  href={`/r/${token}/suggest`}
+                  className="font-medium text-ink underline decoration-line-strong underline-offset-4"
+                >
+                  {copy.reply.suggestLink}
+                </Link>
+              </p>
+            ) : null}
+          </section>
+        </main>
+      ) : null}
+
+      <main className="mx-auto w-full max-w-[600px] px-4 pb-36 pt-7" hidden={confirmation !== null}>
         <LoopBanner url={headerImageUrl} className="mb-5" />
         <div className="relative pr-16">
           <Cherries className="absolute -top-2 right-0 h-16 w-16 rotate-12" />
           <p className="eyebrow">{text(copy.reply.hi, { name: name.trim() || displayName })}</p>
-          <h1 className="mt-1 text-ink">{issueTitle(copy.reply.round, roundNumber, roundName)}</h1>
+          <h1 ref={sheetHeading} tabIndex={-1} className="mt-1 text-ink outline-none">{issueTitle(copy.reply.round, roundNumber, roundName)}</h1>
         </div>
         <p className="mt-3 text-[15px] leading-relaxed text-ink-soft">
           {text(copy.reply.closes, { deadline: deadline.inLoopZone })}
@@ -874,7 +971,7 @@ export function ReplySheet({
 
         {sent ? (
           <div role="status" className="notice settle mt-6 flex items-start gap-3 border bg-accent-soft px-4 py-3">
-            <svg viewBox="0 0 20 20" aria-hidden className={`sent-stamp mt-0.5 h-4 w-4 flex-none fill-accent${animateSentStamp ? " sent-stamp-animate" : ""}`}>
+            <svg viewBox="0 0 20 20" aria-hidden className={`sent-stamp mt-0.5 h-4 w-4 flex-none${animateSentStamp ? " sent-stamp-animate" : ""}`}>
               <path d="M10 1.7a8.3 8.3 0 100 16.6 8.3 8.3 0 000-16.6zm3.8 6.4l-4.4 4.7a.9.9 0 01-1.3 0L6.2 10.9a.9.9 0 111.3-1.3l1.2 1.3 3.8-4a.9.9 0 011.3 1.2z" />
             </svg>
             <p className="text-[14px] leading-relaxed text-ink">
@@ -994,7 +1091,7 @@ export function ReplySheet({
                   onChange={(event) => {
                     const file = event.currentTarget.files?.[0];
                     event.currentTarget.value = "";
-                    if (file) selectPhoto(question.id, file);
+                    if (file) void selectPhoto(question.id, file);
                   }}
                 />
                 <label
@@ -1095,7 +1192,9 @@ export function ReplySheet({
                     </button>
                   ) : null}
                   {!canRecord && !audioUrl ? (
-                    <span className="text-[12px] leading-relaxed text-ink-muted">{copy.reply.voiceNoRecorder}</span>
+                    <span className="text-[12px] leading-relaxed text-ink-muted">
+                      {secureContext ? copy.reply.voiceNoRecorder : copy.reply.voiceInsecure}
+                    </span>
                   ) : null}
                 </div>
               )}
@@ -1257,7 +1356,7 @@ export function ReplySheet({
                           sectionId={section.id}
                           kind={section.kind}
                           position={media.length}
-                          disabled={sending}
+                          disabled={sending || Boolean(sectionUploading[section.id])}
                           onPick={(file, caption) => void uploadSectionPhoto(section.id, section.kind, file, caption, media.length)}
                         />
                       ) : null}
@@ -1310,6 +1409,7 @@ export function ReplySheet({
       </main>
 
       <div
+        hidden={confirmation !== null}
         className="reply-actionbar stitched-top fixed inset-x-0 bottom-0 z-20 border-t backdrop-blur-md"
         style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}
       >
