@@ -76,6 +76,12 @@ function assertReadable(tokens: SchemeTokens, label: string) {
   text(tokens.inkSoft, tokens.page);
   text(tokens.inkMuted, tokens.card);
   text(tokens.inkMuted, tokens.page);
+  // Selected cards, chips and mentions sit on the soft accent fill; inputs sit on the field tone.
+  text(tokens.inkSoft, tokens.accentSoft);
+  text(tokens.inkMuted, tokens.accentSoft);
+  text(tokens.inkSoft, tokens.field);
+  text(tokens.inkMuted, tokens.field);
+  text(tokens.accentInk, tokens.field);
   text(tokens.onAccent, tokens.accent);
   text(tokens.accentInk, tokens.card);
   text(tokens.accentInk, tokens.page);
@@ -110,6 +116,31 @@ test("any accent the owner picks ends up readable on every preset", () => {
     }
   }
 });
+
+test("secondary text stays readable on the soft accent fill whatever hue the owner picks", () => {
+  for (let hue = 0; hue < 360; hue += 15) {
+    for (const [saturation, lightness] of [[100, 50], [100, 85], [40, 30], [100, 15]]) {
+      const accent = `hsl(${hue} ${saturation}% ${lightness}%)`;
+      // Convert through a canvas-free route: the picks are checked as the hex the app would store.
+      const hex = hslToHex(hue, saturation / 100, lightness / 100);
+      for (const preset of THEME_PRESET_KEYS) {
+        const resolved = resolveTheme({ preset, accent: hex });
+        assert.ok(resolved, `${preset} ${accent}`);
+        assertReadable(resolved.light, `${preset} ${accent} light`);
+        assertReadable(resolved.dark, `${preset} ${accent} dark`);
+      }
+    }
+  }
+});
+
+function hslToHex(h: number, s: number, l: number): string {
+  const a = s * Math.min(l, 1 - l);
+  const channel = (n: number) => {
+    const k = (n + h / 30) % 12;
+    return Math.round((l - a * Math.max(-1, Math.min(k - 3, 9 - k, 1))) * 255);
+  };
+  return `#${[channel(0), channel(8), channel(4)].map((v) => v.toString(16).padStart(2, "0")).join("")}`;
+}
 
 test("a readable accent is kept, a hopeless one is adjusted and says so", () => {
   const kept = deriveAccent("#2f5fb5", "light");

@@ -4,7 +4,7 @@ import { AFTER_FIRST_SLOT, BEFORE_FIRST_SLOT, DAY, DELIVERY_DAY, E2E_NOW, HOUR }
 
 export { AFTER_FIRST_SLOT, BEFORE_FIRST_SLOT, DAY, DELIVERY_DAY, E2E_NOW, HOUR };
 
-export const APP = process.env.E2E_BASE_URL ?? "http://localhost:3100";
+export const APP = process.env.E2E_BASE_URL ?? `http://localhost:${process.env.E2E_PORT ?? 3100}`;
 export const CRON_SECRET = process.env.CRON_SECRET ?? "e2e-cron-secret";
 
 /** Unique identity per test, so parallel workers never collide. */

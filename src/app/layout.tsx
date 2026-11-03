@@ -18,7 +18,8 @@ const gaegu = Gaegu({
 });
 
 export const metadata: Metadata = {
-  title: copy.common.metadataTitle,
+  // Every page names itself (2.4.2); the template keeps the brand on the end.
+  title: { default: copy.common.metadataTitle, template: `%s · ${copy.common.brand}` },
   description: copy.common.metadataDescription,
   applicationName: copy.common.brand,
   appleWebApp: { capable: true, title: copy.common.brand, statusBarStyle: "black-translucent" },

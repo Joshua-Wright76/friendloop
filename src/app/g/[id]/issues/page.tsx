@@ -1,6 +1,10 @@
 import { LoopTabContent } from "../tab-content";
+import { copy } from "@/lib/copy";
+import type { Metadata } from "next";
 import { parseMemberFilter, deliveredRoundsAnsweredBy } from "@/lib/rounds-by-member";
 import { viewerFor } from "@/lib/permissions";
+
+export const metadata: Metadata = { title: copy.pageTitles.rounds };
 
 export default async function IssuesPage({ params, searchParams }: {
   params: Promise<{ id: string }>;

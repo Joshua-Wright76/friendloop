@@ -207,17 +207,23 @@ function walk(h: number, s: number, from: number, direction: 1 | -1, ok: (hex: s
 export function deriveAccent(
   hex: string,
   scheme: ThemeName,
-  surfaces: { page: string; card: string } = GINGHAM_SURFACES[scheme],
+  surfaces: { page: string; card: string; inkSoft?: string; inkMuted?: string } = GINGHAM_SURFACES[scheme],
 ): AccentTokens & { adjusted: boolean } {
   const [h, s0, l0] = toHsl(normalizeHex(hex) as string);
   const s = clamp(s0, 0.3, 0.9);
+  // Selected cards, chips and mentions put secondary and muted text on the soft
+  // fill, so the fill moves (lighter on light paper, darker on dark) until both
+  // clear 4.5:1. A fill that already does is left exactly as it was.
+  const textFits = (fill: string) =>
+    [surfaces.inkSoft, surfaces.inkMuted].every((ink) => !ink || contrastRatio(ink, fill) >= 4.5);
 
   if (scheme === "light") {
     const onAccent = "#ffffff";
     const fits = (c: string) => contrastRatio(c, onAccent) >= 4.5 && contrastRatio(c, surfaces.card) >= 4.5;
     const given = normalizeHex(hex) as string;
     const accent = fits(given) ? given : walk(h, s, Math.min(l0, 0.62), -1, fits);
-    const accentSoft = fromHsl(h, clamp(s, 0.4, 0.85), 0.93);
+    const softHue = clamp(s, 0.4, 0.85);
+    const accentSoft = walk(h, softHue, 0.93, 1, textFits);
     const accentLine = fromHsl(h, clamp(s, 0.35, 0.8), 0.79);
     const accentInk = walk(h, s, toHsl(accent)[2], -1, (c) =>
       contrastRatio(c, accentSoft) >= 4.5 && contrastRatio(c, surfaces.card) >= 4.5 && contrastRatio(c, surfaces.page) >= 4.5,
@@ -231,7 +237,8 @@ export function deriveAccent(
   const fits = (c: string) => contrastRatio(c, onAccent) >= 4.5 && contrastRatio(c, surfaces.card) >= 4.5;
   const given = normalizeHex(hex) as string;
   const accent = fits(given) ? given : walk(h, s, Math.max(l0, 0.5), 1, fits);
-  const accentSoft = fromHsl(h, clamp(s, 0.2, 0.5), 0.2);
+  const softSat = clamp(s, 0.2, 0.5);
+  const accentSoft = walk(h, softSat, 0.2, -1, textFits);
   const accentLine = fromHsl(h, clamp(s, 0.2, 0.5), 0.33);
   const accentInk = walk(h, s, toHsl(accent)[2], 1, (c) =>
     contrastRatio(c, accentSoft) >= 4.5 && contrastRatio(c, surfaces.card) >= 4.5 && contrastRatio(c, surfaces.page) >= 4.5,
@@ -262,7 +269,7 @@ const GINGHAM_PAPER: PresetPaper = {
   light: {
     page: "#fff3f5", check: "rgb(236 118 148 / 0.15)", card: "#fffdfa", line: "#f1dae0",
     lineStrong: "#e4bcc6", controlLine: "#9c6675", field: "#fff8f8", rule: "#d6e3f4",
-    margin: "#f3a3b4", ink: "#3d2a30", inkSoft: "#674d55", inkMuted: "#86676f",
+    margin: "#f3a3b4", ink: "#3d2a30", inkSoft: "#674d55", inkMuted: "#7d5f68",
     tape: "#f6a6ba",
   },
   dark: {
@@ -298,8 +305,8 @@ export function resolveTheme(settings: ThemeSettings): ResolvedTheme | null {
   const paper = key === DEFAULT_PRESET ? GINGHAM_PAPER : PRESET_PAPERS[key];
   const seed = normalizeHex(settings.accent) ?? paper.accent;
 
-  const light = deriveAccent(seed, "light", { page: paper.light.page, card: paper.light.card });
-  const dark = deriveAccent(seed, "dark", { page: paper.dark.page, card: paper.dark.card });
+  const light = deriveAccent(seed, "light", { page: paper.light.page, card: paper.light.card, inkSoft: paper.light.inkSoft, inkMuted: paper.light.inkMuted });
+  const dark = deriveAccent(seed, "dark", { page: paper.dark.page, card: paper.dark.card, inkSoft: paper.dark.inkSoft, inkMuted: paper.dark.inkMuted });
 
   // Every accent, a preset's own seed or the owner's pick, goes through the same
   // derivation, so the readability guarantees are one code path.

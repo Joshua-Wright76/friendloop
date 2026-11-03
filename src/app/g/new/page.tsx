@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { currentUser } from "@/lib/auth";
 import { QUESTION_PACKS } from "@/lib/question-packs";
@@ -7,6 +8,8 @@ import { Brand } from "@/components/stationery";
 import { copy } from "@/lib/copy";
 
 export const instant = false;
+
+export const metadata: Metadata = { title: copy.pageTitles.newLoop };
 
 export default async function NewLoopPage() {
   const user = await currentUser();

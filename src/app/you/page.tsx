@@ -13,6 +13,7 @@ import { TimezoneSync } from "./timezone-sync";
 export const instant = false;
 
 export const metadata: Metadata = {
+  title: copy.pageTitles.yourLoops,
   robots: { index: false, follow: false },
 };
 

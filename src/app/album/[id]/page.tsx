@@ -16,6 +16,7 @@ import { membershipForViewer } from "@/lib/issue-view";
 export const instant = false;
 
 export const metadata: Metadata = {
+  title: copy.pageTitles.album,
   robots: { index: false, follow: false },
   referrer: "no-referrer",
 };

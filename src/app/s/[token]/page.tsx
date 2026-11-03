@@ -15,6 +15,7 @@ export const instant = false;
 
 // A secret link, by contract: never indexed, and never sent as a Referer.
 export const metadata: Metadata = {
+  title: copy.pageTitles.shared,
   robots: { index: false, follow: false, nocache: true },
   referrer: "no-referrer",
 };

@@ -18,6 +18,7 @@ import { applyReading, parseReading, readingPeople } from "@/lib/issue-reading";
 export const instant = false;
 
 export const metadata: Metadata = {
+  title: copy.pageTitles.round,
   robots: { index: false, follow: false },
   referrer: "no-referrer",
 };

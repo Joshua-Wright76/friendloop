@@ -18,6 +18,8 @@ export default function ErrorPage({
   }, [error]);
 
   return (
+    <>
+      <title>{`${copy.pageTitles.somethingWrong} · ${copy.common.brand}`}</title>
     <main className="mx-auto flex min-h-svh w-full max-w-[560px] flex-col justify-center px-4 py-10">
       <div className="mb-8 self-start">
         <Brand />
@@ -36,5 +38,6 @@ export default function ErrorPage({
         </div>
       </div>
     </main>
+    </>
   );
 }

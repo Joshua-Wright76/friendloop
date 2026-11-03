@@ -5,6 +5,7 @@ import { Brand, Envelope } from "@/components/stationery";
 import { copy } from "@/lib/copy";
 
 export const metadata: Metadata = {
+  title: copy.pageTitles.checkEmail,
   robots: { index: false, follow: false },
 };
 

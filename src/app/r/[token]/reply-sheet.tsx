@@ -988,7 +988,7 @@ export function ReplySheet({
                 />
                 <label
                   htmlFor={`photo-${question.id}`}
-                  className="btn btn-quiet min-h-11 px-4 text-[13px] peer-disabled:pointer-events-none peer-disabled:opacity-45 peer-focus-visible:outline peer-focus-visible:outline-3 peer-focus-visible:outline-accent peer-focus-visible:outline-offset-2"
+                  className="btn btn-quiet min-h-11 px-4 text-[13px] peer-disabled:pointer-events-none peer-disabled:opacity-45 peer-focus-visible:outline peer-focus-visible:outline-3 peer-focus-visible:outline-accent-ink peer-focus-visible:outline-offset-2"
                 >
                   {photoUrl ? copy.reply.replacePhoto : copy.reply.addPhoto}
                 </label>
@@ -1069,7 +1069,7 @@ export function ReplySheet({
                   />
                   <label
                     htmlFor={`audio-${question.id}`}
-                    className="btn btn-quiet min-h-11 px-4 text-[13px] peer-disabled:pointer-events-none peer-disabled:opacity-45 peer-focus-visible:outline peer-focus-visible:outline-3 peer-focus-visible:outline-accent peer-focus-visible:outline-offset-2"
+                    className="btn btn-quiet min-h-11 px-4 text-[13px] peer-disabled:pointer-events-none peer-disabled:opacity-45 peer-focus-visible:outline peer-focus-visible:outline-3 peer-focus-visible:outline-accent-ink peer-focus-visible:outline-offset-2"
                   >
                     {copy.reply.voicePick}
                   </label>
@@ -1224,7 +1224,7 @@ export function ReplySheet({
                     <div className="mt-3">
                       {media.map((item, index) => (
                         <div key={item.id} className="mt-2 flex items-start gap-3">
-                          <img src={item.url} alt={item.caption ?? ""} className="h-16 w-16 flex-none rounded-md border border-line object-cover" />
+                          <img src={item.url} alt={item.caption || copy.reply.photoPreview} className="h-16 w-16 flex-none rounded-md border border-line object-cover" />
                           <div className="min-w-0 flex-1">
                             {item.caption ? (
                               <p className="truncate text-[13px] text-ink">{item.caption}</p>
@@ -1353,7 +1353,7 @@ function PhotoSlot({
       />
       <label
         htmlFor={id}
-        className="btn btn-quiet min-h-11 px-4 text-[13px] peer-disabled:pointer-events-none peer-disabled:opacity-45"
+        className="btn btn-quiet min-h-11 px-4 text-[13px] peer-disabled:pointer-events-none peer-disabled:opacity-45 peer-focus-visible:outline peer-focus-visible:outline-3 peer-focus-visible:outline-accent-ink peer-focus-visible:outline-offset-2"
       >
         {kind === "photo_wall" ? copy.reply.sectionAddPhoto : copy.reply.sectionAddPhoto}
       </label>

@@ -124,7 +124,7 @@ export function IssueBody({
                   reply.media.map((item, mediaIndex) => (
                     <figure key={item.url} id={mediaIndex === 0 ? `section-reply-${reply.replyId}` : undefined} className="m-0 scroll-mt-4">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={item.url} alt={item.caption ?? ""} className="w-full rounded-lg border border-line object-cover" />
+                      <img src={item.url} alt={item.caption || text(copy.issue.photoAlt, { author: reply.author })} className="w-full rounded-lg border border-line object-cover" />
                       {item.caption ? (
                         <figcaption className="mt-1 text-[12.5px] leading-snug text-ink-soft">
                           <span className="font-bold">{reply.author}</span> — {item.caption}
@@ -198,7 +198,7 @@ function SectionReplyCard({ reply, label }: { reply: IssueSectionReplyBlock; lab
       {reply.media.map((item) => (
         <figure key={item.url} className="m-0 mt-3">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={item.url} alt={item.caption ?? ""} className="w-full rounded-lg border border-line object-cover" />
+          <img src={item.url} alt={item.caption || text(copy.issue.photoAlt, { author: reply.author })} className="w-full rounded-lg border border-line object-cover" />
           {item.caption && label ? (
             <figcaption className="mt-1 text-[12.5px] leading-snug text-ink-soft">{item.caption}</figcaption>
           ) : null}

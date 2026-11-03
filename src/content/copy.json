@@ -1399,6 +1399,24 @@
       "network": "That didn't go through. Please try again."
     }
   },
+  "pageTitles": {
+    "signIn": "Sign in",
+    "checkEmail": "Check your email",
+    "yourLoops": "Your loops",
+    "newLoop": "New loop",
+    "overview": "Overview",
+    "members": "Members",
+    "questions": "Questions and events",
+    "rounds": "Rounds",
+    "album": "Album",
+    "settings": "Settings",
+    "reply": "Your answers",
+    "suggest": "Suggest a question",
+    "round": "A round",
+    "shared": "A shared round",
+    "notFound": "Page not found",
+    "somethingWrong": "Something went wrong"
+  },
   "devFeedback": {
     "title": "Feedback",
     "description": "Everything sent from the corner button, newest first.",
