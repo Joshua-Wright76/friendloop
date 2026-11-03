@@ -58,19 +58,19 @@ test("B2 · the question bank can start with more than eight prompts", async ({ 
   await signIn(page, uniqueEmail("owner"));
   await moveToDetails(page, "Long Table");
 
-  // Only the first pack starts open.
   const questions = page.getByRole("checkbox");
-  await expect(questions).toHaveCount(QUESTION_PACKS[0].questions.length);
+  const total = QUESTION_PACKS.reduce((count, pack) => count + pack.questions.length, 0);
+  await expect(questions).toHaveCount(total);
   await questions.nth(0).uncheck();
   await questions.nth(1).uncheck();
 
-  // Questions can be picked across packs; each opens on its own.
-  await page.getByRole("button", { name: /^Tiny joys/ }).click();
+  // Questions can be picked across packs without leaving the filter.
+  await page.getByRole("button", { name: "Tiny joys", exact: true }).click();
   const tiny = page.getByRole("group", { name: "Tiny joys", exact: true });
-  await expect(tiny.getByRole("checkbox")).toHaveCount(QUESTION_PACKS.find((pack) => pack.name === "Tiny joys")!.questions.length);
+  await expect(questions).toHaveCount(QUESTION_PACKS.find((pack) => pack.name === "Tiny joys")!.questions.length);
   for (let index = 0; index < 4; index += 1) await tiny.getByRole("checkbox").nth(index).check();
 
-  await page.getByRole("button", { name: /^Food/ }).click();
+  await page.getByRole("button", { name: "Food", exact: true }).click();
   const food = page.getByRole("group", { name: "Food", exact: true });
   for (let index = 0; index < 5; index += 1) await food.getByRole("checkbox").nth(index).check();
 
