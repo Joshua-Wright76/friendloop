@@ -681,6 +681,7 @@
     "sectionTitleLabel": "Title",
     "sectionTitlePlaceholder": "The potluck corner",
     "sectionEmojiLabel": "Emoji",
+    "sectionEmojiPlaceholder": "✨",
     "sectionDescriptionLabel": "Description",
     "sectionDescriptionPlaceholder": "A line that guides what people add",
     "sectionAdminOnly": "Owner and admins only",

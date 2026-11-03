@@ -286,16 +286,24 @@ export default function QuestionsTab({ notices }: { notices: { added?: string; a
           <form action={createSectionAction} className="mt-4 border-t border-line pt-4">
             <input type="hidden" name="groupId" value={id} />
             <h3 className="text-[14px] font-semibold text-ink">{copy.questions.sectionAddTitle}</h3>
-            <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-[1fr_5rem]">
-              <input name="title" required maxLength={80} placeholder={copy.questions.sectionTitlePlaceholder} aria-label={copy.questions.sectionTitleLabel} className="field h-[46px] py-0" />
-              <input name="emoji" maxLength={8} aria-label={copy.questions.sectionEmojiLabel} className="field h-[46px] py-0" />
+            <div className="mt-2 grid grid-cols-[minmax(0,1fr)_4.5rem] gap-2 sm:grid-cols-[minmax(0,1fr)_5rem]">
+              <div>
+                <label htmlFor="section-title" className="block text-[13px] font-bold text-ink-soft">{copy.questions.sectionTitleLabel}</label>
+                <input id="section-title" name="title" required maxLength={80} placeholder={copy.questions.sectionTitlePlaceholder} className="field mt-1 h-[46px] py-0" />
+              </div>
+              <div>
+                <label htmlFor="section-emoji" className="block text-[13px] font-bold text-ink-soft">{copy.questions.sectionEmojiLabel}</label>
+                <input id="section-emoji" name="emoji" maxLength={8} placeholder={copy.questions.sectionEmojiPlaceholder} className="field emoji-field mt-1 h-[46px] py-0 text-center" />
+              </div>
             </div>
-            <select name="kind" aria-label={copy.questions.sectionKindLabel} className="field mt-2 h-[46px] py-0" defaultValue="standard">
+            <label htmlFor="section-kind" className="mt-3 block text-[13px] font-bold text-ink-soft">{copy.questions.sectionKindLabel}</label>
+            <select id="section-kind" name="kind" className="field mt-1 h-[46px] py-0" defaultValue="standard">
               <option value="standard">{copy.questions.sectionKindStandard}</option>
               <option value="photo_wall">{copy.questions.sectionKindPhotoWall}</option>
               <option value="music">{copy.questions.sectionKindMusic}</option>
             </select>
-            <input name="description" maxLength={200} placeholder={copy.questions.sectionDescriptionPlaceholder} aria-label={copy.questions.sectionDescriptionLabel} className="field mt-2 h-[46px] py-0" />
+            <label htmlFor="section-description" className="mt-3 block text-[13px] font-bold text-ink-soft">{copy.questions.sectionDescriptionLabel}</label>
+            <input id="section-description" name="description" maxLength={200} placeholder={copy.questions.sectionDescriptionPlaceholder} className="field mt-1 h-[46px] py-0" />
             <label className="mt-2 flex items-center gap-2 text-[13px] text-ink">
               <input type="checkbox" name="adminOnly" className="accent-accent" /> {copy.questions.sectionAdminOnly}
             </label>
