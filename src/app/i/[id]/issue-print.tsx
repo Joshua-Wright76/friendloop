@@ -195,7 +195,7 @@ function PrintAnswer({ answer }: { answer: IssueAnswer }) {
       {answer.photoUrl ? (
         <figure className="print-figure">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={answer.photoUrl} alt={answer.body || text(copy.issue.photoAlt, { author: answer.author })} />
+          <img src={answer.photoUrl} alt={text(copy.issue.photoAlt, { author: answer.author })} />
         </figure>
       ) : null}
       {answer.audioUrl ? (

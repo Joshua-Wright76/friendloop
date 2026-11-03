@@ -118,7 +118,7 @@ function answersHtml(answers: AnswerBlock[], url: string, c: EmailPalette): stri
   return answers
     .map((answer) => {
       const photo = answer.photoUrl
-        ? `<img src="${escapeHtml(answer.photoUrl)}" alt="" width="520" style="display:block;width:100%;max-width:520px;border:1px solid ${c.line};border-radius:6px;margin:14px 0 0" />`
+        ? `<img src="${escapeHtml(answer.photoUrl)}" alt="${escapeHtml(copy.a11yLabels.photoFrom.replace("{name}", answer.author))}" width="520" style="display:block;width:100%;max-width:520px;border:1px solid ${c.line};border-radius:6px;margin:14px 0 0" />`
         : "";
       // Email never attempts to play audio; the web issue is the canonical player.
       const voice = answer.audioUrl
@@ -164,7 +164,7 @@ ${paragraphs(body, c)}${ctaHtml}
 </td></tr>
 ${answers ? `<tr><td style="padding-top:20px">${answersHtml(answers, answersUrl ?? "#", c)}</td></tr>` : ""}
 ${sections && sections.length > 0 ? `<tr><td style="padding-top:20px">${sectionsHtml(sections, c)}</td></tr>` : ""}
-<tr><td style="padding:24px 10px 0"><p style="margin:0;font:400 13px/1.6 ${BODY_FONT};color:${c.muted};text-align:center">${escapeHtml(
+<tr><td align="center" style="padding:24px 10px 0"><p style="display:inline-block;margin:0;padding:4px 10px;font:400 13px/1.6 ${BODY_FONT};color:${c.soft};background-color:${c.page};text-align:center">${escapeHtml(
     footer ?? copy.emails.defaultFooter,
   )}</p></td></tr>
 </table></td></tr></table></body></html>`;

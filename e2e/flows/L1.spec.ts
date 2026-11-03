@@ -59,7 +59,8 @@ test("L1 · the owner adds a poll that lives in the pool like any question", asy
   expect(snapshot).toHaveLength(1);
   expect(snapshot[0].poll_options).toEqual(["The lake", "The mountains", "The coast"]);
 
-  await pool.locator(":scope > li").nth(1).getByRole("button", { name: "Archive" }).click();
+  await pool.locator(":scope > li").nth(1).getByRole("button", { name: /^Archive/ }).click();
+  await pool.locator(":scope > li").nth(1).getByRole("button", { name: /^Yes, archive/ }).click(); // archiving asks first
   await expect(page.getByText("Archived.")).toBeVisible();
   await expect(page.getByText("Where should we camp?")).toHaveCount(0);
   const [archived] = await rows<{ archived_at: string | null }>("select archived_at from questions where kind = 'poll'");

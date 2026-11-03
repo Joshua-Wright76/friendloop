@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
-import { copy } from "@/lib/copy";
+import { copy, text } from "@/lib/copy";
 
 export type PickerOption = { value: string; label: string };
 
@@ -14,9 +14,11 @@ type Props = {
   searchable?: boolean;
   onValueChange?: (value: string) => void;
   disabled?: boolean;
+  /** Ties a validation message to the trigger (WCAG 3.3.1). aria-invalid is not valid on a button, so the description carries it. */
+  describedBy?: string;
 };
 
-export function Picker({ name, defaultValue, value: controlledValue, options, ariaLabel, searchable = false, onValueChange, disabled = false }: Props) {
+export function Picker({ name, defaultValue, value: controlledValue, options, ariaLabel, searchable = false, onValueChange, disabled = false, describedBy }: Props) {
   const [uncontrolledValue, setUncontrolledValue] = useState(defaultValue);
   const value = controlledValue ?? uncontrolledValue;
   const [open, setOpen] = useState(false);
@@ -177,6 +179,15 @@ export function Picker({ name, defaultValue, value: controlledValue, options, ar
       }}
     >
       <input ref={hiddenInput} type="hidden" name={name} value={value} suppressHydrationWarning />
+      <p role="status" aria-live="polite" className="sr-only">
+        {open && searchable && query.trim()
+          ? filtered.length === 0
+            ? copy.common.picker.noResults
+            : filtered.length === 1
+              ? copy.a11yStatus.pickerResultsOne
+              : text(copy.a11yStatus.pickerResultsMany, { count: filtered.length })
+          : ""}
+      </p>
       <button
         ref={trigger}
         type="button"
@@ -184,9 +195,10 @@ export function Picker({ name, defaultValue, value: controlledValue, options, ar
         disabled={disabled}
         suppressHydrationWarning
         aria-label={`${ariaLabel}: ${selected?.label ?? value}`}
+        aria-describedby={describedBy}
         aria-haspopup="listbox"
         aria-expanded={open}
-        aria-controls={listId}
+        aria-controls={open ? listId : undefined}
         onFocus={() => { focusLostToDisabled.current = false; }}
         onBlur={() => {
           // Fires as the disabled attribute lands: the user did not leave.
@@ -253,8 +265,8 @@ export function Picker({ name, defaultValue, value: controlledValue, options, ar
                   ) : null}
                 </button>
               ))}
-              {filtered.length === 0 ? <p className="picker-empty">{copy.common.picker.noResults}</p> : null}
             </div>
+            {filtered.length === 0 ? <p className="picker-empty">{copy.common.picker.noResults}</p> : null}
           </div>
         </>
       ) : null}

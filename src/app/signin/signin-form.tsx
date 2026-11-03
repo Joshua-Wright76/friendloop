@@ -3,6 +3,7 @@
 import { useActionState } from "react";
 import { requestLink, type SignInState } from "./actions";
 import { copy } from "@/lib/copy";
+import { FieldLabel } from "@/components/field-label";
 
 const initial: SignInState = {};
 
@@ -12,7 +13,7 @@ export function SignInForm() {
   return (
     <form action={action} className="flex flex-col gap-4">
       <label className="flex flex-col gap-1.5">
-        <span className="text-[13px] font-medium text-ink-soft">{copy.signIn.emailLabel}</span>
+        <FieldLabel required>{copy.signIn.emailLabel}</FieldLabel>
         <input
           name="email"
           type="email"

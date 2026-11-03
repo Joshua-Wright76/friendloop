@@ -156,6 +156,9 @@ function CommentComposer({
   const [picks, setPicks] = useState<MentionPick[]>([]);
   const [photo, setPhoto] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Which control the error is about; errors that name no field stay unattached.
+  const [errorField, setErrorField] = useState<"body" | "photo" | null>(null);
+  const [posted, setPosted] = useState("");
   const [pending, startTransition] = useTransition();
   // One id per comment being written: sending it twice is still one comment.
   const [commentId, setCommentId] = useState(() => crypto.randomUUID());
@@ -164,6 +167,7 @@ function CommentComposer({
   const area = useRef<HTMLTextAreaElement>(null);
   const files = useRef<HTMLInputElement>(null);
   const listId = useId();
+  const errorId = `${listId}-error`;
   // Where the caret goes after a name is dropped in, applied once the new text is on screen.
   const pendingCaret = useRef<number | null>(null);
 
@@ -195,10 +199,15 @@ function CommentComposer({
 
   const submit = () => {
     const body = value.trim();
+    if (pending) return;
     if (!body && !photo) {
       setError(copy.issue.writeFirst);
+      setErrorField("body");
+      area.current?.focus();
       return;
     }
+    setPosted("");
+    setErrorField(null);
     const form = new FormData();
     form.set("id", commentId);
     form.set("body", body);
@@ -216,6 +225,7 @@ function CommentComposer({
           setError(data.error ?? copy.issue.postError);
           return;
         }
+        setPosted(copy.a11yStatus.commentPosted);
         setValue("");
         setCaret(0);
         setPicks([]);
@@ -249,11 +259,14 @@ function CommentComposer({
     if (!file) return;
     if (file.size > MAX_PHOTO_BYTES) {
       setError(copy.issue.errors.photoTooLarge);
+      setErrorField("photo");
     } else if (!PHOTO_ACCEPT.split(",").includes(file.type)) {
       setError(copy.issue.errors.photoInvalid);
+      setErrorField("photo");
     } else {
       setPhoto(file);
       setError(null);
+      setErrorField(null);
     }
     if (files.current) files.current.value = "";
   };
@@ -283,12 +296,19 @@ function CommentComposer({
           setCaret(event.target.selectionStart);
           setHighlight(0);
           setDismissedAt(null);
+          setPosted("");
+          if (errorField === "body") {
+            setError(null);
+            setErrorField(null);
+          }
         }}
         onSelect={(event) => setCaret(event.currentTarget.selectionStart)}
         onKeyDown={onKeyDown}
         rows={2}
         placeholder={placeholder}
         aria-label={label}
+        aria-invalid={errorField === "body" ? "true" : undefined}
+        aria-describedby={errorField === "body" ? errorId : undefined}
         aria-autocomplete={mentionables.length > 0 ? "list" : undefined}
         aria-controls={open ? listId : undefined}
         aria-activedescendant={open ? `${listId}-${active}` : undefined}
@@ -316,7 +336,7 @@ function CommentComposer({
         </ul>
       ) : null}
       <p className="sr-only" role="status" aria-live="polite">
-        {open ? text(copy.issue.mentionCount, { count: options.length }) : ""}
+        {open ? text(copy.issue.mentionCount, { count: options.length }) : posted}
       </p>
 
       {mentionables.length > 0 ? (
@@ -341,15 +361,25 @@ function CommentComposer({
             hidden
             onChange={(event) => onPickPhoto(event.target.files?.[0])}
           />
-          <button type="button" className="btn btn-quiet" onClick={() => files.current?.click()}>
+          <button
+            type="button"
+            className="btn btn-quiet"
+            aria-describedby={errorField === "photo" ? errorId : undefined}
+            onClick={() => files.current?.click()}
+          >
             {copy.issue.addPhoto}
           </button>
         </div>
-        <button type="submit" disabled={pending} className="btn btn-primary">
+        {/* aria-disabled, not disabled: the button the keyboard is on must keep focus while posting. */}
+        <button
+          type="submit"
+          aria-disabled={pending ? true : undefined}
+          className="btn btn-primary aria-disabled:cursor-not-allowed aria-disabled:opacity-45"
+        >
           {pending ? copy.issue.posting : copy.issue.post}
         </button>
       </div>
-      <p role={error ? "alert" : undefined} className="mt-2 text-[13px] text-danger">
+      <p id={errorId} role="alert" className="mt-2 text-[13px] text-danger">
         {error}
       </p>
     </form>

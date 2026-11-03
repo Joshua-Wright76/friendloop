@@ -126,11 +126,21 @@ export function NewLoopForm({ packs }: { packs: QuestionPack[] }) {
   const [sectionTitle, setSectionTitle] = useState("");
   const [sectionDescription, setSectionDescription] = useState("");
   const [modalError, setModalError] = useState("");
+  const [sectionErrors, setSectionErrors] = useState<{ title?: string; description?: string }>({});
   const [stepError, setStepError] = useState("");
+  const [errorField, setErrorField] = useState<"name" | "timezone" | null>(null);
+  const [focusRequest, setFocusRequest] = useState<{ id: string } | null>(null);
+  const [hiddenServerState, setHiddenServerState] = useState<CreateState | null>(null);
   const [modal, setModal] = useState<ModalKind>(null);
   const nextQuestionId = useRef(0);
   const nextSectionId = useRef(0);
   const errorId = useId();
+  const nameErrorId = useId();
+  const timezoneErrorId = useId();
+  const formErrorId = useId();
+  const questionErrorId = useId();
+  const sectionTitleErrorId = useId();
+  const sectionDescriptionErrorId = useId();
   const stepHeading = useRef<HTMLHeadingElement>(null);
 
   const presets = copy.newLoop.wizard.sections.presets;
@@ -150,6 +160,14 @@ export function NewLoopForm({ packs }: { packs: QuestionPack[] }) {
     stepHeading.current?.focus();
   }, [step]);
 
+  useEffect(() => {
+    if (focusRequest) document.getElementById(focusRequest.id)?.focus();
+  }, [focusRequest]);
+
+  useEffect(() => {
+    if (state.error) document.getElementById(formErrorId)?.focus();
+  }, [state, formErrorId]);
+
   function toggleQuestion(question: string) {
     setPicked((current) => current.includes(question)
       ? current.filter((item) => item !== question)
@@ -166,6 +184,7 @@ export function NewLoopForm({ packs }: { packs: QuestionPack[] }) {
     const value = questionDraft.trim();
     if (!value) {
       setModalError(copy.newLoop.wizard.questions.questionRequired);
+      document.getElementById("question-draft")?.focus();
       return;
     }
     setCustomQuestions((current) => [...current, { id: nextQuestionId.current++, value }]);
@@ -178,13 +197,18 @@ export function NewLoopForm({ packs }: { packs: QuestionPack[] }) {
     const title = sectionTitle.trim();
     const description = sectionDescription.trim();
     if (!title || !description) {
-      setModalError(copy.newLoop.errors.section);
+      setSectionErrors({
+        title: title ? undefined : copy.a11yLabels.sectionTitleMissing,
+        description: description ? undefined : copy.a11yLabels.sectionPromptMissing,
+      });
+      document.getElementById(title ? "section-description" : "section-title")?.focus();
       return;
     }
     setCustomSections((current) => [...current, { id: nextSectionId.current++, title, description }]);
     setSectionTitle("");
     setSectionDescription("");
     setModalError("");
+    setSectionErrors({});
     setModal(null);
   }
 
@@ -215,22 +239,34 @@ export function NewLoopForm({ packs }: { packs: QuestionPack[] }) {
     }
   }
 
-  function goNext() {
+  function failStep(message: string, field: "name" | "timezone" | null, focusId: string) {
+    setStepError(message);
+    setErrorField(field);
+    setFocusRequest({ id: focusId });
+  }
+
+  function clearStepError() {
     setStepError("");
+    setErrorField(null);
+    setHiddenServerState(state);
+  }
+
+  function goNext() {
+    clearStepError();
     if (step === 0) {
       if (name.trim().length < 2) {
-        setStepError(copy.newLoop.errors.name);
+        failStep(copy.newLoop.errors.name, "name", "loop-name");
         return;
       }
       if (!timezone) {
-        setStepError(copy.newLoop.errors.timezone);
+        failStep(copy.newLoop.errors.timezone, "timezone", timezoneErrorId);
         return;
       }
     }
     if (step === 3) {
       if (emailDraft.trim() && !addEmails(emailDraft)) return;
       if (questions.length === 0) {
-        setStepError(copy.newLoop.errors.noQuestions);
+        failStep(copy.newLoop.errors.noQuestions, null, formErrorId);
         return;
       }
     }
@@ -238,16 +274,20 @@ export function NewLoopForm({ packs }: { packs: QuestionPack[] }) {
   }
 
   function goBack() {
-    setStepError("");
+    clearStepError();
     setStep((current) => Math.max(current - 1, 0));
   }
 
   function openModal(kind: Exclude<ModalKind, null>) {
     setModalError("");
+    setSectionErrors({});
     setModal(kind);
   }
 
-  const error = state.error || stepError;
+  const nameError = errorField === "name" ? stepError : "";
+  const timezoneError = errorField === "timezone" ? stepError : "";
+  const serverError = hiddenServerState === state ? "" : state.error;
+  const formError = errorField ? "" : stepError || serverError;
 
   return (
     <form
@@ -299,7 +339,9 @@ export function NewLoopForm({ packs }: { packs: QuestionPack[] }) {
             <div className="card relative mt-6 p-5 pt-7 sm:p-6 sm:pt-8">
               <Tape tone="stripe" position="right" />
               <div className="flex items-end justify-between gap-3">
-                <label htmlFor="loop-name" className="font-display text-[23px] font-bold text-ink">{copy.newLoop.nameLabel}</label>
+                <label htmlFor="loop-name" className="font-display text-[23px] font-bold text-ink">
+                  {copy.newLoop.nameLabel} <span className="font-body text-[13px] font-medium text-ink-soft">{copy.a11yLabels.required}</span>
+                </label>
                 <button
                   type="button"
                   aria-haspopup="dialog"
@@ -313,13 +355,19 @@ export function NewLoopForm({ packs }: { packs: QuestionPack[] }) {
               <input
                 id="loop-name"
                 value={name}
-                onChange={(event) => setName(event.target.value)}
+                onChange={(event) => {
+                  setName(event.target.value);
+                  if (errorField === "name") clearStepError();
+                }}
                 maxLength={60}
                 placeholder={copy.newLoop.namePlaceholder}
                 autoComplete="off"
-                aria-describedby={error ? errorId : undefined}
+                aria-required="true"
+                aria-invalid={Boolean(nameError)}
+                aria-describedby={nameError ? nameErrorId : undefined}
                 className="field mt-2 h-[48px] py-0 text-[16px]"
               />
+              {nameError ? <p id={nameErrorId} role="alert" className="mt-2 text-[14px] leading-snug text-danger">{nameError}</p> : null}
 
               <fieldset className="mt-6">
                 <legend className="mb-2 text-[14px] font-bold text-ink">{copy.newLoop.wizard.details.cadence}</legend>
@@ -332,7 +380,7 @@ export function NewLoopForm({ packs }: { packs: QuestionPack[] }) {
                       onClick={() => setCadence(option.value)}
                       className={`wizard-pill ${cadence === option.value ? "wizard-pill--selected" : ""}`}
                     >
-                      {option.label}
+                      {cadence === option.value ? <span aria-hidden="true">✓ </span> : null}{option.label}
                     </button>
                   ))}
                 </div>
@@ -350,8 +398,9 @@ export function NewLoopForm({ packs }: { packs: QuestionPack[] }) {
                 </label>
                 <label className="col-span-2 flex min-w-0 flex-col gap-1.5">
                   <span className="text-[13px] font-medium text-ink-soft">{copy.newLoop.timezone}</span>
-                  <TimezoneField name="__timezone" value={timezone || undefined} onValueChange={setTimezone} />
+                  <TimezoneField name="__timezone" value={timezone || undefined} onValueChange={setTimezone} describedBy={timezoneError ? timezoneErrorId : undefined} />
                 </label>
+                {timezoneError ? <p id={timezoneErrorId} role="alert" tabIndex={-1} className="col-span-2 text-[14px] leading-snug text-danger outline-none">{timezoneError}</p> : null}
               </div>
             </div>
           </>
@@ -375,6 +424,7 @@ export function NewLoopForm({ packs }: { packs: QuestionPack[] }) {
                 onToggleQuestion={toggleQuestion}
                 onTogglePack={togglePack}
                 ariaLabel={copy.newLoop.wizard.questions.title}
+                headingLevel={2}
               />
 
               {customQuestions.map((question, index) => (
@@ -506,7 +556,7 @@ export function NewLoopForm({ packs }: { packs: QuestionPack[] }) {
                   placeholder={copy.newLoop.wizard.readers.emailPlaceholder}
                   aria-invalid={Boolean(emailError)}
                   aria-describedby={emailError ? errorId : undefined}
-                  autoComplete="email"
+                  autoComplete="off"
                   className="min-w-[180px] flex-1 border-0 bg-transparent p-1 text-[14px] text-ink outline-none"
                 />
               </div>
@@ -554,7 +604,7 @@ export function NewLoopForm({ packs }: { packs: QuestionPack[] }) {
           </>
         ) : null}
 
-        {error ? <p id={errorId} role="alert" className="mt-4 text-[14px] leading-snug text-danger">{error}</p> : null}
+        {formError ? <p id={formErrorId} role="alert" tabIndex={-1} className="mt-4 text-[14px] leading-snug text-danger outline-none">{formError}</p> : null}
       </section>
 
       <nav aria-label={copy.newLoop.wizard.stepAriaLabel} className="wizard-navigation">
@@ -630,7 +680,7 @@ export function NewLoopForm({ packs }: { packs: QuestionPack[] }) {
         closeLabel={copy.newLoop.wizard.questions.closeQuestion}
         onClose={() => setModal(null)}
       >
-        <label htmlFor="question-draft" className="mt-5 block text-[14px] font-bold text-ink">{copy.newLoop.wizard.questions.questionLabel}</label>
+        <label htmlFor="question-draft" className="mt-5 block text-[14px] font-bold text-ink">{copy.newLoop.wizard.questions.questionLabel} {copy.a11yLabels.required}</label>
         <input
           id="question-draft"
           value={questionDraft}
@@ -647,9 +697,12 @@ export function NewLoopForm({ packs }: { packs: QuestionPack[] }) {
           maxLength={200}
           autoFocus
           placeholder={copy.newLoop.wizard.questions.questionPlaceholder}
+          aria-required="true"
+          aria-invalid={Boolean(modalError)}
+          aria-describedby={modalError ? questionErrorId : undefined}
           className="field mt-1 h-[48px] py-0"
         />
-        {modalError ? <p role="alert" className="mt-2 text-[13px] text-danger">{modalError}</p> : null}
+        {modalError ? <p id={questionErrorId} role="alert" className="mt-2 text-[13px] text-danger">{modalError}</p> : null}
         <button type="button" onClick={addCustomQuestion} className="btn btn-primary mt-4 w-full min-h-12">
           {copy.newLoop.wizard.questions.saveQuestion}
         </button>
@@ -661,33 +714,40 @@ export function NewLoopForm({ packs }: { packs: QuestionPack[] }) {
         closeLabel={copy.newLoop.wizard.sections.closeCustom}
         onClose={() => setModal(null)}
       >
-        <label htmlFor="section-title" className="mt-5 block text-[14px] font-bold text-ink">{copy.newLoop.wizard.sections.titleLabel}</label>
+        <label htmlFor="section-title" className="mt-5 block text-[14px] font-bold text-ink">{copy.newLoop.wizard.sections.titleLabel} {copy.a11yLabels.required}</label>
         <input
           id="section-title"
           value={sectionTitle}
           onChange={(event) => {
             setSectionTitle(event.target.value);
-            setModalError("");
+            setSectionErrors((current) => ({ ...current, title: undefined }));
           }}
           maxLength={60}
           autoFocus
           placeholder={copy.newLoop.wizard.sections.titlePlaceholder}
+          aria-required="true"
+          aria-invalid={Boolean(sectionErrors.title)}
+          aria-describedby={sectionErrors.title ? sectionTitleErrorId : undefined}
           className="field mt-1 h-[48px] py-0"
         />
-        <label htmlFor="section-description" className="mt-4 block text-[14px] font-bold text-ink">{copy.newLoop.wizard.sections.descriptionLabel}</label>
+        {sectionErrors.title ? <p id={sectionTitleErrorId} role="alert" className="mt-2 text-[13px] text-danger">{sectionErrors.title}</p> : null}
+        <label htmlFor="section-description" className="mt-4 block text-[14px] font-bold text-ink">{copy.newLoop.wizard.sections.descriptionLabel} {copy.a11yLabels.required}</label>
         <textarea
           id="section-description"
           value={sectionDescription}
           onChange={(event) => {
             setSectionDescription(event.target.value);
-            setModalError("");
+            setSectionErrors((current) => ({ ...current, description: undefined }));
           }}
           maxLength={180}
           rows={3}
           placeholder={copy.newLoop.wizard.sections.descriptionPlaceholder}
+          aria-required="true"
+          aria-invalid={Boolean(sectionErrors.description)}
+          aria-describedby={sectionErrors.description ? sectionDescriptionErrorId : undefined}
           className="field mt-1 resize-y"
         />
-        {modalError ? <p role="alert" className="mt-2 text-[13px] text-danger">{modalError}</p> : null}
+        {sectionErrors.description ? <p id={sectionDescriptionErrorId} role="alert" className="mt-2 text-[13px] text-danger">{sectionErrors.description}</p> : null}
         <button type="button" onClick={addCustomSection} className="btn btn-primary mt-4 w-full min-h-12">
           {copy.newLoop.wizard.sections.save}
         </button>

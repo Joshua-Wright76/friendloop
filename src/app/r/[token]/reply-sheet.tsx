@@ -163,6 +163,8 @@ export function ReplySheet({
   const [animateSentStamp, setAnimateSentStamp] = useState(false);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // One permanent polite region for things that have no visible text of their own.
+  const [announcement, setAnnouncement] = useState("");
 
   const timers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
   const revisions = useRef(new Map<string, number>());
@@ -258,6 +260,7 @@ export function ReplySheet({
     () => Object.values(photoStates).some((state) => state === "uploading" || state === "removing"),
     [photoStates],
   );
+  const sendBlocked = sending || photoBusy || audioBusy || pollBusy || (!sent && answered === 0 && !sectionAnswered);
   const status: SaveStatus = useMemo(() => {
     const states = Object.values(questionStatuses);
     if (submitFailed || states.includes("error")) return "error";
@@ -485,6 +488,7 @@ export function ReplySheet({
         setAudioErrors((current) => ({ ...current, [questionId]: copy.reply.voiceTooLong }));
         return;
       }
+      setAnnouncement(copy.a11yStatus.recordingStopped);
       const extension = type.includes("mp4") ? "m4a" : type.includes("ogg") ? "ogg" : "webm";
       void uploadAudio(questionId, blob, `voice-note.${extension}`, durationMs);
     };
@@ -509,6 +513,8 @@ export function ReplySheet({
       active.start(250);
       recorder.current = active;
       setRecording({ questionId, startedAt });
+      setAnnouncement(copy.a11yStatus.recordingStarted);
+      let warned = false;
       setAudioStates((current) => ({ ...current, [questionId]: "recording" }));
       setAudioErrors((current) => ({ ...current, [questionId]: null }));
       recordingTimer.current = setInterval(() => {
@@ -517,6 +523,10 @@ export function ReplySheet({
           // The hard stop: over three minutes discards the take with a warm error.
           stopRecording(questionId, true);
           return;
+        }
+        if (!warned && elapsed >= MAX_AUDIO_DURATION_MS - 30_000) {
+          warned = true;
+          setAnnouncement(copy.a11yStatus.recordingNearLimit);
         }
         setRecordingElapsed(elapsed);
       }, 200);
@@ -626,6 +636,7 @@ export function ReplySheet({
     const lockKey = `${issueSectionId}:${position}`;
     if (sectionUploadLocks.current.has(lockKey)) return;
     sectionUploadLocks.current.add(lockKey);
+    setSectionNotices((current) => ({ ...current, [issueSectionId]: null }));
     const result = await uploadReplySectionPhoto(token, issueSectionId, file, caption, position, copy.reply.errors.photoUploadFailed);
     sectionUploadLocks.current.delete(lockKey);
     if (result.ok) {
@@ -645,6 +656,7 @@ export function ReplySheet({
   }, [token]);
 
   const removeSectionPhoto = useCallback(async (issueSectionId: string, mediaId: string) => {
+    setSectionNotices((current) => ({ ...current, [issueSectionId]: null }));
     const result = await removeReplySectionMedia(token, issueSectionId, mediaId, copy.reply.errors.photoRemoveFailed);
     if (result.ok) {
       setSectionMediaLists((current) => ({
@@ -748,6 +760,7 @@ export function ReplySheet({
     setSending(true);
     setSubmitFailed(false);
     setError(null);
+    setAnnouncement("");
 
     // A name is a nicety; never let it block the answers themselves.
     const trimmedName = name.trim().slice(0, MAX_DISPLAY_NAME).trim();
@@ -792,13 +805,14 @@ export function ReplySheet({
 
       setSent(true);
       setAnimateSentStamp(true);
+      setAnnouncement(text(copy.reply.sent, { deadline: deadline.inLoopZone }));
     } catch {
       setError(copy.reply.genericError);
       setSubmitFailed(true);
     } finally {
       setSending(false);
     }
-  }, [bodies, name, questions, token, writeDraft]);
+  }, [bodies, deadline.inLoopZone, name, questions, token, writeDraft]);
 
   return (
     <>
@@ -839,11 +853,14 @@ export function ReplySheet({
             onBlur={() => void saveDisplayName()}
             maxLength={MAX_DISPLAY_NAME}
             autoComplete="given-name"
+            aria-invalid={nameStatus === "error" ? "true" : undefined}
+            aria-describedby="reply-name-status"
             placeholder={copy.reply.namePlaceholder}
             disabled={sending}
             className="field mt-1.5 h-11 py-0"
           />
           <p
+            id="reply-name-status"
             aria-live="polite"
             className={`mt-1 text-[12px] leading-relaxed ${nameStatus === "error" ? "text-danger" : "text-ink-muted"}`}
           >
@@ -861,8 +878,9 @@ export function ReplySheet({
           </div>
         </section>
 
+        <p role="status" aria-live="polite" className="sr-only">{announcement}</p>
         {sent ? (
-          <div role="status" className="notice settle mt-6 flex items-start gap-3 border bg-accent-soft px-4 py-3">
+          <div className="notice settle mt-6 flex items-start gap-3 border bg-accent-soft px-4 py-3">
             <svg viewBox="0 0 20 20" aria-hidden className={`sent-stamp mt-0.5 h-4 w-4 flex-none fill-accent${animateSentStamp ? " sent-stamp-animate" : ""}`}>
               <path d="M10 1.7a8.3 8.3 0 100 16.6 8.3 8.3 0 000-16.6zm3.8 6.4l-4.4 4.7a.9.9 0 01-1.3 0L6.2 10.9a.9.9 0 111.3-1.3l1.2 1.3 3.8-4a.9.9 0 011.3 1.2z" />
             </svg>
@@ -914,6 +932,8 @@ export function ReplySheet({
                 (audioState === "uploadError" && retryableAudio[question.id]) ||
                 audioState === "removeError",
             );
+            const isRecordingHere = recording?.questionId === question.id;
+            const recordBlocked = sending || voiceBusyForCard || Boolean(recording);
             const audioStatusText = audioState === "uploading"
               ? copy.reply.voiceUploading
               : audioState === "removing"
@@ -1006,17 +1026,11 @@ export function ReplySheet({
                   {copy.reply.photoFormats}
                 </span>
               </div>
-              {photoStatusText ? (
-                <p
-                  id={`photo-status-${question.id}`}
-                  role={photoState === "uploadError" || photoState === "removeError" ? "alert" : "status"}
-                  aria-live={photoState === "uploadError" || photoState === "removeError" ? "assertive" : "polite"}
-                  aria-atomic="true"
-                  className={`mt-2 text-[13px] leading-relaxed ${photoState === "uploadError" || photoState === "removeError" ? "text-danger" : "text-ink-muted"}`}
-                >
-                  {photoStatusText}
-                </p>
-              ) : null}
+              <LiveMessage
+                id={`photo-status-${question.id}`}
+                message={photoStatusText}
+                isError={photoState === "uploadError" || photoState === "removeError"}
+              />
               {(photoState === "removeError" || (photoState === "uploadError" && retryablePhotos[question.id])) ? (
                 <button
                   type="button"
@@ -1030,64 +1044,62 @@ export function ReplySheet({
             </section>
 
             <section aria-label={copy.reply.voiceRecord} className="mt-4 border-t border-line pt-4">
-              {recording?.questionId === question.id ? (
-                <div className="flex items-center justify-between gap-3">
-                  <p className="text-[13px] font-medium text-ink numeric" role="status">
-                    {text(copy.reply.voiceRecording, { elapsed: formatAudioDuration(recordingElapsed) })}
-                  </p>
+              <div className={isRecordingHere ? "flex items-center justify-between gap-3" : "flex flex-wrap items-center gap-2"}>
+                {/* One button for Record and Stop, so keyboard focus stays where it was. */}
+                {canRecord || isRecordingHere ? (
                   <button
                     type="button"
-                    className="btn btn-primary min-h-11 px-4 text-[13px]"
-                    onClick={() => stopRecording(question.id, false)}
-                  >
-                    {copy.reply.voiceStop}
-                  </button>
-                </div>
-              ) : (
-                <div className="flex flex-wrap items-center gap-2">
-                  {canRecord ? (
-                    <button
-                      type="button"
-                      className="btn btn-quiet min-h-11 px-4 text-[13px]"
-                      onClick={() => void startRecording(question.id)}
-                      disabled={sending || voiceBusyForCard || Boolean(recording)}
-                    >
-                      {audioUrl ? copy.reply.voiceReplace : copy.reply.voiceRecord}
-                    </button>
-                  ) : null}
-                  <input
-                    id={`audio-${question.id}`}
-                    type="file"
-                    accept={AUDIO_ACCEPT}
-                    className="peer sr-only"
-                    disabled={sending || voiceBusyForCard || Boolean(recording)}
-                    onChange={(event) => {
-                      const file = event.target.files?.[0];
-                      if (file) pickAudioFile(question.id, file);
-                      event.target.value = "";
+                    className={`btn ${isRecordingHere ? "btn-primary" : "btn-quiet"} min-h-11 px-4 text-[13px] aria-disabled:cursor-not-allowed aria-disabled:opacity-45`}
+                    aria-disabled={!isRecordingHere && recordBlocked ? true : undefined}
+                    onClick={() => {
+                      if (isRecordingHere) stopRecording(question.id, false);
+                      else if (!recordBlocked) void startRecording(question.id);
                     }}
-                  />
-                  <label
-                    htmlFor={`audio-${question.id}`}
-                    className="btn btn-quiet min-h-11 px-4 text-[13px] peer-disabled:pointer-events-none peer-disabled:opacity-45 peer-focus-visible:outline peer-focus-visible:outline-3 peer-focus-visible:outline-accent-ink peer-focus-visible:outline-offset-2"
                   >
-                    {copy.reply.voicePick}
-                  </label>
-                  {showVoiceRemove ? (
-                    <button
-                      type="button"
-                      className="btn btn-quiet min-h-11 px-4 text-[13px]"
-                      onClick={() => void removeAudio(question.id)}
-                      disabled={sending || voiceBusyForCard}
+                    {isRecordingHere ? copy.reply.voiceStop : audioUrl ? copy.reply.voiceReplace : copy.reply.voiceRecord}
+                  </button>
+                ) : null}
+                {isRecordingHere ? (
+                  // Visual only: a ticking live region would be read out every second.
+                  <p className="order-first text-[13px] font-medium text-ink numeric" aria-hidden="true">
+                    {text(copy.reply.voiceRecording, { elapsed: formatAudioDuration(recordingElapsed) })}
+                  </p>
+                ) : (
+                  <>
+                    <input
+                      id={`audio-${question.id}`}
+                      type="file"
+                      accept={AUDIO_ACCEPT}
+                      className="peer sr-only"
+                      disabled={sending || voiceBusyForCard || Boolean(recording)}
+                      onChange={(event) => {
+                        const file = event.target.files?.[0];
+                        if (file) pickAudioFile(question.id, file);
+                        event.target.value = "";
+                      }}
+                    />
+                    <label
+                      htmlFor={`audio-${question.id}`}
+                      className="btn btn-quiet min-h-11 px-4 text-[13px] peer-disabled:pointer-events-none peer-disabled:opacity-45 peer-focus-visible:outline peer-focus-visible:outline-3 peer-focus-visible:outline-accent-ink peer-focus-visible:outline-offset-2"
                     >
-                      {copy.reply.voiceRemove}
-                    </button>
-                  ) : null}
-                  {!canRecord && !audioUrl ? (
-                    <span className="text-[12px] leading-relaxed text-ink-muted">{copy.reply.voiceNoRecorder}</span>
-                  ) : null}
-                </div>
-              )}
+                      {copy.reply.voicePick}
+                    </label>
+                    {showVoiceRemove ? (
+                      <button
+                        type="button"
+                        className="btn btn-quiet min-h-11 px-4 text-[13px]"
+                        onClick={() => void removeAudio(question.id)}
+                        disabled={sending || voiceBusyForCard}
+                      >
+                        {copy.reply.voiceRemove}
+                      </button>
+                    ) : null}
+                    {!canRecord && !audioUrl ? (
+                      <span className="text-[12px] leading-relaxed text-ink-muted">{copy.reply.voiceNoRecorder}</span>
+                    ) : null}
+                  </>
+                )}
+              </div>
               {(audioPreview || audioUrl) ? (
                 <audio
                   controls
@@ -1097,17 +1109,11 @@ export function ReplySheet({
                   className="mt-2 w-full"
                 />
               ) : null}
-              {audioStatusText ? (
-                <p
-                  id={`audio-status-${question.id}`}
-                  role={audioState === "uploadError" || audioState === "removeError" ? "alert" : "status"}
-                  aria-live={audioState === "uploadError" || audioState === "removeError" ? "assertive" : "polite"}
-                  aria-atomic="true"
-                  className={`mt-2 text-[13px] leading-relaxed ${audioState === "uploadError" || audioState === "removeError" ? "text-danger" : "text-ink-muted"}`}
-                >
-                  {audioStatusText}
-                </p>
-              ) : null}
+              <LiveMessage
+                id={`audio-status-${question.id}`}
+                message={audioStatusText}
+                isError={audioState === "uploadError" || audioState === "removeError"}
+              />
               {(audioState === "removeError" || (audioState === "uploadError" && retryableAudio[question.id] && !recording)) ? (
                 <button
                   type="button"
@@ -1188,11 +1194,9 @@ export function ReplySheet({
                           {saveState === "saving" ? copy.reply.sectionSaving : saveState === "saved" ? copy.reply.sectionDraftSaved : null}
                         </span>
                       </div>
-                      {sectionErrors[section.id] ? (
-                        <p role="alert" className="text-[13px] leading-relaxed text-danger">
-                          {sectionErrors[section.id]}
-                        </p>
-                      ) : null}
+                      <p role="alert" className={sectionErrors[section.id] ? "text-[13px] leading-relaxed text-danger" : undefined}>
+                        {sectionErrors[section.id]}
+                      </p>
                     </div>
                   ) : null}
 
@@ -1212,11 +1216,9 @@ export function ReplySheet({
                       <p aria-live="polite" className="mt-1 text-[12px] text-ink-muted">
                         {saveState === "saving" ? copy.reply.sectionSaving : saveState === "saved" ? copy.reply.sectionDraftSaved : null}
                       </p>
-                      {sectionErrors[section.id] ? (
-                        <p role="alert" className="text-[13px] leading-relaxed text-danger">
-                          {sectionErrors[section.id]}
-                        </p>
-                      ) : null}
+                      <p role="alert" className={sectionErrors[section.id] ? "text-[13px] leading-relaxed text-danger" : undefined}>
+                        {sectionErrors[section.id]}
+                      </p>
                     </div>
                   ) : null}
 
@@ -1250,16 +1252,12 @@ export function ReplySheet({
                           onPick={(file, caption) => void uploadSectionPhoto(section.id, section.kind, file, caption, media.length)}
                         />
                       ) : null}
-                      {sectionNotices[section.id] ? (
-                        <p aria-live="polite" className="mt-2 text-[13px] text-ink-muted">
-                          {sectionNotices[section.id]}
-                        </p>
-                      ) : null}
-                      {sectionErrors[section.id] ? (
-                        <p role="alert" className="mt-2 text-[13px] leading-relaxed text-danger">
-                          {sectionErrors[section.id]}
-                        </p>
-                      ) : null}
+                      <p role="status" aria-live="polite" className={sectionNotices[section.id] ? "mt-2 text-[13px] text-ink-muted" : undefined}>
+                        {sectionNotices[section.id]}
+                      </p>
+                      <p role="alert" className={sectionErrors[section.id] ? "mt-2 text-[13px] leading-relaxed text-danger" : undefined}>
+                        {sectionErrors[section.id]}
+                      </p>
                     </div>
                   ) : null}
                 </div>
@@ -1268,11 +1266,9 @@ export function ReplySheet({
           </section>
         ) : null}
 
-        {error ? (
-          <p role="alert" className="mt-4 text-[14px] leading-relaxed text-danger">
-            {error}
-          </p>
-        ) : null}
+        <p role="alert" className={error ? "mt-4 text-[14px] leading-relaxed text-danger" : undefined}>
+          {error}
+        </p>
 
         <p aria-live="polite" data-save-status className="mt-4 h-5 text-[13px] text-ink-muted">
           {status === "saving" ? copy.reply.saving : null}
@@ -1306,16 +1302,37 @@ export function ReplySheet({
           <span className="text-[13px] font-medium text-ink-soft numeric">
             {sent ? copy.reply.sentState : text(copy.reply.answered, { answered, total })}
           </span>
+          {/* aria-disabled, not disabled: the button the keyboard is on must not vanish mid-send. */}
           <button
             type="button"
-            onClick={onSend}
-            disabled={sending || photoBusy || audioBusy || pollBusy || (!sent && answered === 0 && !sectionAnswered)}
-            className="btn btn-primary"
+            onClick={() => {
+              if (!sendBlocked) void onSend();
+            }}
+            aria-disabled={sendBlocked ? true : undefined}
+            className="btn btn-primary aria-disabled:cursor-not-allowed aria-disabled:opacity-45"
           >
             {sending ? copy.reply.sending : sent ? copy.reply.saveChanges : copy.reply.sendAnswers}
           </button>
         </div>
       </div>
+    </>
+  );
+}
+
+/**
+ * Status text and error text each get a region that is always mounted, so the
+ * words are announced when they change rather than lost when the node appears.
+ */
+function LiveMessage({ id, message, isError }: { id: string; message: string | null | undefined; isError: boolean }) {
+  const shape = "mt-2 text-[13px] leading-relaxed";
+  return (
+    <>
+      <p id={id} role="status" aria-live="polite" aria-atomic="true" className={!isError && message ? `${shape} text-ink-muted` : undefined}>
+        {isError ? null : message}
+      </p>
+      <p id={`${id}-error`} role="alert" aria-atomic="true" className={isError && message ? `${shape} text-danger` : undefined}>
+        {isError ? message : null}
+      </p>
     </>
   );
 }

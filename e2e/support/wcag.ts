@@ -13,66 +13,123 @@ import type { Page } from "@playwright/test";
  */
 export const AXE_TAGS = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"];
 
+/**
+ * axe files these under "best-practice", outside the WCAG tags, but each one
+ * catches a real 2.4.x / 1.3.1 / 4.1.2 problem on this site, so they are enforced.
+ */
+const EXTRA_RULES = new Set([
+  "heading-order",
+  "page-has-heading-one",
+  "landmark-one-main",
+  "landmark-unique",
+  "empty-heading",
+  "skip-link",
+  "aria-dialog-name",
+  "tabindex",
+  "meta-viewport-large",
+  "region",
+]);
+
+/**
+ * 400% zoom of a 1280x1024 window: the viewport 1.4.10 asks the page to survive.
+ * Phones are wider than this, so the short height is the demanding part (fixed
+ * bars and sticky headers leave very little of it).
+ */
+export const ZOOM_400 = { width: 320, height: 256 } as const;
+
 export type Problems = string[];
 
+type AxeNode = { target: unknown[]; any: Array<{ message?: string }> };
+
+function describeNodes(nodes: AxeNode[]): string {
+  return nodes
+    .slice(0, 3)
+    .map((node) => `${node.target.join(" ")}${node.any[0]?.message ? ` [${node.any[0].message}]` : ""}`)
+    .join(" | ");
+}
+
 export async function axeProblems(page: Page, label: string): Promise<Problems> {
-  const result = await new AxeBuilder({ page }).withTags(AXE_TAGS).analyze();
-  return result.violations.map(
-    (violation) =>
-      `${label}: axe ${violation.id} (${violation.nodes.length}) — ${violation.nodes
-        .slice(0, 3)
-        .map((node) => `${node.target.join(" ")}${node.any[0]?.message ? ` [${node.any[0].message}]` : ""}`)
-        .join(" | ")}`,
-  );
+  const result = await new AxeBuilder({ page }).withTags([...AXE_TAGS, "best-practice"]).analyze();
+  const out: Problems = [];
+  for (const violation of result.violations) {
+    const wcag = violation.tags.some((tag) => AXE_TAGS.includes(tag));
+    if (!wcag && !EXTRA_RULES.has(violation.id)) continue;
+    out.push(`${label}: axe ${violation.id} (${violation.nodes.length}) — ${describeNodes(violation.nodes)}`);
+  }
+  // "Incomplete" means axe could not decide (text over an image or a gradient). For contrast
+  // that is exactly where a real failure hides, so it is not allowed to pass silently.
+  for (const incomplete of result.incomplete) {
+    if (incomplete.id !== "color-contrast") continue;
+    out.push(`${label}: axe could not verify contrast (${incomplete.nodes.length}) — ${describeNodes(incomplete.nodes)}`);
+  }
+  return out;
 }
 
 /* ----------------------------- 1.4.10 reflow ----------------------------- */
 
 /**
  * At 320 CSS pixels (1280px at 400% zoom) nothing may force the page to scroll
- * sideways. Content inside its own scroller (a tab strip, a table) is fine.
+ * sideways, and nothing may be cut off by a wrapper that hides its overflow.
+ * Content inside its own scroller (a tab strip) is fine.
  */
 export async function reflowProblems(page: Page, label: string): Promise<Problems> {
   const width = page.viewportSize()!.width;
   return (await wideElements(page)).map((name) => `${label}: reflow at ${width}px — ${name}`);
 }
 
-/** What makes the page wider than its viewport: elements poking out of it, outside any scroller of their own. */
 async function wideElements(page: Page): Promise<string[]> {
   const width = page.viewportSize()!.width;
   return page.evaluate((viewportWidth) => {
-    const scrolls = document.documentElement.scrollWidth - viewportWidth;
-    if (scrolls <= 0) return [] as string[];
     const names: string[] = [];
-    for (const el of document.body.querySelectorAll("*")) {
-      const rect = el.getBoundingClientRect();
-      if (rect.width === 0 || rect.right <= viewportWidth + 1) continue;
-      const style = getComputedStyle(el);
-      if (style.position === "fixed" || style.visibility === "hidden" || style.display === "none") continue;
-      let inScroller = false;
+    const describe = (el: Element) => {
+      const klass = typeof el.className === "string" ? el.className.trim().split(/\s+/).slice(0, 3).join(".") : "";
+      return `${el.tagName.toLowerCase()}${klass ? "." + klass : ""}`;
+    };
+    const scrolls = document.documentElement.scrollWidth - viewportWidth;
+    const inScroller = (el: Element) => {
       for (let p = el.parentElement; p && p !== document.body; p = p.parentElement) {
         const o = getComputedStyle(p);
-        if (o.overflowX !== "visible") { inScroller = true; break; }
+        if (o.overflowX === "auto" || o.overflowX === "scroll") return true;
       }
-      if (inScroller) continue;
-      const klass = typeof el.className === "string" ? el.className.trim().split(/\s+/).slice(0, 3).join(".") : "";
-      names.push(`${el.tagName.toLowerCase()}${klass ? "." + klass : ""} right=${Math.round(rect.right)} “${(el.textContent ?? "").trim().slice(0, 30)}”`);
+      return false;
+    };
+    for (const el of document.body.querySelectorAll("*")) {
+      const style = getComputedStyle(el);
+      if (style.visibility === "hidden" || style.display === "none") continue;
+      const rect = el.getBoundingClientRect();
+      if (rect.width === 0 || rect.height === 0) continue;
+      if (inScroller(el)) continue;
+      // Poking out to the right (or left) of the viewport, including from a fixed bar.
+      if (rect.right > viewportWidth + 1 || rect.left < -1) {
+        if (style.position !== "fixed" && scrolls <= 0 && rect.left >= -1) continue; // clipped away by an ancestor: reported below
+        names.push(`${describe(el)} spans ${Math.round(rect.left)}–${Math.round(rect.right)} “${(el.textContent ?? "").trim().slice(0, 30)}”`);
+      }
+      // A wrapper that hides its overflow makes whatever is cut off unreachable.
+      if ((style.overflowX === "hidden" || style.overflowX === "clip") && el.scrollWidth > el.clientWidth + 1 && (el.textContent ?? "").trim() && style.textOverflow !== "ellipsis") {
+        names.push(`${describe(el)} hides ${el.scrollWidth - el.clientWidth}px of its content`);
+      }
       if (names.length >= 4) break;
     }
-    return names.length ? names : [`page is ${scrolls}px wider than the viewport`];
+    if (!names.length && scrolls > 0) names.push(`page is ${scrolls}px wider than the viewport`);
+    return names;
   }, width);
 }
 
 /* --------------------------- 1.4.12 text spacing -------------------------- */
 
+// `:root:root:root *` outranks every `!important` rule in the stylesheet (headings, .home-title).
 const TEXT_SPACING_CSS = `
-  * { line-height: 1.5 !important; letter-spacing: 0.12em !important; word-spacing: 0.16em !important; }
-  p { margin-bottom: 2em !important; }
+  :root:root:root *, :root:root:root *::before, :root:root:root *::after {
+    line-height: 1.5 !important; letter-spacing: 0.12em !important; word-spacing: 0.16em !important;
+  }
+  :root:root:root p { margin-bottom: 2em !important; }
 `;
+
+type Clipping = { overflow: Record<string, number>; names: Record<string, string>; scrollWidth: number };
 
 /**
  * Apply the 1.4.12 override stylesheet and report text that was readable before
- * and is clipped, or pushed off the page, after.
+ * and is cut off, truncated, or pushed off the page after.
  */
 export async function textSpacingProblems(page: Page, label: string): Promise<Problems> {
   const before = await page.evaluate(measureClipping);
@@ -80,8 +137,10 @@ export async function textSpacingProblems(page: Page, label: string): Promise<Pr
   const after = await page.evaluate(measureClipping);
   const width = page.viewportSize()!.width;
   const problems: Problems = [];
-  const was = new Set(before.clipped);
-  for (const name of after.clipped) if (!was.has(name)) problems.push(`${label}: text spacing clips ${name}`);
+  for (const [id, amount] of Object.entries(after.overflow)) {
+    const was = before.overflow[id] ?? 0;
+    if (amount > was + 2) problems.push(`${label}: text spacing hides ${amount - was}px of ${after.names[id]}`);
+  }
   if (after.scrollWidth > Math.max(before.scrollWidth, width) + 1) {
     problems.push(`${label}: text spacing makes the page scroll sideways (${after.scrollWidth}px in ${width}px): ${(await wideElements(page)).join("; ")}`);
   }
@@ -89,9 +148,11 @@ export async function textSpacingProblems(page: Page, label: string): Promise<Pr
   return problems;
 }
 
-function measureClipping() {
-  const clipped: string[] = [];
-  let index = 0;
+/** How much text each clipping element cuts off, keyed by a stable id, so before/after compare the same node. */
+function measureClipping(): Clipping {
+  const overflow: Record<string, number> = {};
+  const names: Record<string, string> = {};
+  const w = window as unknown as { __clip?: number };
   for (const el of document.body.querySelectorAll("*")) {
     const style = getComputedStyle(el);
     if (style.display === "none" || style.visibility === "hidden") continue;
@@ -99,14 +160,16 @@ function measureClipping() {
     if (!hides(style.overflowX) && !hides(style.overflowY)) continue;
     const rect = el.getBoundingClientRect();
     if (rect.width <= 2 || rect.height <= 2) continue; // visually-hidden helpers
-    if (!(el.textContent ?? "").trim()) continue;
-    if (style.textOverflow === "ellipsis") continue; // truncates by design, before and after alike
-    const cut = (hides(style.overflowY) && el.scrollHeight > el.clientHeight + 1) || (hides(style.overflowX) && el.scrollWidth > el.clientWidth + 1);
-    if (!cut) continue;
+    if (!(el.textContent ?? "").trim() && !["INPUT", "TEXTAREA", "SELECT"].includes(el.tagName)) continue;
+    let id = el.getAttribute("data-ts-id");
+    if (!id) { id = String((w.__clip = (w.__clip ?? 0) + 1)); el.setAttribute("data-ts-id", id); }
+    const cutY = hides(style.overflowY) ? Math.max(0, el.scrollHeight - el.clientHeight) : 0;
+    const cutX = hides(style.overflowX) ? Math.max(0, el.scrollWidth - el.clientWidth) : 0;
+    overflow[id] = cutX + cutY;
     const klass = typeof el.className === "string" ? el.className.trim().split(/\s+/).slice(0, 3).join(".") : "";
-    clipped.push(`${el.tagName.toLowerCase()}${klass ? "." + klass : ""}#${index++} “${(el.textContent ?? "").trim().slice(0, 40)}”`);
+    names[id] = `${el.tagName.toLowerCase()}${klass ? "." + klass : ""} “${(el.textContent ?? "").trim().slice(0, 40)}”`;
   }
-  return { clipped: clipped.map((name) => name.replace(/#\d+/, "")), scrollWidth: document.documentElement.scrollWidth };
+  return { overflow, names, scrollWidth: document.documentElement.scrollWidth };
 }
 
 /* ------------------------------ keyboard sweep ---------------------------- */
@@ -123,37 +186,62 @@ type Stop = {
   focused: string | null;
 };
 
+/**
+ * Put the sequential-focus starting point back at the top of the document. A mouse
+ * click (the theme toggle) moves it, and `blur()` does not: without this, the first
+ * Tab after a click leaves the document and the sweep would visit nothing and pass.
+ */
+async function resetTabStart(page: Page) {
+  await page.evaluate(() => {
+    (document.activeElement as HTMLElement | null)?.blur();
+    window.scrollTo(0, 0);
+    // An open modal dialog owns Tab: start inside it instead of at the page.
+    const modal = document.querySelector("dialog[open]");
+    const anchor = document.createElement("div");
+    anchor.tabIndex = -1;
+    (modal ?? document.body).insertBefore(anchor, (modal ?? document.body).firstChild);
+    anchor.focus();
+    anchor.remove();
+  });
+}
+
 /** Tab through the whole page once, recording what each stop looks like. */
 async function collectStops(page: Page, max: number): Promise<{ stops: Stop[]; problems: Problems }> {
   const problems: Problems = [];
   const stops: Stop[] = [];
-  await page.evaluate(() => {
-    (document.activeElement as HTMLElement | null)?.blur();
-    window.scrollTo(0, 0);
-  });
+  await resetTabStart(page);
   const seen = new Set<number>();
   let repeats = 0;
+  let wrapped = false;
   for (let i = 0; i < max; i += 1) {
     await page.keyboard.press("Tab");
     const info = await page.evaluate(describeFocus);
-    if (!info) break; // focus left the document: one full cycle
+    if (!info) { wrapped = true; break; } // focus left the document: one full cycle
     if (stops.length > 0 && stops[stops.length - 1].index === info.index) {
       // <audio controls> keeps document.activeElement on itself while Tab walks its
       // internal buttons, so only a long unbroken run on one element is a trap.
       repeats += 1;
       if (repeats > 12) {
         problems.push(`keyboard trap: Tab stays on ${info.name}`);
+        wrapped = true;
         break;
       }
       continue;
     }
     repeats = 0;
-    if (seen.has(info.index)) break; // wrapped around to the start
+    if (seen.has(info.index)) {
+      // Back at the first stop is the cycle closing; anywhere else is a loop that never reaches the end.
+      if (info.index !== stops[0].index) problems.push(`keyboard trap: focus loops back to ${info.name} without reaching the end of the page`);
+      wrapped = true;
+      break;
+    }
     seen.add(info.index);
     const stop: Stop = { ...info, focused: null };
     if (stop.clip) stop.focused = (await page.screenshot({ clip: stop.clip })).toString("base64");
     stops.push(stop);
   }
+  if (!wrapped) problems.push(`keyboard sweep stopped at its ${max}-stop cap before the end of the page; later controls were not checked`);
+  if (stops.length === 0) problems.push("Tab reached nothing (the sweep would otherwise pass vacuously)");
   return { stops, problems };
 }
 
@@ -166,18 +254,35 @@ function describeFocus() {
   if (!marked) el.setAttribute("data-a11y-stop", String(index));
 
   const klass = typeof el.className === "string" ? el.className.trim().split(/\s+/).slice(0, 3).join(".") : "";
-  const label = (el.getAttribute("aria-label") ?? el.textContent ?? (el as HTMLInputElement).name ?? "").trim().replace(/\s+/g, " ").slice(0, 32);
+  const label = (
+    el.getAttribute("aria-label") ||
+    (el as HTMLInputElement).labels?.[0]?.textContent ||
+    el.textContent ||
+    (el as HTMLInputElement).name ||
+    (el as HTMLInputElement).placeholder ||
+    ""
+  ).trim().replace(/\s+/g, " ").slice(0, 32);
   const name = `${el.tagName.toLowerCase()}${klass ? "." + klass : ""} “${label}”`;
 
   const own = el.getBoundingClientRect();
   const hidden = own.width < 4 || own.height < 4;
-  // A visually hidden control (a radio inside a styled label) shows its focus on a
-  // wrapper, so measure the nearest wrapper that is actually drawn.
+  // A visually hidden control (a radio inside a styled label) shows its focus on its
+  // label or a sibling, so measure that, not an arbitrary ancestor.
   let target: Element = el;
   if (hidden) {
-    for (let p: Element | null = el.parentElement; p && p !== document.body; p = p.parentElement) {
-      const r = p.getBoundingClientRect();
-      if (r.width >= 24 && r.height >= 24) { target = p; break; }
+    const labelled = (el as HTMLInputElement).labels?.[0];
+    const sibling = el.nextElementSibling;
+    const pick = [labelled, sibling].find((candidate) => {
+      if (!candidate) return false;
+      const r = candidate.getBoundingClientRect();
+      return r.width >= 24 && r.height >= 24;
+    });
+    if (pick) target = pick;
+    else {
+      for (let p: Element | null = el.parentElement; p && p !== document.body; p = p.parentElement) {
+        const r = p.getBoundingClientRect();
+        if (r.width >= 24 && r.height >= 24) { target = p; break; }
+      }
     }
   }
   const rect = target.getBoundingClientRect();
@@ -195,14 +300,18 @@ function describeFocus() {
 
   // 2.4.11: the focused control must not be hidden by fixed or sticky content.
   let covered: string | null = null;
-  if (!hidden && !offscreen) {
+  if (!offscreen) {
+    const probe = hidden ? target : el;
+    const pr = probe.getBoundingClientRect();
+    const pw = Math.min(pr.right, vw) - Math.max(pr.left, 0);
+    const ph = Math.min(pr.bottom, vh) - Math.max(pr.top, 0);
     const px = [0.5, 0.15, 0.85];
     const samples: Array<[number, number]> = [];
     for (const fx of px) for (const fy of px) {
-      samples.push([Math.max(rect.left, 0) + visibleW * fx, Math.max(rect.top, 0) + visibleH * fy]);
+      samples.push([Math.max(pr.left, 0) + pw * fx, Math.max(pr.top, 0) + ph * fy]);
     }
     const tops = samples.map(([sx, sy]) => document.elementFromPoint(sx, sy));
-    const allCovered = tops.every((top) => top && top !== el && !el.contains(top) && !top.contains(el));
+    const allCovered = tops.every((top) => top && top !== probe && !probe.contains(top) && !top.contains(probe) && !(top as HTMLElement).contains(el));
     if (allCovered) {
       const t = tops[0] as HTMLElement;
       covered = `${t.tagName.toLowerCase()}${typeof t.className === "string" && t.className ? "." + t.className.trim().split(/\s+/).slice(0, 2).join(".") : ""}`;
@@ -212,9 +321,10 @@ function describeFocus() {
 }
 
 /**
- * Decode two screenshots in the browser and count the pixels the focus state
- * changed that stand out by 3:1, either against what they replaced or against the
- * surrounding page (the clip's outer ring), which is what WCAG calls "adjacent colours".
+ * Decode two screenshots in the browser and count the pixels the focus state changed
+ * that read as an indicator: either 3:1 against the pixel they replaced, or (for a pixel
+ * that was plain background) 3:1 against that surrounding background. A text pixel that
+ * merely darkened does not count, which is why "was background" is required for the second route.
  */
 async function changedPixels(helper: Page, focused: string, unfocused: string): Promise<{ strong: number; changed: number }> {
   return helper.evaluate(async ([a, b]) => {
@@ -251,10 +361,16 @@ async function changedPixels(helper: Page, focused: string, unfocused: string): 
       changed += 1;
       const l1 = lum(fa.data[i], fa.data[i + 1], fa.data[i + 2]);
       const l2 = lum(fb.data[i], fb.data[i + 1], fb.data[i + 2]);
-      if (ratio(l1, l2) >= 3 || ratio(l1, around) >= 3) strong += 1;
+      const wasBackground = ratio(l2, around) < 1.25;
+      if (ratio(l1, l2) >= 3 || (wasBackground && ratio(l1, around) >= 3)) strong += 1;
     }
     return { strong, changed };
   }, [focused, unfocused] as const);
+}
+
+/** A ring is a band around the control, so it needs at least a short side's worth of strong pixels. */
+function enoughPixels(strong: number, clip: { width: number; height: number }): boolean {
+  return strong >= Math.max(12, Math.min(clip.width, clip.height));
 }
 
 /**
@@ -279,7 +395,7 @@ export async function focusedProblems(page: Page, label: string): Promise<Proble
     await page.evaluate((index) => (document.querySelector(`[data-a11y-stop="${index}"]`) as HTMLElement | null)?.focus(), stop.index);
     const { strong, changed } = await changedPixels(helper, focused, plain);
     if (changed === 0) out.push(`${label}: no visible focus indicator on ${stop.name}`);
-    else if (strong < 12) out.push(`${label}: focus indicator is below 3:1 on ${stop.name} (${strong}/${changed} px)`);
+    else if (!enoughPixels(strong, stop.clip)) out.push(`${label}: focus indicator is below 3:1 on ${stop.name} (${strong}/${changed} px)`);
     return out;
   } finally {
     await helper.close();
@@ -300,7 +416,7 @@ export async function openAllDetails(page: Page): Promise<number> {
  * (1.4.11) one that differs from the unfocused control by at least 3:1, and
  * (2.4.11) not be covered by other content.
  */
-export async function keyboardProblems(page: Page, label: string, max = 160): Promise<Problems> {
+export async function keyboardProblems(page: Page, label: string, max = 200): Promise<Problems> {
   const helper = await page.context().newPage();
   try {
     const { stops, problems } = await collectStops(page, max);
@@ -315,7 +431,7 @@ export async function keyboardProblems(page: Page, label: string, max = 160): Pr
       }, [stop.scrollX, stop.scrollY] as const);
       const unfocused = (await page.screenshot({ clip: stop.clip })).toString("base64");
       const { strong, changed } = await changedPixels(helper, stop.focused, unfocused);
-      const bad = changed === 0 ? "no visible focus indicator on" : strong < 12 ? "focus indicator is below 3:1 on" : null;
+      const bad = changed === 0 ? "no visible focus indicator on" : !enoughPixels(strong, stop.clip) ? "focus indicator is below 3:1 on" : null;
       if (bad) {
         out.push(`${label}: ${bad} ${stop.name}${changed ? ` (${strong}/${changed} px)` : ""}`);
         const dir = process.env.WCAG_DEBUG_DIR;

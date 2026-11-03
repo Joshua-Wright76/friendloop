@@ -27,7 +27,7 @@ export default function CheckEmailPage() {
             {emailIsCaptured()
               ? copy.checkEmail.previewCaptured
               : copy.checkEmail.previewLogged}
-            <a href="/dev/outbox" className="font-medium text-accent underline underline-offset-2">
+            <a href="/dev/outbox" className="font-medium text-accent-ink underline underline-offset-2">
               {copy.checkEmail.openOutbox}
             </a>
             .
@@ -36,7 +36,7 @@ export default function CheckEmailPage() {
 
         <p className="mt-4 text-[13px] leading-relaxed text-ink-muted">
           {copy.checkEmail.nothingArrived}{" "}
-          <Link href="/signin" className="font-medium text-accent underline decoration-accent/30 underline-offset-4">
+          <Link href="/signin" className="font-medium text-accent-ink underline decoration-accent/30 underline-offset-4">
             {copy.checkEmail.tryAgain}
           </Link>
           .

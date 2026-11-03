@@ -8,6 +8,7 @@ import {
   PRESET_PAPERS,
   THEME_COLORS,
   THEME_PRESET_KEYS,
+  busiestPage,
   contrastRatio,
   cssVars,
   deriveAccent,
@@ -65,6 +66,7 @@ test("no theme and Gingham with no accent are the stylesheet itself", () => {
   assert.equal(emailPalette({ preset: null, accent: null }), GINGHAM_EMAIL);
 });
 
+
 /** Every pairing the interface actually draws, per scheme. */
 function assertReadable(tokens: SchemeTokens, label: string) {
   const text = (fg: string, bg: string, min = 4.5) =>
@@ -82,6 +84,12 @@ function assertReadable(tokens: SchemeTokens, label: string) {
   text(tokens.inkSoft, tokens.field);
   text(tokens.inkMuted, tokens.field);
   text(tokens.accentInk, tokens.field);
+  // Text drawn straight on the page sits over the gingham check, at its busiest where the stripes cross.
+  const busiest = busiestPage(tokens.page, tokens.check);
+  text(tokens.ink, busiest, 7);
+  text(tokens.inkSoft, busiest);
+  text(tokens.inkMuted, busiest);
+  text(tokens.accentInk, busiest);
   text(tokens.onAccent, tokens.accent);
   text(tokens.accentInk, tokens.card);
   text(tokens.accentInk, tokens.page);

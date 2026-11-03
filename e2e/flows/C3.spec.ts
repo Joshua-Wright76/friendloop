@@ -16,7 +16,8 @@ test("C3 · archiving removes it from the pool but past rounds keep the wording"
   await signIn(page, "owner@friendloop.test");
 
   await page.goto(`/g/${loop.groupId}/questions`);
-  await page.getByRole("button", { name: "Archive" }).first().click();
+  await page.getByRole("button", { name: /^Archive/ }).first().click();
+  await page.getByRole("button", { name: /^Yes, archive/ }).click(); // archiving asks first
   await expect(page.getByText(/Archived/)).toBeVisible();
 
   const active = await rows<{ text: string }>(

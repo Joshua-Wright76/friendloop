@@ -125,10 +125,21 @@ export function AlbumGallery({ groups }: { groups: GalleryGroup[] }) {
             </div>
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="flex gap-2">
-                <button type="button" className="btn btn-quiet" disabled={(current ?? 0) === 0} onClick={() => step(-1)}>
+                {/* aria-disabled, not disabled, at the ends: a focused disabled button drops focus to the page behind. */}
+                <button
+                  type="button"
+                  className="btn btn-quiet aria-disabled:cursor-not-allowed aria-disabled:opacity-45"
+                  aria-disabled={(current ?? 0) === 0 ? true : undefined}
+                  onClick={() => step(-1)}
+                >
                   ← <span className="sr-only">{copy.album.viewer.previous}</span>
                 </button>
-                <button type="button" className="btn btn-quiet" disabled={(current ?? 0) >= photos.length - 1} onClick={() => step(1)}>
+                <button
+                  type="button"
+                  className="btn btn-quiet aria-disabled:cursor-not-allowed aria-disabled:opacity-45"
+                  aria-disabled={(current ?? 0) >= photos.length - 1 ? true : undefined}
+                  onClick={() => step(1)}
+                >
                   <span className="sr-only">{copy.album.viewer.next}</span> →
                 </button>
               </div>

@@ -58,7 +58,7 @@ export const PRESET_PAPERS: Record<string, PresetPaper> = {
     light: {
       page: "#eef3fb", check: "rgb(90 130 210 / 0.14)", card: "#fcfdff", line: "#d8e2f2",
       lineStrong: "#b8c9e6", controlLine: "#5f7396", field: "#f5f8fe", rule: "#d6e3f4",
-      margin: "#9fb6e8", ink: "#22304a", inkSoft: "#44536e", inkMuted: "#5e6d88",
+      margin: "#9fb6e8", ink: "#22304a", inkSoft: "#44536e", inkMuted: "#4f5c72",
       tape: "#a9c2f0",
     },
     dark: {
@@ -74,7 +74,7 @@ export const PRESET_PAPERS: Record<string, PresetPaper> = {
     light: {
       page: "#f0f6ec", check: "rgb(90 160 100 / 0.14)", card: "#fdfffb", line: "#dbe8d3",
       lineStrong: "#bdd4b0", controlLine: "#5f7a5a", field: "#f6faf3", rule: "#d6e6d2",
-      margin: "#a6cf9d", ink: "#26382b", inkSoft: "#46594a", inkMuted: "#5d7160",
+      margin: "#a6cf9d", ink: "#26382b", inkSoft: "#46594a", inkMuted: "#516254",
       tape: "#b4dcab",
     },
     dark: {
@@ -90,7 +90,7 @@ export const PRESET_PAPERS: Record<string, PresetPaper> = {
     light: {
       page: "#fff3e0", check: "rgb(235 150 60 / 0.15)", card: "#fffcf5", line: "#f1e0c2",
       lineStrong: "#e3c999", controlLine: "#8f6a3a", field: "#fff8ec", rule: "#f1e2c0",
-      margin: "#f0b06a", ink: "#3f2d17", inkSoft: "#665035", inkMuted: "#7d6644",
+      margin: "#f0b06a", ink: "#3f2d17", inkSoft: "#665035", inkMuted: "#725d3e",
       tape: "#f6c37e",
     },
     dark: {
@@ -106,7 +106,7 @@ export const PRESET_PAPERS: Record<string, PresetPaper> = {
     light: {
       page: "#f5f0fb", check: "rgb(150 100 220 / 0.13)", card: "#fefcff", line: "#e5dbf3",
       lineStrong: "#cebce8", controlLine: "#77608f", field: "#faf6fe", rule: "#e2d9f2",
-      margin: "#c4a4ec", ink: "#33284a", inkSoft: "#554768", inkMuted: "#6c5e80",
+      margin: "#c4a4ec", ink: "#33284a", inkSoft: "#554768", inkMuted: "#615573",
       tape: "#d2b8f2",
     },
     dark: {
@@ -127,8 +127,8 @@ export function isPresetKey(value: unknown): value is string {
 
 /** The surfaces accent colours are checked against, per scheme. Gingham's own. */
 const GINGHAM_SURFACES = {
-  light: { page: "#fff3f5", card: "#fffdfa" },
-  dark: { page: "#241a20", card: "#30242a" },
+  light: { page: "#fff3f5", card: "#fffdfa", busiest: "#fad0da" },
+  dark: { page: "#241a20", card: "#30242a", busiest: "#422933" },
 } as const;
 
 /* ---------------------------- colour maths ---------------------------- */
@@ -164,6 +164,25 @@ function luminance(hex: string): number {
 export function contrastRatio(a: string, b: string): number {
   const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x);
   return (hi + 0.05) / (lo + 0.05);
+}
+
+/**
+ * The page is a gingham: two translucent stripe layers, so where the stripes cross the
+ * background is the page blended with the check colour twice. That is the worst
+ * background any text drawn straight on the page can land on, and axe cannot see it
+ * (it cannot read gradients), so contrast is checked against it here.
+ */
+export function busiestPage(page: string, check: string): string {
+  const parts = check.match(/[\d.]+/g)?.map(Number) ?? [];
+  if (parts.length < 3) return page;
+  const [cr, cg, cb] = parts;
+  const a = parts[3] ?? 1;
+  const base = toRgb(page);
+  const mixed = [cr, cg, cb].map((channel, i) => {
+    const once = base[i] * (1 - a) + channel * a;
+    return once * (1 - a) + channel * a;
+  }) as [number, number, number];
+  return fromRgb(mixed);
 }
 
 function toHsl(hex: string): [number, number, number] {
@@ -207,7 +226,7 @@ function walk(h: number, s: number, from: number, direction: 1 | -1, ok: (hex: s
 export function deriveAccent(
   hex: string,
   scheme: ThemeName,
-  surfaces: { page: string; card: string; inkSoft?: string; inkMuted?: string } = GINGHAM_SURFACES[scheme],
+  surfaces: { page: string; card: string; busiest?: string; inkSoft?: string; inkMuted?: string } = GINGHAM_SURFACES[scheme],
 ): AccentTokens & { adjusted: boolean } {
   const [h, s0, l0] = toHsl(normalizeHex(hex) as string);
   const s = clamp(s0, 0.3, 0.9);
@@ -226,7 +245,8 @@ export function deriveAccent(
     const accentSoft = walk(h, softHue, 0.93, 1, textFits);
     const accentLine = fromHsl(h, clamp(s, 0.35, 0.8), 0.79);
     const accentInk = walk(h, s, toHsl(accent)[2], -1, (c) =>
-      contrastRatio(c, accentSoft) >= 4.5 && contrastRatio(c, surfaces.card) >= 4.5 && contrastRatio(c, surfaces.page) >= 4.5,
+      contrastRatio(c, accentSoft) >= 4.5 && contrastRatio(c, surfaces.card) >= 4.5 && contrastRatio(c, surfaces.page) >= 4.5 &&
+      (!surfaces.busiest || contrastRatio(c, surfaces.busiest) >= 4.5),
     );
     return { accent, accentInk, onAccent, accentDeep: accentInk, accentSoft, accentLine, adjusted: accent !== normalizeHex(hex) };
   }
@@ -241,7 +261,8 @@ export function deriveAccent(
   const accentSoft = walk(h, softSat, 0.2, -1, textFits);
   const accentLine = fromHsl(h, clamp(s, 0.2, 0.5), 0.33);
   const accentInk = walk(h, s, toHsl(accent)[2], 1, (c) =>
-    contrastRatio(c, accentSoft) >= 4.5 && contrastRatio(c, surfaces.card) >= 4.5 && contrastRatio(c, surfaces.page) >= 4.5,
+    contrastRatio(c, accentSoft) >= 4.5 && contrastRatio(c, surfaces.card) >= 4.5 && contrastRatio(c, surfaces.page) >= 4.5 &&
+    (!surfaces.busiest || contrastRatio(c, surfaces.busiest) >= 4.5),
   );
   const accentDeep = fromHsl(h, clamp(s, 0.3, 0.7), clamp(toHsl(accent)[2] - 0.15, 0.3, 0.7));
   return { accent, accentInk, onAccent, accentDeep, accentSoft, accentLine, adjusted: accent !== normalizeHex(hex) };
@@ -269,7 +290,7 @@ const GINGHAM_PAPER: PresetPaper = {
   light: {
     page: "#fff3f5", check: "rgb(236 118 148 / 0.15)", card: "#fffdfa", line: "#f1dae0",
     lineStrong: "#e4bcc6", controlLine: "#9c6675", field: "#fff8f8", rule: "#d6e3f4",
-    margin: "#f3a3b4", ink: "#3d2a30", inkSoft: "#674d55", inkMuted: "#7d5f68",
+    margin: "#f3a3b4", ink: "#3d2a30", inkSoft: "#674d55", inkMuted: "#735760",
     tape: "#f6a6ba",
   },
   dark: {
@@ -305,8 +326,8 @@ export function resolveTheme(settings: ThemeSettings): ResolvedTheme | null {
   const paper = key === DEFAULT_PRESET ? GINGHAM_PAPER : PRESET_PAPERS[key];
   const seed = normalizeHex(settings.accent) ?? paper.accent;
 
-  const light = deriveAccent(seed, "light", { page: paper.light.page, card: paper.light.card, inkSoft: paper.light.inkSoft, inkMuted: paper.light.inkMuted });
-  const dark = deriveAccent(seed, "dark", { page: paper.dark.page, card: paper.dark.card, inkSoft: paper.dark.inkSoft, inkMuted: paper.dark.inkMuted });
+  const light = deriveAccent(seed, "light", { page: paper.light.page, card: paper.light.card, busiest: busiestPage(paper.light.page, paper.light.check), inkSoft: paper.light.inkSoft, inkMuted: paper.light.inkMuted });
+  const dark = deriveAccent(seed, "dark", { page: paper.dark.page, card: paper.dark.card, busiest: busiestPage(paper.dark.page, paper.dark.check), inkSoft: paper.dark.inkSoft, inkMuted: paper.dark.inkMuted });
 
   // Every accent, a preset's own seed or the owner's pick, goes through the same
   // derivation, so the readability guarantees are one code path.
@@ -417,7 +438,7 @@ export const GINGHAM_EMAIL: EmailPalette = {
   lineStrong: "#e4bcc6",
   ink: "#3d2a30",
   soft: "#674d55",
-  muted: "#86676f",
+  muted: "#735760",
   accent: "#cc3456",
   onAccent: "#ffffff",
   tape: "#f6a6ba",

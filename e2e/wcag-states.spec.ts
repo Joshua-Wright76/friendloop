@@ -1,7 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { UI_PREVIEW } from "@/lib/ui-preview";
 import { resetDatabase } from "./support/db";
-import { axeProblems, focusedProblems, keyboardProblems, openAllDetails, reflowProblems, type Problems } from "./support/wcag";
+import { ZOOM_400, axeProblems, focusedProblems, keyboardProblems, openAllDetails, reflowProblems, textSpacingProblems, type Problems } from "./support/wcag";
 
 /**
  * WCAG 2.2 AA in the states a plain page load never reaches: an open dialog, a
@@ -16,7 +16,7 @@ test.use({ reducedMotion: "reduce" });
 
 const VIEWPORTS = [
   { name: "desktop", width: 1280, height: 800 },
-  { name: "320px", width: 320, height: 640 },
+  { name: "320px", ...ZOOM_400 },
 ] as const;
 
 async function enterPreview(page: Page) {
@@ -57,7 +57,12 @@ test("WCAG AA states · the feedback dialog", async ({ page }) => {
     await page.getByRole("button", { name: "Send feedback" }).click();
     const dialog = page.getByRole("dialog");
     await expect(dialog).toBeVisible();
-    const out = [...(await axeProblems(page, `feedback ${label}`)), ...(await keyboardProblems(page, `feedback ${label}`))];
+    const out = [
+      ...(await axeProblems(page, `feedback ${label}`)),
+      ...(await keyboardProblems(page, `feedback ${label}`)),
+      ...(await textSpacingProblems(page, `feedback ${label}`)),
+      ...(await reflowProblems(page, `feedback ${label}`)),
+    ];
     await page.keyboard.press("Escape");
     await expect(dialog).toBeHidden();
     // Closing returns focus to the button that opened it.
@@ -82,6 +87,8 @@ test("WCAG AA states · every step of the new-loop wizard, and its validation er
       await expect(page.getByRole("progressbar", { name: "Loop setup progress" })).toHaveAttribute("aria-valuenow", String(step));
       out.push(...(await axeProblems(page, `wizard step ${step} ${label}`)));
       out.push(...(await keyboardProblems(page, `wizard step ${step} ${label}`)));
+      out.push(...(await textSpacingProblems(page, `wizard step ${step} ${label}`)));
+      out.push(...(await reflowProblems(page, `wizard step ${step} ${label}`)));
       if (step === 5) break;
       await page.getByRole("button", { name: NEXT }).click();
     }
@@ -140,7 +147,7 @@ test("WCAG AA states · the album viewer, keyboard only", async ({ page }) => {
   await enterPreview(page);
   const problems = await everywhere(page, `/g/${P.groupId}/album`, async (label) => {
     const tile = page.getByRole("button", { name: /^Open photo from/ }).first();
-    if (!(await tile.count())) return [];
+    await expect(tile, "the album has no photo to open").toBeVisible();
     await tile.focus();
     await page.keyboard.press("Enter");
     const viewer = page.getByRole("dialog", { name: "Photo viewer" });

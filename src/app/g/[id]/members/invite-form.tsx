@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useTransition, type FormEvent, type KeyboardEvent } from "react";
+import { useId, useState, useTransition, type FormEvent, type KeyboardEvent } from "react";
 import { useRouter } from "next/navigation";
 import { copy, text } from "@/lib/copy";
+import { FieldLabel } from "@/components/field-label";
 import { inviteAction } from "./actions";
 
 const validEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -11,16 +12,21 @@ export function InviteForm({ groupId }: { groupId: string }) {
   const router = useRouter();
   const [emails, setEmails] = useState<string[]>([]);
   const [input, setInput] = useState("");
-  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+  const [status, setStatus] = useState("");
+  const inputId = useId();
+  const hintId = useId();
+  const errorId = useId();
   const [pending, startTransition] = useTransition();
 
   function add(raw: string) {
     const parsed = raw.split(/[\s,;]+/).map((email) => email.trim().toLowerCase()).filter(Boolean);
     if (parsed.some((email) => !validEmail.test(email))) {
-      setMessage(copy.members.invalidEmails);
+      setStatus("");
+      setError(copy.members.invalidEmails);
       return;
     }
-    if (parsed.length) setMessage("");
+    if (parsed.length) setError("");
     setEmails((current) => [...new Set([...current, ...parsed])]);
     setInput("");
   }
@@ -41,7 +47,8 @@ export function InviteForm({ groupId }: { groupId: string }) {
       ? [...new Set([...emails, ...input.split(/[\s,;]+/).map((email) => email.trim().toLowerCase()).filter((email) => validEmail.test(email))])]
       : emails;
     if (!pendingEmails.length || input.trim().split(/[\s,;]+/).some((email) => email && !validEmail.test(email))) {
-      setMessage(copy.members.invalidEmails);
+      setStatus("");
+      setError(copy.members.invalidEmails);
       return;
     }
     startTransition(async () => {
@@ -49,10 +56,13 @@ export function InviteForm({ groupId }: { groupId: string }) {
       data.set("groupId", groupId);
       pendingEmails.forEach((email) => data.append("emails", email));
       const result = await inviteAction(data);
-      if (!result.ok) setMessage(result.message === "invalid" ? copy.members.invalidEmails : copy.members.inviteFailed);
-      else {
+      if (!result.ok) {
+        setStatus("");
+        setError(result.message === "invalid" ? copy.members.invalidEmails : copy.members.inviteFailed);
+      } else {
         setEmails([]);
-        setMessage(
+        setError("");
+        setStatus(
           result.invited > 0 && result.skipped > 0
             ? text(copy.members.invitePartial, { invited: result.invited, skipped: result.skipped })
             : result.skipped > 0
@@ -68,8 +78,9 @@ export function InviteForm({ groupId }: { groupId: string }) {
     <form onSubmit={submit} id="invite-people" className="card mt-5 p-5">
       <input type="hidden" name="groupId" value={groupId} />
       <h2 className="text-[16px] font-semibold tracking-[-0.01em] text-ink">{copy.members.inviteTitle}</h2>
-      <p className="mt-1 text-[13px] leading-relaxed text-ink-soft">{copy.members.inviteDescription}</p>
-      <div className="field mt-3 flex min-h-12 flex-wrap items-center gap-2" onClick={(event) => event.currentTarget.querySelector("input")?.focus()}>
+      <p id={hintId} className="mt-1 text-[13px] leading-relaxed text-ink-soft">{copy.members.inviteDescription}</p>
+      <label htmlFor={inputId} className="mt-3 block"><FieldLabel required>{copy.members.inviteAriaLabel}</FieldLabel></label>
+      <div className="field mt-1.5 flex min-h-12 flex-wrap items-center gap-2" onClick={(event) => event.currentTarget.querySelector("input")?.focus()}>
         {emails.map((email) => (
           <span key={email} className="inline-flex items-center gap-1 rounded-full border border-line bg-card px-2.5 py-1 text-[13px] text-ink">
             {email}
@@ -77,17 +88,21 @@ export function InviteForm({ groupId }: { groupId: string }) {
           </span>
         ))}
         <input
+          id={inputId}
           value={input}
           onChange={(event) => setInput(event.target.value)}
           onKeyDown={onKeyDown}
           onBlur={() => { if (input.trim()) add(input); }}
           placeholder={copy.members.invitePlaceholder}
-          aria-label={copy.members.inviteAriaLabel}
+          aria-required="true"
+          aria-invalid={Boolean(error)}
+          aria-describedby={error ? `${hintId} ${errorId}` : hintId}
           disabled={pending}
           className="min-w-[180px] flex-1 border-0 bg-transparent p-1 text-[14px] text-ink outline-none"
         />
       </div>
-      {message ? <p role="status" className={`mt-2 text-[13px] ${message === copy.members.inviteFailed || message === copy.members.invalidEmails ? "text-danger" : "text-ink-soft"}`}>{message}</p> : null}
+      {error ? <p id={errorId} role="alert" className="mt-2 text-[13px] text-danger">{error}</p> : null}
+      <p role="status" className="mt-2 text-[13px] text-ink-soft empty:mt-0">{status}</p>
       <button type="submit" disabled={pending} className="btn btn-primary mt-4 disabled:opacity-60">{pending ? copy.common.loading : copy.members.sendInvitations}</button>
     </form>
   );

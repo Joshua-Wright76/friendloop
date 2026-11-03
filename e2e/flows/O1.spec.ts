@@ -57,6 +57,7 @@ test("O1 · the owner adds a birthday and a one-time event and sees them coming 
   await expect(items.nth(1)).toContainText("The big housewarming");
 
   await items.nth(1).getByRole("button", { name: "Remove The big housewarming" }).click();
+  await items.nth(1).getByRole("button", { name: /^Yes, remove/ }).click(); // removing asks first
   await expect(page.getByText("Event removed.")).toBeVisible();
   await expect(items).toHaveCount(1);
 

@@ -14,6 +14,7 @@ export function MemberRolePicker({ groupId, membershipId, memberName, current }:
   const [access, setAccess] = useState<Access>(current);
   const [message, setMessage] = useState("");
   const [pending, startTransition] = useTransition();
+  const failed = message === copy.members.roleError;
   const options: PickerOption[] = [
     { value: "member", label: copy.common.roles.member },
     { value: "admin", label: copy.common.roles.admin },
@@ -58,8 +59,13 @@ export function MemberRolePicker({ groupId, membershipId, memberName, current }:
           disabled={pending}
         />
       </div>
-      {pending ? <span className="ml-2 text-[11px] text-ink-muted" role="status">{copy.members.roleSaving}</span> : null}
-      {message ? <span className={`ml-2 text-[11px] ${message === copy.members.roleError ? "text-danger" : "text-ink-muted"}`} role="status">{message}</span> : null}
+      {/* Both regions stay mounted so a change of text is announced; a node that appears with its text often is not. */}
+      <span role="status" aria-live="polite" className={pending || (message && !failed) ? "ml-2 text-[11px] text-ink-muted" : undefined}>
+        {pending ? copy.members.roleSaving : failed ? "" : message}
+      </span>
+      <span role="alert" className={failed ? "ml-2 text-[11px] text-danger" : undefined}>
+        {failed ? message : ""}
+      </span>
     </div>
   );
 }

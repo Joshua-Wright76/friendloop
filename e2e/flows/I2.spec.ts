@@ -36,7 +36,7 @@ test("I2 · the owner accepts with an edit, or turns a suggestion down", async (
   await expect(page.getByText("anonymous")).toBeVisible();
 
   // Accept Alice's with a small edit: the edited text joins the pool.
-  const field = page.getByLabel("Suggested question", { exact: true }).first();
+  const field = page.getByLabel(/^Suggested question/).first();
   await field.fill("Who taught the dog to open doors, and when?");
   await page.getByRole("button", { name: "Add to pool" }).first().click();
 
