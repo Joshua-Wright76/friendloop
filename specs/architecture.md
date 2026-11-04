@@ -301,3 +301,43 @@ the page), and the view is loaded as no one in particular so authors are named, 
 light scheme on white), so html's dark tokens and a loop's dark scheme can never leak
 into it; `@media print` hides the app chrome and controls page breaks. Nothing here
 calls `window.print()` except an explicit click.
+
+
+## 20 · Security headers are static; the CSP trades nonces for the static shell
+
+Every response carries the headers built in `src/lib/security-headers.ts` and wired
+through `next.config.ts` `headers()`: a Content-Security-Policy, `nosniff`,
+`X-Frame-Options: DENY` (with `frame-ancestors 'none'`), a Permissions-Policy that
+keeps the microphone for this origin (voice notes) and denies the camera and the
+rest, and HSTS on production only. They are not set per request in `proxy.ts`.
+
+The CSP has no nonce, on purpose. A nonce must be minted per request, which forces
+every page to render dynamically, and Next's CSP guide calls that incompatible with
+Partial Prerendering — the Cache Components shells and partial prefetches that keep
+loop navigation inside its budget. Hashes cannot stand in either: Next streams
+flight data as inline scripts that differ per page, and listing any hash makes
+browsers ignore `'unsafe-inline'`. So `script-src` is `'self' 'unsafe-inline'`
+(plus `'unsafe-eval'` in development and `vercel.live` on previews), and the policy
+does its work in the directives that do not depend on inline script: `object-src
+'none'`, `base-uri 'self'`, `form-action 'self'`, `frame-ancestors 'none'`, media
+limited to this origin and Vercel Blob, and `connect-src` limited to this origin and
+the Blob upload API. Images may load from any HTTPS host because link artwork comes
+from whatever CDN a music provider names. React escapes rendered text, and the three
+`dangerouslySetInnerHTML` blocks (the theme script, loop theme CSS, print paper CSS)
+contain no user input — that, not the CSP, is the XSS boundary today.
+
+Referrer: the site default is `strict-origin-when-cross-origin`, so no path or query
+ever leaves for another origin; every route whose URL is a credential or a loop
+(`/r`, `/s`, `/i`, `/g`, `/album`, `/you`, `/signin`, `/dev`) sends no referrer at all.
+
+Link previews: the root layout's Open Graph and Twitter metadata and the root
+`opengraph-image` are inherited by every route, private ones included, so a shared
+reply link or round previews as "Friendloop" and a scraper never falls back to a
+friend's photo. No page may set `openGraph`, `twitter`, or `description` from loop
+data. Private routes are `noindex` in their metadata and disallowed in `robots.ts`.
+
+Follow-up, if the threat model changes: a nonce CSP from `proxy.ts` on the token
+routes alone, starting with `/r` (already blocking on its request), after confirming
+no prerendered shell is served there and measuring the navigation benchmark. Until
+then a CSP violation report endpoint (`report-to`) would show what a stricter policy
+would break.
