@@ -4,8 +4,8 @@
  * Two jobs:
  *   1. `@/…` resolves the way `tsconfig.json` paths do, with the extensionless
  *      imports the Next bundler accepts but Node does not.
- *   2. `next/headers`, `next/cache`, `next/navigation`, and `next/server` map to
- *      stubs, so request-scoped library code runs outside a server.
+ *   2. `next/headers`, `next/cache`, `next/navigation`, `next/server`, and
+ *      `@sentry/nextjs` map to stubs, so request-scoped library code runs outside a server.
  *
  * Imported with `--import ./test/register.mjs` before the test files load, so the
  * resolve hook is installed before anything imports a library module.
@@ -24,6 +24,7 @@ const STUBS = new Map([
   ["next/navigation", path.join(ROOT, "test", "stubs", "next-navigation.mjs")],
   ["next/server", path.join(ROOT, "test", "stubs", "next-server.mjs")],
   ["@vercel/blob", path.join(ROOT, "test", "stubs", "vercel-blob.mjs")],
+  ["@sentry/nextjs", path.join(ROOT, "test", "stubs", "sentry-nextjs.mjs")],
 ]);
 
 function firstExisting(candidates) {

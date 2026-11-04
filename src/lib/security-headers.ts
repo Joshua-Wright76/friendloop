@@ -16,6 +16,11 @@ export type HeaderEnv = {
   nodeEnv?: string;
   /** `process.env.VERCEL_ENV` — production, preview, or unset when local. */
   vercelEnv?: string;
+  /**
+   * `process.env.NEXT_PUBLIC_SENTRY_DSN` — the browser SDK posts events to the
+   * DSN's ingest host, so connect-src admits exactly that origin when it is set.
+   */
+  sentryDsn?: string;
 };
 
 type Header = { key: string; value: string };
@@ -44,13 +49,30 @@ export const PRIVATE_ROUTES = [
   "/dev/:path*",
 ] as const;
 
-export function contentSecurityPolicy({ nodeEnv, vercelEnv }: HeaderEnv): string {
+/**
+ * The origin the browser SDK sends events to, e.g. `https://o123.ingest.us.sentry.io`
+ * for `https://key@o123.ingest.us.sentry.io/456`. Null without a usable DSN —
+ * the SDK stays off then, so there is nothing to allow.
+ */
+export function sentryIngestOrigin(dsn: string | undefined): string | null {
+  const value = dsn?.trim();
+  if (!value) return null;
+  try {
+    const url = new URL(value);
+    return url.protocol === "https:" ? url.origin : null;
+  } catch {
+    return null;
+  }
+}
+
+export function contentSecurityPolicy({ nodeEnv, vercelEnv, sentryDsn }: HeaderEnv): string {
   const dev = nodeEnv === "development";
   const preview = vercelEnv === "preview";
   // Only deployed environments are served over HTTPS; upgrading on a local
   // `next start` (the e2e suite) would send WebKit to https://localhost.
   const deployed = vercelEnv === "production" || preview;
   const live = (...sources: string[]) => (preview ? sources : []);
+  const sentry = sentryIngestOrigin(sentryDsn);
 
   const directives: Record<string, string[]> = {
     "default-src": ["'self'"],
@@ -65,6 +87,7 @@ export function contentSecurityPolicy({ nodeEnv, vercelEnv }: HeaderEnv): string
     "connect-src": [
       "'self'",
       BLOB_UPLOAD_API,
+      ...(sentry ? [sentry] : []),
       ...(dev ? ["ws:", "wss:"] : []),
       ...live(VERCEL_LIVE, "wss://ws-us3.pusher.com"),
     ],

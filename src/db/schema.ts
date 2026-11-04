@@ -533,6 +533,16 @@ export const emailEvents = pgTable(
   (t) => [index("email_events_provider_idx").on(t.providerId)],
 );
 
+/**
+ * When each scheduled job last finished cleanly, keyed by job name ("sweep").
+ * The health check reads it to notice a cron that stopped running — the sweep
+ * self-heals when it runs, so the failure worth paging on is that it doesn't.
+ */
+export const heartbeats = pgTable("heartbeats", {
+  name: text("name").primaryKey(),
+  lastOkAt: timestamp("last_ok_at", { withTimezone: true }).notNull(),
+});
+
 export type User = typeof users.$inferSelect;
 export type Group = typeof groups.$inferSelect;
 export type Membership = typeof memberships.$inferSelect;

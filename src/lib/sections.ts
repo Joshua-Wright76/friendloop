@@ -16,6 +16,7 @@ import { deleteStoredPhoto, storePhoto } from "./photo-storage";
 import { resolveToken, type WriteResult } from "./reply";
 import { validatePhoto } from "./photo-validation";
 import { metadataUrl, parseMusicPage, type MusicMeta, type MusicProvider, type MusicTrack } from "./music-meta.ts";
+import { log } from "./log";
 
 export const SECTION_TITLE_MAX = 80;
 export const SECTION_DESCRIPTION_MAX = 200;
@@ -470,7 +471,7 @@ export async function removeSectionMediaFor(input: {
   await db.delete(sectionMedia).where(eq(sectionMedia.id, media.id));
 
   await deleteStoredPhoto(media.url).catch((error: unknown) => {
-    console.error("Unable to remove section photo", error);
+    log.error("Unable to remove section photo", error);
   });
   await markAccepted(gate.membershipId, gate.acceptedAt, at);
   return { ok: true, savedAt: at.toISOString() };

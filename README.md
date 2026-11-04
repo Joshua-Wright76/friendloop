@@ -53,6 +53,10 @@ Vercel → Project → Settings → Environment Variables.
 | `CRON_SECRET` | `openssl rand -hex 32` — protects the sweep endpoint |
 | `UI_PREVIEW_SECRET` | `openssl rand -hex 32` — the key that unlocks `/dev/outbox` outside local development |
 | `BLOB_READ_WRITE_TOKEN` | Required for production photo uploads. Vercel → Storage → Blob |
+| `NEXT_PUBLIC_SENTRY_DSN` | Optional; set by the Sentry Vercel Marketplace integration. Browser, server, and edge error reporting; unset = off. Read at build time (also for the CSP's `connect-src`), so redeploy after setting it |
+| `SENTRY_DSN` | Optional server/edge override. The Marketplace integration does not set it; the server falls back to `NEXT_PUBLIC_SENTRY_DSN` |
+| `SENTRY_AUTH_TOKEN` | Optional, build-time only; set by the Marketplace integration. Uploads source maps; without it the upload is skipped, never failed |
+| `SENTRY_ORG` / `SENTRY_PROJECT` | Set by the Marketplace integration. Org and project slugs, used with `SENTRY_AUTH_TOKEN` for the source map upload |
 | `TEST_DATABASE_URL` | Optional: your own throwaway Postgres for e2e and the integration tests (a Neon branch). If unset, both start a local one. |
 
 ## Environments
@@ -284,6 +288,41 @@ Flow coverage is not a vibe: `specs/flows.md` lists every user-visible flow, eac
    pauses rather than sending an empty email.
 5. The web issue is canonical: replies stay editable after delivery, and comments
    and reactions live there.
+
+## Monitoring
+
+Everything here is off until configured; local dev, the test suites, and CI run
+without it.
+
+- **Errors → Sentry.** `src/instrumentation.ts` (server, edge, and Next's
+  `onRequestError`) and `src/instrumentation-client.ts` (browser) initialize
+  `@sentry/nextjs` only when a DSN is set — `NEXT_PUBLIC_SENTRY_DSN`, which the
+  Sentry Vercel Marketplace integration provides (the server prefers
+  `SENTRY_DSN` if present). The browser posts straight to the DSN's ingest
+  origin, which `src/lib/security-headers.ts` adds to the CSP's `connect-src`.
+  The environment comes from `VERCEL_ENV`. Reply, share, and unsubscribe tokens, query
+  values, cookies, request bodies, and SQL parameters never leave: see
+  `src/lib/sentry-options.ts` and `src/lib/sentry-scrub.ts`. No session replay;
+  10% of requests are traced.
+- **Server logs.** `src/lib/log.ts` writes one JSON line per event and forwards
+  every `log.error` to Sentry. Log identifiers, never what people wrote.
+- **The sweep.** `/api/cron/sweep` checks in to a Sentry cron monitor
+  (`cron-sweep`, production only, created on the first check-in) and records a
+  `heartbeats` row when it finishes; a sweep that throws is reported. A run that
+  finds another sweep holding the lock (`busy: true`) records no heartbeat, so a
+  stuck lock holder still turns the health check red.
+- **`GET /api/health`** (`Authorization: Bearer $CRON_SECRET`): 200 when the sweep
+  finished within 26 hours and no outbox mail has stayed `pending`/`failed` for 26
+  hours, 503 with counts and ages otherwise. Never names a recipient.
+- **`GET /api/healthz`**: public, no details — 200 when the deployment can reach
+  its database. Point an uptime monitor at it.
+- **[`.github/workflows/monitor.yml`](.github/workflows/monitor.yml)** probes
+  `/api/health` on production every 30 minutes with the `CRON_SECRET` repository
+  secret; a non-200 fails the run and GitHub emails whoever last edited the
+  schedule.
+
+If a Content-Security-Policy is added, its `connect-src` must allow the DSN's
+ingest host (e.g. `https://*.ingest.us.sentry.io`), or browser errors are dropped.
 
 ## Release safety
 

@@ -9,6 +9,7 @@ import { MAX_BANNER_BYTES, validatePhoto } from "@/lib/photo-validation";
 import { DEFAULT_PRESET, isPresetKey, normalizeHex } from "@/lib/theme";
 import { copy } from "@/lib/copy";
 import { isValidTimezone } from "@/lib/timezone";
+import { log } from "@/lib/log";
 
 export type CreateState = { error?: string };
 
@@ -92,7 +93,7 @@ export async function createLoopAction(
     try {
       pictureSaved = (await setHeaderImage(groupId, header)).ok;
     } catch (error) {
-      console.error("Unable to save the new loop's header picture", error);
+      log.error("Unable to save the new loop's header picture", error);
       pictureSaved = false;
     }
   }

@@ -8,6 +8,7 @@ import {
   validateAudio,
 } from "@/lib/audio-validation";
 import { copy } from "@/lib/copy";
+import { log } from "@/lib/log";
 
 type RouteContext = { params: Promise<{ token: string }> };
 
@@ -84,7 +85,7 @@ export async function POST(request: Request, { params }: RouteContext) {
     if (audioUrl) {
       await deleteAudioIfUnreferenced(audioUrl).catch(() => undefined);
     }
-    console.error("Unable to save reply voice note", error);
+    log.error("Unable to save reply voice note", error);
     return NextResponse.json({ error: copy.reply.errors.audioSaveFailed }, { status: 500 });
   }
 }

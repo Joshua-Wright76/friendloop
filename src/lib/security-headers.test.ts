@@ -1,6 +1,12 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { contentSecurityPolicy, PERMISSIONS_POLICY, PRIVATE_ROUTES, securityHeaders } from "./security-headers.ts";
+import {
+  contentSecurityPolicy,
+  PERMISSIONS_POLICY,
+  PRIVATE_ROUTES,
+  securityHeaders,
+  sentryIngestOrigin,
+} from "./security-headers.ts";
 
 function directives(policy: string): Map<string, string[]> {
   return new Map(
@@ -79,4 +85,21 @@ test("credential and loop routes send no referrer, after the site-wide rule", ()
 test("the microphone stays with this origin; the camera is denied", () => {
   assert.match(PERMISSIONS_POLICY, /microphone=\(self\)/);
   assert.match(PERMISSIONS_POLICY, /camera=\(\)/);
+});
+
+test("connect-src admits the Sentry ingest origin named by the DSN, and nothing without one", () => {
+  const dsn = "https://abc123@o4507.ingest.us.sentry.io/4508";
+  const withDsn = directives(contentSecurityPolicy({ nodeEnv: "production", vercelEnv: "production", sentryDsn: dsn }));
+  assert.ok(withDsn.get("connect-src")?.includes("https://o4507.ingest.us.sentry.io"));
+  assert.ok(!withDsn.get("connect-src")?.some((source) => source.includes("abc123") || source.includes("4508")));
+
+  for (const sentryDsn of [undefined, "", "  ", "not a url", "http://key@o1.ingest.sentry.io/2"]) {
+    const csp = directives(contentSecurityPolicy({ nodeEnv: "production", sentryDsn }));
+    assert.ok(!csp.get("connect-src")?.some((source) => source.includes("sentry")), String(sentryDsn));
+  }
+});
+
+test("sentryIngestOrigin strips the key and project from a DSN", () => {
+  assert.equal(sentryIngestOrigin(" https://k@o1.ingest.de.sentry.io/9 "), "https://o1.ingest.de.sentry.io");
+  assert.equal(sentryIngestOrigin(undefined), null);
 });
