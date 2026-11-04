@@ -954,7 +954,7 @@ export function ReplySheet({
           <span className="flex min-w-0 items-center gap-2 font-display text-[23px] font-bold text-ink">
             <Cherries className="h-7 w-7 flex-none" /><span className="wrap-any">{loopName}</span>
           </span>
-          <span className="chip flex h-7 items-center border bg-card px-3 text-[12px] font-bold text-ink-soft numeric">
+          <span className="chip flex h-7 flex-none items-center whitespace-nowrap border bg-card px-3 text-[12px] font-bold text-ink-soft numeric">
             {text(copy.reply.answered, { answered, total })}
           </span>
         </div>

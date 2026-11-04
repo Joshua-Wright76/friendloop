@@ -7,6 +7,7 @@ import { FieldLabel } from "@/components/field-label";
 import { EVENT_TITLE_MAX } from "@/lib/event-dates";
 import { useLoopData, type LoopEvent } from "../loop-data";
 import { createEventAction, deleteEventAction, updateEventAction } from "./actions";
+import { SubmitButton } from "@/components/submit-button";
 
 export function EventsPanel() {
   const { group, people, events } = useLoopData();
@@ -96,7 +97,7 @@ export function EventsPanel() {
             <input id="event-emoji" name="emoji" maxLength={8} placeholder={copy.events.section.defaultEmoji} className="field emoji-field mt-1 h-[46px] py-0" />
           </div>
         </div>
-        <button type="submit" className="btn btn-primary mt-3">{copy.events.add}</button>
+        <SubmitButton className="btn btn-primary mt-3">{copy.events.add}</SubmitButton>
       </form>
     </section>
   );
@@ -137,7 +138,7 @@ function EventEditor({ groupId, event }: { groupId: string; event: LoopEvent }) 
           <input name="emoji" defaultValue={event.emoji ?? ""} maxLength={8} className="field h-[46px] py-0" />
         </label>
         <div>
-          <button type="submit" className="btn btn-primary min-h-11 px-4 text-[13px]">{copy.events.save}</button>
+          <SubmitButton className="btn btn-primary min-h-11 px-4 text-[13px]">{copy.events.save}</SubmitButton>
         </div>
       </form>
     </details>

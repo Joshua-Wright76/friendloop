@@ -12,6 +12,7 @@ import { Picker } from "@/components/picker";
 import { ConfirmAction } from "@/components/confirm-action";
 import { copy, text } from "@/lib/copy";
 import { useLoopData } from "../loop-data";
+import { SubmitButton } from "@/components/submit-button";
 
 const WEEKDAYS = copy.common.weekdays;
 const HOURS = Array.from({ length: 24 }, (_, hour) => hour);
@@ -61,7 +62,9 @@ export default function SettingsTab({ notices }: { notices: { saved?: string; er
             <span className="text-[13px] font-medium text-ink-soft">{copy.settings.time}</span>
             <Picker name="hour" defaultValue={String(group.promptHour)} options={HOUR_OPTIONS} ariaLabel={copy.settings.time} />
           </div>
-          <div className="flex flex-col gap-1.5">
+          {/* Full width, as on the new-loop form: zone names are long and a half
+              column cuts "Europe/Amsterdam" to "Europe…" on a phone. */}
+          <div className="col-span-2 flex min-w-0 flex-col gap-1.5">
             <span className="text-[13px] font-medium text-ink-soft">{copy.settings.timezone}</span>
             <TimezoneField defaultValue={group.timezone} />
           </div>
@@ -101,9 +104,9 @@ export default function SettingsTab({ notices }: { notices: { saved?: string; er
           </span>
         </label>
 
-        <button type="submit" className="btn btn-primary mt-5">
+        <SubmitButton className="btn btn-primary mt-5">
           {copy.settings.save}
-        </button>
+        </SubmitButton>
       </form>
 
       <StationeryForm
@@ -144,9 +147,9 @@ export default function SettingsTab({ notices }: { notices: { saved?: string; er
         <form action={pauseHereAction} className="mt-3">
           <input type="hidden" name="groupId" value={id} />
           <input type="hidden" name="paused" value={group.pausedAt ? "0" : "1"} />
-          <button type="submit" className="btn btn-quiet">
+          <SubmitButton className="btn btn-quiet">
             {group.pausedAt ? copy.settings.resume : copy.settings.pause}
-          </button>
+          </SubmitButton>
         </form>
       </div>
 
@@ -167,14 +170,12 @@ export default function SettingsTab({ notices }: { notices: { saved?: string; er
           />
         </label>
         {/* aria-disabled, not disabled: it stays in the tab order and announces why it does nothing yet. */}
-        <button
-          type="submit"
-          aria-disabled={confirmed ? undefined : true}
-          onClick={(event) => { if (!confirmed) event.preventDefault(); }}
+        <SubmitButton
+          blocked={!confirmed}
           className="btn btn-danger mt-3 hover:opacity-90 aria-disabled:cursor-not-allowed aria-disabled:opacity-45 aria-disabled:hover:opacity-45"
         >
           {copy.settings.delete}
-        </button>
+        </SubmitButton>
       </form>
     </main>
   );

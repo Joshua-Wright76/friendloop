@@ -9,6 +9,7 @@ import { PHOTO_ACCEPT } from "@/lib/photo-validation";
 import { BANNER_TARGET, prepareImage } from "@/components/prepare-image";
 import { DEFAULT_PRESET, normalizeHex } from "@/lib/theme";
 import { stationeryAction } from "./actions";
+import { SubmitButton } from "@/components/submit-button";
 
 type Props = {
   groupId: string;
@@ -34,9 +35,9 @@ export function StationeryForm({ groupId, preset: savedPreset, accent: savedAcce
 
         <PaperFields preset={preset} onPreset={setPreset} accent={accent} onAccent={setAccent} />
 
-        <button type="submit" className="btn btn-primary mt-5" disabled={accentInvalid}>
+        <SubmitButton className="btn btn-primary mt-5" disabled={accentInvalid}>
           {copy.stationery.save}
-        </button>
+        </SubmitButton>
       </form>
 
       <HeaderPicture groupId={groupId} initial={headerImageUrl} />

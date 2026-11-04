@@ -4,6 +4,7 @@ import { useSyncExternalStore } from "react";
 import { confirmLink } from "./actions";
 import { MAX_DISPLAY_NAME } from "@/lib/names";
 import { copy } from "@/lib/copy";
+import { SubmitButton } from "@/components/submit-button";
 
 function subscribeToNothing() {
   return () => {};
@@ -37,9 +38,9 @@ export function ConfirmForm({ token, name }: { token: string; name?: string | nu
         />
         <span className="text-[12px] leading-relaxed text-ink-muted">{copy.confirm.nameHint}</span>
       </label>
-      <button type="submit" className="btn btn-primary w-full">
+      <SubmitButton className="btn btn-primary w-full">
         {copy.confirm.submit}
-      </button>
+      </SubmitButton>
     </form>
   );
 }

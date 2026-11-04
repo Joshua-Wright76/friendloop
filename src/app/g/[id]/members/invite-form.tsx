@@ -58,7 +58,15 @@ export function InviteForm({ groupId }: { groupId: string }) {
       const data = new FormData();
       data.set("groupId", groupId);
       pendingEmails.forEach((email) => data.append("emails", email));
-      const result = await inviteAction(data);
+      let result: Awaited<ReturnType<typeof inviteAction>>;
+      try {
+        result = await inviteAction(data);
+      } catch {
+        // Offline or a dropped request: keep the addresses so they can just try again.
+        setStatus("");
+        setError(copy.members.inviteFailed);
+        return;
+      }
       if (!result.ok) {
         setStatus("");
         setError(result.message === "invalid" ? copy.members.invalidEmails : copy.members.inviteFailed);

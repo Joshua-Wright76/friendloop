@@ -12,6 +12,7 @@ import { NoticeFocus } from "@/components/notice-focus";
 import { copy, text } from "@/lib/copy";
 import { signOutAction } from "./actions";
 import { TimezoneSync } from "./timezone-sync";
+import { SubmitButton } from "@/components/submit-button";
 
 export const instant = false;
 
@@ -36,7 +37,7 @@ export default async function YouPage({ searchParams }: {
       <header className="mb-10 flex items-start justify-between gap-3">
         <Brand href={null} />
         <form action={signOutAction}>
-          <button type="submit" className="btn btn-quiet h-11 min-h-11 px-4 text-[13px]">{copy.common.signOut}</button>
+          <SubmitButton className="btn btn-quiet h-11 min-h-11 px-4 text-[13px]">{copy.common.signOut}</SubmitButton>
         </form>
       </header>
 
