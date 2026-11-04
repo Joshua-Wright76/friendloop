@@ -1618,12 +1618,12 @@
     "home": "Back to Friendloop"
   },
   "legal": {
-    "contactEmail": "[contact address to be added by the owner]",
+    "contactEmail": "contact@friendloop.dev",
     "footerLabel": "Legal",
     "privacyLink": "Privacy",
     "termsLink": "Terms",
     "lastUpdated": "Last updated {date}.",
-    "updatedOn": "November 3, 2026",
+    "updatedOn": "November 4, 2026",
     "contactHeading": "Questions",
     "contactBody": "Write to",
     "export": {
