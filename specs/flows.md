@@ -114,7 +114,7 @@ Status: `todo` (not built) · `done` (built and covered).
 | --- | --- | --- | --- |
 | K1 | Manage sections | Owner creates, edits, reorders, and archives sections; archived sections leave future issues while past issues keep their snapshot. | done |
 | K2 | Sections reach an issue | The sweep snapshots active sections into the new issue alongside questions; the reply sheet shows them in position; readers see them in the delivered issue but are never asked to reply. | done |
-| K3 | Standard section reply | Contributors answer a Standard section with text + one photo, under the same media rules and caps as question answers. | done |
+| K3 | Standard section reply | Contributors answer a Standard section with text + one photo, under the same media rules and caps as question answers; a phone-sized photo is shrunk in the browser so it fits the upload limit, and one that cannot fit is refused before it uploads. | done |
 | K4 | Photo wall reply | Contributors add up to six photos to a Photo Wall section, each with a one-line caption; the delivered issue lays them edge-to-edge with their captions. | done |
 | K5 | Paste a music link | A music section accepts a Spotify, Bandcamp, or Qobuz link, with an optional caption; a non-music URL gets the plain-language error and nothing is saved until it is fixed or cleared. | done |
 | K6 | Music renders | The delivered web issue renders every music pick as a card (artwork when the metadata provides it, title, provider badge) that opens the provider page; the delivery email renders title + link. Playable Spotify/Bandcamp embeds are stretch. | done |

@@ -1,3 +1,6 @@
+import { copy } from "./copy.ts";
+import { uploadErrorFrom } from "./image-resize.ts";
+
 export type SectionPhotoSaveResult =
   | { ok: true; savedAt: string; mediaId: string; url: string }
   | { ok: false; error: string };
@@ -19,6 +22,9 @@ export async function uploadReplySectionPhoto(
     form.set("caption", caption);
     form.set("position", String(position));
     const response = await fetcher(`/api/reply/${token}/section-media`, { method: "POST", body: form });
+    if (!response.ok) {
+      return { ok: false, error: await uploadErrorFrom(response, copy.reply.errors.photoTooLarge, genericError) };
+    }
     const data = (await response.json()) as {
       ok?: boolean;
       savedAt?: string;
@@ -26,7 +32,7 @@ export async function uploadReplySectionPhoto(
       url?: string;
       error?: string;
     };
-    if (!response.ok || !data.ok || !data.mediaId || !data.url) {
+    if (!data.ok || !data.mediaId || !data.url) {
       return { ok: false, error: data.error ?? genericError };
     }
     return { ok: true, savedAt: data.savedAt ?? "", mediaId: data.mediaId, url: data.url };

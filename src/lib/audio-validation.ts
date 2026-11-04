@@ -1,3 +1,9 @@
+/**
+ * Under Vercel's ~4.5 MB function body limit with room for the multipart
+ * envelope. The recorder asks for 64 kbps: 180 s × 64 kbit/s ≈ 1.44 MB, and
+ * even a 128 kbps engine default is ≈ 2.9 MB. Picked files over this are
+ * refused in the browser before upload.
+ */
 export const MAX_AUDIO_BYTES = 4 * 1024 * 1024;
 export const MAX_AUDIO_DURATION_MS = 180_000;
 export const AUDIO_ACCEPT = ".webm,.m4a,.mp3,.mp4,.ogg,.oga,.opus";

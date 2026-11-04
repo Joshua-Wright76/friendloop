@@ -14,7 +14,8 @@ import { issueTitle } from "@/lib/issue-name";
 import { copy, text } from "@/lib/copy";
 import { formatTimeInZone } from "@/lib/format";
 import { MAX_DISPLAY_NAME } from "@/lib/names";
-import { MAX_PHOTO_BYTES, PHOTO_ACCEPT } from "@/lib/photo-validation";
+import { PHOTO_ACCEPT } from "@/lib/photo-validation";
+import { PHOTO_PROFILE, prepareImage } from "@/lib/image-resize";
 import {
   MAX_AUDIO_BYTES,
   MAX_AUDIO_DURATION_MS,
@@ -360,23 +361,28 @@ export function ReplySheet({
     clearPhotoPreview(questionId);
   }, [clearPhotoPreview, token]);
 
-  const selectPhoto = useCallback((questionId: string, file: File) => {
-    const supportedTypes = PHOTO_ACCEPT.split(",");
-    const error = file.size > MAX_PHOTO_BYTES
-      ? copy.reply.errors.photoTooLarge
-      : file.type && !supportedTypes.includes(file.type)
-        ? copy.reply.errors.invalidPhoto
-        : null;
+  const selectPhoto = useCallback(async (questionId: string, picked: File) => {
+    if (photoLocks.current.has(questionId)) return;
+    // Phone photos are often bigger than a request may carry; shrink them first.
+    photoLocks.current.add(questionId);
+    setPhotoStates((current) => ({ ...current, [questionId]: "uploading" }));
+    setPhotoErrors((current) => ({ ...current, [questionId]: null }));
+    const prepared = await prepareImage(picked, PHOTO_PROFILE);
+    photoLocks.current.delete(questionId);
 
-    if (error) {
+    if (!prepared.ok) {
       photoFiles.current.delete(questionId);
       setRetryablePhotos((current) => ({ ...current, [questionId]: false }));
       clearPhotoPreview(questionId);
       setPhotoStates((current) => ({ ...current, [questionId]: "uploadError" }));
-      setPhotoErrors((current) => ({ ...current, [questionId]: error }));
+      setPhotoErrors((current) => ({
+        ...current,
+        [questionId]: prepared.reason === "too-large" ? copy.reply.errors.photoTooLarge : copy.reply.errors.invalidPhoto,
+      }));
       return;
     }
 
+    const file = prepared.file;
     photoFiles.current.set(questionId, file);
     setRetryablePhotos((current) => ({ ...current, [questionId]: true }));
     const oldObjectUrl = photoObjectUrls.current.get(questionId);
@@ -500,7 +506,9 @@ export function ReplySheet({
         "audio/webm",
         "audio/mp4",
       ].find((candidate) => typeof MediaRecorder !== "undefined" && MediaRecorder.isTypeSupported(candidate));
-      const active = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined);
+      // 64 kbps keeps a full 3-minute note near 1.5 MB, well under the 4 MB upload cap
+      // (some engines default to 128–256 kbps, which could overrun it).
+      const active = new MediaRecorder(stream, mime ? { mimeType: mime, audioBitsPerSecond: 64_000 } : { audioBitsPerSecond: 64_000 });
       recordingChunks.current = [];
       active.ondataavailable = (event) => {
         if (event.data.size > 0) recordingChunks.current.push(event.data);
@@ -622,11 +630,20 @@ export function ReplySheet({
       });
   }, [sectionBodies, writeSectionDraft]);
 
-  const uploadSectionPhoto = useCallback(async (issueSectionId: string, kind: SheetSection["kind"], file: File, caption: string, position: number) => {
+  const uploadSectionPhoto = useCallback(async (issueSectionId: string, kind: SheetSection["kind"], picked: File, caption: string, position: number) => {
     const lockKey = `${issueSectionId}:${position}`;
     if (sectionUploadLocks.current.has(lockKey)) return;
     sectionUploadLocks.current.add(lockKey);
-    const result = await uploadReplySectionPhoto(token, issueSectionId, file, caption, position, copy.reply.errors.photoUploadFailed);
+    const prepared = await prepareImage(picked, PHOTO_PROFILE);
+    if (!prepared.ok) {
+      sectionUploadLocks.current.delete(lockKey);
+      setSectionErrors((current) => ({
+        ...current,
+        [issueSectionId]: prepared.reason === "too-large" ? copy.reply.errors.photoTooLarge : copy.reply.errors.invalidPhoto,
+      }));
+      return;
+    }
+    const result = await uploadReplySectionPhoto(token, issueSectionId, prepared.file, caption, position, copy.reply.errors.photoUploadFailed);
     sectionUploadLocks.current.delete(lockKey);
     if (result.ok) {
       setSectionMediaLists((current) => ({
@@ -983,7 +1000,7 @@ export function ReplySheet({
                   onChange={(event) => {
                     const file = event.currentTarget.files?.[0];
                     event.currentTarget.value = "";
-                    if (file) selectPhoto(question.id, file);
+                    if (file) void selectPhoto(question.id, file);
                   }}
                 />
                 <label

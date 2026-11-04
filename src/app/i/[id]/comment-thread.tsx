@@ -10,7 +10,8 @@ import {
   type Mentionable,
 } from "@/lib/mention-picker";
 import type { MentionPick } from "@/lib/mentions";
-import { MAX_PHOTO_BYTES, PHOTO_ACCEPT } from "@/lib/photo-validation";
+import { PHOTO_ACCEPT } from "@/lib/photo-validation";
+import { PHOTO_PROFILE, prepareImage, uploadErrorFrom } from "@/lib/image-resize";
 import { Avatar } from "@/components/avatar";
 import { copy, text } from "@/lib/copy";
 
@@ -211,8 +212,12 @@ function CommentComposer({
     startTransition(async () => {
       try {
         const response = await fetch(`/api/issue/${issueId}/comments`, { method: "POST", body: form });
+        if (!response.ok) {
+          setError(await uploadErrorFrom(response, copy.issue.errors.photoTooLarge, copy.issue.postError));
+          return;
+        }
         const data = (await response.json()) as { ok?: boolean; error?: string };
-        if (!response.ok || !data.ok) {
+        if (!data.ok) {
           setError(data.error ?? copy.issue.postError);
           return;
         }
@@ -245,17 +250,17 @@ function CommentComposer({
     }
   };
 
-  const onPickPhoto = (file: File | undefined) => {
-    if (!file) return;
-    if (file.size > MAX_PHOTO_BYTES) {
-      setError(copy.issue.errors.photoTooLarge);
-    } else if (!PHOTO_ACCEPT.split(",").includes(file.type)) {
-      setError(copy.issue.errors.photoInvalid);
-    } else {
-      setPhoto(file);
-      setError(null);
-    }
+  const onPickPhoto = async (picked: File | undefined) => {
+    if (!picked) return;
     if (files.current) files.current.value = "";
+    // Shrink phone photos so the comment request stays under the upload limit.
+    const prepared = await prepareImage(picked, PHOTO_PROFILE);
+    if (!prepared.ok) {
+      setError(prepared.reason === "too-large" ? copy.issue.errors.photoTooLarge : copy.issue.errors.photoInvalid);
+      return;
+    }
+    setPhoto(prepared.file);
+    setError(null);
   };
 
   return (
@@ -339,7 +344,7 @@ function CommentComposer({
             type="file"
             accept={PHOTO_ACCEPT}
             hidden
-            onChange={(event) => onPickPhoto(event.target.files?.[0])}
+            onChange={(event) => void onPickPhoto(event.target.files?.[0])}
           />
           <button type="button" className="btn btn-quiet" onClick={() => files.current?.click()}>
             {copy.issue.addPhoto}

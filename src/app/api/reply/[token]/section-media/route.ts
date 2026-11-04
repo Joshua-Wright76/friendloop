@@ -5,8 +5,9 @@ import { copy } from "@/lib/copy";
 type RouteContext = { params: Promise<{ token: string }> };
 
 /**
- * Photos on section answers upload straight to the app — a photo wall is at
- * most six images, well inside every serverless body limit.
+ * Photos on section answers upload straight to the app, one per request. The
+ * browser downscales them first (image-resize.ts), and validatePhoto caps each
+ * at 4 MiB, under the platform's 4.5 MB request body limit.
  */
 export async function POST(request: Request, { params }: RouteContext) {
   const { token } = await params;

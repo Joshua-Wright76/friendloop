@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import { LoopBanner } from "@/components/loop-theme";
 import { Avatar } from "@/components/avatar";
 import { copy } from "@/lib/copy";
-import { MAX_BANNER_BYTES, PHOTO_ACCEPT } from "@/lib/photo-validation";
+import { PHOTO_ACCEPT } from "@/lib/photo-validation";
+import { BANNER_PROFILE, prepareImage, uploadErrorFrom } from "@/lib/image-resize";
 import {
   DEFAULT_PRESET,
   THEME_PRESET_KEYS,
@@ -173,12 +174,12 @@ function HeaderPicture({ groupId, initial }: { groupId: string; initial: string 
     setStatus("saving");
     try {
       const response = await fetch(endpoint, init);
-      const body = (await response.json().catch(() => ({}))) as { url?: string | null; error?: string };
       if (!response.ok) {
         setStatus("error");
-        setMessage(body.error ?? copy.stationery.headerError);
+        setMessage(await uploadErrorFrom(response, copy.identity.errors.bannerTooLarge, copy.stationery.headerError));
         return;
       }
+      const body = (await response.json().catch(() => ({}))) as { url?: string | null };
       setUrl(body.url ?? null);
       setStatus(done);
       router.refresh();
@@ -188,17 +189,19 @@ function HeaderPicture({ groupId, initial }: { groupId: string; initial: string 
     }
   }
 
-  function choose(file: File | undefined) {
-    if (!file) return;
-    if (file.size > MAX_BANNER_BYTES) {
+  async function choose(picked: File | undefined) {
+    if (!picked) return;
+    if (input.current) input.current.value = "";
+    setStatus("saving");
+    const prepared = await prepareImage(picked, BANNER_PROFILE);
+    if (!prepared.ok) {
       setStatus("error");
-      setMessage(copy.identity.errors.bannerTooLarge);
+      setMessage(prepared.reason === "too-large" ? copy.identity.errors.bannerTooLarge : copy.identity.errors.invalidImage);
       return;
     }
     const form = new FormData();
-    form.set("photo", file);
+    form.set("photo", prepared.file);
     void send({ method: "POST", body: form }, "saved");
-    if (input.current) input.current.value = "";
   }
 
   return (
@@ -222,7 +225,7 @@ function HeaderPicture({ groupId, initial }: { groupId: string; initial: string 
         hidden
         accept={PHOTO_ACCEPT}
         aria-label={copy.stationery.headerInput}
-        onChange={(event) => choose(event.target.files?.[0])}
+        onChange={(event) => void choose(event.target.files?.[0])}
       />
       <p aria-live="polite" className={`mt-1.5 text-[12px] ${status === "error" ? "text-danger" : "text-ink-muted"}`}>
         {status === "saving"

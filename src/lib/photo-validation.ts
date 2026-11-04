@@ -1,10 +1,13 @@
-export const MAX_PHOTO_BYTES = 5 * 1024 * 1024;
+/**
+ * Pictures ride multipart requests to Vercel functions, which refuse bodies
+ * over 4.5 MB before the app runs. 4 MiB (4,194,304 bytes) leaves room for the
+ * multipart envelope and the other form fields. Browsers downscale photos
+ * before upload (see image-resize.ts), so real photos land well under this.
+ */
+export const MAX_PHOTO_BYTES = 4 * 1024 * 1024;
 /** A profile picture is shown at a few dozen pixels; this is plenty. */
 export const MAX_AVATAR_BYTES = 2 * 1024 * 1024;
-/**
- * The header picture rides a multipart request, and Vercel refuses bodies over
- * 4.5 MB, so the cap sits just under it rather than at the answer-photo 5 MB.
- */
+/** The loop's header picture: same platform limit as answer photos. */
 export const MAX_BANNER_BYTES = 4 * 1024 * 1024;
 export const PHOTO_ACCEPT = "image/jpeg,image/png,image/webp,image/gif";
 

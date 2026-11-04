@@ -64,7 +64,7 @@ test("M4 · a photo over the answer cap is turned away plainly, a quote can be c
 
   const file = page.locator('input[type="file"]');
   await file.setInputFiles({ name: "huge.png", mimeType: "image/png", buffer: Buffer.alloc(5 * 1024 * 1024 + 1) });
-  await expect(page.locator("p[role=alert]")).toContainText("That photo is over 5 MB.");
+  await expect(page.locator("p[role=alert]")).toContainText("That photo is over 4 MB.");
   await expect(page.getByText("Photo: huge.png")).toHaveCount(0);
 
   await file.setInputFiles({ name: "notes.txt", mimeType: "text/plain", buffer: Buffer.from("hello") });

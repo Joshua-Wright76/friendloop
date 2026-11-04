@@ -1,6 +1,7 @@
 import { upload as uploadBlob } from "@vercel/blob/client";
 import { copy } from "./copy.ts";
 import { validatePhoto } from "./photo-validation.ts";
+import { uploadErrorFrom } from "./image-resize.ts";
 
 export type SaveResult = { ok: true; savedAt: string } | { ok: false; error: string };
 export type PhotoSaveResult =
@@ -87,13 +88,16 @@ export async function uploadReplyPhoto(
     form.set("issueQuestionId", issueQuestionId);
     form.set("photo", file, file.name);
     const response = await fetcher(`/api/reply/${token}/photo`, { method: "POST", body: form });
+    if (!response.ok) {
+      return { ok: false, error: await uploadErrorFrom(response, copy.reply.errors.photoTooLarge, genericError) };
+    }
     const data = (await response.json()) as {
       ok?: boolean;
       savedAt?: string;
       photoUrl?: string;
       error?: string;
     };
-    if (!response.ok || !data.ok || !data.photoUrl) {
+    if (!data.ok || !data.photoUrl) {
       return { ok: false, error: data.error ?? genericError };
     }
     return { ok: true, savedAt: data.savedAt ?? "", photoUrl: data.photoUrl };
@@ -175,6 +179,9 @@ export async function uploadReplyAudio(
     form.set("audio", audio, filename);
     form.set("durationMs", String(Math.round(durationMs)));
     const response = await fetcher(`/api/reply/${token}/audio`, { method: "POST", body: form });
+    if (!response.ok) {
+      return { ok: false, error: await uploadErrorFrom(response, copy.reply.errors.voiceTooLarge, genericError) };
+    }
     const data = (await response.json()) as {
       ok?: boolean;
       savedAt?: string;
@@ -182,7 +189,7 @@ export async function uploadReplyAudio(
       audioDurationMs?: number;
       error?: string;
     };
-    if (!response.ok || !data.ok || !data.audioUrl || typeof data.audioDurationMs !== "number") {
+    if (!data.ok || !data.audioUrl || typeof data.audioDurationMs !== "number") {
       return { ok: false, error: data.error ?? genericError };
     }
     return {

@@ -301,3 +301,18 @@ the page), and the view is loaded as no one in particular so authors are named, 
 light scheme on white), so html's dark tokens and a loop's dark scheme can never leak
 into it; `@media print` hides the app chrome and controls page breaks. Nothing here
 calls `window.print()` except an explicit click.
+
+## 20 · Pictures shrink in the browser before they upload
+
+Vercel refuses function request bodies over ~4.5 MB before app code runs, and phone
+photos are routinely larger. Every picture picker (answer photo, section photo, comment
+photo, profile photo, header picture) runs the file through `prepareImage`
+(`src/lib/image-resize.ts`) first: the browser decodes it with `createImageBitmap`
+(EXIF orientation honoured), scales the long edge to 2560 px (512 px for profile photos),
+and re-encodes to JPEG, or WebP for PNG/WebP sources to keep transparency. Pictures
+already within both limits and GIFs (animation) go up untouched; HEIC converts when the
+browser can read it and is otherwise refused with the "use a JPEG…" copy. Server caps
+(`MAX_PHOTO_BYTES`/`MAX_BANNER_BYTES` 4 MiB, `MAX_AVATAR_BYTES` 2 MiB, `MAX_AUDIO_BYTES`
+4 MiB) sit under the platform limit with room for the multipart envelope, and clients
+read a platform 413 (plain text) as the friendly size error via `uploadErrorFrom`.
+Recordings ask for 64 kbps, so a full 3-minute note is about 1.5 MB.

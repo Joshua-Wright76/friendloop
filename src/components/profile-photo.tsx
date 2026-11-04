@@ -3,7 +3,8 @@
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { copy } from "@/lib/copy";
-import { MAX_AVATAR_BYTES, PHOTO_ACCEPT } from "@/lib/photo-validation";
+import { PHOTO_ACCEPT } from "@/lib/photo-validation";
+import { AVATAR_PROFILE, prepareImage, uploadErrorFrom } from "@/lib/image-resize";
 import { Avatar } from "./avatar";
 
 type Status = "idle" | "saving" | "saved" | "removed" | "error";
@@ -34,12 +35,12 @@ export function ProfilePhoto({
     setStatus("saving");
     try {
       const response = await fetch(endpoint, init);
-      const body = (await response.json().catch(() => ({}))) as { photoUrl?: string | null; error?: string };
       if (!response.ok) {
         setStatus("error");
-        setMessage(body.error ?? copy.identity.profile.error);
+        setMessage(await uploadErrorFrom(response, copy.identity.errors.avatarTooLarge, copy.identity.profile.error));
         return;
       }
+      const body = (await response.json().catch(() => ({}))) as { photoUrl?: string | null };
       setPhotoUrl(body.photoUrl ?? null);
       setStatus(done);
       if (refresh) router.refresh();
@@ -49,17 +50,19 @@ export function ProfilePhoto({
     }
   }
 
-  function choose(file: File | undefined) {
-    if (!file) return;
-    if (file.size > MAX_AVATAR_BYTES) {
+  async function choose(picked: File | undefined) {
+    if (!picked) return;
+    if (input.current) input.current.value = "";
+    setStatus("saving");
+    const prepared = await prepareImage(picked, AVATAR_PROFILE);
+    if (!prepared.ok) {
       setStatus("error");
-      setMessage(copy.identity.errors.avatarTooLarge);
+      setMessage(prepared.reason === "too-large" ? copy.identity.errors.avatarTooLarge : copy.identity.errors.invalidImage);
       return;
     }
     const form = new FormData();
-    form.set("photo", file);
+    form.set("photo", prepared.file);
     void send({ method: "POST", body: form }, "saved");
-    if (input.current) input.current.value = "";
   }
 
   return (
@@ -92,7 +95,7 @@ export function ProfilePhoto({
           hidden
           accept={PHOTO_ACCEPT}
           aria-label={copy.identity.profile.inputLabel}
-          onChange={(event) => choose(event.target.files?.[0])}
+          onChange={(event) => void choose(event.target.files?.[0])}
         />
         <p
           aria-live="polite"

@@ -243,3 +243,24 @@ test("audio removal reports failures and survives a network error", async () => 
   );
   assert.deepEqual(saved, { ok: true, savedAt: "now" });
 });
+
+test("a platform 413 (plain text, not JSON) reads as the friendly size error", async () => {
+  const platform413 = (async () => new Response("Request Entity Too Large", { status: 413 })) as typeof fetch;
+  const file = new File([Uint8Array.from([0xff, 0xd8, 0xff])], "big.jpg", { type: "image/jpeg" });
+  assert.deepEqual(
+    await uploadReplyPhoto("t", "q", file, "Could not upload", platform413),
+    { ok: false, error: "That photo is over 4 MB. Try a smaller one." },
+  );
+  const audio = await uploadReplyAudio("t", "q", new Blob(["x"]), "note.webm", 1000, "fallback", platform413);
+  assert.ok(!audio.ok);
+  assert.match(audio.error, /too big/);
+});
+
+test("a 200 photo response without a stored URL is still a failed upload", async () => {
+  const file = new File([Uint8Array.from([0xff, 0xd8, 0xff])], "a.jpg", { type: "image/jpeg" });
+  const result = await uploadReplyPhoto("t", "q", file, "Could not upload", (async () =>
+    Response.json({ ok: false, error: "Not saved." })) as typeof fetch);
+  assert.deepEqual(result, { ok: false, error: "Not saved." });
+  const silent = await uploadReplyPhoto("t", "q", file, "Could not upload", (async () => Response.json({})) as typeof fetch);
+  assert.deepEqual(silent, { ok: false, error: "Could not upload" });
+});
