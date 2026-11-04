@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { copy } from "@/lib/copy";
+import { readUploadResponse } from "@/lib/upload-response";
 import { PHOTO_ACCEPT } from "@/lib/photo-validation";
 import { AVATAR_TARGET, prepareImage } from "./prepare-image";
 import { Avatar } from "./avatar";
@@ -36,7 +37,9 @@ export function ProfilePhoto({
     setStatus("saving");
     try {
       const response = await fetch(endpoint, init);
-      const body = (await response.json().catch(() => ({}))) as { photoUrl?: string | null; error?: string };
+      const body = await readUploadResponse<{ photoUrl?: string | null; error?: string }>(response, copy.identity.errors.avatarTooLarge).catch(
+        () => ({}) as { photoUrl?: string | null; error?: string },
+      );
       if (!response.ok) {
         setStatus("error");
         setMessage(body.error ?? copy.identity.profile.error);

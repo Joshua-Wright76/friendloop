@@ -1,3 +1,6 @@
+import { copy } from "./copy.ts";
+import { readUploadResponse } from "./upload-response.ts";
+
 export type SectionPhotoSaveResult =
   | { ok: true; savedAt: string; mediaId: string; url: string }
   | { ok: false; error: string };
@@ -19,13 +22,13 @@ export async function uploadReplySectionPhoto(
     form.set("caption", caption);
     form.set("position", String(position));
     const response = await fetcher(`/api/reply/${token}/section-media`, { method: "POST", body: form });
-    const data = (await response.json()) as {
+    const data = await readUploadResponse<{
       ok?: boolean;
       savedAt?: string;
       mediaId?: string;
       url?: string;
       error?: string;
-    };
+    }>(response, copy.reply.errors.photoTooLarge);
     if (!response.ok || !data.ok || !data.mediaId || !data.url) {
       return { ok: false, error: data.error ?? genericError };
     }

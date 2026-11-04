@@ -14,6 +14,7 @@ import { PHOTO_ACCEPT } from "@/lib/photo-validation";
 import { PHOTO_TARGET, prepareImage } from "@/components/prepare-image";
 import { Avatar } from "@/components/avatar";
 import { copy, text } from "@/lib/copy";
+import { readUploadResponse } from "@/lib/upload-response";
 
 type Quote = { id: string; author: string };
 
@@ -236,7 +237,7 @@ function CommentComposer({
     startTransition(async () => {
       try {
         const response = await fetch(`/api/issue/${issueId}/comments`, { method: "POST", body: form });
-        const data = (await response.json()) as { ok?: boolean; error?: string };
+        const data = await readUploadResponse<{ ok?: boolean; error?: string }>(response, copy.issue.errors.photoTooLarge);
         if (!response.ok || !data.ok) {
           setError(data.error ?? copy.issue.postError);
           return;
