@@ -66,15 +66,20 @@ jobs:
         run: npm run check:flows -- --strict
 
   # The suite runs one test at a time (every test truncates the same database),
-  # so one runner took ~28 minutes. Four shards, each its own runner and its own
-  # Postgres, split it four ways, and none of them wait for `verify`: the two
-  # gates are independent, so running them side by side costs nothing.
+  # so one runner took ~28 minutes. Shards each get their own runner and their
+  # own Postgres, and none of them wait for `verify`: the two gates are
+  # independent. Playwright shards by test count in file order, and the WCAG
+  # sweeps (1.5-2.5 min each, ~19 min together) sort last — at four shards they
+  # all landed in one. So they are their own group,
+  # sharded four ways beside the other four; `--grep`/`--grep-invert` on the
+  # shared title prefix makes the two groups exact complements.
   e2e-shard:
-    name: End-to-end (${{ matrix.shard }}/4)
+    name: End-to-end (${{ matrix.group }} ${{ matrix.shard }}/4)
     runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
       matrix:
+        group: [flows, wcag]
         shard: [1, 2, 3, 4]
     services:
       # Deterministic and separate from any dev database. When
@@ -106,8 +111,25 @@ jobs:
 
       # The `phone` project runs iPhone 13, which is WebKit — chromium alone
       # is not enough.
+      # The browser downloads are cached by Playwright version; the system
+      # packages they need still come from apt every run.
+      - name: Playwright version
+        id: pw
+        run: echo "version=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/cache@v4
+        id: pw-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.pw.outputs.version }}
+
       - name: Install Playwright browsers
+        if: steps.pw-cache.outputs.cache-hit != 'true'
         run: npx playwright install --with-deps chromium webkit
+
+      - name: Install Playwright system dependencies
+        if: steps.pw-cache.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium webkit
 
       # Next.js build cache: the suite boots a production build, and every
       # shard builds the same tree.
@@ -117,14 +139,16 @@ jobs:
           key: next-${{ runner.os }}-${{ hashFiles('package-lock.json') }}-${{ hashFiles('src/**') }}
           restore-keys: next-${{ runner.os }}-${{ hashFiles('package-lock.json') }}-
 
-      - name: Run the suite (shard ${{ matrix.shard }} of 4)
-        run: npm run e2e -- --shard=${{ matrix.shard }}/4
+      - name: Run the suite (${{ matrix.group }}, shard ${{ matrix.shard }} of 4)
+        env:
+          GREP_FLAG: ${{ matrix.group == 'wcag' && '--grep' || '--grep-invert' }}
+        run: npm run e2e -- "$GREP_FLAG" "WCAG AA" --shard=${{ matrix.shard }}/4
 
       - name: Upload report on failure
         if: failure()
         uses: actions/upload-artifact@v7
         with:
-          name: playwright-report-${{ matrix.shard }}
+          name: playwright-report-${{ matrix.group }}-${{ matrix.shard }}
           path: playwright-report/
           if-no-files-found: ignore
           retention-days: 7
