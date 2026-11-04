@@ -1,0 +1,45 @@
+name: Sweep
+
+# The fine-grained trigger SPEC.md §2 describes. The sweep reconciles state at
+# whatever instant it is called, so prompts, reminders, and deliveries go out
+# only as promptly as something calls it. Vercel Hobby crons run once a day
+# (vercel.json, kept as the backstop), which on its own leaves a loop's
+# "Sunday 9am" landing up to a day late. This runs it every 15 minutes.
+#
+# GitHub schedules are best-effort: runs are often a few minutes late and are
+# dropped under load. That is fine — a late or missing run self-heals on the
+# next one, and the sweep's advisory lock makes an overlap with the Vercel cron
+# a no-op. GitHub also disables schedules in a public repo after 60 days with
+# no commits; re-enable from the Actions tab if that ever happens.
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: sweep
+  cancel-in-progress: false
+
+permissions: {}
+
+jobs:
+  sweep:
+    name: Sweep production
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Call /api/cron/sweep
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          SWEEP_URL: https://friendloop.dev/api/cron/sweep
+        run: |
+          if [ -z "$CRON_SECRET" ]; then
+            echo "::error::CRON_SECRET is not set in repository secrets"
+            exit 1
+          fi
+          curl --fail-with-body --silent --show-error \
+            --retry 2 --retry-delay 10 --max-time 120 \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            "$SWEEP_URL"
+          echo

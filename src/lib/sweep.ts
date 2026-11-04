@@ -28,15 +28,46 @@ export type SweepReport = {
   skipped: number;
   reminded: number;
   retried: number;
+  /** Another trigger held the sweep lock, so this run did nothing. */
+  busy: boolean;
 };
 
+/** Arbitrary, fixed key for `pg_try_advisory_xact_lock`: one sweep at a time. */
+const SWEEP_LOCK_KEY = 7_311_002;
 
 /**
  * Reconcile the world at `at`. Safe to run at any frequency, from any number of
  * triggers, in any order: every step is idempotent through a unique constraint.
+ *
+ * The constraints make a doubled run correct; the lock makes it cheap. Without
+ * it, two triggers landing together (the 15-minute GitHub schedule and the daily
+ * Vercel cron) would both walk every loop and both try to send the same pending
+ * outbox rows. The second caller returns at once with `busy: true`.
+ *
+ * Transaction-scoped on purpose: production talks to Neon through a
+ * transaction-mode pooler, where a session lock could be taken on one server
+ * connection and "released" on another. The lock transaction stays open on its
+ * own pooled connection while the work runs on the others, and ends — releasing
+ * the lock — however the work ends.
  */
 export async function sweep({ at }: { at: Date }): Promise<SweepReport> {
-  const report: SweepReport = { opened: 0, delivered: 0, skipped: 0, reminded: 0, retried: 0 };
+  let report: SweepReport = emptyReport(true);
+  await db.transaction(async (tx) => {
+    const [{ locked }] = await tx.execute<{ locked: boolean }>(
+      sql`select pg_try_advisory_xact_lock(${SWEEP_LOCK_KEY}) as locked`,
+    );
+    if (!locked) return;
+    report = await sweepUnlocked(at);
+  });
+  return report;
+}
+
+function emptyReport(busy: boolean): SweepReport {
+  return { opened: 0, delivered: 0, skipped: 0, reminded: 0, retried: 0, busy };
+}
+
+async function sweepUnlocked(at: Date): Promise<SweepReport> {
+  const report = emptyReport(false);
 
   report.opened = await openDueIssues(at);
   const delivery = await deliverDueIssues(at);
