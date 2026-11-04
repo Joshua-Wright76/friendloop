@@ -43,7 +43,7 @@ test.beforeEach(async () => {
 
 test("WCAG AA · public and authentication pages", async ({ page }) => {
   test.setTimeout(90_000);
-  await auditThemes(page, ["/", "/signin", "/signin/check-email", "/signin/confirm?problem=unknown", "/r/invalid"]);
+  await auditThemes(page, ["/", "/signin", "/signin/check-email", "/signin/confirm?problem=unknown", "/r/invalid", "/privacy", "/terms", "/goodbye"]);
 });
 
 test("WCAG AA · loop management, creation, and reply pages", async ({ page }) => {
@@ -64,6 +64,9 @@ test("WCAG AA · loop management, creation, and reply pages", async ({ page }) =
     `/g/${loop.groupId}/issues`,
     `/g/${loop.groupId}/settings`,
     `/r/${loop.ownerToken}`,
+    "/you/delete",
+    `/r/${loop.ownerToken}/leave`,
+    `/r/${loop.members[1].token}/leave`,
   ]);
 
   await page.goto("/g/new");

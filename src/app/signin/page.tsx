@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { currentUser } from "@/lib/auth";
 import { SignInForm } from "./signin-form";
 import { Brand, Tape } from "@/components/stationery";
+import { LegalLinks } from "@/components/legal-page";
 import { copy } from "@/lib/copy";
 
 export const instant = false;
@@ -34,6 +35,7 @@ export default async function SignInPage() {
         </p>
       </div>
 
+      <LegalLinks className="mt-6" />
     </main>
   );
 }

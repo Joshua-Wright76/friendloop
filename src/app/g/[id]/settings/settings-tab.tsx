@@ -153,6 +153,12 @@ export default function SettingsTab({ notices }: { notices: { saved?: string; er
         </form>
       </div>
 
+      <div className="card mt-3 p-5">
+        <h2 className="text-[16px] font-semibold tracking-[-0.01em] text-ink">{copy.settings.archiveTitle}</h2>
+        <p className="mt-1 text-[14px] leading-relaxed text-ink-soft">{copy.settings.archiveBody}</p>
+        <a href={`/g/${id}/export`} download className="btn btn-quiet mt-3">{copy.settings.archive}</a>
+      </div>
+
       <form action={deleteAction} className="card mt-3 border-danger/30 p-5">
         <input type="hidden" name="groupId" value={id} />
         <input type="hidden" name="name" value={group.name} />

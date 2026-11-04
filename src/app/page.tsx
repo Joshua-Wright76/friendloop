@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import Link from "next/link";
 import { Brand, Cherries, Tape } from "@/components/stationery";
 import { currentUser } from "@/lib/auth";
+import { LegalLinks } from "@/components/legal-page";
 import { copy } from "@/lib/copy";
 
 const HEADER_LINK = "text-[14px] font-bold text-ink-soft underline decoration-dashed underline-offset-4 hover:text-ink";
@@ -98,6 +99,9 @@ export default function Home() {
         </section>
       </div>
 
+      <footer className="pb-2">
+        <LegalLinks />
+      </footer>
     </main>
   );
 }

@@ -5,7 +5,7 @@ import { rateLimits } from "@/db/schema";
 import { getNow } from "./clock";
 import type { Limit } from "./rate-limit-policy";
 
-export { LIMITS, type Limit } from "./rate-limit-policy";
+export { LIMITS, limitKey, type Limit } from "./rate-limit-policy";
 
 export type LimitResult = { allowed: boolean; count: number; resetAt: Date };
 

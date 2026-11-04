@@ -200,12 +200,21 @@ Round names (Ticket 3's R1) ship as N4; R4 (one-by-one delivery) is a documented
 | --- | --- | --- | --- |
 | S1 | Send feedback | A button in the corner of every page opens a one-box form; anyone, signed in or not, sends a note with one tap, and the page, screen size and browser travel with it. A signed-in person or a reply link is named from the request itself, never asked; reply and share tokens are stripped from the stored page. A blank note cannot be sent, a failed send keeps the words, an hour's flood is refused, and the notes are read in the key-locked `/dev/feedback`. | done |
 
+## V · Your data
+
+| ID | Flow | Acceptance criteria | Status |
+| --- | --- | --- | --- |
+| V1 | Privacy and terms | `/privacy` and `/terms` are public pages in plain language, linked from the landing page footer, the sign-in page and under every email's footer; the privacy page names what is stored, the processors (Vercel, Neon, Resend, Vercel Blob, Sentry), how long it is kept and how to export or delete it. | done |
+| V2 | Delete my account | From `/you`, a signed-in person confirms by typing their email address; a mismatch deletes nothing. Their user, sessions, memberships (signed in or only invited by that address), answers, photos, voice notes, comments, reactions, suggestions, birthdays, feedback, email trail and abuse counters go in every loop, the stored files are removed (retried by the sweep if storage refuses), they land signed out on `/goodbye`, and delivered rounds show nothing from them. A loop they own alone goes too; one with anyone else in it refuses the deletion and offers "Hand it on" and "Delete the loop" instead. | done |
+| V3 | Leave through the reply link | The answer page (and the reader and nothing-open pages) offers "Leave this loop and delete my answers"; the leave page is a GET that changes nothing, and a ticked confirmation POST removes the membership and everything written in that loop only, including files; the link then stops working and the round reads on without them. The owner's link explains how to hand the loop on or delete it instead. | done |
+| V4 | Export | "Download my data" on `/you` streams a JSON file of the person's own words in every loop (drafts included, links to their photos and voice notes); the leave page offers the same for one loop by reply link; the owner's settings offer the whole loop archive (every round, question, sent answer, section, comment and reaction, no drafts). The archive answers 404 to members and strangers, and the personal export sends a signed-out visitor to sign in. | done |
+
 IDs are stable handles, not positions: a retired flow leaves its number out
 rather than renumbering the rest.
 
 ---
 
-**94 flows.** A flow is only `done` when its spec passes locally and in CI.
+**98 flows.** A flow is only `done` when its spec passes locally and in CI.
 
 ## T · Photos
 

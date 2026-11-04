@@ -21,3 +21,17 @@ export const LIMITS = {
   /** Notes from a stranger, per network: wider, since a NAT can hide several people. */
   feedbackAnonymous: { max: 30, windowMs: HOUR },
 } as const satisfies Record<string, Limit>;
+
+/**
+ * The counter keys. Built here so erasure can find a person's own counters
+ * (`signin:email`, `comment:member`, `feedback:member`, `feedback:user`) by the
+ * same spelling the limits write them with. Network keys name nobody.
+ */
+export const limitKey = {
+  signInIp: (ip: string) => `signin:ip:${ip}`,
+  signInEmail: (email: string) => `signin:email:${email}`,
+  comment: (membershipId: string) => `comment:member:${membershipId}`,
+  feedbackMember: (membershipId: string) => `feedback:member:${membershipId}`,
+  feedbackUser: (userId: string) => `feedback:user:${userId}`,
+  feedbackIp: (ip: string) => `feedback:ip:${ip}`,
+};

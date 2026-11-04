@@ -63,7 +63,7 @@ test("every route sends the security headers; credential routes send no referrer
   expect(headers["permissions-policy"]).toContain("microphone=(self)");
   expect(headers["permissions-policy"]).toContain("camera=()");
 
-  for (const path of ["/r/not-a-token", "/u/not-a-token", "/s/not-a-token", "/signin", "/you", "/album/not-an-id"]) {
+  for (const path of ["/r/not-a-token", "/r/not-a-token/leave", "/u/not-a-token", "/s/not-a-token", "/signin", "/you", "/you/delete", "/album/not-an-id"]) {
     const response = await request.get(path, { maxRedirects: 0 });
     expect(response.headers()["referrer-policy"], path).toBe("no-referrer");
     expect(response.headers()["content-security-policy"], path).toContain("frame-ancestors 'none'");
@@ -88,7 +88,7 @@ test("the main flows load without a single CSP violation", async ({ page, browse
   // Inside round 3's answering window, so Alice's reply sheet is open.
   await freezeClock(page, new Date("2026-01-24T08:00:00Z"));
 
-  for (const path of ["/", "/signin", "/r/not-a-token"]) await visit(page, path);
+  for (const path of ["/", "/signin", "/r/not-a-token", "/privacy", "/terms", "/goodbye"]) await visit(page, path);
 
   // A reply link: the sheet hydrates, autosaves through fetch, and is allowed
   // the microphone for voice notes.
@@ -110,6 +110,8 @@ test("the main flows load without a single CSP violation", async ({ page, browse
   await visit(page, `/i/${round2}?m=${alice.token}&print`);
   await visit(page, "/s/csp-share-token");
   await visit(page, `/album/${loop.groupId}?m=${alice.token}`);
+  // Leaving through a reply link asks first; nothing is deleted by the visit.
+  await visit(page, `/r/${alice.token}/leave`);
 
   // Signed in: the account page, a new loop, and every loop tab. Back on the
   // real clock first — a session minted in January would expire on arrival.
@@ -117,6 +119,7 @@ test("the main flows load without a single CSP violation", async ({ page, browse
   await signIn(page, "owner@friendloop.test");
   for (const path of [
     "/you",
+    "/you/delete",
     "/g/new",
     `/g/${loop.groupId}`,
     `/g/${loop.groupId}/members`,
@@ -172,7 +175,7 @@ test("the landing page has a link-preview card; private pages preview as Friendl
   });
   const alice = loop.members.find((member) => member.email.startsWith("alice"))!;
 
-  for (const path of [`/r/${alice.token}`, `/i/${issue.issueId}?m=${alice.token}`, `/album/${loop.groupId}?m=${alice.token}`, "/signin"]) {
+  for (const path of [`/r/${alice.token}`, `/r/${alice.token}/leave`, `/i/${issue.issueId}?m=${alice.token}`, `/album/${loop.groupId}?m=${alice.token}`, "/signin", "/goodbye"]) {
     await page.goto(path);
     expect(await page.locator('meta[name="robots"]').getAttribute("content"), path).toContain("noindex");
     for (const selector of ['meta[property^="og:"]', 'meta[name^="twitter:"]', 'meta[name="description"]']) {
@@ -181,6 +184,13 @@ test("the landing page has a link-preview card; private pages preview as Friendl
         expect(content, `${path} ${selector}`).not.toContain("Nobody should see this");
       }
     }
+  }
+
+  // The legal pages are public, indexable, and carry the site's own card.
+  for (const path of ["/privacy", "/terms"]) {
+    await page.goto(path);
+    expect(await page.locator('meta[name="robots"]').count(), path).toBe(0);
+    expect(await og("og:title"), path).toBe("Friendloop");
   }
 
   const robots = await (await request.get("/robots.txt")).text();

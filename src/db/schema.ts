@@ -546,6 +546,25 @@ export const rateLimits = pgTable(
   (t) => [index("rate_limits_expires_idx").on(t.expiresAt)],
 );
 
+/**
+ * Stored files waiting to be removed. A deletion writes its URLs here in the same
+ * transaction that drops the rows pointing at them, then tries each file at once;
+ * whatever Blob or the disk refused stays queued and the sweep retries it, so a
+ * storage outage can delay a removal but never forget it.
+ */
+export const mediaDeletions = pgTable(
+  "media_deletions",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    url: text("url").notNull(),
+    attempts: integer("attempts").default(0).notNull(),
+    lastError: text("last_error"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    lastAttemptAt: timestamp("last_attempt_at", { withTimezone: true }),
+  },
+  (t) => [uniqueIndex("media_deletions_url_idx").on(t.url)],
+);
+
 /** Deliverability signal from Resend webhooks. */
 export const emailEvents = pgTable(
   "email_events",

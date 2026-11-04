@@ -87,6 +87,17 @@ export default async function YouPage({ searchParams }: {
         </ul>
       )}
 
+      <section aria-labelledby="your-data" className="card mt-10 p-5">
+        <h2 id="your-data" className="text-[22px] text-ink">{copy.you.dataTitle}</h2>
+        <p className="mt-1 text-[14px] leading-relaxed text-ink-soft">{copy.you.dataBody}</p>
+        <div className="mt-4 flex flex-wrap gap-3">
+          <a href="/you/export" download className="btn btn-quiet">{copy.you.download}</a>
+          <Link href="/you/delete" className="btn btn-quiet text-danger">{copy.you.deleteAccount}</Link>
+        </div>
+        <p className="mt-4 text-[13px] text-ink-muted">
+          <Link href="/privacy" className="underline decoration-line-strong underline-offset-4 hover:text-ink">{copy.you.privacyLink}</Link>
+        </p>
+      </section>
     </main>
   );
 }
