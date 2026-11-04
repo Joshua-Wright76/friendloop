@@ -243,6 +243,8 @@ select.field { cursor: pointer; }
 .wrap-any { min-width: 0; overflow-wrap: anywhere; }
 /* A control that is blocked but still focusable (aria-disabled) is dimmed; its focus ring must not be. */
 .btn[aria-disabled="true"]:focus-visible { opacity: 1; }
+/* In flight, not unavailable: keep it readable and say so with the cursor. */
+.btn[aria-busy="true"] { opacity: .7; cursor: progress; }
 
 .question-drag-handle { cursor: grab; touch-action: none; }
 .question-drag-handle:active { cursor: grabbing; }

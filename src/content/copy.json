@@ -21,7 +21,7 @@
     },
     "errorPage": {
       "title": "Something went wrong",
-      "body": "Nothing you wrote was lost. Try again, or head back to your loops.",
+      "body": "Check your connection, then try again. Anything already saved is safe.",
       "retry": "Try again",
       "home": "Back to Friendloop"
     },

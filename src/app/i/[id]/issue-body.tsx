@@ -426,12 +426,17 @@ function AnswerCard({
               if (pending) return;
               startTransition(async () => {
                 addLocal(reaction.emoji);
-                await toggleReaction({
-                  issueId,
-                  replyId: answer.replyId,
-                  emoji: reaction.emoji,
-                  viewerToken,
-                });
+                try {
+                  await toggleReaction({
+                    issueId,
+                    replyId: answer.replyId,
+                    emoji: reaction.emoji,
+                    viewerToken,
+                  });
+                } catch {
+                  // Offline or refused: the optimistic tap springs back on its own,
+                  // which is feedback enough for a reaction. Don't lose the page over it.
+                }
               });
             }}
             className={`reaction-chip flex h-8 items-center gap-1.5 rounded-full border px-2.5 text-[13px] transition-transform disabled:opacity-50 aria-disabled:opacity-50 ${

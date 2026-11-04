@@ -9,6 +9,7 @@ import { copy, text } from "@/lib/copy";
 import { issueTitle, MAX_ISSUE_NAME } from "@/lib/issue-name";
 import { renameIssueAction } from "./actions";
 import { useLoopData } from "../loop-data";
+import { SubmitButton } from "@/components/submit-button";
 
 export default function IssuesTab({
   notices,
@@ -109,7 +110,7 @@ export default function IssuesTab({
                     />
                   </label>
                   <p className="text-[12px] leading-relaxed text-ink-muted">{text(copy.rounds.nameHint, { number: round.number })}</p>
-                  <button type="submit" className="btn btn-quiet h-11 min-h-11 self-start text-[14px]">{copy.rounds.nameSave}</button>
+                  <SubmitButton className="btn btn-quiet h-11 min-h-11 self-start text-[14px]">{copy.rounds.nameSave}</SubmitButton>
                 </form>
               </details>
             ) : null}

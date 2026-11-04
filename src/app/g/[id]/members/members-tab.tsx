@@ -11,6 +11,7 @@ import { LoopNav } from "@/components/loop-nav";
 import { NoticeFocus } from "@/components/notice-focus";
 import { copy, text } from "@/lib/copy";
 import { useLoopData } from "../loop-data";
+import { SubmitButton } from "@/components/submit-button";
 
 export default function MembersTab({ notices }: {
   notices: { invited?: string; resent?: string; removed?: string; transferred?: string; transferError?: string };
@@ -47,8 +48,9 @@ export default function MembersTab({ notices }: {
           const isYou = person.id === membership.id;
           return (
             <li key={person.id} className="card p-4">
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex min-w-0 items-center gap-3">
+              {/* On a phone the role picker wraps below, so the name keeps a readable width. */}
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="flex min-w-[12rem] flex-1 items-center gap-3">
                   <Avatar name={person.name ?? person.email} photoUrl={person.photoUrl} />
                   <div className="min-w-0">
                     <p className="wrap-any text-[15px] font-medium text-ink">
@@ -104,9 +106,9 @@ export default function MembersTab({ notices }: {
                     <form action={resendAction}>
                       <input type="hidden" name="groupId" value={id} />
                       <input type="hidden" name="membershipId" value={person.id} />
-                      <button type="submit" aria-label={text(copy.a11yLabels.resendInvite, { name: person.name ?? person.email })} className="inline-flex min-h-11 items-center px-1 text-[13px] font-medium text-ink-soft underline decoration-dashed underline-offset-4 hover:text-ink">
+                      <SubmitButton aria-label={text(copy.a11yLabels.resendInvite, { name: person.name ?? person.email })} className="inline-flex min-h-11 items-center px-1 text-[13px] font-medium text-ink-soft underline decoration-dashed underline-offset-4 hover:text-ink">
                         {copy.members.resendInvite}
-                      </button>
+                      </SubmitButton>
                     </form>
                   ) : null}
                 </div>

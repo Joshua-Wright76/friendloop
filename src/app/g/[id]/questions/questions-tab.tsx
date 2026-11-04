@@ -26,6 +26,7 @@ import { copy, text } from "@/lib/copy";
 import { useLoopData } from "../loop-data";
 import { PollSummary } from "./poll-summary";
 import { EventsPanel } from "./events-panel";
+import { SubmitButton } from "@/components/submit-button";
 
 const ROTATION_OPTIONS = [
   { value: "", label: copy.questions.allQuestions },
@@ -122,17 +123,17 @@ export default function QuestionsTab({ notices }: { notices: { added?: string; a
                     />
                   </label>
                   <div className="mt-2.5 flex items-center gap-2">
-                    <button type="submit" className="btn btn-primary min-h-11 px-4 text-[13px]">
+                    <SubmitButton className="btn btn-primary min-h-11 px-4 text-[13px]">
                       {copy.questions.suggestionSave}
-                    </button>
+                    </SubmitButton>
                   </div>
                 </form>
                 <form action={declineSuggestionAction} className="mt-2">
                   <input type="hidden" name="groupId" value={id} />
                   <input type="hidden" name="suggestionId" value={suggestion.id} />
-                  <button type="submit" className="btn btn-quiet min-h-11 px-4 text-[13px]">
+                  <SubmitButton className="btn btn-quiet min-h-11 px-4 text-[13px]">
                     {copy.questions.suggestionDecline}
-                  </button>
+                  </SubmitButton>
                 </form>
               </li>
             ))}
@@ -154,7 +155,7 @@ export default function QuestionsTab({ notices }: { notices: { added?: string; a
                 ariaLabel={copy.questions.rotationTitle}
               />
             </div>
-            <button type="submit" className="btn btn-quiet">{copy.questions.saveRotation}</button>
+            <SubmitButton className="btn btn-quiet">{copy.questions.saveRotation}</SubmitButton>
           </div>
         </form>
       ) : null}
@@ -180,9 +181,9 @@ export default function QuestionsTab({ notices }: { notices: { added?: string; a
               className="field h-[46px] py-0"
             />
           </label>
-          <button type="submit" className="btn btn-primary mt-3">
+          <SubmitButton className="btn btn-primary mt-3">
             {copy.questions.add}
-          </button>
+          </SubmitButton>
         </form>
       ) : null}
 
@@ -198,14 +199,12 @@ export default function QuestionsTab({ notices }: { notices: { added?: string; a
               {text(copy.common.selectedCount, { count: fresh.length })}
             </span>
             {/* aria-disabled, not disabled: the button stays reachable and says why nothing happens yet. */}
-            <button
-              type="submit"
-              aria-disabled={fresh.length === 0 ? true : undefined}
-              onClick={(event) => { if (fresh.length === 0) event.preventDefault(); }}
+            <SubmitButton
+              blocked={fresh.length === 0}
               className="btn btn-primary min-h-11 px-5 text-[14px] aria-disabled:cursor-not-allowed aria-disabled:opacity-45"
             >
               {copy.questions.addToPool}
-            </button>
+            </SubmitButton>
           </div>
           <QuestionPackPicker
             packs={QUESTION_PACKS}
@@ -241,13 +240,13 @@ export default function QuestionsTab({ notices }: { notices: { added?: string; a
                         <input type="hidden" name="groupId" value={id} />
                         <input type="hidden" name="sectionId" value={section.id} />
                         <input type="hidden" name="targetIndex" value={index - 1} />
-                        <button type="submit" aria-label={text(copy.a11yLabels.moveSectionUp, { title: section.title })} disabled={index === 0} className="btn btn-quiet min-h-11 px-3 text-[13px]">{copy.questions.sectionUp}</button>
+                        <SubmitButton aria-label={text(copy.a11yLabels.moveSectionUp, { title: section.title })} disabled={index === 0} className="btn btn-quiet min-h-11 px-3 text-[13px]">{copy.questions.sectionUp}</SubmitButton>
                       </form>
                       <form action={moveSectionAction}>
                         <input type="hidden" name="groupId" value={id} />
                         <input type="hidden" name="sectionId" value={section.id} />
                         <input type="hidden" name="targetIndex" value={index + 1} />
-                        <button type="submit" aria-label={text(copy.a11yLabels.moveSectionDown, { title: section.title })} disabled={index === sections.length - 1} className="btn btn-quiet min-h-11 px-3 text-[13px]">{copy.questions.sectionDown}</button>
+                        <SubmitButton aria-label={text(copy.a11yLabels.moveSectionDown, { title: section.title })} disabled={index === sections.length - 1} className="btn btn-quiet min-h-11 px-3 text-[13px]">{copy.questions.sectionDown}</SubmitButton>
                       </form>
                     </div>
                   </div>
@@ -280,7 +279,7 @@ export default function QuestionsTab({ notices }: { notices: { added?: string; a
                         <input type="checkbox" name="active" defaultChecked={section.active} className="accent-accent" /> {copy.questions.sectionActive}
                       </label>
                       <div className="flex gap-2">
-                        <button type="submit" className="btn btn-primary min-h-11 px-4 text-[13px]">{copy.questions.sectionSaveEdit}</button>
+                        <SubmitButton className="btn btn-primary min-h-11 px-4 text-[13px]">{copy.questions.sectionSaveEdit}</SubmitButton>
                       </div>
                     </form>
                   </details>
@@ -326,7 +325,7 @@ export default function QuestionsTab({ notices }: { notices: { added?: string; a
             <label className="mt-2 flex items-center gap-2 text-[13px] text-ink">
               <input type="checkbox" name="adminOnly" className="accent-accent" /> {copy.questions.sectionAdminOnly}
             </label>
-            <button type="submit" className="btn btn-primary mt-3">{copy.questions.sectionCreate}</button>
+            <SubmitButton className="btn btn-primary mt-3">{copy.questions.sectionCreate}</SubmitButton>
           </form>
         </section>
       ) : null}
@@ -394,7 +393,7 @@ function PollForm({ groupId }: { groupId: string }) {
         <input type="checkbox" name="multiple" className="h-5 w-5 accent-accent" /> {copy.polls.authoring.multipleLabel}
       </label>
       <div>
-        <button type="submit" className="btn btn-primary mt-3">{copy.polls.authoring.add}</button>
+        <SubmitButton className="btn btn-primary mt-3">{copy.polls.authoring.add}</SubmitButton>
       </div>
     </form>
   );

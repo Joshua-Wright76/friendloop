@@ -59,7 +59,7 @@ export function LoopNav({ id, name, access, active }: {
         <Link href="/you" aria-label={text(copy.a11yLabels.loopsLink, { name })} className="flex min-h-11 min-w-0 items-center gap-2 font-display text-[23px] font-bold text-ink no-underline">
           <Cherries className="h-7 w-7 flex-none" /><span className="wrap-any">{name}</span>
         </Link>
-        <span className="chip border bg-card px-2.5 py-1 text-[12px] font-bold capitalize text-ink-soft">{copy.common.roles[access]}</span>
+        <span className="chip flex-none whitespace-nowrap border bg-card px-2.5 py-1 text-[12px] font-bold capitalize text-ink-soft">{copy.common.roles[access]}</span>
       </header>
       <nav
         ref={nav}

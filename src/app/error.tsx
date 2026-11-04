@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import Link from "next/link";
 import { Brand, Tape } from "@/components/stationery";
 import { copy } from "@/lib/copy";
@@ -13,8 +13,12 @@ export default function ErrorPage({
   error: Error & { digest?: string };
   retry: () => void;
 }) {
+  const heading = useRef<HTMLHeadingElement>(null);
+
   useEffect(() => {
     console.error(error);
+    // The page someone was using just vanished; tell assistive tech what replaced it.
+    heading.current?.focus();
   }, [error]);
 
   // A client error boundary cannot export metadata; name the page for the tab and for screen readers.
@@ -29,7 +33,7 @@ export default function ErrorPage({
       </div>
       <div className="card p-6 pt-8">
         <Tape tone="stripe" position="left" />
-        <h1 className="text-ink">{copy.common.errorPage.title}</h1>
+        <h1 ref={heading} tabIndex={-1} className="text-ink outline-none">{copy.common.errorPage.title}</h1>
         <p className="mt-2 text-[15px] leading-relaxed text-ink-soft">{copy.common.errorPage.body}</p>
         <div className="mt-5 flex flex-wrap gap-3">
           <button type="button" onClick={() => retry()} className="btn btn-primary">

@@ -8,6 +8,7 @@ import { NoticeFocus } from "@/components/notice-focus";
 import { copy, text } from "@/lib/copy";
 import { issueTitle } from "@/lib/issue-name";
 import { useLoopData } from "./loop-data";
+import { SubmitButton } from "@/components/submit-button";
 
 export default function OverviewTab({ welcome, nudged }: { welcome?: string; nudged?: string }) {
   const { group, membership, people, questions, openIssue, openProgress, openWaiting, nextRoundLabel, openIssueDeadlineLabel, weekdayLabel } = useLoopData();
@@ -108,9 +109,9 @@ export default function OverviewTab({ welcome, nudged }: { welcome?: string; nud
             {manages && openWaiting.length > 0 ? (
               <form action={nudgeAction}>
                 <input type="hidden" name="groupId" value={group.id} />
-                <button type="submit" className="btn btn-quiet h-11 min-h-11 px-4 text-[14px]">
+                <SubmitButton className="btn btn-quiet h-11 min-h-11 px-4 text-[14px]">
                   {copy.loop.nudge}
-                </button>
+                </SubmitButton>
               </form>
             ) : null}
           </div>
@@ -140,17 +141,17 @@ export default function OverviewTab({ welcome, nudged }: { welcome?: string; nud
             {openIssue ? null : (
               <form action={sendNowAction}>
                 <input type="hidden" name="groupId" value={group.id} />
-                <button type="submit" className="btn btn-primary h-11 text-[14px]">
+                <SubmitButton className="btn btn-primary h-11 text-[14px]">
                   {copy.loop.sendNow}
-                </button>
+                </SubmitButton>
               </form>
             )}
             <form action={pauseAction}>
               <input type="hidden" name="groupId" value={group.id} />
               <input type="hidden" name="paused" value={group.pausedAt ? "0" : "1"} />
-              <button type="submit" className="btn btn-quiet h-11 text-[14px]">
+              <SubmitButton className="btn btn-quiet h-11 text-[14px]">
                 {group.pausedAt ? copy.loop.resume : copy.loop.pause}
-              </button>
+              </SubmitButton>
             </form>
           </div>
         ) : null}

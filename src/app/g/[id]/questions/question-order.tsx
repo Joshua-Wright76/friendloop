@@ -9,6 +9,7 @@ import type { LoopQuestion } from "../loop-data";
 import { PollSummary } from "./poll-summary";
 import { archiveAction, skipNextAction } from "./actions";
 import { ConfirmAction } from "@/components/confirm-action";
+import { SubmitButton } from "@/components/submit-button";
 
 type Question = Pick<LoopQuestion, "id" | "text" | "skipNext" | "kind" | "pollMultiple" | "pollOptions">;
 
@@ -133,7 +134,7 @@ function SkipControl({ groupId, question }: { groupId: string; question: Questio
     <form action={skipNextAction}>
       <input type="hidden" name="groupId" value={groupId} />
       <input type="hidden" name="questionId" value={question.id} />
-      <button type="submit" aria-label={text(copy.a11yLabels.withQuestion, { label, question: question.text })} className="btn btn-quiet h-11 min-h-11 px-3 text-[13px]">{label}</button>
+      <SubmitButton aria-label={text(copy.a11yLabels.withQuestion, { label, question: question.text })} className="btn btn-quiet h-11 min-h-11 px-3 text-[13px]">{label}</SubmitButton>
     </form>
   );
 }

@@ -56,7 +56,7 @@ export default async function SharePage({
         <span className="flex min-w-0 items-center gap-2 font-display text-[23px] font-bold text-ink">
           <Cherries className="h-7 w-7 flex-none" /><span className="wrap-any">{view.group.name}</span>
         </span>
-        <span className="chip border bg-card px-2.5 py-1 text-[12px] font-bold text-ink-soft numeric">{text(copy.share.round, { number: view.issue.number })}</span>
+        <span className="chip flex-none whitespace-nowrap border bg-card px-2.5 py-1 text-[12px] font-bold text-ink-soft numeric">{text(copy.share.round, { number: view.issue.number })}</span>
       </header>
 
       <div className="relative pr-16">
