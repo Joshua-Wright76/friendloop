@@ -12,6 +12,7 @@ import { deleteStoredPhoto, storePhoto } from "./photo-storage";
 import { validatePhoto } from "./photo-validation";
 import { issueUrl } from "./urls";
 import { consume, LIMITS } from "./rate-limit";
+import { log } from "./log";
 
 export const COMMENT_MAX_LENGTH = 2000;
 /** How much of a comment a mention email carries. */
@@ -137,7 +138,7 @@ export async function postComment(input: PostCommentInput): Promise<PostCommentR
     try {
       photoUrl = await storePhoto(input.photo.bytes, checked.format);
     } catch (error) {
-      console.error("Unable to store comment photo", error);
+      log.error("Unable to store comment photo", error);
       return fail(500, copy.issue.errors.photoFailed);
     }
   }

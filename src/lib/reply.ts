@@ -10,6 +10,7 @@ import { sectionReplies } from "@/db/schema";
 import { replyHasContentCondition } from "./reply-query";
 import { isReminderPreference } from "./reminders.ts";
 import { checkPollChoices } from "./poll";
+import { log } from "./log";
 
 /** How long an unopened invitation stays good. */
 export const INVITE_DAYS = 14;
@@ -218,7 +219,7 @@ export async function savePhotoFor(input: {
 
   if (existing?.photoUrl && existing.photoUrl !== input.photoUrl) {
     await deletePhotoIfUnreferenced(existing.photoUrl).catch((error: unknown) => {
-      console.error("Unable to remove replaced reply photo", error);
+      log.error("Unable to remove replaced reply photo", error);
     });
   }
 
@@ -262,7 +263,7 @@ export async function removePhotoFor(input: {
     );
 
   await deletePhotoIfUnreferenced(existing.photoUrl).catch((error: unknown) => {
-    console.error("Unable to remove reply photo", error);
+    log.error("Unable to remove reply photo", error);
   });
   return { ok: true, savedAt: at.toISOString() };
 }
@@ -566,7 +567,7 @@ export async function saveAudioFor(input: {
 
   if (existing?.audioUrl && existing.audioUrl !== input.audioUrl) {
     await deleteAudioIfUnreferenced(existing.audioUrl).catch((error: unknown) => {
-      console.error("Unable to remove replaced reply voice note", error);
+      log.error("Unable to remove replaced reply voice note", error);
     });
   }
 
@@ -609,7 +610,7 @@ export async function removeAudioFor(input: {
     );
 
   await deleteAudioIfUnreferenced(existing.audioUrl).catch((error: unknown) => {
-    console.error("Unable to remove reply voice note", error);
+    log.error("Unable to remove reply voice note", error);
   });
 
   await markAccepted(context.membership.id, context.membership.acceptedAt, at);

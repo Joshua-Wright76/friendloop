@@ -110,6 +110,13 @@ destructive DDL in the release that depends on it: add nullable → backfill →
 → read → drop a release later. `scripts/check-migrations.mjs` fails CI on
 `DROP`/`RENAME`.
 
+What actually runs today: errors go to Sentry when a DSN is configured (tokens,
+cookies, and bodies scrubbed first); the sweep checks in to a Sentry cron monitor
+and writes a `heartbeats` row; `/api/health` (CRON_SECRET) turns 503 when that
+heartbeat is older than 26 hours or outbox mail has been stuck for 26 hours; and
+`.github/workflows/monitor.yml` probes it every 30 minutes. `/api/healthz` is the
+public, detail-free liveness check.
+
 Deliverability is monitored separately from function: Resend webhooks →
 `email_events`, with a daily canary that asserts a `delivered` event arrives.
 
@@ -320,8 +327,10 @@ browsers ignore `'unsafe-inline'`. So `script-src` is `'self' 'unsafe-inline'`
 (plus `'unsafe-eval'` in development and `vercel.live` on previews), and the policy
 does its work in the directives that do not depend on inline script: `object-src
 'none'`, `base-uri 'self'`, `form-action 'self'`, `frame-ancestors 'none'`, media
-limited to this origin and Vercel Blob, and `connect-src` limited to this origin and
-the Blob upload API. Images may load from any HTTPS host because link artwork comes
+limited to this origin and Vercel Blob, and `connect-src` limited to this origin,
+the Blob upload API, and — when `NEXT_PUBLIC_SENTRY_DSN` is set at build time — the
+one Sentry ingest origin that DSN names (no tunnel route: it would spend a function
+invocation per client event to save one CSP entry). Images may load from any HTTPS host because link artwork comes
 from whatever CDN a music provider names. React escapes rendered text, and the three
 `dangerouslySetInnerHTML` blocks (the theme script, loop theme CSS, print paper CSS)
 contain no user input — that, not the CSP, is the XSS boundary today.

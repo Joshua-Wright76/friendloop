@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect } from "react";
+import * as Sentry from "@sentry/nextjs";
 import Link from "next/link";
 
 /**
  * The last resort: the root layout itself failed, so this file replaces it and
- * owns <html>, the styles, and the theme. Keep it dependency-free — inline CSS
- * only, because globals.css is not guaranteed to load here.
+ * owns <html>, the styles, and the theme. Keep it free of app components —
+ * inline CSS only, because globals.css is not guaranteed to load here.
  */
 export default function GlobalError({
   error,
@@ -16,7 +17,10 @@ export default function GlobalError({
   retry: () => void;
 }) {
   useEffect(() => {
+    // A no-op without NEXT_PUBLIC_SENTRY_DSN. Server-rendered errors arrive
+    // here with only a digest; the server side reported them via onRequestError.
     console.error(error);
+    Sentry.captureException(error);
   }, [error]);
 
   return (

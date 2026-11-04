@@ -8,12 +8,13 @@ import {
 import { storePhoto } from "@/lib/photo-storage";
 import { MAX_PHOTO_BYTES, validatePhoto } from "@/lib/photo-validation";
 import { copy } from "@/lib/copy";
+import { log } from "@/lib/log";
 
 type RouteContext = { params: Promise<{ token: string }> };
 
 async function cleanupPhoto(photoUrl: string) {
   await deletePhotoIfUnreferenced(photoUrl).catch((error: unknown) => {
-    console.error("Unable to clean up reply photo", error);
+    log.error("Unable to clean up reply photo", error);
   });
 }
 
@@ -72,7 +73,7 @@ export async function POST(request: Request, { params }: RouteContext) {
     if (photoUrl) {
       await cleanupPhoto(photoUrl);
     }
-    console.error("Unable to save reply photo", error);
+    log.error("Unable to save reply photo", error);
     return NextResponse.json({ error: copy.reply.errors.photoUploadFailed }, { status: 500 });
   }
 }

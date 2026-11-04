@@ -6,6 +6,7 @@ import { cleanIssueName } from "./issue-name.ts";
 import { deleteStoredPhoto, storePhoto } from "./photo-storage.ts";
 import { MAX_AVATAR_BYTES, MAX_BANNER_BYTES, validatePhoto } from "./photo-validation.ts";
 import { DEFAULT_PRESET, isPresetKey, normalizeHex, resolveTheme } from "./theme.ts";
+import { log } from "./log";
 
 export type ImageInput = { bytes: Uint8Array; type?: string };
 
@@ -32,7 +33,7 @@ async function storeImage(
   try {
     return { ok: true, url: await storePhoto(image.bytes, checked.format) };
   } catch (error) {
-    console.error("Unable to store image", error);
+    log.error("Unable to store image", error);
     return { ok: false, status: 500, error: failed };
   }
 }
@@ -40,7 +41,7 @@ async function storeImage(
 async function discard(url: string | null | undefined) {
   if (!url) return;
   await deleteStoredPhoto(url).catch((error: unknown) => {
-    console.error("Unable to remove a replaced image", error);
+    log.error("Unable to remove a replaced image", error);
   });
 }
 

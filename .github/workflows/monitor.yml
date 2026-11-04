@@ -1,0 +1,51 @@
+name: Monitor
+
+# Probes production's authenticated health endpoint every 30 minutes. A
+# non-200 fails the run, and GitHub emails a failed scheduled run to whoever
+# last edited this schedule. /api/health is 503 when the daily sweep has not
+# finished in 26 hours or when outbox mail has stayed unsent for 26 hours.
+#
+# Needs the repository secret CRON_SECRET (same value as in Vercel production).
+
+on:
+  schedule:
+    # Off the top of the hour, when GitHub's scheduler is busiest and drops runs.
+    - cron: "7,37 * * * *"
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: monitor
+  cancel-in-progress: false
+
+jobs:
+  probe:
+    name: Probe production health
+    # Pinned like ci.yml: a gate should not change distro underneath us.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: GET https://friendloop.dev/api/health
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          HEALTH_URL: https://friendloop.dev/api/health
+        run: |
+          if [ -z "$CRON_SECRET" ]; then
+            echo "::error::The CRON_SECRET repository secret is not set."
+            exit 1
+          fi
+          # --retry rides out a cold start or a network blip (it retries 5xx
+          # too); a real problem is still failing ~30 seconds later.
+          status=$(curl --silent --show-error --max-time 30 \
+            --retry 2 --retry-delay 10 \
+            --header "Authorization: Bearer $CRON_SECRET" \
+            --output body.json --write-out '%{http_code}' \
+            "$HEALTH_URL") || status="curl-failed"
+          echo "HTTP $status"
+          cat body.json 2>/dev/null || true
+          echo
+          if [ "$status" != "200" ]; then
+            echo "::error::Friendloop health check returned $status — see the body above."
+            exit 1
+          fi

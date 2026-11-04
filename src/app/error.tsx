@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import * as Sentry from "@sentry/nextjs";
 import Link from "next/link";
 import { Brand, Tape } from "@/components/stationery";
 import { copy } from "@/lib/copy";
@@ -16,7 +17,10 @@ export default function ErrorPage({
   const heading = useRef<HTMLHeadingElement>(null);
 
   useEffect(() => {
+    // A no-op without NEXT_PUBLIC_SENTRY_DSN. Server-rendered errors arrive
+    // here with only a digest; the server side reported them via onRequestError.
     console.error(error);
+    Sentry.captureException(error);
     // The page someone was using just vanished; tell assistive tech what replaced it.
     heading.current?.focus();
   }, [error]);
