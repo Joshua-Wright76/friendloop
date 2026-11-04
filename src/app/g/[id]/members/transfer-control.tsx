@@ -10,7 +10,14 @@ type Props = { groupId: string; groupName: string; membershipId: string; name: s
 function Confirm({ name }: { name: string }) {
   const { pending } = useFormStatus();
   return (
-    <button type="submit" disabled={pending} className="btn btn-primary h-10 text-[14px]">
+    <button
+      type="submit"
+      aria-disabled={pending ? true : undefined}
+      onClick={(event) => {
+        if (pending) event.preventDefault();
+      }}
+      className="btn btn-primary h-11 min-h-11 text-[14px] aria-disabled:cursor-not-allowed aria-disabled:opacity-45"
+    >
       {pending ? copy.members.transferPending : text(copy.members.transferConfirm, { name })}
     </button>
   );
@@ -23,17 +30,30 @@ function Confirm({ name }: { name: string }) {
 export function TransferControl({ groupId, groupName, membershipId, name }: Props) {
   const [asking, setAsking] = useState(false);
   const title = useRef<HTMLParagraphElement>(null);
+  const trigger = useRef<HTMLButtonElement>(null);
+  const cancelled = useRef(false);
 
+  // The question takes focus when it opens; changing your mind hands it back to the button that opened it.
   useEffect(() => {
     if (asking) title.current?.focus();
+    else if (cancelled.current) {
+      cancelled.current = false;
+      trigger.current?.focus();
+    }
   }, [asking]);
+
+  function cancel() {
+    cancelled.current = true;
+    setAsking(false);
+  }
 
   if (!asking) {
     return (
       <button
+        ref={trigger}
         type="button"
         onClick={() => setAsking(true)}
-        className="btn btn-quiet h-9 min-h-9 px-3 text-[13px]"
+        className="btn btn-quiet min-h-11 px-4 text-[13px]"
       >
         {text(copy.members.transferAction, { name })}
       </button>
@@ -45,6 +65,9 @@ export function TransferControl({ groupId, groupName, membershipId, name }: Prop
       action={transferAction}
       role="group"
       aria-labelledby={`transfer-${membershipId}`}
+      onKeyDown={(event) => {
+        if (event.key === "Escape") cancel();
+      }}
       className="notice mt-1 w-full border bg-accent-soft px-4 py-3"
     >
       <input type="hidden" name="groupId" value={groupId} />
@@ -56,7 +79,7 @@ export function TransferControl({ groupId, groupName, membershipId, name }: Prop
       <p className="mt-1 text-[14px] leading-relaxed text-ink-soft">{text(copy.members.transferBody, { name })}</p>
       <div className="mt-3 flex flex-wrap gap-2">
         <Confirm name={name} />
-        <button type="button" onClick={() => setAsking(false)} className="btn btn-quiet h-10 text-[14px]">
+        <button type="button" onClick={cancel} className="btn btn-quiet h-11 min-h-11 text-[14px]">
           {copy.members.transferCancel}
         </button>
       </div>

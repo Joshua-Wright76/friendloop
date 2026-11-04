@@ -92,7 +92,7 @@ export async function archiveAction(formData: FormData) {
   const questionId = String(formData.get("questionId") ?? "");
   await archiveQuestion(groupId, questionId, await getNow());
   revalidatePath(`/g/${groupId}`, "layout");
-  redirect(`/g/${groupId}/questions?archived=1`);
+  redirect(`/g/${groupId}/questions?archived=${Date.now()}`);
 }
 
 export async function skipNextAction(formData: FormData) {
@@ -102,7 +102,7 @@ export async function skipNextAction(formData: FormData) {
   const questionId = String(formData.get("questionId") ?? "");
   await toggleSkipNext(groupId, questionId);
   revalidatePath(`/g/${groupId}`, "layout");
-  redirect(`/g/${groupId}/questions`);
+  redirect(`/g/${groupId}/questions?skip=${Date.now()}`);
 }
 
 export async function acceptSuggestionAction(formData: FormData) {

@@ -22,6 +22,7 @@ test("F6 · resetting share links retires every URL that was handed out", async 
   await signIn(page, "owner@friendloop.test");
   await page.goto(`/g/${loop.groupId}/settings`);
   await page.getByRole("button", { name: "Reset share links" }).click();
+  await page.getByRole("button", { name: "Yes, reset share links" }).click(); // resetting asks first
   await expect(page.getByText("New share links. Old ones no longer work.")).toBeVisible();
 
   await page.goto("/s/old-share-token");

@@ -1,8 +1,15 @@
+import { Suspense } from "react";
+import type { Metadata } from "next";
+import { copy } from "@/lib/copy";
+import LoopLoading from "../loading";
 import { LoopTabContent } from "../tab-content";
 
-export default async function QuestionsPage({ searchParams }: {
-  searchParams: Promise<{ added?: string; archived?: string; rotation?: string; fromPacks?: string; suggestion?: string; section?: string; poll?: string; event?: string }>;
-}) {
-  const notices = await searchParams;
-  return <LoopTabContent tab="questions" notices={notices} />;
+export const metadata: Metadata = { title: copy.pageTitles.questions };
+
+export default function QuestionsPage() {
+  return (
+    <Suspense fallback={<LoopLoading />}>
+      <LoopTabContent tab="questions" />
+    </Suspense>
+  );
 }

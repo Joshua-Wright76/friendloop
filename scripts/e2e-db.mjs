@@ -11,10 +11,21 @@
  * only listens on loopback, so it can never be confused with the dev or
  * production database. If TEST_DATABASE_URL is already set — CI, a Neon branch —
  * nothing local starts and that database is used instead.
+ *
+ * Runs can overlap (two worktrees, two agents). `run` gives each invocation its
+ * own database in the shared cluster and its own free ports for the app and the
+ * Resend stub, then drops the database when the command exits. Databases left by
+ * a run that was killed are dropped the next time any run starts.
+ *
+ * The Next build output (`.next`) still belongs to the checkout, so overlapping
+ * runs need separate checkouts: use a git worktree. A second run in the same
+ * checkout stops early instead of rebuilding under the first one.
  */
 import { execFileSync, spawn } from "node:child_process";
-import { existsSync, mkdirSync, rmSync } from "node:fs";
-import { homedir } from "node:os";
+import { randomBytes } from "node:crypto";
+import { existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { createServer } from "node:net";
+import { constants as osConstants, homedir } from "node:os";
 import { join } from "node:path";
 
 const HOME = homedir();
@@ -31,6 +42,9 @@ const PORT = process.env.E2E_DB_PORT ?? "55432";
 const USER = "postgres";
 const DATABASE = "friendloop_test";
 const URL_STRING = `postgresql://${USER}@127.0.0.1:${PORT}/${DATABASE}`;
+/** Per-run databases are `friendloop_test_run_<pid>_<random>`; the pid finds orphans. */
+const RUN_DATABASE_PREFIX = `${DATABASE}_run_`;
+const databaseUrl = (name) => `postgresql://${USER}@127.0.0.1:${PORT}/${name}`;
 
 function findBinDir() {
   const candidates = [
@@ -90,8 +104,45 @@ function isRunning() {
   }
 }
 
+function sleepSync(ms) {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+}
+
+/**
+ * Serialise cluster init and start across concurrent runs. `mkdir` is atomic, so
+ * only one run holds the directory at a time; a lock older than a minute
+ * belongs to a run that died mid-start and is taken over.
+ */
+function withStartLock(fn) {
+  mkdirSync(RUN_DIR, { recursive: true });
+  const lock = join(RUN_DIR, "start.lock");
+  const deadline = Date.now() + 120_000;
+  while (true) {
+    try {
+      mkdirSync(lock);
+      break;
+    } catch (error) {
+      if (error.code !== "EEXIST") throw error;
+      try {
+        if (Date.now() - statSync(lock).mtimeMs > 60_000) rmSync(lock, { recursive: true, force: true });
+      } catch {
+        // Released between the check and the stat; just retry.
+      }
+      if (Date.now() > deadline) throw new Error(`Timed out waiting for ${lock}`);
+      sleepSync(200);
+    }
+  }
+  try {
+    return fn();
+  } finally {
+    rmSync(lock, { recursive: true, force: true });
+  }
+}
+
 function ensureCluster() {
-  if (existsSync(DATA_DIR)) return;
+  if (existsSync(join(DATA_DIR, "PG_VERSION")) && existsSync(join(DATA_DIR, "postgresql.conf"))) return;
+  // A directory without a finished cluster is left from an interrupted initdb.
+  rmSync(DATA_DIR, { recursive: true, force: true });
   mkdirSync(SOCKET_DIR, { recursive: true });
   run("initdb", [
     "-D", DATA_DIR,
@@ -102,18 +153,118 @@ function ensureCluster() {
   ], { stdio: "ignore" });
 }
 
-function start() {
-  ensureCluster();
-  if (!isRunning()) {
-    run("pg_ctl", [
-      "start",
-      "-D", DATA_DIR,
-      "-l", LOG_FILE,
-      "-o", `-p ${PORT} -k ${SOCKET_DIR} -c listen_addresses=127.0.0.1`,
-      "-w",
-    ], { stdio: "ignore" });
+/** `pg_ctl status` is true once postmaster.pid exists; wait until it takes connections. */
+function waitUntilReady() {
+  const deadline = Date.now() + 15_000;
+  while (true) {
+    try {
+      run("pg_isready", ["-h", "127.0.0.1", "-p", PORT, "-U", USER], { stdio: "ignore" });
+      return;
+    } catch (error) {
+      if (Date.now() > deadline) throw error;
+      sleepSync(200);
+    }
   }
+}
+
+function start() {
+  withStartLock(() => {
+    ensureCluster();
+    if (!isRunning()) {
+      run("pg_ctl", [
+        "start",
+        "-D", DATA_DIR,
+        "-l", LOG_FILE,
+        "-o", `-p ${PORT} -k ${SOCKET_DIR} -c listen_addresses=127.0.0.1`,
+        "-w",
+      ], { stdio: "ignore" });
+    }
+  });
+  waitUntilReady();
   tryRun("createdb", ["-h", "127.0.0.1", "-p", PORT, "-U", USER, DATABASE]);
+}
+
+function psql(sql) {
+  return run("psql", ["-h", "127.0.0.1", "-p", PORT, "-U", USER, "-d", "postgres", "-At", "-c", sql]);
+}
+
+function isAlive(pid) {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (error) {
+    return error.code === "EPERM";
+  }
+}
+
+/**
+ * Drop per-run databases left by a killed or crashed run: the owning pid is gone
+ * and nothing is connected. The connection check covers a live run whose pid
+ * this process cannot see (another pid namespace, a sandbox).
+ */
+function dropOrphanedRunDatabases() {
+  const rows = psql(
+    "select d.datname, count(a.pid) from pg_database d left join pg_stat_activity a on a.datname = d.datname " +
+      `where d.datname like '${RUN_DATABASE_PREFIX}%' group by d.datname`,
+  )
+    .split("\n")
+    .filter(Boolean);
+  for (const row of rows) {
+    const [name, connections] = row.split("|");
+    if (Number(connections) > 0) continue;
+    const pid = Number(name.slice(RUN_DATABASE_PREFIX.length).split("_")[0]);
+    if (Number.isInteger(pid) && pid > 0 && !isAlive(pid)) dropRunDatabase(name);
+  }
+}
+
+function createRunDatabase() {
+  const name = `${RUN_DATABASE_PREFIX}${process.pid}_${randomBytes(3).toString("hex")}`;
+  run("createdb", ["-h", "127.0.0.1", "-p", PORT, "-U", USER, name]);
+  return name;
+}
+
+function dropRunDatabase(name) {
+  // FORCE ends the app server's lingering connections (Postgres 13+).
+  tryRun("psql", ["-h", "127.0.0.1", "-p", PORT, "-U", USER, "-d", "postgres", "-c", `drop database if exists "${name}" with (force)`]);
+}
+
+/** `count` distinct free ports, held open together so none can repeat. */
+async function freePorts(count) {
+  const servers = await Promise.all(
+    Array.from({ length: count }, () => new Promise((resolve, reject) => {
+      const server = createServer();
+      server.on("error", reject);
+      server.listen(0, "127.0.0.1", () => resolve(server));
+    })),
+  );
+  const ports = servers.map((server) => String(server.address().port));
+  await Promise.all(servers.map((server) => new Promise((resolve) => server.close(resolve))));
+  return ports;
+}
+
+/**
+ * One Playwright run per checkout: they share `.next`. The lock is created with
+ * `wx` so two runs starting together cannot both take it; a lock whose pid is
+ * gone is stale and replaced.
+ */
+function takeRunLock(lockFile) {
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      writeFileSync(lockFile, String(process.pid), { flag: "wx" });
+      return true;
+    } catch (error) {
+      if (error.code !== "EEXIST") throw error;
+      const holder = Number(readFileSync(lockFile, "utf8").trim());
+      if (Number.isInteger(holder) && holder > 0 && isAlive(holder)) {
+        console.error(
+          `Another e2e run (pid ${holder}) is using this checkout's .next build. Wait for it, or run from a separate git worktree.`,
+        );
+        return false;
+      }
+      rmSync(lockFile, { force: true });
+    }
+  }
+  return false;
 }
 
 function stop() {
@@ -168,15 +319,67 @@ switch (command) {
       console.error("Usage: e2e-db.mjs run <command> [args...]");
       process.exit(1);
     }
+    // Only Playwright builds and serves the app; integration tests share nothing
+    // but the cluster, which per-run databases already isolate.
+    const usesBuild = [cmd, ...args].some((part) => part.includes("playwright"));
+    const lockFile = usesBuild ? join(process.cwd(), ".e2e-run.lock") : null;
+    if (lockFile && !takeRunLock(lockFile)) process.exit(1);
+
     const env = { ...process.env };
-    if (!env.TEST_DATABASE_URL) {
-      start();
-      env.TEST_DATABASE_URL = URL_STRING;
-      console.error(`e2e database ready at ${URL_STRING.replace(`/${DATABASE}`, "")}`);
+    let runDatabase = null;
+    let cleanedUp = false;
+    const cleanup = () => {
+      if (cleanedUp) return;
+      cleanedUp = true;
+      if (runDatabase) dropRunDatabase(runDatabase);
+      if (lockFile) rmSync(lockFile, { force: true });
+    };
+    const signalExitCode = (signal) => 128 + (osConstants.signals[signal] ?? 1);
+    const SIGNALS = ["SIGINT", "SIGTERM", "SIGHUP"];
+    // Until the child exists, a signal means: clean up what was made and leave.
+    const early = (signal) => {
+      cleanup();
+      process.exit(signalExitCode(signal));
+    };
+    for (const signal of SIGNALS) process.on(signal, early);
+
+    try {
+      if (!env.TEST_DATABASE_URL) {
+        start();
+        dropOrphanedRunDatabases();
+        runDatabase = createRunDatabase();
+        env.TEST_DATABASE_URL = databaseUrl(runDatabase);
+        console.error(`e2e database ready at ${env.TEST_DATABASE_URL}`);
+      }
+      // Explicit ports win, so a fixed setup (CI, a debugging session) still works.
+      const [appPort, mailPort] = await freePorts(2);
+      if (!env.E2E_PORT) env.E2E_PORT = appPort;
+      if (!env.E2E_FAKE_MAIL_PORT) env.E2E_FAKE_MAIL_PORT = mailPort;
+      console.error(`e2e app port ${env.E2E_PORT}, mail stub port ${env.E2E_FAKE_MAIL_PORT}`);
+    } catch (error) {
+      cleanup();
+      throw error;
     }
+
     const child = spawn(cmd, args, { stdio: "inherit", env });
+    for (const signal of SIGNALS) {
+      process.off(signal, early);
+      process.on(signal, () => {
+        // A terminal's Ctrl-C already reaches the child through the process
+        // group; forwarding a second SIGINT would make Playwright force-quit.
+        if (signal === "SIGINT" && process.stdin.isTTY) return;
+        child.kill(signal);
+      });
+    }
+    child.on("error", (error) => {
+      console.error(error.message);
+      cleanup();
+      process.exit(1);
+    });
+    // Wait for the child so the database is dropped only after the app server lets go.
     child.on("exit", (code, signal) => {
-      process.exit(signal ? 1 : (code ?? 0));
+      cleanup();
+      process.exit(signal ? signalExitCode(signal) : (code ?? 0));
     });
     break;
   }

@@ -1,4 +1,7 @@
 import { expect, test } from "@playwright/test";
+import { resetDatabase } from "./support/db";
+import { seedLoop, seedOpenIssue } from "./support/seed";
+import { AFTER_FIRST_SLOT, waitForSheet } from "./support/harness";
 
 test.use({ hasTouch: true });
 
@@ -66,4 +69,28 @@ test("theme switching applies immediately when reduced motion is enabled", async
 
   await page.getByRole("button", { name: /switch to dark mode/ }).click();
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+});
+
+test("on a phone the theme and feedback controls sit after the page, never over it", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "phone", "Desktop keeps the floating corner pills.");
+  await resetDatabase();
+  const loop = await seedLoop();
+  await seedOpenIssue(loop, { openedAt: AFTER_FIRST_SLOT });
+  const alice = loop.members.find((member) => member.email.startsWith("alice"))!;
+
+  await page.goto(`/r/${alice.token}`);
+  await waitForSheet(page);
+  const feedback = page.getByRole("button", { name: "Send feedback" });
+  const theme = page.locator(".theme-switch");
+  expect(await feedback.evaluate((element) => getComputedStyle(element).position)).toBe("static");
+  expect(await theme.evaluate((element) => getComputedStyle(element).position)).toBe("static");
+
+  // At the very bottom of the reply sheet, both clear the fixed Send bar.
+  await page.evaluate(() => window.scrollTo({ top: document.documentElement.scrollHeight, behavior: "instant" }));
+  await expect.poll(() => page.evaluate(() => Math.ceil(window.scrollY + window.innerHeight) >= document.documentElement.scrollHeight - 1)).toBe(true);
+  const bar = await page.locator(".reply-actionbar").boundingBox();
+  for (const control of [feedback, theme]) {
+    const box = await control.boundingBox();
+    expect(box!.y + box!.height).toBeLessThanOrEqual(bar!.y);
+  }
 });

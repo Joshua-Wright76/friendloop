@@ -1,6 +1,6 @@
 import { db } from "@/db";
 import { groups, issues, memberships, questions, users, replies, issueQuestions } from "@/db/schema";
-import { and, eq, sql } from "drizzle-orm";
+import { and, asc, eq, sql } from "drizzle-orm";
 import { newToken } from "@/lib/tokens";
 import { deliveryInstant } from "@/lib/schedule";
 import { E2E_NOW } from "./clock";
@@ -139,7 +139,7 @@ export async function seedOpenIssue(
     })
     .returning();
 
-  const texts = await db.select().from(questions).where(eq(questions.groupId, loop.groupId));
+  const texts = await db.select().from(questions).where(eq(questions.groupId, loop.groupId)).orderBy(asc(questions.position));
   if (texts.length > 0) {
     await db.insert(issueQuestions).values(
       texts.map((question, index) => ({
@@ -216,6 +216,9 @@ export async function addMember(
 }
 
 /** A round that already went out, with answers attached. */
+// Question queries here are ordered by position: without an ORDER BY Postgres
+// may return rows in any order, so `questionIndex` (and the default first
+// question) pointed at a different question from run to run.
 export async function seedDeliveredIssue(
   loop: SeededLoop,
   input: {
@@ -243,7 +246,7 @@ export async function seedDeliveredIssue(
     })
     .returning();
 
-  const texts = await db.select().from(questions).where(eq(questions.groupId, loop.groupId));
+  const texts = await db.select().from(questions).where(eq(questions.groupId, loop.groupId)).orderBy(asc(questions.position));
   if (texts.length > 0) {
     await db.insert(issueQuestions).values(
       texts.map((question, index) => ({
@@ -258,7 +261,7 @@ export async function seedDeliveredIssue(
     );
   }
 
-  const rows = await db.select().from(issueQuestions).where(eq(issueQuestions.issueId, issue.id));
+  const rows = await db.select().from(issueQuestions).where(eq(issueQuestions.issueId, issue.id)).orderBy(asc(issueQuestions.position));
   for (const answer of input.answers) {
     const membership = loop.members.find((member) => member.email === answer.email);
     if (!membership) throw new Error(`No member ${answer.email}`);

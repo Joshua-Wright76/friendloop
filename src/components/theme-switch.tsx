@@ -63,7 +63,6 @@ export function ThemeSwitch() {
       type="button"
       className="theme-switch"
       aria-label={theme === "light" ? copy.common.theme.switchToDark : copy.common.theme.switchToLight}
-      aria-pressed={theme === "dark"}
       onClick={toggle}
     >
       <svg viewBox="0 0 24 24" aria-hidden="true" className="theme-switch-icon">

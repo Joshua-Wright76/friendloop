@@ -130,10 +130,11 @@ test("N1 · a header picture shows above every surface and in the email; only th
   expect(mails.length).toBeGreaterThan(0);
   for (const mail of mails) expect(mail.html).toContain(`<img src="${row.header_image_url}" alt=""`);
 
-  // A too-large picture is refused before it leaves the browser.
+  // Something that cannot be read as a picture is refused before it leaves the browser
+  // (a real oversize photo is shrunk instead: see T1).
   await page.goto(`/g/${loop.groupId}/settings`);
   await chooseFile(page, "Choose a header picture", { name: "huge.png", mimeType: "image/png", buffer: Buffer.alloc(4 * 1024 * 1024 + 1) });
-  await expect(page.getByText("That picture is over 4 MB.")).toBeVisible();
+  await expect(page.getByText("We couldn't read that picture.")).toBeVisible();
 
   // Removing it takes it off the pages.
   await page.getByRole("button", { name: "Remove picture" }).click();

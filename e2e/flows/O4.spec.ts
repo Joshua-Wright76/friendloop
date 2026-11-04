@@ -33,6 +33,7 @@ test("O4 · a round keeps the event section it was given, whatever happens to th
   await item.getByRole("button", { name: "Save changes" }).click();
   await expect(page.getByText("Event saved.")).toBeVisible();
   await page.getByRole("button", { name: "Remove Alicia's birthday" }).click();
+  await page.getByRole("button", { name: /^Yes, remove/ }).click(); // removing asks first
   await expect(page.getByText("Event removed.")).toBeVisible();
 
   // The open round still reads exactly as it was snapshotted.

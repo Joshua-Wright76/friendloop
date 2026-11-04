@@ -13,7 +13,7 @@ test("K5 · a music link is validated warmly, then saved", async ({ page }) => {
   await signIn(page, "owner@friendloop.test");
   await page.goto(`/g/${loop.groupId}/questions`);
   await page.getByPlaceholder("The potluck corner").fill("Music picks");
-  await page.getByLabel("Kind").selectOption({ label: "Music — Spotify, Bandcamp, or Qobuz picks" });
+  await page.getByLabel("Kind").selectOption({ label: "Music, with Spotify, Bandcamp, or Qobuz picks" });
   await page.getByRole("button", { name: "Add section" }).click();
   await runSweep(new Date("2026-01-02T08:00:00Z"));
 

@@ -14,10 +14,12 @@ import { printHref, wantsPrint, webHref } from "@/lib/print-view";
 import { IssuePrint } from "./issue-print";
 import { ReadingControls } from "./reading-controls";
 import { applyReading, parseReading, readingPeople } from "@/lib/issue-reading";
+import { resolveToken } from "@/lib/reply";
 
 export const instant = false;
 
 export const metadata: Metadata = {
+  title: copy.pageTitles.round,
   robots: { index: false, follow: false },
   referrer: "no-referrer",
 };
@@ -82,13 +84,21 @@ export default async function IssuePage({
   const arranged = applyReading(view, reading);
   const effective = { by: arranged.focus?.id ?? null, sort: reading.sort };
 
+  // A reply link edits the loop's latest round, before and after it goes out. When
+  // that round is this one and the link is the viewer's own, offer the way back.
+  const own = m && membership?.replyToken === m ? await resolveToken(m) : null;
+  const editHref = own?.state === "ok" && own.issue?.id === view.issue.id ? `/r/${m}` : null;
+  const answeredHere =
+    view.blocks.some((block) => block.answers.some((answer) => answer.isYou)) ||
+    view.sections.some((section) => section.replies.some((reply) => reply.isYou));
+
   return (
     <main className="mx-auto w-full max-w-[680px] px-4 pb-16 pt-5 sm:px-6">
       <LoopTheme preset={view.group.themePreset} accent={view.group.themeAccent} />
       <LoopBanner url={view.group.headerImageUrl} className="mb-5" />
       <header className="stitched mb-8 flex items-center justify-between gap-3 border-b pb-4">
         <span className="flex min-w-0 items-center gap-2 font-display text-[23px] font-bold text-ink">
-          <Cherries className="h-7 w-7 flex-none" /><span className="truncate">{view.group.name}</span>
+          <Cherries className="h-7 w-7 flex-none" /><span className="wrap-any">{view.group.name}</span>
         </span>
         <span className="chip border bg-card px-2.5 py-1 text-[12px] font-bold text-ink-soft numeric">{text(copy.issue.round, { number: view.issue.number })}</span>
       </header>
@@ -121,7 +131,20 @@ export default async function IssuePage({
         comments={view.comments}
         commentsEnabled={view.commentsEnabled}
         mentionables={view.mentionables}
+        editHref={editHref}
       />
+
+      {editHref ? (
+        <p className="mt-8 text-center text-[14px] text-ink-soft">
+          {copy.issue.stillOpen}{" "}
+          <Link
+            href={editHref}
+            className="inline-flex min-h-11 items-center font-bold text-ink underline decoration-line-strong underline-offset-4"
+          >
+            {answeredHere ? copy.issue.editYourAnswers : copy.issue.addYourAnswers}
+          </Link>
+        </p>
+      ) : null}
 
       {delivered ? (
         <p className="mt-8 text-center text-[14px] font-bold">

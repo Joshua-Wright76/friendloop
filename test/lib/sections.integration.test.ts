@@ -75,6 +75,7 @@ test("link checks accept the three providers and refuse everything else", () => 
   assert.deepEqual(checkMusicLink("https://open.spotify.com/album/1DFixLWuPkv3KT3TnV35m3"), { ok: true, provider: "spotify" });
   assert.equal(checkMusicLink("https://open.spotify.com/artist/25").ok, false);
   assert.equal(checkMusicLink("https://play.qobuz.com/album/5zwvv67f8x2zb").ok, true);
+  assert.equal(checkMusicLink("https://www.qobuz.com/us-en/playlists/john-carpenter-1/2007557").ok, true);
   assert.equal(checkMusicLink("https://vina.bandcamp.com/album/cc61").ok, true);
   assert.equal(checkMusicLink("https://vina.bandcamp.com/merch/shirt").ok, false);
   assert.equal(checkMusicLink("http://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC").ok, false);
@@ -293,13 +294,42 @@ test("metadata fetches fill the cache wall-clock style", async (t) => {
   t.after(() => { globalThis.fetch = originalFetch; });
 
   const spotifyUrl = "https://open.spotify.com/album/awaywaywaywooo";
-  globalThis.fetch = (async () =>
-    new Response(JSON.stringify({ title: "Late Night Vinyl", thumbnail_url: "https://img.example/late.png" }), { status: 200 })) as typeof fetch;
+  const embed = {
+    props: { pageProps: { state: { data: { entity: {
+      name: "Late Night Vinyl",
+      trackList: [{ title: "Side A", subtitle: "Maya", duration: 200_000 }, { title: "Side B", subtitle: "Maya", duration: 180_000 }],
+      visualIdentity: { image: [{ url: "https://img.example/late.png", maxWidth: 300 }] },
+    } } } } },
+  };
+  let asked = "";
+  globalThis.fetch = (async (input: string | URL | Request) => {
+    asked = String(input);
+    return new Response(`<script id="__NEXT_DATA__" type="application/json">${JSON.stringify(embed)}</script>`, { status: 200 });
+  }) as typeof fetch;
   const fetched = await musicCardFor("spotify", spotifyUrl);
+  assert.equal(asked, "https://open.spotify.com/embed/album/awaywaywaywooo");
   assert.equal(fetched.title, "Late Night Vinyl");
   assert.equal(fetched.artworkUrl, "https://img.example/late.png");
-  const [stored] = await rows<{ title: string; artwork_url: string }>("select title, artwork_url from music_links where url = $1", [spotifyUrl]);
+  assert.equal(fetched.trackCount, 2);
+  const [stored] = await rows<{ title: string; artwork_url: string; tracks: Array<{ title: string }>; track_count: number }>(
+    "select title, artwork_url, tracks, track_count from music_links where url = $1",
+    [spotifyUrl],
+  );
   assert.equal(`${stored.title}/${stored.artwork_url}`, "Late Night Vinyl/https://img.example/late.png");
+  assert.deepEqual(stored.tracks.map((track) => track.title), ["Side A", "Side B"]);
+  assert.equal(stored.track_count, 2);
+
+  // The cache now answers with the songs, without the network.
+  globalThis.fetch = (async () => {
+    throw new Error("cache should answer");
+  }) as typeof fetch;
+  const cachedSongs = await musicCardFor("spotify", spotifyUrl);
+  assert.equal(cachedSongs.tracks[1].seconds, 180);
+
+  // A failed refresh keeps the songs it had.
+  await rows("update music_links set fetched_at = $1 where url = $2", [new Date(0).toISOString(), spotifyUrl]);
+  const staleSongs = await musicCardFor("spotify", spotifyUrl);
+  assert.equal(staleSongs.trackCount, 2);
 
   globalThis.fetch = (async () =>
     new Response('<meta property="og:title" content="Très &#39;Quiet&#39; Night"><meta property="og:image" content="https://img.example/q.png">', { status: 200 })) as typeof fetch;

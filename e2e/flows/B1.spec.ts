@@ -38,6 +38,7 @@ test("B1 · creating a group loop saves its cadence and makes you its owner", as
   await expect(progress).toHaveAttribute("aria-valuenow", "4");
   await page.getByRole("button", { name: NEXT }).click();
   await expect(progress).toHaveAttribute("aria-valuenow", "5");
+  await expect(progress).toHaveAttribute("aria-valuemax", "5");
   await page.getByRole("button", { name: "Create loop" }).click();
 
   await expect(page).toHaveURL(/\/g\/[0-9a-f-]+\?welcome=1/);

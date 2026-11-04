@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
 import { Avatar } from "@/components/avatar";
+import { PhotoLightbox, useLightbox } from "@/components/photo-lightbox";
 import { formatAudioDuration } from "@/lib/audio-validation";
 import { copy, text } from "@/lib/copy";
 import type { AlbumItem } from "@/lib/album";
@@ -19,33 +19,12 @@ function aboutOf(item: AlbumItem): string {
   return item.caption || item.body || item.context;
 }
 
-/**
- * The album itself. The grid is plain links and buttons; the viewer is a native
- * modal `<dialog>`, which brings the focus trap, Escape and an inert page for
- * free. Arrow keys and visible previous/next buttons move between photos.
- */
+/** The album itself. The grid is plain links and buttons; photos open in the shared lightbox. */
 export function AlbumGallery({ groups }: { groups: GalleryGroup[] }) {
   const photos = groups.flatMap((group) => group.items.filter((item) => item.kind === "photo"));
-  const dialog = useRef<HTMLDialogElement>(null);
-  const opener = useRef<HTMLElement | null>(null);
-  const [current, setCurrent] = useState<number | null>(null);
-
-  const open = (key: string, trigger: HTMLElement) => {
-    opener.current = trigger;
-    setCurrent(photos.findIndex((photo) => photo.key === key));
-  };
-  const close = () => dialog.current?.close();
-
-  useEffect(() => {
-    const element = dialog.current;
-    if (!element) return;
-    if (current !== null && !element.open) element.showModal();
-  }, [current]);
-
-  const photo = current === null ? null : (photos[current] ?? null);
-
-  const step = (by: number) =>
-    setCurrent((index) => (index === null ? index : Math.min(Math.max(index + by, 0), photos.length - 1)));
+  const lightbox = useLightbox();
+  const open = (key: string, trigger: HTMLElement) =>
+    lightbox.open(photos.findIndex((photo) => photo.key === key), trigger);
 
   return (
     <>
@@ -75,7 +54,7 @@ export function AlbumGallery({ groups }: { groups: GalleryGroup[] }) {
                   <figure className="card m-0 p-3">
                     <audio
                       controls
-                      preload="none"
+                      preload="metadata"
                       src={item.url}
                       aria-label={text(copy.album.voiceFrom, {
                         author: item.author,
@@ -92,53 +71,15 @@ export function AlbumGallery({ groups }: { groups: GalleryGroup[] }) {
         </section>
       ))}
 
-      <dialog
-        ref={dialog}
-        className="album-viewer"
-        aria-label={copy.album.viewer.label}
-        onClose={() => {
-          setCurrent(null);
-          opener.current?.focus();
-        }}
-        onClick={(event) => {
-          if (event.target === event.currentTarget) close();
-        }}
-        onKeyDown={(event) => {
-          if (event.key === "ArrowRight") step(1);
-          if (event.key === "ArrowLeft") step(-1);
-        }}
-      >
-        {photo ? (
-          <div className="album-viewer-body">
-            <div className="flex items-center justify-between gap-3">
-              <p className="m-0 text-[13px] font-bold text-ink-soft numeric" aria-live="polite">
-                {text(copy.album.viewer.position, { current: (current ?? 0) + 1, total: photos.length })}
-              </p>
-              <button type="button" className="btn btn-quiet" onClick={close}>{copy.album.viewer.close}</button>
-            </div>
-            {/* eslint-disable-next-line @next/next/no-img-element -- Uploaded photos live on local URLs in development and Blob in production. */}
-            <img src={photo.url} alt={text(copy.album.photoAlt, { author: photo.author })} className="album-viewer-photo" />
-            <div className="min-w-0">
-              {photo.caption ? <p className="m-0 text-[16px] font-bold leading-snug text-ink">{photo.caption}</p> : null}
-              {photo.body ? <p className="m-0 whitespace-pre-wrap text-[15px] leading-relaxed text-ink">{photo.body}</p> : null}
-              <p className="m-0 mt-1 text-[13px] text-ink-muted">{photo.author} · {photo.context}</p>
-            </div>
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div className="flex gap-2">
-                <button type="button" className="btn btn-quiet" disabled={(current ?? 0) === 0} onClick={() => step(-1)}>
-                  ← <span className="sr-only">{copy.album.viewer.previous}</span>
-                </button>
-                <button type="button" className="btn btn-quiet" disabled={(current ?? 0) >= photos.length - 1} onClick={() => step(1)}>
-                  <span className="sr-only">{copy.album.viewer.next}</span> →
-                </button>
-              </div>
-              <Link href={photo.issueHref} className="text-[14px] font-bold text-ink underline underline-offset-4">
-                {copy.album.viewInIssue}
-              </Link>
-            </div>
-          </div>
-        ) : null}
-      </dialog>
+      <PhotoLightbox
+        photos={photos}
+        state={lightbox}
+        extra={(_photo, index) => (
+          <Link href={photos[index].issueHref} className="text-[14px] font-bold text-ink underline underline-offset-4">
+            {copy.album.viewInIssue}
+          </Link>
+        )}
+      />
     </>
   );
 }

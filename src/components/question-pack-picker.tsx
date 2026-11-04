@@ -2,7 +2,7 @@
 
 import { useId, useState } from "react";
 import type { QuestionPack } from "@/lib/question-packs";
-import { visiblePacks } from "@/lib/question-packs";
+import { packStatus } from "@/lib/question-packs";
 import { copy, text } from "@/lib/copy";
 
 type Props = {
@@ -11,11 +11,16 @@ type Props = {
   onToggleQuestion: (question: string) => void;
   onTogglePack: (questions: string[], select: boolean) => void;
   ariaLabel: string;
+  /** Questions the loop already asks. They show ticked and fixed, and "Add all" leaves them out. */
+  inPool?: string[];
+  /** Level of the visually hidden heading; pack names sit one level below it. */
+  headingLevel?: 2 | 3;
 };
 
 /**
- * Browse the question library by pack. Filters show any combination of packs;
- * selections survive filtering, so questions can come from several packs at once.
+ * Browse the question library by pack. Each pack folds away to a single row with
+ * its counts, and only the first starts open, so the library reads as a short
+ * list. Picks survive folding, so questions can come from several packs at once.
  */
 export function QuestionPackPicker({
   packs,
@@ -23,90 +28,96 @@ export function QuestionPackPicker({
   onToggleQuestion,
   onTogglePack,
   ariaLabel,
+  inPool = [],
+  headingLevel = 3,
 }: Props) {
-  const [active, setActive] = useState<string[]>([]);
+  const ListHeading = `h${headingLevel}` as "h2" | "h3";
+  const PackHeading = `h${headingLevel + 1}` as "h3" | "h4";
+  const [open, setOpen] = useState<string[]>(() => packs.slice(0, 1).map((pack) => pack.id));
   const headingId = useId();
-  const visible = visiblePacks(packs, active);
+  const panelPrefix = useId();
   const chosen = new Set(selected);
+  const pooled = new Set(inPool);
 
-  const toggleFilter = (packId: string) => {
-    setActive((current) =>
+  const toggleOpen = (packId: string) => {
+    setOpen((current) =>
       current.includes(packId) ? current.filter((id) => id !== packId) : [...current, packId],
     );
   };
 
   return (
     <div className="mt-4">
-      <div role="group" aria-label={copy.questions.filterLabel} className="flex flex-wrap gap-1.5">
-        <FilterChip
-          pressed={active.length === 0}
-          label={copy.questions.filterAll}
-          onClick={() => setActive([])}
-        />
-        {packs.map((pack) => (
-          <FilterChip
-            key={pack.id}
-            pressed={active.includes(pack.id)}
-            label={pack.name}
-            onClick={() => toggleFilter(pack.id)}
-          />
-        ))}
-      </div>
-
-      <h3 id={headingId} className="sr-only">{ariaLabel}</h3>
-      <div className="mt-3 flex flex-col gap-3" role="group" aria-labelledby={headingId}>
-        {visible.map((pack) => {
-          const allPicked = pack.questions.every((question) => chosen.has(question));
+      <ListHeading id={headingId} className="sr-only">{ariaLabel}</ListHeading>
+      <div className="flex flex-col gap-2" role="group" aria-labelledby={headingId}>
+        {packs.map((pack) => {
+          const status = packStatus(pack, selected, inPool);
+          const expanded = open.includes(pack.id);
+          const panelId = `${panelPrefix}-${pack.id}`;
+          const counts = [
+            text(copy.questions.packQuestionCount, { count: pack.questions.length }),
+            status.inPool > 0 ? text(copy.questions.packInPool, { count: status.inPool }) : null,
+            status.picked > 0 ? text(copy.questions.packPicked, { count: status.picked }) : null,
+          ].filter(Boolean).join(" · ");
           return (
-            <section key={pack.id} className="card p-3 sm:p-4" role="group" aria-label={pack.name}>
-              <div className="flex items-center justify-between gap-2 px-2">
-                <h4 className="font-display text-[20px] font-bold text-ink">{pack.name}</h4>
-                <button
-                  type="button"
-                  aria-label={text(
-                    allPicked ? copy.questions.packRemoveAllLabel : copy.questions.packAddAllLabel,
-                    { pack: pack.name },
-                  )}
-                  onClick={() => onTogglePack(pack.questions, !allPicked)}
-                  className="btn btn-quiet h-8 min-h-8 px-3 text-[13px]"
-                >
-                  {allPicked ? copy.questions.packRemoveAll : copy.questions.packAddAll}
-                </button>
+            <section key={pack.id} className="card pack-card" role="group" aria-label={pack.name}>
+              <div className="flex items-center justify-between gap-2">
+                <PackHeading className="min-w-0 flex-1">
+                  <button
+                    type="button"
+                    aria-expanded={expanded}
+                    aria-controls={panelId}
+                    onClick={() => toggleOpen(pack.id)}
+                    className="pack-toggle"
+                  >
+                    <svg viewBox="0 0 20 20" aria-hidden="true" className="pack-chevron">
+                      <path d="M7 4.5 12.5 10 7 15.5" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                    <span className="min-w-0">
+                      <span className="block font-display text-[20px] font-bold leading-tight text-ink">{pack.name}</span>
+                      <span className="block font-sans text-[13px] font-medium text-ink-muted numeric">{counts}</span>
+                    </span>
+                  </button>
+                </PackHeading>
+                {status.addable.length > 0 ? (
+                  <button
+                    type="button"
+                    aria-label={text(
+                      status.allPicked ? copy.questions.packRemoveAllLabel : copy.questions.packAddAllLabel,
+                      { pack: pack.name },
+                    )}
+                    onClick={() => onTogglePack(status.addable, !status.allPicked)}
+                    className="btn btn-quiet min-h-11 flex-none px-3 text-[13px]"
+                  >
+                    {status.allPicked ? copy.questions.packRemoveAll : copy.questions.packAddAll}
+                  </button>
+                ) : null}
               </div>
-              <div className="flex flex-col">
-                {pack.questions.map((question) => (
-                  <label key={question} className="wizard-question-row">
-                    <input
-                      type="checkbox"
-                      checked={chosen.has(question)}
-                      onChange={() => onToggleQuestion(question)}
-                      className="mt-1 h-4 w-4 flex-none accent-[var(--accent)]"
-                    />
-                    <span className="text-[15px] leading-snug text-ink">{question}</span>
-                  </label>
-                ))}
+              <div id={panelId} hidden={!expanded} className="mt-1 flex flex-col">
+                {pack.questions.map((question) => {
+                  const already = pooled.has(question);
+                  return (
+                    <label key={question} className={`wizard-question-row ${already ? "is-in-pool" : ""}`}>
+                      <input
+                        type="checkbox"
+                        checked={already || chosen.has(question)}
+                        disabled={already}
+                        onChange={() => onToggleQuestion(question)}
+                        className="mt-1 h-4 w-4 flex-none accent-[var(--accent)]"
+                      />
+                      <span className="min-w-0 flex-1 text-[15px] leading-snug text-ink">
+                        {question}
+                        {already ? (
+                          <span className="pool-tag">{copy.questions.inPoolTag}</span>
+                        ) : null}
+                      </span>
+                    </label>
+                  );
+                })}
               </div>
             </section>
           );
         })}
       </div>
     </div>
-  );
-}
-
-function FilterChip({ pressed, label, onClick }: { pressed: boolean; label: string; onClick: () => void }) {
-  return (
-    <button
-      type="button"
-      aria-pressed={pressed}
-      onClick={onClick}
-      className={`rounded-full border px-3 py-1.5 text-[13px] font-medium transition-colors ${
-        pressed
-          ? "border-accent-line bg-accent-soft text-accent-ink"
-          : "border-line text-ink-soft hover:bg-field"
-      }`}
-    >
-      {label}
-    </button>
   );
 }

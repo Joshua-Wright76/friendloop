@@ -27,11 +27,13 @@ export function TimezoneField({
   defaultValue,
   value,
   onValueChange,
+  describedBy,
 }: {
   name?: string;
   defaultValue?: string;
   value?: string;
   onValueChange?: (value: string) => void;
+  describedBy?: string;
 }) {
   const detected = useSyncExternalStore(subscribe, browserTimezone, () => "");
   const initialValue = defaultValue ?? detected;
@@ -49,6 +51,7 @@ export function TimezoneField({
       options={OPTIONS}
       ariaLabel={copy.newLoop.timezone}
       searchable
+      describedBy={describedBy}
     />
   );
 }

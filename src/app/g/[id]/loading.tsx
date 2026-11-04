@@ -11,8 +11,8 @@ export default function LoopLoading() {
       </div>
       <div role="status" className="sr-only">{copy.common.loading}</div>
       <div className="h-9 w-48 rounded-md bg-accent-soft" />
-      <div className="card mt-6 h-40 animate-pulse" />
-      <div className="card mt-5 h-28 animate-pulse" />
+      <div className="card mt-6 h-40 motion-safe:animate-pulse" />
+      <div className="card mt-5 h-28 motion-safe:animate-pulse" />
     </main>
   );
 }

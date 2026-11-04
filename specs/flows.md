@@ -34,6 +34,7 @@ Status: `todo` (not built) · `done` (built and covered).
 | B4 | Accept an invitation | A contributor opening their invite link lands on the reply form for the current issue with their name shown, without signing in. | done |
 | B5 | Resend an invitation | Resending re-sends to a pending member, does not rotate the token, and does not create a duplicate membership. | done |
 | B6 | Expired invitation | An invite older than its TTL renders an "ask the owner for a new link" screen and creates no session. | done |
+| B7 | Choose a look while creating | The wizard's optional "paper and picture" step offers the same papers, accent and live light-and-dark preview as the settings, plus a header picture; the choices survive moving between steps and are saved with the loop, so its first page already wears them. A made-up accent holds the step with a plain message, a picture over the cap is refused before anything is sent, and skipping the step stores nothing (Gingham, no picture). | done |
 
 ## C · Questions
 
@@ -54,7 +55,7 @@ Status: `todo` (not built) · `done` (built and covered).
 | D2 | Do not open early or twice | Running the sweep before the slot creates nothing; running it twice for the same slot creates no second issue and no duplicate email. | done |
 | D3 | Start an issue manually | "Send now" opens an issue immediately, emails contributors, and does not create a duplicate when the scheduled slot later arrives. | done |
 | D4 | Draft autosaves | Typing an answer persists it as a draft; reloading the reply page restores every draft. | done |
-| D5 | Submit answers | Submitting marks replies submitted with a timestamp, the bar shows "sent", and the owner's progress count increases. | done |
+| D5 | Submit answers | Submitting marks replies submitted with a timestamp and replaces the sheet with a confirmation screen (focus on its heading) that names the round, repeats when it goes out, and offers "Edit my answers", which brings the sheet back with every answer intact and "Save changes"; the owner's progress count increases. A later visit opens the sheet itself with its "Sent" note. | done |
 | D6 | Edit a submitted answer | Before delivery, editing and re-submitting updates the reply and its timestamp without creating a duplicate row. | done |
 | D7 | Deliver the issue | With the clock past the delivery instant, the sweep sends one issue email per member containing every submitted answer and that member's own link, the issue's status becomes `delivered`, and no loop's email contains another loop's answers. | done |
 | D8 | Nothing to deliver | An issue reaching its delivery instant with zero submitted replies is marked `skipped`, sends no delivery email, and pauses the loop with an explanation to the owner. | done |
@@ -115,7 +116,7 @@ Status: `todo` (not built) · `done` (built and covered).
 | K1 | Manage sections | Owner creates, edits, reorders, and archives sections; archived sections leave future issues while past issues keep their snapshot. | done |
 | K2 | Sections reach an issue | The sweep snapshots active sections into the new issue alongside questions; the reply sheet shows them in position; readers see them in the delivered issue but are never asked to reply. | done |
 | K3 | Standard section reply | Contributors answer a Standard section with text + one photo, under the same media rules and caps as question answers. | done |
-| K4 | Photo wall reply | Contributors add up to six photos to a Photo Wall section, each with a one-line caption; the delivered issue lays them edge-to-edge with their captions. | done |
+| K4 | Photo wall reply | Contributors add up to six photos to a Photo Wall section, each with a one-line caption; the delivered issue lays them edge-to-edge with their captions, and tapping one opens it full size in the same viewer as the Album (previous/next, Escape returns focus) with a Download button. | done |
 | K5 | Paste a music link | A music section accepts a Spotify, Bandcamp, or Qobuz link, with an optional caption; a non-music URL gets the plain-language error and nothing is saved until it is fixed or cleared. | done |
 | K6 | Music renders | The delivered web issue renders every music pick as a card (artwork when the metadata provides it, title, provider badge) that opens the provider page; the delivery email renders title + link. Playable Spotify/Bandcamp embeds are stretch. | done |
 | K7 | Admin-only sections | A section can be restricted to owner/admin contributors; other members don't see it on the sheet, in prompts, or in the delivered issue. | done |
@@ -128,7 +129,7 @@ Status: `todo` (not built) · `done` (built and covered).
 | J1 | Record an answer | On the reply sheet a question offers "record a voice note"; record, stop, preview with duration, attach. Draft autosave persists the audio; reloading keeps it. | done |
 | J2 | Replace and remove | A member can re-record over an attached note or delete it, before and after delivery; post-delivery replacement keeps the `added_after_delivery` truth on the web issue. | done |
 | J3 | Limits, plainly | Duration cap (target 2 minutes, hard stop 3) and size cap produce the same warm plain-language error, never a 500. | done |
-| J4 | Where recording isn't possible | A browser without MediaRecorder sees "your browser can't record here" plus a file-picker fallback accepting m4a/mp3/webm/ogg within the same caps. | done |
+| J4 | Where recording isn't possible | A browser without MediaRecorder sees "your browser can't record here" plus a file-picker fallback accepting m4a/mp3/webm/ogg within the same caps; a page that isn't https says that instead (browsers expose no microphone there and never prompt), and a refused permission or a missing microphone is named as such. | done |
 | J5 | Reading and the email snapshot | The web issue renders a styled audio player; the delivery email renders a "voice note — listen on the web issue" card (email never attempts to embed audio). | done |
 | J6 | Media parity | Audio files are content-hashed and stored exactly like photos (local in dev, Blob in prod); share-link visitors can hear a shared issue's notes under the same rules as photos. | done |
 
@@ -157,7 +158,7 @@ Status: `todo` (not built) · `done` (built and covered).
 | N2 | Default stays Gingham | A loop that never chose a theme renders exactly as before — no stationery rule injected, no banner, the original colours in light and dark and in email; choosing Gingham again stores nothing; the sign-in surface never wears a loop's paper. | done |
 | N3 | Transfer ownership | The owner hands the loop to an admin who has joined, through a confirmation that names the new owner and what they give up; the founder becomes an admin, owner-only actions move, sessions and reply tokens are untouched, and the old owner cannot hand it back without the new owner. The role menu no longer offers "Owner", and a handover that has gone stale changes nothing. (Supersedes G5.) | done |
 | N4 | Rename an issue | The owner names a round (before or after delivery); the name shows in the rounds list, the dashboard, the reply sheet, the web issue and share view, and the delivery email's subject and heading; clearing it brings "Round N" back; only the owner is offered the control. (Ticket 3's R1 is this flow.) | done |
-| N5 | Profile photos | A member sets and removes their own photo — on the reply sheet through their link, or on the people page when signed in; it renders in the member list, on their answers and in comments, falling back to the initial; it belongs to that loop's membership only, and the photo routes answer only the person they belong to. | done |
+| N5 | Profile photos | A member sets and removes their own photo — straight from their invitation link (on the reply sheet, or on the quiet page a reader or a not-yet-open loop lands on), or on the people page when signed in; it renders in the member list, on their answers and in comments, falling back to the initial; it belongs to that loop's membership only, and the photo routes answer only the person they belong to. | done |
 
 ## O · Events and birthdays
 
@@ -172,7 +173,7 @@ Status: `todo` (not built) · `done` (built and covered).
 
 | ID | Flow | Acceptance criteria | Status |
 | --- | --- | --- | --- |
-| P1 | Browse the album | A member opens the Album — a tab of the loop, or a link on any delivered round for people who read from their inbox — and sees every photo and voice note from delivered rounds (answers, photo walls and section photos), newest round first and grouped under the round's name; voice notes play in place, photos open in a keyboard-and-touch-usable fullscreen viewer, and "view in the round" lands on that very answer. Nothing from an open round, a draft, or an admin-only section the viewer cannot read is shown. | done |
+| P1 | Browse the album | A member opens the Album — a tab of the loop, or a link on any delivered round for people who read from their inbox — and sees every photo and voice note from delivered rounds (answers, photo walls and section photos), newest round first and grouped under the round's name; voice notes play in place, photos open in a keyboard-and-touch-usable fullscreen viewer that offers a download, and "view in the round" lands on that very answer. Nothing from an open round, a draft, or an admin-only section the viewer cannot read is shown. | done |
 | P2 | Filter and search | Choosing one person and searching a word (matched against answer text, photo captions, and the question or section it answered; every word must turn up) each narrow the Album, alone or together; the URL carries the filters, a long album grows a page at a time without losing them, and an empty result says so plainly with a way out. | done |
 | P3 | Privacy holds | Share-link visitors get no Album route, link or data; strangers, revoked members, other loops' members and bad tokens get the plain not-found page with nothing of the loop in it; the media addresses stay content-hashed and unguessable. | done |
 
@@ -203,4 +204,10 @@ rather than renumbering the rest.
 
 ---
 
-**89 flows.** A flow is only `done` when its spec passes locally and in CI.
+**91 flows.** A flow is only `done` when its spec passes locally and in CI.
+
+## T · Photos
+
+| ID | Flow | Acceptance criteria | Status |
+| --- | --- | --- | --- |
+| T1 | Upload a camera-roll photo | A full-size phone photo (well over 5 MB, any orientation) uploads from every place a picture can be added — an answer, a section photo, a comment, a profile photo, a header picture — without the person resizing anything: the browser scales it down (answers and comments to 2560 px and 3.5 MB, profile photos to 512 px, header pictures to 2400 px) and re-encodes it, so it clears Vercel's 4.5 MB request limit; camera photos (JPEG, WebP) are always redrawn, which strips the location the camera wrote into them, while a PNG or GIF that already fits is sent byte for byte; Send and Post wait while a photo is still being prepared or uploaded; bytes that cannot be read as a picture are turned away in plain words and nothing is stored. | done |

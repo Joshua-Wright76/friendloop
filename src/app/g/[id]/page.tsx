@@ -1,8 +1,15 @@
+import { Suspense } from "react";
+import type { Metadata } from "next";
+import { copy } from "@/lib/copy";
+import LoopLoading from "./loading";
 import { LoopTabContent } from "./tab-content";
 
-export default async function LoopPage({ searchParams }: {
-  searchParams: Promise<{ welcome?: string; nudged?: string }>;
-}) {
-  const { welcome, nudged } = await searchParams;
-  return <LoopTabContent tab="overview" welcome={welcome} nudged={nudged} />;
+export const metadata: Metadata = { title: copy.pageTitles.overview };
+
+export default function LoopPage() {
+  return (
+    <Suspense fallback={<LoopLoading />}>
+      <LoopTabContent tab="overview" />
+    </Suspense>
+  );
 }

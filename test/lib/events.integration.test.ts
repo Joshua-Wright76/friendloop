@@ -242,6 +242,25 @@ test("an event section can be answered from the reply sheet and delivers with th
   assert.ok(email.html.includes("Happy birthday, Alice!"));
 });
 
+test("the birthday person never sees or fills in their own card", async () => {
+  const loop = await seedLoop();
+  await addBirthday(loop, "1990-01-04");
+  await sweep({ at: AFTER_FIRST_SLOT });
+  const issueId = (await rows<{ id: string }>("select id from issues"))[0].id;
+  const alice = await aliceOf(loop);
+  const bob = loop.members.find((member) => member.email.startsWith("bob"))!;
+
+  // Everyone else is asked; Alice isn't, so the surprise holds.
+  const bobSheet = await sectionsForSheet(bob.token, issueId);
+  assert.deepEqual(bobSheet.map((section) => section.title), ["Alice's birthday"]);
+  assert.deepEqual(await sectionsForSheet(alice.token, issueId), []);
+
+  // A hand-made request for the hidden card is refused like any unknown section.
+  const refused = await saveSectionTextFor({ token: alice.token, issueSectionId: bobSheet[0].id, body: "Me!" });
+  assert.equal(refused.ok, false);
+  assert.equal(refused.ok ? 0 : refused.status, 409);
+});
+
 test("the list is soonest first, finished one-time events last, with labels and dates", async () => {
   const loop = await seedLoop();
   const group = await groupOf(loop.groupId);

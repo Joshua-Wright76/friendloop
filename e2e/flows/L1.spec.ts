@@ -25,6 +25,10 @@ test("L1 · the owner adds a poll that lives in the pool like any question", asy
   await page.getByLabel("Poll question").fill("Where should we camp?");
   await page.getByLabel("Option 1").fill("The lake");
   await page.getByLabel("Option 2").fill("The mountains");
+  // Two option fields to start; more appear one at a time, and the new one takes focus.
+  await expect(page.getByLabel("Option 3")).toHaveCount(0);
+  await page.getByRole("button", { name: "Add option" }).click();
+  await expect(page.getByLabel("Option 3")).toBeFocused();
   await page.getByLabel("Option 3").fill("The coast");
   await page.getByLabel("People can pick more than one").check();
   await page.getByRole("button", { name: "Add poll" }).click();
@@ -45,7 +49,7 @@ test("L1 · the owner adds a poll that lives in the pool like any question", asy
   await expect(item).toContainText("The mountains");
 
   // It reorders and archives like a question.
-  await item.getByRole("button", { name: "Up", exact: true }).click();
+  await item.getByRole("button", { name: /^Up\b/ }).click();
   await expect(pool.locator(":scope > li").nth(1)).toContainText("Where should we camp?");
   await expect.poll(async () =>
     (await rows<{ text: string }>("select text from questions where group_id = $1 order by position", [loop.groupId])).map((row) => row.text),
@@ -59,7 +63,8 @@ test("L1 · the owner adds a poll that lives in the pool like any question", asy
   expect(snapshot).toHaveLength(1);
   expect(snapshot[0].poll_options).toEqual(["The lake", "The mountains", "The coast"]);
 
-  await pool.locator(":scope > li").nth(1).getByRole("button", { name: "Archive" }).click();
+  await pool.locator(":scope > li").nth(1).getByRole("button", { name: /^Archive/ }).click();
+  await pool.locator(":scope > li").nth(1).getByRole("button", { name: /^Yes, archive/ }).click(); // archiving asks first
   await expect(page.getByText("Archived.")).toBeVisible();
   await expect(page.getByText("Where should we camp?")).toHaveCount(0);
   const [archived] = await rows<{ archived_at: string | null }>("select archived_at from questions where kind = 'poll'");

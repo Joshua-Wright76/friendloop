@@ -136,7 +136,7 @@ test("WCAG AA · stationery, handover, round names and profile photos", async ({
     await audit(page, `members with the handover question open (${theme})`, false);
 
     await page.goto(`/g/${loop.groupId}/issues`);
-    await page.getByText("Name this round").first().click();
+    await page.getByText("Rename", { exact: true }).first().click();
     await audit(page, `rounds with the name form open (${theme})`, false);
   }
 });

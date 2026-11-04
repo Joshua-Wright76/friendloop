@@ -15,7 +15,8 @@ test("B3 · inviting three people sends three emails with their own links", asyn
   const emailInput = page.getByLabel("Email addresses");
   await emailInput.fill("ana@friendloop.test, ben@friendloop.test; cleo@friendloop.test owner@friendloop.test ana@friendloop.test");
   await emailInput.press("Enter");
-  await expect(page.locator(".card").last().getByText(/@friendloop\.test/)).toHaveCount(4);
+  // The invite form sits above the list now.
+  await expect(page.locator("#invite-people").getByText(/@friendloop\.test/)).toHaveCount(4);
   await page.getByRole("button", { name: "Send invitations" }).click();
 
   await expect(page.getByText("3 invitations sent. 1 already in the loop.")).toBeVisible();

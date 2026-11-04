@@ -19,6 +19,8 @@
 # next.js
 /.next/
 /out/
+# held by scripts/e2e-db.mjs while a suite runs in this checkout
+/.e2e-run.lock
 
 # production
 /build

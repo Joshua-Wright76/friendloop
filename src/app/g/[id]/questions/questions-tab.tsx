@@ -1,7 +1,6 @@
 "use client";
 
-import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   acceptSuggestionAction,
   addAction,
@@ -15,6 +14,9 @@ import {
   updateSectionAction,
 } from "./actions";
 import { QuestionOrder } from "./question-order";
+import { ConfirmAction } from "@/components/confirm-action";
+import { FieldLabel } from "@/components/field-label";
+import { NoticeFocus } from "@/components/notice-focus";
 import { LoopNav } from "@/components/loop-nav";
 import { Picker } from "@/components/picker";
 import { QuestionPackPicker } from "@/components/question-pack-picker";
@@ -30,7 +32,7 @@ const ROTATION_OPTIONS = [
   ...Array.from({ length: 10 }, (_, index) => ({ value: String(index + 1), label: String(index + 1) })),
 ];
 
-export default function QuestionsTab({ notices }: { notices: { added?: string; archived?: string; rotation?: string; fromPacks?: string; suggestion?: string; section?: string; poll?: string; event?: string } }) {
+export default function QuestionsTab({ notices }: { notices: { added?: string; archived?: string; skip?: string; rotation?: string; fromPacks?: string; suggestion?: string; section?: string; poll?: string; event?: string } }) {
   const { group, membership, questions: pool, suggestions, sections } = useLoopData();
   const id = group.id;
   const manages = membership.access !== "member";
@@ -47,49 +49,46 @@ export default function QuestionsTab({ notices }: { notices: { added?: string; a
       ? [...current, ...questions.filter((question) => !current.includes(question))]
       : current.filter((question) => !questions.includes(question)));
   };
-  const addable = newQuestionTexts(picked, poolTexts).length;
+  // Picks the pool already has (say, just added) never count or travel with the form.
+  const fresh = newQuestionTexts(picked, poolTexts);
 
   return (
     <main className="mx-auto w-full max-w-[680px] px-4 pb-16 pt-5 sm:px-6">
-      <header className="mb-5">
-        <Link href={`/g/${id}`} className="text-[13px] font-medium text-ink-soft hover:text-ink">
-          {copy.common.backToLoop}
-        </Link>
-      </header>
-      <LoopNav id={id} active="Questions" isOwner={membership.access === "owner"} />
+      <LoopNav id={id} name={group.name} access={membership.access} active="Questions" />
 
       <h1 className="text-[28px] font-semibold leading-tight tracking-[-0.025em] text-ink">{copy.questions.title}</h1>
       <p className="mt-1.5 text-[15px] leading-relaxed text-ink-soft">
         {copy.questions.description}
       </p>
 
-      {notices.added ? <Notice>{copy.questions.addedNotice}</Notice> : null}
-      {notices.archived ? <Notice>{copy.questions.archivedNotice}</Notice> : null}
-      {notices.suggestion === "added" ? <Notice>{copy.questions.suggestionAddedNotice}</Notice> : null}
-      {notices.suggestion === "declined" ? <Notice>{copy.questions.suggestionDeclinedNotice}</Notice> : null}
-      {notices.suggestion === "gone" ? <Notice>{copy.questions.suggestionGoneNotice}</Notice> : null}
-      {notices.poll === "added" ? <Notice>{copy.polls.authoring.addedNotice}</Notice> : null}
-      {notices.poll === "invalid" ? <Notice>{copy.polls.authoring.invalidNotice}</Notice> : null}
-      {notices.section === "created" ? <Notice>{copy.questions.sectionCreatedNotice}</Notice> : null}
-      {notices.section === "saved" ? <Notice>{copy.questions.sectionSavedNotice}</Notice> : null}
-      {notices.section === "archived" ? <Notice>{copy.questions.sectionArchivedNotice}</Notice> : null}
-      {notices.section === "moved" ? <Notice>{copy.questions.sectionMovedNotice}</Notice> : null}
-      {notices.section === "invalid" ? <Notice>{copy.reply.errors.sectionSaveFailed}</Notice> : null}
-      {notices.event === "added" ? <Notice>{copy.events.addedNotice}</Notice> : null}
-      {notices.event === "saved" ? <Notice>{copy.events.savedNotice}</Notice> : null}
-      {notices.event === "removed" ? <Notice>{copy.events.removedNotice}</Notice> : null}
+      {notices.added ? <NoticeFocus>{copy.questions.addedNotice}</NoticeFocus> : null}
+      {notices.archived ? <NoticeFocus key={notices.archived}>{copy.questions.archivedNotice}</NoticeFocus> : null}
+      {notices.skip ? <NoticeFocus key={notices.skip}>{copy.questions.skipSavedNotice}</NoticeFocus> : null}
+      {notices.suggestion === "added" ? <NoticeFocus>{copy.questions.suggestionAddedNotice}</NoticeFocus> : null}
+      {notices.suggestion === "declined" ? <NoticeFocus>{copy.questions.suggestionDeclinedNotice}</NoticeFocus> : null}
+      {notices.suggestion === "gone" ? <NoticeFocus>{copy.questions.suggestionGoneNotice}</NoticeFocus> : null}
+      {notices.poll === "added" ? <NoticeFocus>{copy.polls.authoring.addedNotice}</NoticeFocus> : null}
+      {notices.poll === "invalid" ? <NoticeFocus tone="danger">{copy.polls.authoring.invalidNotice}</NoticeFocus> : null}
+      {notices.section === "created" ? <NoticeFocus>{copy.questions.sectionCreatedNotice}</NoticeFocus> : null}
+      {notices.section === "saved" ? <NoticeFocus>{copy.questions.sectionSavedNotice}</NoticeFocus> : null}
+      {notices.section === "archived" ? <NoticeFocus>{copy.questions.sectionArchivedNotice}</NoticeFocus> : null}
+      {notices.section === "moved" ? <NoticeFocus>{copy.questions.sectionMovedNotice}</NoticeFocus> : null}
+      {notices.section === "invalid" ? <NoticeFocus tone="danger">{copy.reply.errors.sectionSaveFailed}</NoticeFocus> : null}
+      {notices.event === "added" ? <NoticeFocus>{copy.events.addedNotice}</NoticeFocus> : null}
+      {notices.event === "saved" ? <NoticeFocus>{copy.events.savedNotice}</NoticeFocus> : null}
+      {notices.event === "removed" ? <NoticeFocus>{copy.events.removedNotice}</NoticeFocus> : null}
       {notices.event && notices.event in copy.events.errors ? (
-        <Notice>{copy.events.errors[notices.event as keyof typeof copy.events.errors]}</Notice>
+        <NoticeFocus tone="danger">{copy.events.errors[notices.event as keyof typeof copy.events.errors]}</NoticeFocus>
       ) : null}
-      {notices.rotation === "1" ? <Notice>{copy.questions.rotationSaved}</Notice> : null}
-      {notices.rotation === "invalid" ? <Notice>{copy.questions.rotationInvalid}</Notice> : null}
-      {notices.fromPacks === "0" ? <Notice>{copy.questions.fromPacksNone}</Notice> : null}
+      {notices.rotation === "1" ? <NoticeFocus>{copy.questions.rotationSaved}</NoticeFocus> : null}
+      {notices.rotation === "invalid" ? <NoticeFocus tone="danger">{copy.questions.rotationInvalid}</NoticeFocus> : null}
+      {notices.fromPacks === "0" ? <NoticeFocus>{copy.questions.fromPacksNone}</NoticeFocus> : null}
       {notices.fromPacks && notices.fromPacks !== "0" ? (
-        <Notice>
+        <NoticeFocus>
           {Number(notices.fromPacks) === 1
             ? copy.questions.fromPacksAddedOne
             : text(copy.questions.fromPacksAdded, { count: notices.fromPacks })}
-        </Notice>
+        </NoticeFocus>
       ) : null}
 
       {manages && suggestions.length > 0 ? (
@@ -112,14 +111,16 @@ export default function QuestionsTab({ notices }: { notices: { added?: string; a
                 <form action={acceptSuggestionAction} className="mt-2">
                   <input type="hidden" name="groupId" value={id} />
                   <input type="hidden" name="suggestionId" value={suggestion.id} />
-                  <input
-                    name="text"
-                    required
-                    maxLength={200}
-                    defaultValue={suggestion.text}
-                    aria-label={copy.questions.suggestionTextLabel}
-                    className="field h-[46px] py-0"
-                  />
+                  <label className="flex flex-col gap-1.5">
+                    <FieldLabel required>{copy.questions.suggestionTextLabel}</FieldLabel>
+                    <input
+                      name="text"
+                      required
+                      maxLength={200}
+                      defaultValue={suggestion.text}
+                      className="field h-[46px] py-0"
+                    />
+                  </label>
                   <div className="mt-2.5 flex items-center gap-2">
                     <button type="submit" className="btn btn-primary min-h-11 px-4 text-[13px]">
                       {copy.questions.suggestionSave}
@@ -169,51 +170,54 @@ export default function QuestionsTab({ notices }: { notices: { added?: string; a
         <form action={addAction} id="question-form" className="card mt-5 p-5">
           <input type="hidden" name="groupId" value={id} />
           <h2 className="text-[16px] font-semibold tracking-[-0.01em] text-ink">{copy.questions.addTitle}</h2>
-          <input
-            name="text"
-            required
-            maxLength={200}
-            placeholder={copy.questions.newQuestionPlaceholder}
-            aria-label={copy.questions.newQuestionAriaLabel}
-            className="field mt-3 h-[46px] py-0"
-          />
+          <label className="mt-3 flex flex-col gap-1.5">
+            <FieldLabel required>{copy.questions.newQuestionAriaLabel}</FieldLabel>
+            <input
+              name="text"
+              required
+              maxLength={200}
+              placeholder={copy.questions.newQuestionPlaceholder}
+              className="field h-[46px] py-0"
+            />
+          </label>
           <button type="submit" className="btn btn-primary mt-3">
             {copy.questions.add}
           </button>
         </form>
       ) : null}
 
+      {manages ? <PollForm groupId={id} /> : null}
+
       {manages ? (
-        <form action={addPollAction} id="poll-form" className="card mt-5 p-5">
+        <form action={addFromPacksAction} className="card mt-5 p-5">
           <input type="hidden" name="groupId" value={id} />
-          <h2 className="text-[16px] font-semibold tracking-[-0.01em] text-ink">{copy.polls.authoring.title}</h2>
-          <p className="mt-1 text-[14px] leading-relaxed text-ink-soft">{copy.polls.authoring.description}</p>
-          <label htmlFor="poll-prompt" className="mt-3 block text-[13px] font-bold text-ink-soft">{copy.polls.authoring.promptLabel}</label>
-          <input
-            id="poll-prompt"
-            name="prompt"
-            required
-            maxLength={POLL_PROMPT_MAX}
-            placeholder={copy.polls.authoring.promptPlaceholder}
-            className="field mt-1 h-[46px] py-0"
-          />
-          <div className="mt-3 flex flex-col gap-2">
-            {Array.from({ length: POLL_MAX_OPTIONS }, (_, index) => (
-              <input
-                key={index}
-                name="option"
-                required={index < 2}
-                maxLength={POLL_OPTION_MAX}
-                placeholder={copy.polls.authoring.optionPlaceholder}
-                aria-label={text(copy.polls.authoring.optionLabel, { number: index + 1 })}
-                className="field h-[46px] py-0"
-              />
-            ))}
+          <h2 className="text-[16px] font-semibold tracking-[-0.01em] text-ink">{copy.questions.packsTitle}</h2>
+          <p className="mt-1 text-[14px] leading-relaxed text-ink-soft">{copy.questions.packsDescription}</p>
+          <div className="pack-addbar">
+            <span className="text-[14px] font-bold text-ink-soft numeric">
+              {text(copy.common.selectedCount, { count: fresh.length })}
+            </span>
+            {/* aria-disabled, not disabled: the button stays reachable and says why nothing happens yet. */}
+            <button
+              type="submit"
+              aria-disabled={fresh.length === 0 ? true : undefined}
+              onClick={(event) => { if (fresh.length === 0) event.preventDefault(); }}
+              className="btn btn-primary min-h-11 px-5 text-[14px] aria-disabled:cursor-not-allowed aria-disabled:opacity-45"
+            >
+              {copy.questions.addToPool}
+            </button>
           </div>
-          <label className="mt-3 flex min-h-11 items-center gap-2 text-[14px] text-ink">
-            <input type="checkbox" name="multiple" className="h-5 w-5 accent-accent" /> {copy.polls.authoring.multipleLabel}
-          </label>
-          <button type="submit" className="btn btn-primary mt-3">{copy.polls.authoring.add}</button>
+          <QuestionPackPicker
+            packs={QUESTION_PACKS}
+            selected={picked}
+            inPool={poolTexts}
+            onToggleQuestion={toggleQuestion}
+            onTogglePack={togglePack}
+            ariaLabel={copy.questions.packsTitle}
+          />
+          {fresh.map((question) => (
+            <input key={question} type="hidden" name="question" value={question} />
+          ))}
         </form>
       ) : null}
 
@@ -237,13 +241,13 @@ export default function QuestionsTab({ notices }: { notices: { added?: string; a
                         <input type="hidden" name="groupId" value={id} />
                         <input type="hidden" name="sectionId" value={section.id} />
                         <input type="hidden" name="targetIndex" value={index - 1} />
-                        <button type="submit" aria-label={copy.questions.sectionUpLabel} disabled={index === 0} className="btn btn-quiet min-h-11 px-3 text-[13px]">{copy.questions.sectionUp}</button>
+                        <button type="submit" aria-label={text(copy.a11yLabels.moveSectionUp, { title: section.title })} disabled={index === 0} className="btn btn-quiet min-h-11 px-3 text-[13px]">{copy.questions.sectionUp}</button>
                       </form>
                       <form action={moveSectionAction}>
                         <input type="hidden" name="groupId" value={id} />
                         <input type="hidden" name="sectionId" value={section.id} />
                         <input type="hidden" name="targetIndex" value={index + 1} />
-                        <button type="submit" aria-label={copy.questions.sectionDownLabel} disabled={index === sections.length - 1} className="btn btn-quiet min-h-11 px-3 text-[13px]">{copy.questions.sectionDown}</button>
+                        <button type="submit" aria-label={text(copy.a11yLabels.moveSectionDown, { title: section.title })} disabled={index === sections.length - 1} className="btn btn-quiet min-h-11 px-3 text-[13px]">{copy.questions.sectionDown}</button>
                       </form>
                     </div>
                   </div>
@@ -253,13 +257,22 @@ export default function QuestionsTab({ notices }: { notices: { added?: string; a
                   </p>
                   {section.description ? <p className="mt-1 text-[13px] leading-relaxed text-ink-soft">{section.description}</p> : null}
                   <details className="mt-2">
-                    <summary className="min-h-11 cursor-pointer text-[13px] font-bold text-ink leading-[44px]">{copy.questions.sectionEdit}</summary>
+                    <summary aria-label={text(copy.a11yLabels.editSection, { title: section.title })} className="min-h-11 cursor-pointer text-[13px] font-bold text-ink leading-[44px]">{copy.questions.sectionEdit}</summary>
                     <form action={updateSectionAction} className="mt-2 flex flex-col gap-2">
                       <input type="hidden" name="groupId" value={id} />
                       <input type="hidden" name="sectionId" value={section.id} />
-                      <input name="title" defaultValue={section.title} maxLength={80} required aria-label={copy.questions.sectionTitleLabel} className="field h-[46px] py-0" />
-                      <input name="emoji" defaultValue={section.emoji ?? ""} maxLength={8} aria-label={copy.questions.sectionEmojiLabel} className="field h-[46px] py-0" />
-                      <input name="description" defaultValue={section.description ?? ""} maxLength={200} placeholder={copy.questions.sectionDescriptionPlaceholder} aria-label={copy.questions.sectionDescriptionLabel} className="field h-[46px] py-0" />
+                      <label className="flex flex-col gap-1.5">
+                        <FieldLabel required>{copy.questions.sectionTitleLabel}</FieldLabel>
+                        <input name="title" defaultValue={section.title} maxLength={80} required className="field h-[46px] py-0" />
+                      </label>
+                      <label className="flex flex-col gap-1.5">
+                        <FieldLabel>{copy.questions.sectionEmojiLabel}</FieldLabel>
+                        <input name="emoji" defaultValue={section.emoji ?? ""} maxLength={8} className="field h-[46px] py-0" />
+                      </label>
+                      <label className="flex flex-col gap-1.5">
+                        <FieldLabel>{copy.questions.sectionDescriptionLabel}</FieldLabel>
+                        <input name="description" defaultValue={section.description ?? ""} maxLength={200} placeholder={copy.questions.sectionDescriptionPlaceholder} className="field h-[46px] py-0" />
+                      </label>
                       <label className="flex items-center gap-2 text-[13px] text-ink">
                         <input type="checkbox" name="adminOnly" defaultChecked={section.adminOnly} className="accent-accent" /> {copy.questions.sectionAdminOnly}
                       </label>
@@ -271,11 +284,17 @@ export default function QuestionsTab({ notices }: { notices: { added?: string; a
                       </div>
                     </form>
                   </details>
-                  <form action={archiveSectionAction} className="mt-2">
-                    <input type="hidden" name="groupId" value={id} />
-                    <input type="hidden" name="sectionId" value={section.id} />
-                    <button type="submit" className="btn btn-quiet min-h-11 px-4 text-[13px]">{copy.questions.sectionArchive}</button>
-                  </form>
+                  <ConfirmAction
+                    className="mt-2"
+                    action={archiveSectionAction}
+                    fields={{ groupId: id, sectionId: section.id }}
+                    label={copy.questions.sectionArchive}
+                    triggerLabel={text(copy.a11yLabels.archiveSection, { title: section.title })}
+                    question={text(copy.a11yLabels.archiveSectionQuestion, { title: section.title })}
+                    body={copy.a11yLabels.archiveSectionBody}
+                    confirmLabel={text(copy.a11yLabels.archiveSectionConfirm, { title: section.title })}
+                    cancelLabel={copy.a11yLabels.confirmCancel}
+                  />
                 </li>
               ))}
             </ol>
@@ -286,16 +305,24 @@ export default function QuestionsTab({ notices }: { notices: { added?: string; a
           <form action={createSectionAction} className="mt-4 border-t border-line pt-4">
             <input type="hidden" name="groupId" value={id} />
             <h3 className="text-[14px] font-semibold text-ink">{copy.questions.sectionAddTitle}</h3>
-            <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-[1fr_5rem]">
-              <input name="title" required maxLength={80} placeholder={copy.questions.sectionTitlePlaceholder} aria-label={copy.questions.sectionTitleLabel} className="field h-[46px] py-0" />
-              <input name="emoji" maxLength={8} aria-label={copy.questions.sectionEmojiLabel} className="field h-[46px] py-0" />
+            <div className="mt-2 grid grid-cols-[minmax(0,1fr)_4.5rem] gap-2 sm:grid-cols-[minmax(0,1fr)_5rem]">
+              <div>
+                <label htmlFor="section-title" className="block text-[13px] font-bold text-ink-soft">{copy.questions.sectionTitleLabel} {copy.a11yLabels.required}</label>
+                <input id="section-title" name="title" required maxLength={80} placeholder={copy.questions.sectionTitlePlaceholder} className="field mt-1 h-[46px] py-0" />
+              </div>
+              <div>
+                <label htmlFor="section-emoji" className="block text-[13px] font-bold text-ink-soft">{copy.questions.sectionEmojiLabel}</label>
+                <input id="section-emoji" name="emoji" maxLength={8} placeholder={copy.questions.sectionEmojiPlaceholder} className="field emoji-field mt-1 h-[46px] py-0 text-center" />
+              </div>
             </div>
-            <select name="kind" aria-label={copy.questions.sectionKindLabel} className="field mt-2 h-[46px] py-0" defaultValue="standard">
+            <label htmlFor="section-kind" className="mt-3 block text-[13px] font-bold text-ink-soft">{copy.questions.sectionKindLabel}</label>
+            <select id="section-kind" name="kind" className="field mt-1 h-[46px] py-0" defaultValue="standard">
               <option value="standard">{copy.questions.sectionKindStandard}</option>
               <option value="photo_wall">{copy.questions.sectionKindPhotoWall}</option>
               <option value="music">{copy.questions.sectionKindMusic}</option>
             </select>
-            <input name="description" maxLength={200} placeholder={copy.questions.sectionDescriptionPlaceholder} aria-label={copy.questions.sectionDescriptionLabel} className="field mt-2 h-[46px] py-0" />
+            <label htmlFor="section-description" className="mt-3 block text-[13px] font-bold text-ink-soft">{copy.questions.sectionDescriptionLabel}</label>
+            <input id="section-description" name="description" maxLength={200} placeholder={copy.questions.sectionDescriptionPlaceholder} className="field mt-1 h-[46px] py-0" />
             <label className="mt-2 flex items-center gap-2 text-[13px] text-ink">
               <input type="checkbox" name="adminOnly" className="accent-accent" /> {copy.questions.sectionAdminOnly}
             </label>
@@ -306,39 +333,69 @@ export default function QuestionsTab({ notices }: { notices: { added?: string; a
 
       {manages ? <EventsPanel /> : null}
 
-      {manages ? (
-        <form action={addFromPacksAction} className="card mt-5 p-5">
-          <input type="hidden" name="groupId" value={id} />
-          <h2 className="text-[16px] font-semibold tracking-[-0.01em] text-ink">{copy.questions.packsTitle}</h2>
-          <p className="mt-1 text-[14px] leading-relaxed text-ink-soft">{copy.questions.packsDescription}</p>
-          <QuestionPackPicker
-            packs={QUESTION_PACKS}
-            selected={picked}
-            onToggleQuestion={toggleQuestion}
-            onTogglePack={togglePack}
-            ariaLabel={copy.questions.packsTitle}
-          />
-          {picked.map((question) => (
-            <input key={question} type="hidden" name="question" value={question} />
-          ))}
-          <div className="mt-4 flex items-center gap-3">
-            <span className="chip border bg-card px-2.5 py-1 text-[12px] font-bold text-ink-soft numeric">
-              {text(copy.common.selectedCount, { count: picked.length })}
-            </span>
-            <button type="submit" disabled={addable === 0} className="btn btn-primary">
-              {copy.questions.addToPool}
-            </button>
-          </div>
-        </form>
-      ) : null}
+
+
+
     </main>
   );
 }
 
-function Notice({ children }: { children: React.ReactNode }) {
+/** A poll starts with the two options it needs; more appear one at a time, up to six. */
+function PollForm({ groupId }: { groupId: string }) {
+  const [options, setOptions] = useState(2);
+  const added = useRef(false);
+  const list = useRef<HTMLDivElement>(null);
+
+  // The new field takes focus, so the keyboard carries on typing where the option appeared.
+  useEffect(() => {
+    if (!added.current) return;
+    added.current = false;
+    list.current?.querySelectorAll("input")[options - 1]?.focus();
+  }, [options]);
+
   return (
-    <div role="status" className="notice settle mt-4 border bg-accent-soft px-4 py-3 text-[14px] leading-relaxed">
-      {children}
-    </div>
+    <form action={addPollAction} id="poll-form" className="card mt-5 p-5">
+      <input type="hidden" name="groupId" value={groupId} />
+      <h2 className="text-[16px] font-semibold tracking-[-0.01em] text-ink">{copy.polls.authoring.title}</h2>
+      <p className="mt-1 text-[14px] leading-relaxed text-ink-soft">{copy.polls.authoring.description}</p>
+      <label htmlFor="poll-prompt" className="mt-3 block text-[13px] font-bold text-ink-soft">{copy.polls.authoring.promptLabel} {copy.a11yLabels.required}</label>
+      <input
+        id="poll-prompt"
+        name="prompt"
+        required
+        maxLength={POLL_PROMPT_MAX}
+        placeholder={copy.polls.authoring.promptPlaceholder}
+        className="field mt-1 h-[46px] py-0"
+      />
+      <div ref={list} className="mt-3 flex flex-col gap-2">
+        {Array.from({ length: options }, (_, index) => (
+          <label key={index} className="flex flex-col gap-1.5">
+            <FieldLabel required={index < 2}>{text(copy.polls.authoring.optionLabel, { number: index + 1 })}</FieldLabel>
+            <input
+              name="option"
+              required={index < 2}
+              maxLength={POLL_OPTION_MAX}
+              placeholder={copy.polls.authoring.optionPlaceholder}
+              className="field h-[46px] py-0"
+            />
+          </label>
+        ))}
+      </div>
+      {options < POLL_MAX_OPTIONS ? (
+        <button
+          type="button"
+          onClick={() => { added.current = true; setOptions((count) => Math.min(count + 1, POLL_MAX_OPTIONS)); }}
+          className="btn btn-quiet mt-2 min-h-11 px-4 text-[13px]"
+        >
+          {copy.polls.authoring.addOption}
+        </button>
+      ) : null}
+      <label className="mt-3 flex min-h-11 items-center gap-2 text-[14px] text-ink">
+        <input type="checkbox" name="multiple" className="h-5 w-5 accent-accent" /> {copy.polls.authoring.multipleLabel}
+      </label>
+      <div>
+        <button type="submit" className="btn btn-primary mt-3">{copy.polls.authoring.add}</button>
+      </div>
+    </form>
   );
 }

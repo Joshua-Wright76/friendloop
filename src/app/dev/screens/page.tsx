@@ -60,7 +60,8 @@ export default async function UiScreensPage() {
     <main className="mx-auto w-full max-w-[820px] px-4 pb-16 pt-6 sm:px-6">
       <header className="mb-8 flex items-center justify-between gap-4">
         <Brand href={null} />
-        <Link href="/dev/ui?reset=1" className="btn btn-quiet h-10 min-h-10 px-4 text-[13px]">
+        {/* prefetch={false}: these links sign out and reset the demo data, and Next would otherwise fetch them just for rendering this page. */}
+        <Link href="/dev/ui?reset=1" prefetch={false} className="btn btn-quiet h-10 min-h-10 px-4 text-[13px]">
           {copy.devUi.reset}
         </Link>
       </header>
@@ -69,7 +70,7 @@ export default async function UiScreensPage() {
         <Tape tone="mint" position="right" />
         <h1 className="text-ink">{copy.devUi.title}</h1>
         <p className="mt-2 max-w-[52ch] text-[15px] leading-relaxed text-ink-soft">{copy.devUi.description}</p>
-        <Link href="/dev/ui" className="btn btn-primary mt-4">{copy.devUi.enable}</Link>
+        <Link href="/dev/ui" prefetch={false} className="btn btn-primary mt-4">{copy.devUi.enable}</Link>
       </section>
 
       <div className="mt-8 flex flex-col gap-8">
@@ -78,7 +79,7 @@ export default async function UiScreensPage() {
             <h2 className="mb-3 text-ink">{group.title}</h2>
             <div className="grid gap-3 sm:grid-cols-2">
               {group.links.map(([label, href]) => (
-                <Link key={href} href={href} className="card loop-card flex items-center justify-between gap-4 px-4 py-3.5 no-underline">
+                <Link key={href} href={href} prefetch={false} className="card loop-card flex items-center justify-between gap-4 px-4 py-3.5 no-underline">
                   <span className="font-display text-[22px] font-bold text-ink">{label}</span>
                   <span aria-hidden="true" className="text-ink-muted">→</span>
                 </Link>

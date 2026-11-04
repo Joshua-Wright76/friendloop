@@ -3,7 +3,8 @@
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { copy } from "@/lib/copy";
-import { MAX_AVATAR_BYTES, PHOTO_ACCEPT } from "@/lib/photo-validation";
+import { PHOTO_ACCEPT } from "@/lib/photo-validation";
+import { AVATAR_TARGET, prepareImage } from "./prepare-image";
 import { Avatar } from "./avatar";
 
 type Status = "idle" | "saving" | "saved" | "removed" | "error";
@@ -26,6 +27,7 @@ export function ProfilePhoto({
 }) {
   const router = useRouter();
   const input = useRef<HTMLInputElement>(null);
+  const change = useRef<HTMLButtonElement>(null);
   const [photoUrl, setPhotoUrl] = useState(initial);
   const [status, setStatus] = useState<Status>("idle");
   const [message, setMessage] = useState("");
@@ -40,6 +42,8 @@ export function ProfilePhoto({
         setMessage(body.error ?? copy.identity.profile.error);
         return;
       }
+      // Remove leaves with the photo; Change/Add is the control that stays.
+      if (done === "removed") change.current?.focus();
       setPhotoUrl(body.photoUrl ?? null);
       setStatus(done);
       if (refresh) router.refresh();
@@ -49,17 +53,20 @@ export function ProfilePhoto({
     }
   }
 
-  function choose(file: File | undefined) {
-    if (!file) return;
-    if (file.size > MAX_AVATAR_BYTES) {
+  async function choose(picked: File | undefined) {
+    if (input.current) input.current.value = "";
+    if (!picked) return;
+    // A profile picture is shown tiny, so any camera photo is scaled down to fit.
+    setStatus("saving");
+    const prepared = await prepareImage(picked, AVATAR_TARGET);
+    if (!prepared.ok) {
       setStatus("error");
-      setMessage(copy.identity.errors.avatarTooLarge);
+      setMessage(copy.identity.errors.unreadable);
       return;
     }
     const form = new FormData();
-    form.set("photo", file);
-    void send({ method: "POST", body: form }, "saved");
-    if (input.current) input.current.value = "";
+    form.set("photo", prepared.file);
+    await send({ method: "POST", body: form }, "saved");
   }
 
   return (
@@ -68,19 +75,24 @@ export function ProfilePhoto({
       <div className="min-w-0">
         <div className="flex flex-wrap gap-2">
           <button
+            ref={change}
             type="button"
-            className="btn btn-quiet h-10 text-[14px]"
-            disabled={status === "saving"}
-            onClick={() => input.current?.click()}
+            className="btn btn-quiet h-10 text-[14px] aria-disabled:cursor-not-allowed aria-disabled:opacity-45"
+            aria-disabled={status === "saving" ? true : undefined}
+            onClick={() => {
+              if (status !== "saving") input.current?.click();
+            }}
           >
             {photoUrl ? copy.identity.profile.change : copy.identity.profile.add}
           </button>
           {photoUrl ? (
             <button
               type="button"
-              className="btn btn-quiet h-10 text-[14px]"
-              disabled={status === "saving"}
-              onClick={() => void send({ method: "DELETE" }, "removed")}
+              className="btn btn-quiet h-10 text-[14px] aria-disabled:cursor-not-allowed aria-disabled:opacity-45"
+              aria-disabled={status === "saving" ? true : undefined}
+              onClick={() => {
+                if (status !== "saving") void send({ method: "DELETE" }, "removed");
+              }}
             >
               {copy.identity.profile.remove}
             </button>
@@ -92,7 +104,7 @@ export function ProfilePhoto({
           hidden
           accept={PHOTO_ACCEPT}
           aria-label={copy.identity.profile.inputLabel}
-          onChange={(event) => choose(event.target.files?.[0])}
+          onChange={(event) => void choose(event.target.files?.[0])}
         />
         <p
           aria-live="polite"

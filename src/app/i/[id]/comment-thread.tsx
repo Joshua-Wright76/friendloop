@@ -10,7 +10,8 @@ import {
   type Mentionable,
 } from "@/lib/mention-picker";
 import type { MentionPick } from "@/lib/mentions";
-import { MAX_PHOTO_BYTES, PHOTO_ACCEPT } from "@/lib/photo-validation";
+import { PHOTO_ACCEPT } from "@/lib/photo-validation";
+import { PHOTO_TARGET, prepareImage } from "@/components/prepare-image";
 import { Avatar } from "@/components/avatar";
 import { copy, text } from "@/lib/copy";
 
@@ -27,8 +28,10 @@ type ThreadProps = {
   /** The composer's accessible name. */
   composerLabel: string;
   placeholder: string;
-  /** Shown when there is nothing yet. */
-  empty: string;
+  /** Shown when there is nothing yet; left out where the composer says enough. */
+  empty?: string;
+  /** Put the cursor in the composer as the thread opens. */
+  focusComposer?: boolean;
 };
 
 /** A run of comments and, for members, the box to add another. */
@@ -42,6 +45,7 @@ export function CommentThread({
   composerLabel,
   placeholder,
   empty,
+  focusComposer = false,
 }: ThreadProps) {
   const [quote, setQuote] = useState<Quote | null>(null);
 
@@ -57,9 +61,9 @@ export function CommentThread({
             />
           ))}
         </div>
-      ) : (
+      ) : empty ? (
         <p className="mt-2 text-[14px] text-ink-muted">{empty}</p>
-      )}
+      ) : null}
 
       {canInteract ? (
         <CommentComposer
@@ -71,6 +75,7 @@ export function CommentThread({
           placeholder={placeholder}
           quote={quote}
           onClearQuote={() => setQuote(null)}
+          focusOnMount={focusComposer}
         />
       ) : null}
     </div>
@@ -140,6 +145,7 @@ function CommentComposer({
   placeholder,
   quote,
   onClearQuote,
+  focusOnMount,
 }: {
   issueId: string;
   viewerToken: string | null;
@@ -149,13 +155,20 @@ function CommentComposer({
   placeholder: string;
   quote: Quote | null;
   onClearQuote: () => void;
+  focusOnMount: boolean;
 }) {
   const router = useRouter();
   const [value, setValue] = useState("");
   const [caret, setCaret] = useState(0);
   const [picks, setPicks] = useState<MentionPick[]>([]);
   const [photo, setPhoto] = useState<File | null>(null);
+  // While a picked photo is being shrunk, Post and the picker wait: otherwise the
+  // comment could go without it, and the photo would turn up on the next one.
+  const [preparing, setPreparing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Which control the error is about; errors that name no field stay unattached.
+  const [errorField, setErrorField] = useState<"body" | "photo" | null>(null);
+  const [posted, setPosted] = useState("");
   const [pending, startTransition] = useTransition();
   // One id per comment being written: sending it twice is still one comment.
   const [commentId, setCommentId] = useState(() => crypto.randomUUID());
@@ -164,6 +177,7 @@ function CommentComposer({
   const area = useRef<HTMLTextAreaElement>(null);
   const files = useRef<HTMLInputElement>(null);
   const listId = useId();
+  const errorId = `${listId}-error`;
   // Where the caret goes after a name is dropped in, applied once the new text is on screen.
   const pendingCaret = useRef<number | null>(null);
 
@@ -182,6 +196,11 @@ function CommentComposer({
     if (quote) area.current?.focus();
   }, [quote]);
 
+  // A thread opened on purpose is opened to write in.
+  useEffect(() => {
+    if (focusOnMount) area.current?.focus();
+  }, [focusOnMount]);
+
   const choose = (person: Mentionable) => {
     if (!trigger) return;
     const next = insertMention(value, trigger.start, caret, person.name);
@@ -194,11 +213,17 @@ function CommentComposer({
   };
 
   const submit = () => {
+    if (preparing) return;
     const body = value.trim();
+    if (pending) return;
     if (!body && !photo) {
       setError(copy.issue.writeFirst);
+      setErrorField("body");
+      area.current?.focus();
       return;
     }
+    setPosted("");
+    setErrorField(null);
     const form = new FormData();
     form.set("id", commentId);
     form.set("body", body);
@@ -216,6 +241,7 @@ function CommentComposer({
           setError(data.error ?? copy.issue.postError);
           return;
         }
+        setPosted(copy.a11yStatus.commentPosted);
         setValue("");
         setCaret(0);
         setPicks([]);
@@ -245,17 +271,22 @@ function CommentComposer({
     }
   };
 
-  const onPickPhoto = (file: File | undefined) => {
-    if (!file) return;
-    if (file.size > MAX_PHOTO_BYTES) {
-      setError(copy.issue.errors.photoTooLarge);
-    } else if (!PHOTO_ACCEPT.split(",").includes(file.type)) {
-      setError(copy.issue.errors.photoInvalid);
-    } else {
-      setPhoto(file);
-      setError(null);
-    }
+  const onPickPhoto = async (picked: File | undefined) => {
     if (files.current) files.current.value = "";
+    if (!picked) return;
+    // Camera-roll photos are shrunk here rather than refused for their size.
+    setPreparing(true);
+    const prepared = await prepareImage(picked, PHOTO_TARGET);
+    setPreparing(false);
+    if (!prepared.ok) {
+      setError(copy.issue.errors.photoUnreadable);
+      setErrorField("photo");
+      return;
+    }
+    setPhoto(prepared.file);
+    setPosted(text(copy.a11yStatus.photoAttached, { name: prepared.file.name }));
+    setError(null);
+    setErrorField(null);
   };
 
   return (
@@ -269,7 +300,7 @@ function CommentComposer({
       {quote ? (
         <div className="mb-2 flex items-center justify-between gap-3 rounded-lg border border-line bg-accent-soft px-3 py-2 text-[13px] text-ink-soft">
           <span>{text(copy.issue.replyingTo, { author: quote.author })}</span>
-          <button type="button" onClick={onClearQuote} className="min-h-8 font-bold text-accent-ink underline underline-offset-4">
+          <button type="button" onClick={() => { onClearQuote(); area.current?.focus(); }} className="min-h-8 font-bold text-accent-ink underline underline-offset-4">
             {copy.issue.replyingToCancel}
           </button>
         </div>
@@ -283,12 +314,19 @@ function CommentComposer({
           setCaret(event.target.selectionStart);
           setHighlight(0);
           setDismissedAt(null);
+          setPosted("");
+          if (errorField === "body") {
+            setError(null);
+            setErrorField(null);
+          }
         }}
         onSelect={(event) => setCaret(event.currentTarget.selectionStart)}
         onKeyDown={onKeyDown}
         rows={2}
         placeholder={placeholder}
         aria-label={label}
+        aria-invalid={errorField === "body" ? "true" : undefined}
+        aria-describedby={errorField === "body" ? errorId : undefined}
         aria-autocomplete={mentionables.length > 0 ? "list" : undefined}
         aria-controls={open ? listId : undefined}
         aria-activedescendant={open ? `${listId}-${active}` : undefined}
@@ -304,10 +342,9 @@ function CommentComposer({
               role="option"
               aria-selected={index === active}
               className="mention-option"
-              onMouseDown={(event) => {
-                event.preventDefault();
-                choose(person);
-              }}
+              // Keep the textarea focused on press, but only act on release so a press can be aborted (2.5.2).
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={() => choose(person)}
             >
               <Avatar name={person.name} photoUrl={person.photoUrl} className="!h-7 !w-7 !text-[12px]" />
               {person.name}
@@ -316,7 +353,7 @@ function CommentComposer({
         </ul>
       ) : null}
       <p className="sr-only" role="status" aria-live="polite">
-        {open ? text(copy.issue.mentionCount, { count: options.length }) : ""}
+        {open ? text(copy.issue.mentionCount, { count: options.length }) : posted}
       </p>
 
       {mentionables.length > 0 ? (
@@ -325,8 +362,8 @@ function CommentComposer({
 
       {photo ? (
         <div className="mt-2 flex items-center justify-between gap-3 rounded-lg border border-line px-3 py-2 text-[13px] text-ink-soft">
-          <span className="min-w-0 truncate">{text(copy.issue.photoChosen, { name: photo.name })}</span>
-          <button type="button" onClick={() => setPhoto(null)} className="min-h-8 flex-none font-bold text-accent-ink underline underline-offset-4">
+          <span className="min-w-0 wrap-any">{text(copy.issue.photoChosen, { name: photo.name })}</span>
+          <button type="button" onClick={() => { setPhoto(null); setPosted(copy.a11yStatus.photoRemoved); area.current?.focus(); }} className="min-h-8 flex-none font-bold text-accent-ink underline underline-offset-4">
             {copy.issue.removePhoto}
           </button>
         </div>
@@ -339,17 +376,28 @@ function CommentComposer({
             type="file"
             accept={PHOTO_ACCEPT}
             hidden
-            onChange={(event) => onPickPhoto(event.target.files?.[0])}
+            onChange={(event) => void onPickPhoto(event.target.files?.[0])}
           />
-          <button type="button" className="btn btn-quiet" onClick={() => files.current?.click()}>
-            {copy.issue.addPhoto}
+          <button
+            type="button"
+            className="btn btn-quiet aria-disabled:cursor-not-allowed aria-disabled:opacity-45"
+            aria-disabled={preparing || pending ? true : undefined}
+            aria-describedby={errorField === "photo" ? errorId : undefined}
+            onClick={() => { if (!preparing && !pending) files.current?.click(); }}
+          >
+            {preparing ? copy.issue.preparingPhoto : copy.issue.addPhoto}
           </button>
         </div>
-        <button type="submit" disabled={pending} className="btn btn-primary">
+        {/* aria-disabled, not disabled: the button the keyboard is on must keep focus while posting. */}
+        <button
+          type="submit"
+          aria-disabled={pending || preparing ? true : undefined}
+          className="btn btn-primary aria-disabled:cursor-not-allowed aria-disabled:opacity-45"
+        >
           {pending ? copy.issue.posting : copy.issue.post}
         </button>
       </div>
-      <p role={error ? "alert" : undefined} className="mt-2 text-[13px] text-danger">
+      <p id={errorId} role="alert" className="mt-2 text-[13px] text-danger">
         {error}
       </p>
     </form>

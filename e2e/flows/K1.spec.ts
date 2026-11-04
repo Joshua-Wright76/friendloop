@@ -22,7 +22,7 @@ test("K1 · the owner shapes the section list over time", async ({ page }) => {
 
   // A second one moves above the first.
   await page.getByPlaceholder("The potluck corner").fill("Music picks");
-  await page.getByLabel("Kind").selectOption({ label: "Music — Spotify, Bandcamp, or Qobuz picks" });
+  await page.getByLabel("Kind").selectOption({ label: "Music, with Spotify, Bandcamp, or Qobuz picks" });
   await page.getByRole("button", { name: "Add section" }).click();
   await page.getByRole("button", { name: "Move section up" }).last().click();
   await expect(page.getByText("Section order updated.")).toBeVisible();
@@ -43,6 +43,7 @@ test("K1 · the owner shapes the section list over time", async ({ page }) => {
 
   // Archiving takes it out of the running list.
   await item.getByRole("button", { name: "Archive" }).click();
+  await item.getByRole("button", { name: /^Yes, archive/ }).click(); // archiving asks first
   await expect(page.getByText("Section archived.")).toBeVisible();
   await expect(page.getByText("The potluck corner, revisited")).toHaveCount(0);
 });

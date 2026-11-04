@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { QUESTION_PACKS, newQuestionTexts, visiblePacks } from "./question-packs.ts";
+import { QUESTION_PACKS, newQuestionTexts, packStatus } from "./question-packs.ts";
 
 test("every pack has a unique id and name, and holds real questions", () => {
   const ids = new Set<string>();
@@ -32,13 +32,14 @@ test("the first pack still starts with the classic openers", () => {
   assert.equal(QUESTION_PACKS[0].questions[1], "What are you looking forward to?");
 });
 
-test("a filter shows all packs, or just the active ones in library order", () => {
-  const packs = QUESTION_PACKS.slice(0, 3);
-  assert.deepEqual(visiblePacks(packs, []), packs);
-  assert.deepEqual(visiblePacks(packs, [packs[2].id, packs[0].id, "unknown"]).map((pack) => pack.id), [
-    packs[0].id,
-    packs[2].id,
-  ]);
+test("a pack counts what is already in the pool and what is picked from the rest", () => {
+  const pack = { id: "p", name: "P", questions: ["One", "Two", "Three"] };
+  assert.deepEqual(packStatus(pack, [], []), { addable: ["One", "Two", "Three"], inPool: 0, picked: 0, allPicked: false });
+  // A picked question that is already in the pool does not count twice.
+  assert.deepEqual(packStatus(pack, ["One", "Two", "Elsewhere"], ["Two"]), { addable: ["One", "Three"], inPool: 1, picked: 1, allPicked: false });
+  assert.deepEqual(packStatus(pack, ["One", "Three"], ["Two"]), { addable: ["One", "Three"], inPool: 1, picked: 2, allPicked: true });
+  // Nothing left to add is never "all picked", so the pack offers no Remove all.
+  assert.deepEqual(packStatus(pack, [], ["One", "Two", "Three"]), { addable: [], inPool: 3, picked: 0, allPicked: false });
 });
 
 test("new questions skip blanks, duplicates, and anything already in the pool", () => {

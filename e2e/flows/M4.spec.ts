@@ -44,7 +44,7 @@ test("M4 · replying quotes the comment into the composer, and a comment carries
   expect(saved.photo_url).toMatch(/\/uploads\/[a-f0-9]{64}\.png$/);
 });
 
-test("M4 · a photo over the answer cap is turned away plainly, a quote can be cancelled, and a removed quote reads as removed", async ({ page }) => {
+test("M4 · a photo that can't be read is turned away plainly, a quote can be cancelled, and a removed quote reads as removed", async ({ page }) => {
   const { issue, alice, bob } = await seedConversation();
   const [quoted] = await rows<{ id: string }>(
     "insert into comments (issue_id, membership_id, body) values ($1, $2, 'Said, then unsaid.') returning id",
@@ -63,12 +63,13 @@ test("M4 · a photo over the answer cap is turned away plainly, a quote can be c
   await expect(page.getByText("Agreed!")).toBeVisible();
 
   const file = page.locator('input[type="file"]');
+  // Bytes that cannot be read as a picture are turned away plainly (a real big photo is shrunk: see T1).
   await file.setInputFiles({ name: "huge.png", mimeType: "image/png", buffer: Buffer.alloc(5 * 1024 * 1024 + 1) });
-  await expect(page.locator("p[role=alert]")).toContainText("That photo is over 5 MB.");
+  await expect(page.locator("p[role=alert]")).toContainText("We couldn't read that photo.");
   await expect(page.getByText("Photo: huge.png")).toHaveCount(0);
 
   await file.setInputFiles({ name: "notes.txt", mimeType: "text/plain", buffer: Buffer.from("hello") });
-  await expect(page.locator("p[role=alert]")).toContainText("Use a JPEG, PNG, WebP or GIF photo.");
+  await expect(page.locator("p[role=alert]")).toContainText("We couldn't read that photo.");
 
   // Choose a photo, then change your mind.
   await file.setInputFiles({ name: "beach.png", mimeType: "image/png", buffer: TINY_PNG });

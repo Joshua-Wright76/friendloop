@@ -54,19 +54,23 @@ export function CopyLink({ url, className = "" }: { url: string; className?: str
   }
 
   return (
-    <button
-      type="button"
-      onClick={() => void copyUrl()}
-      title={state === "failed" ? copy.common.copyFailed : undefined}
-      className={`btn btn-quiet h-9 min-h-9 flex-none whitespace-nowrap px-3 text-[13px] ${className}`}
-    >
-      <span aria-live="polite">
+    <>
+      <button
+        type="button"
+        onClick={() => void copyUrl()}
+        title={state === "failed" ? copy.common.copyFailed : undefined}
+        className={`btn btn-quiet h-9 min-h-9 flex-none whitespace-nowrap px-3 text-[13px] ${className}`}
+      >
         {state === "copied"
           ? copy.common.copied
           : state === "failed"
             ? copy.common.copyFailedShort
             : copy.common.copyLink}
+      </button>
+      {/* Outside the button, and always mounted, so the result is spoken without moving focus. */}
+      <span role="status" aria-live="polite" className="sr-only">
+        {state === "copied" ? copy.a11yStatus.linkCopied : state === "failed" ? copy.common.copyFailed : ""}
       </span>
-    </button>
+    </>
   );
 }

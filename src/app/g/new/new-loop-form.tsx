@@ -8,6 +8,11 @@ import { Picker } from "@/components/picker";
 import { copy, text } from "@/lib/copy";
 import type { QuestionPack } from "@/lib/question-packs";
 import { QuestionPackPicker } from "@/components/question-pack-picker";
+import { PaperFields } from "@/components/paper-fields";
+import { LoopBanner } from "@/components/loop-theme";
+import { PHOTO_ACCEPT } from "@/lib/photo-validation";
+import { BANNER_TARGET, prepareImage } from "@/components/prepare-image";
+import { DEFAULT_PRESET, normalizeHex } from "@/lib/theme";
 
 const WEEKDAYS = copy.common.weekdays;
 const HOURS = Array.from({ length: 24 }, (_, hour) => hour);
@@ -19,13 +24,13 @@ const HOUR_OPTIONS = HOURS.map((hour) => ({
 const CADENCE_OPTIONS = copy.newLoop.cadences;
 const VALID_EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-type ModalKind = "name-ideas" | "question" | "section" | "preview" | null;
-type SectionPreset = (typeof copy.newLoop.wizard.sections.presets)[number];
-type CustomSection = { id: number; title: string; description: string };
-
-function sectionQuestion(title: string, description: string): string {
-  return text(copy.newLoop.wizard.sections.questionFormat, { title, description });
-}
+type ModalKind = "name-ideas" | "question" | "preview" | null;
+type CadenceKey = keyof typeof copy.newLoop.wizard.details.scheduleWhen;
+const IDEAS = copy.newLoop.wizard.questions.ideas;
+/** Steps that check something before moving on, and the one that creates the loop. */
+const LAST_STEP = copy.newLoop.wizard.steps.length - 1;
+const QUESTIONS_STEP = 2;
+const INVITE_STEP = 3;
 
 function IconClose() {
   return <span aria-hidden="true" className="text-[26px] font-normal leading-none">×</span>;
@@ -96,7 +101,7 @@ function AccessibleDialog({
           <h2 id={titleId} className="font-display text-[30px] font-bold leading-tight text-ink">{title}</h2>
           {description ? <p id={descriptionId} className="mt-1 text-[14px] leading-relaxed text-ink-soft">{description}</p> : null}
         </div>
-        <button type="button" aria-label={closeLabel} onClick={onClose} className="btn btn-quiet h-11 min-h-11 w-11 flex-none px-0">
+        <button type="button" aria-label={closeLabel} onClick={onClose} className="btn btn-quiet h-11 min-h-11 w-11 flex-none p-0!">
           <IconClose />
         </button>
       </div>
@@ -115,40 +120,70 @@ export function NewLoopForm({ packs }: { packs: QuestionPack[] }) {
   const [timezone, setTimezone] = useState("");
   const [picked, setPicked] = useState<string[]>(() => packs.flatMap((pack) => pack.questions).slice(0, 2));
   const [customQuestions, setCustomQuestions] = useState<Array<{ id: number; value: string }>>([]);
-  const [pickedPresets, setPickedPresets] = useState<string[]>([]);
-  const [customSections, setCustomSections] = useState<CustomSection[]>([]);
+  const [pickedIdeas, setPickedIdeas] = useState<string[]>([]);
   const [emails, setEmails] = useState<string[]>([]);
   const [emailDraft, setEmailDraft] = useState("");
   const [emailError, setEmailError] = useState("");
   const [emailNotice, setEmailNotice] = useState("");
   const [personalNote, setPersonalNote] = useState("");
+  const [preset, setPreset] = useState(DEFAULT_PRESET);
+  const [accent, setAccent] = useState("");
+  const [headerFile, setHeaderFile] = useState<File | null>(null);
+  const [headerPreview, setHeaderPreview] = useState<string | null>(null);
+  const [headerError, setHeaderError] = useState("");
+  const [headerPreparing, setHeaderPreparing] = useState(false);
+  const headerInput = useRef<HTMLInputElement>(null);
+  const previewUrl = useRef<string | null>(null);
   const [questionDraft, setQuestionDraft] = useState("");
-  const [sectionTitle, setSectionTitle] = useState("");
-  const [sectionDescription, setSectionDescription] = useState("");
   const [modalError, setModalError] = useState("");
   const [stepError, setStepError] = useState("");
+  const [errorField, setErrorField] = useState<"name" | "timezone" | null>(null);
+  const [focusRequest, setFocusRequest] = useState<{ id: string } | null>(null);
+  const [hiddenServerState, setHiddenServerState] = useState<CreateState | null>(null);
   const [modal, setModal] = useState<ModalKind>(null);
   const nextQuestionId = useRef(0);
-  const nextSectionId = useRef(0);
   const errorId = useId();
+  const nameErrorId = useId();
+  const timezoneErrorId = useId();
+  const formErrorId = useId();
+  const questionErrorId = useId();
   const stepHeading = useRef<HTMLHeadingElement>(null);
+  // The step whose heading last took focus. The first one is skipped: a fresh page
+  // already starts screen readers at the top, and focusing it drew a ring nobody asked for.
+  const focusedStep = useRef(step);
 
-  const presets = copy.newLoop.wizard.sections.presets;
+  // Ideas are stored as plain question text, exactly like a picked pack question.
   const questions = [
     ...picked,
     ...customQuestions.map((question) => question.value.trim()).filter(Boolean),
-    ...pickedPresets.flatMap((id) => {
-      const preset = presets.find((item) => item.id === id);
-      return preset ? [sectionQuestion(preset.title, preset.description)] : [];
-    }),
-    ...customSections.map((section) => sectionQuestion(section.title, section.description)),
+    ...IDEAS.filter((idea) => pickedIdeas.includes(idea.id)).map((idea) => idea.question),
   ];
   const selectedCadence = CADENCE_OPTIONS.find((option) => option.value === cadence) ?? CADENCE_OPTIONS[0];
   const currentStepLabel = copy.newLoop.wizard.steps[step];
+  const weekdayName = WEEKDAYS[Number(weekday)] ?? WEEKDAYS[5];
+  const scheduleWhen = copy.newLoop.wizard.details.scheduleWhen[cadence as CadenceKey] ?? copy.newLoop.wizard.details.scheduleWhen["1"];
 
   useEffect(() => {
+    if (focusedStep.current === step) return;
+    focusedStep.current = step;
     stepHeading.current?.focus();
   }, [step]);
+
+  useEffect(() => {
+    if (focusRequest) document.getElementById(focusRequest.id)?.focus();
+  }, [focusRequest]);
+
+  useEffect(() => {
+    if (state.error) document.getElementById(formErrorId)?.focus();
+  }, [state, formErrorId]);
+
+  // Release the picture preview when the wizard goes away.
+  useEffect(() => {
+    const urls = previewUrl;
+    return () => {
+      if (urls.current) URL.revokeObjectURL(urls.current);
+    };
+  }, []);
 
   function toggleQuestion(question: string) {
     setPicked((current) => current.includes(question)
@@ -166,24 +201,11 @@ export function NewLoopForm({ packs }: { packs: QuestionPack[] }) {
     const value = questionDraft.trim();
     if (!value) {
       setModalError(copy.newLoop.wizard.questions.questionRequired);
+      document.getElementById("question-draft")?.focus();
       return;
     }
     setCustomQuestions((current) => [...current, { id: nextQuestionId.current++, value }]);
     setQuestionDraft("");
-    setModalError("");
-    setModal(null);
-  }
-
-  function addCustomSection() {
-    const title = sectionTitle.trim();
-    const description = sectionDescription.trim();
-    if (!title || !description) {
-      setModalError(copy.newLoop.errors.section);
-      return;
-    }
-    setCustomSections((current) => [...current, { id: nextSectionId.current++, title, description }]);
-    setSectionTitle("");
-    setSectionDescription("");
     setModalError("");
     setModal(null);
   }
@@ -215,30 +237,81 @@ export function NewLoopForm({ packs }: { packs: QuestionPack[] }) {
     }
   }
 
-  function goNext() {
+  function failStep(message: string, field: "name" | "timezone" | null, focusId: string) {
+    setStepError(message);
+    setErrorField(field);
+    setFocusRequest({ id: focusId });
+  }
+
+  function clearStepError() {
     setStepError("");
+    setErrorField(null);
+    setHiddenServerState(state);
+  }
+
+  async function chooseHeader(picked: File | undefined) {
+    if (headerInput.current) headerInput.current.value = "";
+    if (!picked) return;
+    setHeaderError("");
+    setHeaderPreparing(true);
+    const prepared = await prepareImage(picked, BANNER_TARGET);
+    setHeaderPreparing(false);
+    if (!prepared.ok) {
+      setHeaderError(copy.identity.errors.unreadable);
+      return;
+    }
+    setHeaderFile(prepared.file);
+    showHeaderPreview(URL.createObjectURL(prepared.file));
+  }
+
+  function clearHeader() {
+    setHeaderFile(null);
+    setHeaderError("");
+    showHeaderPreview(null);
+    if (headerInput.current) headerInput.current.value = "";
+  }
+
+  // The preview's object URL is made and released here, in the handlers, never
+  // inside a state updater (which React may run twice).
+  function showHeaderPreview(url: string | null) {
+    if (previewUrl.current) URL.revokeObjectURL(previewUrl.current);
+    previewUrl.current = url;
+    setHeaderPreview(url);
+  }
+
+  // The picture lives in state, not in a file input, because the step that holds
+  // the input is unmounted whenever the person moves on.
+  function submit(formData: FormData) {
+    if (headerFile) formData.set("headerImage", headerFile);
+    action(formData);
+  }
+
+  function goNext() {
+    clearStepError();
+    if (step === 1 && accent.trim() !== "" && !normalizeHex(accent)) {
+      failStep(copy.newLoop.errors.theme, null, formErrorId);
+      return;
+    }
     if (step === 0) {
       if (name.trim().length < 2) {
-        setStepError(copy.newLoop.errors.name);
+        failStep(copy.newLoop.errors.name, "name", "loop-name");
         return;
       }
       if (!timezone) {
-        setStepError(copy.newLoop.errors.timezone);
+        failStep(copy.newLoop.errors.timezone, "timezone", timezoneErrorId);
         return;
       }
     }
-    if (step === 3) {
-      if (emailDraft.trim() && !addEmails(emailDraft)) return;
-      if (questions.length === 0) {
-        setStepError(copy.newLoop.errors.noQuestions);
-        return;
-      }
+    if (step === QUESTIONS_STEP && questions.length === 0) {
+      failStep(copy.newLoop.errors.noQuestions, null, formErrorId);
+      return;
     }
-    setStep((current) => Math.min(current + 1, copy.newLoop.wizard.steps.length - 1));
+    if (step === INVITE_STEP && emailDraft.trim() && !addEmails(emailDraft)) return;
+    setStep((current) => Math.min(current + 1, LAST_STEP));
   }
 
   function goBack() {
-    setStepError("");
+    clearStepError();
     setStep((current) => Math.max(current - 1, 0));
   }
 
@@ -247,14 +320,17 @@ export function NewLoopForm({ packs }: { packs: QuestionPack[] }) {
     setModal(kind);
   }
 
-  const error = state.error || stepError;
+  const nameError = errorField === "name" ? stepError : "";
+  const timezoneError = errorField === "timezone" ? stepError : "";
+  const serverError = hiddenServerState === state ? "" : state.error;
+  const formError = errorField ? "" : stepError || serverError;
 
   return (
     <form
-      action={action}
+      action={submit}
       className="new-loop-wizard"
       onSubmit={(event) => {
-        if (step !== copy.newLoop.wizard.steps.length - 1) event.preventDefault();
+        if (step !== LAST_STEP) event.preventDefault();
       }}
     >
       <input type="hidden" name="name" value={name} />
@@ -264,6 +340,8 @@ export function NewLoopForm({ packs }: { packs: QuestionPack[] }) {
       <input type="hidden" name="timezone" value={timezone} />
       <input type="hidden" name="participation" value="contributor" />
       <input type="hidden" name="personalNote" value={personalNote} />
+      <input type="hidden" name="preset" value={preset} />
+      <input type="hidden" name="accent" value={normalizeHex(accent) ?? ""} />
       {questions.map((question, index) => <input key={`${index}:${question}`} type="hidden" name="question" value={question} />)}
       {emails.map((email) => <input key={email} type="hidden" name="email" value={email} />)}
 
@@ -272,7 +350,7 @@ export function NewLoopForm({ packs }: { packs: QuestionPack[] }) {
           <span className="text-[13px] font-bold text-ink-soft">
             {text(copy.newLoop.wizard.details.stepCounter, { current: step + 1, total: copy.newLoop.wizard.steps.length })}
           </span>
-          <span className="min-w-0 truncate text-[13px] font-bold text-ink">{currentStepLabel}</span>
+          <span className="min-w-0 wrap-any text-[13px] font-bold text-ink">{currentStepLabel}</span>
         </div>
         <div
           className="wizard-progress__track"
@@ -299,7 +377,9 @@ export function NewLoopForm({ packs }: { packs: QuestionPack[] }) {
             <div className="card relative mt-6 p-5 pt-7 sm:p-6 sm:pt-8">
               <Tape tone="stripe" position="right" />
               <div className="flex items-end justify-between gap-3">
-                <label htmlFor="loop-name" className="font-display text-[23px] font-bold text-ink">{copy.newLoop.nameLabel}</label>
+                <label htmlFor="loop-name" className="font-display text-[23px] font-bold text-ink">
+                  {copy.newLoop.nameLabel} <span className="font-body text-[13px] font-medium text-ink-soft">{copy.a11yLabels.required}</span>
+                </label>
                 <button
                   type="button"
                   aria-haspopup="dialog"
@@ -313,13 +393,19 @@ export function NewLoopForm({ packs }: { packs: QuestionPack[] }) {
               <input
                 id="loop-name"
                 value={name}
-                onChange={(event) => setName(event.target.value)}
+                onChange={(event) => {
+                  setName(event.target.value);
+                  if (errorField === "name") clearStepError();
+                }}
                 maxLength={60}
                 placeholder={copy.newLoop.namePlaceholder}
                 autoComplete="off"
-                aria-describedby={error ? errorId : undefined}
+                aria-required="true"
+                aria-invalid={Boolean(nameError)}
+                aria-describedby={nameError ? nameErrorId : undefined}
                 className="field mt-2 h-[48px] py-0 text-[16px]"
               />
+              {nameError ? <p id={nameErrorId} role="alert" className="mt-2 text-[14px] leading-snug text-danger">{nameError}</p> : null}
 
               <fieldset className="mt-6">
                 <legend className="mb-2 text-[14px] font-bold text-ink">{copy.newLoop.wizard.details.cadence}</legend>
@@ -332,7 +418,7 @@ export function NewLoopForm({ packs }: { packs: QuestionPack[] }) {
                       onClick={() => setCadence(option.value)}
                       className={`wizard-pill ${cadence === option.value ? "wizard-pill--selected" : ""}`}
                     >
-                      {option.label}
+                      {cadence === option.value ? <span aria-hidden="true">✓ </span> : null}{option.label}
                     </button>
                   ))}
                 </div>
@@ -350,14 +436,62 @@ export function NewLoopForm({ packs }: { packs: QuestionPack[] }) {
                 </label>
                 <label className="col-span-2 flex min-w-0 flex-col gap-1.5">
                   <span className="text-[13px] font-medium text-ink-soft">{copy.newLoop.timezone}</span>
-                  <TimezoneField name="__timezone" value={timezone || undefined} onValueChange={setTimezone} />
+                  <TimezoneField name="__timezone" value={timezone || undefined} onValueChange={setTimezone} describedBy={timezoneError ? timezoneErrorId : undefined} />
                 </label>
+                {timezoneError ? <p id={timezoneErrorId} role="alert" tabIndex={-1} className="col-span-2 text-[14px] leading-snug text-danger outline-none">{timezoneError}</p> : null}
               </div>
+              {/* What the three choices add up to, said again whenever one of them changes. */}
+              <p aria-live="polite" aria-atomic="true" className="mt-4 rounded-md border border-dashed border-accent-line bg-accent-soft/60 px-3.5 py-2.5 text-[14px] leading-relaxed text-ink">
+                {text(copy.newLoop.wizard.details.scheduleSummary, {
+                  when: text(scheduleWhen, { weekday: weekdayName }),
+                  hour: hour.padStart(2, "0"),
+                })}
+              </p>
             </div>
           </>
         ) : null}
 
         {step === 1 ? (
+          <>
+            <h1 ref={stepHeading} tabIndex={-1} id="wizard-step-heading" className="wizard-heading">{copy.newLoop.wizard.look.title}</h1>
+            <p className="wizard-description">{copy.newLoop.wizard.look.description}</p>
+            <div className="card relative mt-6 p-5 pt-7 sm:p-6 sm:pt-8">
+              <Tape tone="dots" />
+              {/* The hidden fields at the top of the form submit the choice, so moving
+                  on from this step never loses it. */}
+              <PaperFields preset={preset} onPreset={setPreset} accent={accent} onAccent={setAccent} />
+
+              <div className="mt-6 border-t border-dashed border-line pt-4">
+                <p className="text-[13px] font-medium text-ink-soft">{copy.stationery.headerLegend}</p>
+                <p className="mt-1 text-[13px] leading-snug text-ink-muted">{copy.stationery.headerHint}</p>
+                <LoopBanner url={headerPreview} className="mt-3" />
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <button type="button" className="btn btn-quiet h-10 text-[14px]" onClick={() => headerInput.current?.click()}>
+                    {headerFile ? copy.stationery.headerReplace : copy.stationery.headerUpload}
+                  </button>
+                  {headerFile ? (
+                    <button type="button" className="btn btn-quiet h-10 text-[14px]" onClick={clearHeader}>
+                      {copy.stationery.headerRemove}
+                    </button>
+                  ) : null}
+                </div>
+                <input
+                  ref={headerInput}
+                  type="file"
+                  hidden
+                  accept={PHOTO_ACCEPT}
+                  aria-label={copy.stationery.headerInput}
+                  onChange={(event) => void chooseHeader(event.target.files?.[0])}
+                />
+                <p aria-live="polite" className={`mt-1.5 text-[12px] ${headerError ? "text-danger" : "text-ink-muted"}`}>
+                  {headerError || (headerPreparing ? copy.newLoop.wizard.look.picturePreparing : headerFile ? copy.newLoop.wizard.look.pictureChosen : "")}
+                </p>
+              </div>
+            </div>
+          </>
+        ) : null}
+
+        {step === QUESTIONS_STEP ? (
           <>
             <div className="flex flex-wrap items-end justify-between gap-2">
               <div>
@@ -375,6 +509,7 @@ export function NewLoopForm({ packs }: { packs: QuestionPack[] }) {
                 onToggleQuestion={toggleQuestion}
                 onTogglePack={togglePack}
                 ariaLabel={copy.newLoop.wizard.questions.title}
+                headingLevel={2}
               />
 
               {customQuestions.map((question, index) => (
@@ -384,13 +519,13 @@ export function NewLoopForm({ packs }: { packs: QuestionPack[] }) {
                     type="button"
                     aria-label={text(copy.newLoop.wizard.questions.removeQuestion, { number: index + 1 })}
                     onClick={() => setCustomQuestions((current) => current.filter((item) => item.id !== question.id))}
-                    className="btn btn-quiet h-10 min-h-10 w-10 flex-none px-0"
+                    className="btn btn-quiet h-11 min-h-11 w-11 flex-none p-0!"
                   >
                     <IconRemove />
                   </button>
                 </div>
               ))}
-              {picked.length + customQuestions.length === 0 ? (
+              {questions.length === 0 ? (
                 <p className="rounded-md border border-dashed border-line-strong px-4 py-3 text-[14px] leading-relaxed text-ink-soft">{copy.newLoop.wizard.questions.empty}</p>
               ) : null}
               <button
@@ -405,85 +540,47 @@ export function NewLoopForm({ packs }: { packs: QuestionPack[] }) {
                 {copy.newLoop.wizard.questions.addOwn}
               </button>
             </div>
-          </>
-        ) : null}
-
-        {step === 2 ? (
-          <>
-            <h1 ref={stepHeading} tabIndex={-1} id="wizard-step-heading" className="wizard-heading">{copy.newLoop.wizard.sections.title}</h1>
-            <p className="wizard-description">{copy.newLoop.wizard.sections.description}</p>
-            <div className="mt-5 grid gap-2.5 sm:grid-cols-2">
-              {presets.map((preset: SectionPreset) => {
-                const selected = pickedPresets.includes(preset.id);
-                return (
-                  <button
-                    key={preset.id}
-                    type="button"
-                    aria-pressed={selected}
-                    onClick={() => setPickedPresets((current) => selected
-                      ? current.filter((id) => id !== preset.id)
-                      : [...current, preset.id])}
-                    className={`wizard-preset ${selected ? "wizard-preset--selected" : ""}`}
-                  >
-                    <span className="wizard-preset__emoji" aria-hidden="true">{preset.emoji}</span>
-                    <span className="min-w-0 flex-1">
-                      <span className="wizard-preset__title">{preset.title}</span>
-                      <span className="wizard-preset__description">{preset.description}</span>
-                    </span>
-                    <span className="wizard-preset__check" aria-hidden="true">{selected ? <svg viewBox="0 0 20 20" className="h-4 w-4"><path d="m4 10 4 4 8-9" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" /></svg> : null}</span>
-                  </button>
-                );
-              })}
-            </div>
-
-            {customSections.map((section, index) => (
-              <div key={section.id} className="wizard-saved-prompt mt-2.5">
-                <span className="min-w-0 flex-1">
-                  <span className="block font-bold text-ink">{section.title}</span>
-                  <span className="mt-0.5 block text-[14px] leading-relaxed text-ink-soft">{section.description}</span>
-                </span>
-                <button
-                  type="button"
-                  aria-label={text(copy.newLoop.wizard.sections.remove, { number: index + 1 })}
-                  onClick={() => setCustomSections((current) => current.filter((item) => item.id !== section.id))}
-                  className="btn btn-quiet h-10 min-h-10 w-10 flex-none px-0"
-                >
-                  <IconRemove />
-                </button>
+            <section className="mt-6" aria-labelledby="wizard-ideas-heading">
+              <h2 id="wizard-ideas-heading" className="font-display text-[23px] font-bold text-ink">{copy.newLoop.wizard.questions.ideasTitle}</h2>
+              <p className="mt-0.5 text-[14px] leading-relaxed text-ink-soft">{copy.newLoop.wizard.questions.ideasDescription}</p>
+              <div className="mt-3 grid gap-2.5 sm:grid-cols-3">
+                {IDEAS.map((idea) => {
+                  const selected = pickedIdeas.includes(idea.id);
+                  return (
+                    <button
+                      key={idea.id}
+                      type="button"
+                      aria-pressed={selected}
+                      onClick={() => setPickedIdeas((current) => selected
+                        ? current.filter((id) => id !== idea.id)
+                        : [...current, idea.id])}
+                      className={`wizard-preset wizard-preset--idea ${selected ? "wizard-preset--selected" : ""}`}
+                    >
+                      <span className="wizard-preset__emoji" aria-hidden="true">{idea.emoji}</span>
+                      <span className="min-w-0 flex-1 text-[15px] leading-snug">{idea.question}</span>
+                      <span className="wizard-preset__check" aria-hidden="true">{selected ? <svg viewBox="0 0 20 20" className="h-4 w-4"><path d="m4 10 4 4 8-9" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" /></svg> : null}</span>
+                    </button>
+                  );
+                })}
               </div>
-            ))}
-            <button
-              type="button"
-              onClick={() => {
-                setSectionTitle("");
-                setSectionDescription("");
-                openModal("section");
-              }}
-              className="btn btn-quiet mt-3 min-h-11 justify-start gap-2 px-4 text-[14px]"
-            >
-              <IconPlus />
-              {copy.newLoop.wizard.sections.custom}
-            </button>
-            <p className="mt-4 rounded-md border border-dashed border-accent-line bg-card/70 px-4 py-3 text-[13px] leading-relaxed text-ink-soft">
-              {text(copy.newLoop.wizard.questions.questionCount, { count: questions.length })}
-            </p>
+            </section>
           </>
         ) : null}
 
-        {step === 3 ? (
+        {step === INVITE_STEP ? (
           <>
             <h1 ref={stepHeading} tabIndex={-1} id="wizard-step-heading" className="wizard-heading">{copy.newLoop.wizard.readers.title}</h1>
             <p className="wizard-description">{copy.newLoop.wizard.readers.groupDescription}</p>
             <div className="mt-5">
               <label htmlFor="reader-emails" className="mb-2 block text-[14px] font-bold text-ink">{copy.newLoop.wizard.readers.emailLabel}</label>
-              <div className="flex items-start gap-3">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:gap-3">
               <div
-                className={`field flex min-h-[52px] flex-1 flex-wrap items-center gap-2 p-2 ${emailError ? "border-danger" : ""}`}
+                className={`field flex min-h-[52px] min-w-0 flex-1 flex-wrap items-center gap-2 p-2 ${emailError ? "border-danger" : ""}`}
                 onClick={(event) => event.currentTarget.querySelector("input")?.focus()}
               >
                 {emails.map((email) => (
-                  <span key={email} className="chip inline-flex min-h-9 items-center gap-1.5 border bg-card pr-1 text-[13px] font-bold text-ink">
-                    <span>{email}</span>
+                  <span key={email} className="chip inline-flex min-h-9 max-w-full items-center gap-1.5 border bg-card pr-1 text-[13px] font-bold text-ink">
+                    <span className="min-w-0 truncate">{email}</span>
                     <button
                       type="button"
                       aria-label={text(copy.newLoop.wizard.readers.removeEmail, { email })}
@@ -506,22 +603,22 @@ export function NewLoopForm({ packs }: { packs: QuestionPack[] }) {
                   placeholder={copy.newLoop.wizard.readers.emailPlaceholder}
                   aria-invalid={Boolean(emailError)}
                   aria-describedby={emailError ? errorId : undefined}
-                  autoComplete="email"
-                  className="min-w-[180px] flex-1 border-0 bg-transparent p-1 text-[14px] text-ink outline-none"
+                  autoComplete="off"
+                  className="min-w-[8rem] flex-1 border-0 bg-transparent p-1 text-[14px] text-ink outline-none"
                 />
               </div>
-              <button type="button" onClick={() => addEmails(emailDraft)} className="btn btn-quiet h-[46px] min-h-[46px] flex-none px-4 text-[13px]">
+              <button type="button" onClick={() => addEmails(emailDraft)} className="btn btn-quiet h-[46px] min-h-[46px] flex-none self-start px-4 text-[13px]">
                 {copy.newLoop.wizard.readers.addEmail}
               </button>
               </div>
               {emailError ? <p id={errorId} role="alert" className="mt-2 text-[13px] leading-relaxed text-danger">{emailError}</p> : null}
-              {emailNotice ? <p role="status" className="mt-2 text-[13px] leading-relaxed text-ink-soft">{emailNotice}</p> : null}
+              <p role="status" className={emailNotice ? "mt-2 text-[13px] leading-relaxed text-ink-soft" : undefined}>{emailNotice}</p>
               <p className="mt-3 text-[13px] leading-relaxed text-ink-muted">{copy.newLoop.wizard.readers.optional}</p>
             </div>
           </>
         ) : null}
 
-        {step === 4 ? (
+        {step === LAST_STEP ? (
           <>
             <h1 ref={stepHeading} tabIndex={-1} id="wizard-step-heading" className="wizard-heading">{copy.newLoop.wizard.note.title}</h1>
             <p className="wizard-description">{copy.newLoop.wizard.note.description}</p>
@@ -554,7 +651,7 @@ export function NewLoopForm({ packs }: { packs: QuestionPack[] }) {
           </>
         ) : null}
 
-        {error ? <p id={errorId} role="alert" className="mt-4 text-[14px] leading-snug text-danger">{error}</p> : null}
+        {formError ? <p id={formErrorId} role="alert" tabIndex={-1} className="mt-4 text-[14px] leading-snug text-danger outline-none">{formError}</p> : null}
       </section>
 
       <nav aria-label={copy.newLoop.wizard.stepAriaLabel} className="wizard-navigation">
@@ -567,7 +664,7 @@ export function NewLoopForm({ packs }: { packs: QuestionPack[] }) {
         >
           {copy.newLoop.wizard.back}
         </button>
-        {step < copy.newLoop.wizard.steps.length - 1 ? (
+        {step < LAST_STEP ? (
           <button
             type="button"
             onClick={(event) => {
@@ -583,7 +680,7 @@ export function NewLoopForm({ packs }: { packs: QuestionPack[] }) {
         ) : (
           <button
             type="submit"
-            disabled={pending}
+            disabled={pending || headerPreparing}
             className="btn btn-primary min-h-12 flex-1 disabled:opacity-60"
           >
             {pending ? copy.newLoop.wizard.creating : copy.newLoop.wizard.create}
@@ -630,7 +727,7 @@ export function NewLoopForm({ packs }: { packs: QuestionPack[] }) {
         closeLabel={copy.newLoop.wizard.questions.closeQuestion}
         onClose={() => setModal(null)}
       >
-        <label htmlFor="question-draft" className="mt-5 block text-[14px] font-bold text-ink">{copy.newLoop.wizard.questions.questionLabel}</label>
+        <label htmlFor="question-draft" className="mt-5 block text-[14px] font-bold text-ink">{copy.newLoop.wizard.questions.questionLabel} {copy.a11yLabels.required}</label>
         <input
           id="question-draft"
           value={questionDraft}
@@ -647,49 +744,14 @@ export function NewLoopForm({ packs }: { packs: QuestionPack[] }) {
           maxLength={200}
           autoFocus
           placeholder={copy.newLoop.wizard.questions.questionPlaceholder}
+          aria-required="true"
+          aria-invalid={Boolean(modalError)}
+          aria-describedby={modalError ? questionErrorId : undefined}
           className="field mt-1 h-[48px] py-0"
         />
-        {modalError ? <p role="alert" className="mt-2 text-[13px] text-danger">{modalError}</p> : null}
+        {modalError ? <p id={questionErrorId} role="alert" className="mt-2 text-[13px] text-danger">{modalError}</p> : null}
         <button type="button" onClick={addCustomQuestion} className="btn btn-primary mt-4 w-full min-h-12">
           {copy.newLoop.wizard.questions.saveQuestion}
-        </button>
-      </AccessibleDialog>
-
-      <AccessibleDialog
-        open={modal === "section"}
-        title={copy.newLoop.wizard.sections.customTitle}
-        closeLabel={copy.newLoop.wizard.sections.closeCustom}
-        onClose={() => setModal(null)}
-      >
-        <label htmlFor="section-title" className="mt-5 block text-[14px] font-bold text-ink">{copy.newLoop.wizard.sections.titleLabel}</label>
-        <input
-          id="section-title"
-          value={sectionTitle}
-          onChange={(event) => {
-            setSectionTitle(event.target.value);
-            setModalError("");
-          }}
-          maxLength={60}
-          autoFocus
-          placeholder={copy.newLoop.wizard.sections.titlePlaceholder}
-          className="field mt-1 h-[48px] py-0"
-        />
-        <label htmlFor="section-description" className="mt-4 block text-[14px] font-bold text-ink">{copy.newLoop.wizard.sections.descriptionLabel}</label>
-        <textarea
-          id="section-description"
-          value={sectionDescription}
-          onChange={(event) => {
-            setSectionDescription(event.target.value);
-            setModalError("");
-          }}
-          maxLength={180}
-          rows={3}
-          placeholder={copy.newLoop.wizard.sections.descriptionPlaceholder}
-          className="field mt-1 resize-y"
-        />
-        {modalError ? <p role="alert" className="mt-2 text-[13px] text-danger">{modalError}</p> : null}
-        <button type="button" onClick={addCustomSection} className="btn btn-primary mt-4 w-full min-h-12">
-          {copy.newLoop.wizard.sections.save}
         </button>
       </AccessibleDialog>
 
@@ -710,7 +772,7 @@ export function NewLoopForm({ packs }: { packs: QuestionPack[] }) {
           <p className="mt-5 border-y border-line py-3 text-[13px] leading-relaxed text-ink-soft">
             {text(copy.newLoop.wizard.note.previewSchedule, {
               cadence: selectedCadence.label,
-              weekday: WEEKDAYS[Number(weekday)] ?? WEEKDAYS[5],
+              weekday: weekdayName,
               hour: hour.padStart(2, "0"),
               timezone: timezone || copy.newLoop.timezone,
             })}
@@ -725,9 +787,11 @@ export function NewLoopForm({ packs }: { packs: QuestionPack[] }) {
             ))}
           </ol>
           <p className="mt-5 text-[13px] leading-relaxed text-ink-soft">
-            {emails.length > 0
-              ? text(copy.newLoop.wizard.note.previewReaders, { count: emails.length })
-              : copy.newLoop.wizard.note.previewNoReaders}
+            {emails.length === 0
+              ? copy.newLoop.wizard.note.previewNoReaders
+              : emails.length === 1
+                ? copy.newLoop.wizard.note.previewReadersOne
+                : text(copy.newLoop.wizard.note.previewReaders, { count: emails.length })}
           </p>
           <div className="mt-4 rounded-md bg-accent-soft p-3">
             <p className="text-[12px] font-bold uppercase tracking-wide text-ink-soft">{copy.newLoop.wizard.note.previewNote}</p>

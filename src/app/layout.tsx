@@ -18,7 +18,8 @@ const gaegu = Gaegu({
 });
 
 export const metadata: Metadata = {
-  title: copy.common.metadataTitle,
+  // Every page names itself (2.4.2); the template keeps the brand on the end.
+  title: { default: copy.common.metadataTitle, template: `%s · ${copy.common.brand}` },
   description: copy.common.metadataDescription,
   applicationName: copy.common.brand,
   appleWebApp: { capable: true, title: copy.common.brand, statusBarStyle: "black-translucent" },
@@ -55,8 +56,11 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       <body className="min-h-full">
         <a href="#main-content" className="skip-link">{copy.common.skipToContent}</a>
         <div id="main-content" tabIndex={-1}>{children}</div>
-        <FeedbackButton />
-        <ThemeSwitch />
+        {/* Floating pills on a wide screen; on a phone, a plain row after the page (globals.css). */}
+        <div className="site-chrome">
+          <FeedbackButton />
+          <ThemeSwitch />
+        </div>
       </body>
     </html>
   );

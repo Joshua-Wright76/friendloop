@@ -5,11 +5,27 @@ export type QuestionPack = { id: string; name: string; questions: string[] };
 /** The starter library: themed packs an owner can browse and pick from. */
 export const QUESTION_PACKS: QuestionPack[] = copy.questionPacks;
 
-/** Which packs to show: all of them when no filter is active. */
-export function visiblePacks(packs: QuestionPack[], activeIds: string[]): QuestionPack[] {
-  if (activeIds.length === 0) return packs;
-  const active = new Set(activeIds);
-  return packs.filter((pack) => active.has(pack.id));
+export type PackStatus = {
+  /** Questions in the pack that are not in the pool yet: the only ones that can be picked. */
+  addable: string[];
+  inPool: number;
+  picked: number;
+  /** Every addable question is picked (false when there is nothing left to add). */
+  allPicked: boolean;
+};
+
+/** Where a pack stands against the pool and the current picks. */
+export function packStatus(pack: QuestionPack, picked: string[], pool: string[]): PackStatus {
+  const pooled = new Set(pool);
+  const chosen = new Set(picked);
+  const addable = pack.questions.filter((question) => !pooled.has(question));
+  const pickedCount = addable.filter((question) => chosen.has(question)).length;
+  return {
+    addable,
+    inPool: pack.questions.length - addable.length,
+    picked: pickedCount,
+    allPicked: addable.length > 0 && pickedCount === addable.length,
+  };
 }
 
 /**

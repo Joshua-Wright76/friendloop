@@ -39,7 +39,7 @@ test("photo storage accepts a valid signature with a missing browser MIME", () =
   });
 });
 
-test("photo storage enforces the 5 MB limit", () => {
+test("photo storage enforces the 4 MB limit", () => {
   assert.deepEqual(validatePhoto(new Uint8Array(MAX_PHOTO_BYTES + 1), "image/png"), {
     ok: false,
     reason: "too-large",

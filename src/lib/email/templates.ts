@@ -56,7 +56,41 @@ export type AnswerBlock = {
   audioUrl?: string | null;
   audioDurationMs?: number | null;
   addedLater?: boolean;
+  /** A poll's tally. The same for every voter, so it is shown once per question. */
+  pollResults?: string | null;
 };
+
+type QuestionGroup = { question: string; pollResults: string | null; answers: AnswerBlock[] };
+
+/** Answers arrive one row per person; the email reads one heading per question. */
+function byQuestion(answers: AnswerBlock[]): QuestionGroup[] {
+  const groups = new Map<string, QuestionGroup>();
+  for (const answer of answers) {
+    const group = groups.get(answer.question) ?? { question: answer.question, pollResults: null, answers: [] };
+    group.pollResults ??= answer.pollResults ?? null;
+    group.answers.push(answer);
+    groups.set(answer.question, group);
+  }
+  return [...groups.values()];
+}
+
+const MUSIC_HOSTS: Array<[RegExp, keyof typeof copy.emails.musicProviders]> = [
+  [/(^|\.)spotify\.com$/, "spotify"],
+  [/(^|\.)bandcamp\.com$/, "bandcamp"],
+  [/(^|\.)qobuz\.com$/, "qobuz"],
+];
+
+/** "Open in Spotify" where the link says where it goes; a plain "Open the link" otherwise. */
+export function musicLinkLabel(url: string): string {
+  let host = "";
+  try {
+    host = new URL(url).hostname.toLowerCase();
+  } catch {
+    return copy.emails.openLink;
+  }
+  const match = MUSIC_HOSTS.find(([pattern]) => pattern.test(host));
+  return match ? text(copy.emails.openIn, { provider: copy.emails.musicProviders[match[1]] }) : copy.emails.openLink;
+}
 
 const BODY_FONT = "Nunito,-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial,sans-serif";
 const DISPLAY_FONT = "Gaegu,Comic Sans MS,Chalkboard SE,cursive";
@@ -97,7 +131,7 @@ function sectionsHtml(sections: SectionEmailBlock[], c: EmailPalette): string {
       const rows = section.answers
         .map((answer) => {
           const link = answer.linkUrl
-            ? ` <a href="${escapeHtml(answer.linkUrl)}" style="color:${c.accent}">${escapeHtml(copy.emails.voiceNoteListen)}</a>`
+            ? ` <a href="${escapeHtml(answer.linkUrl)}" style="color:${c.accent}">${escapeHtml(musicLinkLabel(answer.linkUrl))}</a>`
             : "";
           const photos =
             answer.photoCount && answer.photoCount > 0
@@ -107,7 +141,7 @@ function sectionsHtml(sections: SectionEmailBlock[], c: EmailPalette): string {
         })
         .join("");
       return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 18px;background:${c.card};border:1px dashed ${c.lineStrong};border-radius:6px"><tr><td style="padding:20px 22px">
-  <div style="font:700 20px/1.2 ${DISPLAY_FONT};color:${c.ink}">${escapeHtml(`${section.emoji ?? ""} ${section.title}`.trim())}</div>
+  <h2 style="margin:0;font:700 20px/1.2 ${DISPLAY_FONT};color:${c.ink}">${escapeHtml(`${section.emoji ?? ""} ${section.title}`.trim())}</h2>
   ${rows || `<div style="margin:10px 0 0;font:400 14px/1.5 ${BODY_FONT};color:${c.muted}">${escapeHtml(copy.emails.sectionEmpty)}</div>`}
 </td></tr></table>`;
     })
@@ -115,23 +149,34 @@ function sectionsHtml(sections: SectionEmailBlock[], c: EmailPalette): string {
 }
 
 function answersHtml(answers: AnswerBlock[], url: string, c: EmailPalette): string {
-  return answers
-    .map((answer) => {
-      const photo = answer.photoUrl
-        ? `<img src="${escapeHtml(answer.photoUrl)}" alt="" width="520" style="display:block;width:100%;max-width:520px;border:1px solid ${c.line};border-radius:6px;margin:14px 0 0" />`
+  return byQuestion(answers)
+    .map((group) => {
+      const results = group.pollResults
+        ? `<div style="margin:10px 0 0;font:700 13px/1.5 ${BODY_FONT};color:${c.muted}">${escapeHtml(group.pollResults)}</div>`
         : "";
-      // Email never attempts to play audio; the web issue is the canonical player.
-      const voice = answer.audioUrl
-        ? `<div style="margin:14px 0 0;border:1px dashed ${c.lineStrong};border-radius:6px;padding:10px 12px;font:400 13px/1.5 ${BODY_FONT};color:${c.soft}">${escapeHtml(copy.emails.voiceNote.replace("{duration}", formatAudioDuration(answer.audioDurationMs ?? 0)))}. <a href="${escapeHtml(url)}" style="color:${c.accent}">${escapeHtml(copy.emails.voiceNoteListen)}</a></div>`
-        : "";
-      const note = answer.addedLater
-        ? `<div style="font:400 12px/1.5 ${BODY_FONT};color:${c.muted};margin-top:10px">${escapeHtml(copy.emails.addedLater)}</div>`
-        : "";
-      return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 18px;background:${c.card};border:1px solid ${c.line};border-radius:6px"><tr><td style="padding:22px 22px 20px">
-  <div style="font:700 24px/1.2 ${DISPLAY_FONT};color:${c.ink}">${escapeHtml(answer.question)}</div>
-  <div style="font:800 14px/1.5 ${BODY_FONT};color:${c.soft};margin:16px 0 4px">${escapeHtml(answer.author)}</div>
+      const rows = group.answers
+        .map((answer, index) => {
+          const photo = answer.photoUrl
+            ? `<img src="${escapeHtml(answer.photoUrl)}" alt="${escapeHtml(text(copy.a11yLabels.photoFrom, { name: answer.author }))}" width="520" style="display:block;width:100%;max-width:520px;border:1px solid ${c.line};border-radius:6px;margin:14px 0 0" />`
+            : "";
+          // Email never attempts to play audio; the web issue is the canonical player.
+          const voice = answer.audioUrl
+            ? `<div style="margin:14px 0 0;border:1px dashed ${c.lineStrong};border-radius:6px;padding:10px 12px;font:400 13px/1.5 ${BODY_FONT};color:${c.soft}">${escapeHtml(copy.emails.voiceNote.replace("{duration}", formatAudioDuration(answer.audioDurationMs ?? 0)))}. <a href="${escapeHtml(url)}" style="color:${c.accent}">${escapeHtml(copy.emails.voiceNoteListen)}</a></div>`
+            : "";
+          const note = answer.addedLater
+            ? `<div style="font:400 12px/1.5 ${BODY_FONT};color:${c.muted};margin-top:10px">${escapeHtml(copy.emails.addedLater)}</div>`
+            : "";
+          const divider = index > 0 ? `border-top:1px dashed ${c.line};padding-top:14px;` : "";
+          return `<div style="${divider}margin:16px 0 0">
+  <div style="font:800 14px/1.5 ${BODY_FONT};color:${c.soft};margin:0 0 4px">${escapeHtml(answer.author)}</div>
   <div style="font:400 16px/1.65 ${BODY_FONT};color:${c.ink};white-space:pre-wrap">${escapeHtml(answer.body)}</div>
   ${photo}${voice}${note}
+</div>`;
+        })
+        .join("");
+      return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 18px;background:${c.card};border:1px solid ${c.line};border-radius:6px"><tr><td style="padding:22px 22px 20px">
+  <h2 style="margin:0;font:700 24px/1.2 ${DISPLAY_FONT};color:${c.ink}">${escapeHtml(group.question)}</h2>
+  ${results}${rows}
 </td></tr></table>`;
     })
     .join("");
@@ -164,7 +209,7 @@ ${paragraphs(body, c)}${ctaHtml}
 </td></tr>
 ${answers ? `<tr><td style="padding-top:20px">${answersHtml(answers, answersUrl ?? "#", c)}</td></tr>` : ""}
 ${sections && sections.length > 0 ? `<tr><td style="padding-top:20px">${sectionsHtml(sections, c)}</td></tr>` : ""}
-<tr><td style="padding:24px 10px 0"><p style="margin:0;font:400 13px/1.6 ${BODY_FONT};color:${c.muted};text-align:center">${escapeHtml(
+<tr><td align="center" style="padding:24px 10px 0"><p style="display:inline-block;margin:0;padding:4px 10px;font:400 13px/1.6 ${BODY_FONT};color:${c.soft};background-color:${c.page};text-align:center">${escapeHtml(
     footer ?? copy.emails.defaultFooter,
   )}</p></td></tr>
 </table></td></tr></table></body></html>`;
@@ -321,8 +366,14 @@ export function deliveryEmail(input: {
     count: answers.length,
     plural: answers.length === 1 ? copy.emails.answerSingular : copy.emails.answerPlural,
   };
-  const answerText = answers
-    .map((answer) => text(content.textAnswer, { question: answer.question, author: answer.author, body: answer.body }))
+  const answerText = byQuestion(answers)
+    .map((group) =>
+      [
+        group.question,
+        ...(group.pollResults ? [group.pollResults] : []),
+        ...group.answers.map((answer) => text(content.textAnswer, { author: answer.author, body: answer.body })),
+      ].join("\n"),
+    )
     .join("\n\n");
   return {
     subject: text(content.subject, values),

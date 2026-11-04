@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { nudgeAction, pauseAction, sendNowAction } from "./actions";
-import { Cherries, Tape } from "@/components/stationery";
+import { Tape } from "@/components/stationery";
 import { LoopNav } from "@/components/loop-nav";
+import { NoticeFocus } from "@/components/notice-focus";
 import { copy, text } from "@/lib/copy";
 import { issueTitle } from "@/lib/issue-name";
 import { useLoopData } from "./loop-data";
@@ -11,7 +12,6 @@ import { useLoopData } from "./loop-data";
 export default function OverviewTab({ welcome, nudged }: { welcome?: string; nudged?: string }) {
   const { group, membership, people, questions, openIssue, openProgress, openWaiting, nextRoundLabel, openIssueDeadlineLabel, weekdayLabel } = useLoopData();
   const manages = membership.access !== "member";
-  const isOwner = membership.access === "owner";
   const nextLabel = nextRoundLabel;
   const progress = openProgress;
   const writers = people.filter((person) => person.participation === "contributor").length;
@@ -19,28 +19,23 @@ export default function OverviewTab({ welcome, nudged }: { welcome?: string; nud
 
   return (
     <main className="mx-auto w-full max-w-[680px] px-4 pb-16 pt-5 sm:px-6">
-      <header className="stitched flex items-center justify-between gap-3 border-b pb-4">
-        <Link href="/you" className="flex min-w-0 items-center gap-2 font-display text-[23px] font-bold text-ink no-underline">
-          <Cherries className="h-7 w-7 flex-none" /><span className="truncate">{group.name}</span>
-        </Link>
-        <span className="chip border bg-card px-2.5 py-1 text-[12px] font-bold capitalize text-ink-soft">{copy.common.roles[membership.access]}</span>
-      </header>
-      <LoopNav id={group.id} active="Overview" isOwner={isOwner} />
+      <LoopNav id={group.id} name={group.name} access={membership.access} active="Overview" />
 
-      {welcome === "1" ? (
-        <div role="status" className="notice settle mb-5 border bg-accent-soft px-4 py-3 text-[14px] leading-relaxed">
+      {welcome === "1" || welcome === "no-picture" ? (
+        <NoticeFocus spacing="mb-5">
           {copy.loop.welcome}
-        </div>
+          {welcome === "no-picture" ? ` ${copy.loop.welcomeNoPicture}` : ""}
+        </NoticeFocus>
       ) : null}
 
       {nudged ? (
-        <div role="status" className="notice settle mb-5 border bg-accent-soft px-4 py-3 text-[14px] leading-relaxed">
+        <NoticeFocus spacing="mb-5">
           {nudged === "0"
             ? copy.loop.everyoneIn
             : nudged === "1"
               ? copy.loop.nudgedOne
               : text(copy.loop.nudged, { count: Number(nudged) })}
-        </div>
+        </NoticeFocus>
       ) : null}
 
       <p className="eyebrow">{copy.loop.eyebrow}</p>
@@ -54,7 +49,75 @@ export default function OverviewTab({ welcome, nudged }: { welcome?: string; nud
         })}
       </p>
 
-      <div className="card ride-in mt-6 p-5 pt-7">
+      {openIssue ? (
+        <div className="card ride-in mt-6 p-5 pt-7">
+          <Tape tone="dots" position="right" />
+          <div className="flex items-baseline justify-between gap-3">
+            <p className="text-[13px] font-medium text-ink-muted">{issueTitle(copy.loop.round, openIssue.number, openIssue.name)}</p>
+            <p className="text-[13px] font-medium text-ink-soft numeric">
+              {text(copy.loop.progress, { answered: progress.length, writers })}
+            </p>
+          </div>
+          <p className="mt-1 text-[15px] leading-relaxed text-ink-soft">
+            {text(copy.loop.closes, { deadline: openIssueDeadlineLabel ?? "" })}
+          </p>
+          {progress.length > 0 ? (
+            <ul className="mt-3 flex list-none flex-wrap gap-1.5">
+              {progress.map((person) => (
+                <li
+                  key={person.id}
+                  className="rounded-full bg-field px-2.5 py-1 text-[12px] font-medium text-ink-soft"
+                >
+                  {person.name ?? person.email.split("@")[0]}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <div className="mt-3 flex flex-wrap gap-1.5">
+              <span className="text-[13px] text-ink-muted">{copy.loop.nobody}</span>
+            </div>
+          )}
+
+          {writers > 0 ? (
+            openWaiting.length > 0 ? (
+              <div className="mt-3">
+                <p className="text-[12px] font-medium text-ink-muted">{copy.loop.waitingTitle}</p>
+                <ul className="mt-1.5 flex list-none flex-wrap gap-1.5">
+                  {openWaiting.map((person) => (
+                    <li
+                      key={person.id}
+                      className="rounded-full border border-line px-2.5 py-1 text-[12px] font-medium text-ink-soft"
+                    >
+                      {person.name ?? person.email.split("@")[0]}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : (
+              <p className="mt-3 text-[13px] text-ink-muted">{copy.loop.everyoneIn}</p>
+            )
+          ) : null}
+
+          <div className="mt-4 flex flex-wrap items-center gap-3">
+            <Link
+              href={`/g/${group.id}/issues`}
+              className="inline-flex min-h-11 items-center text-[14px] font-medium text-accent-ink hover:underline"
+            >
+              {copy.loop.seeRound}
+            </Link>
+            {manages && openWaiting.length > 0 ? (
+              <form action={nudgeAction}>
+                <input type="hidden" name="groupId" value={group.id} />
+                <button type="submit" className="btn btn-quiet h-11 min-h-11 px-4 text-[14px]">
+                  {copy.loop.nudge}
+                </button>
+              </form>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
+
+      <div className={`card ride-in ${openIssue ? "mt-5" : "mt-6"} p-5 pt-7`}>
         <Tape tone="stripe" />
         <p className="eyebrow">
           {group.pausedAt ? copy.loop.paused : copy.loop.nextRound}
@@ -72,87 +135,26 @@ export default function OverviewTab({ welcome, nudged }: { welcome?: string; nud
 
         {manages ? (
           <div className="mt-4 flex flex-wrap gap-2">
-            <form action={sendNowAction}>
-              <input type="hidden" name="groupId" value={group.id} />
-              <button type="submit" className="btn btn-primary h-10 text-[14px]">
-                {copy.loop.sendNow}
-              </button>
-            </form>
+            {/* One round at a time: while one is open, "Send now" would only
+                return it, so it isn't offered. */}
+            {openIssue ? null : (
+              <form action={sendNowAction}>
+                <input type="hidden" name="groupId" value={group.id} />
+                <button type="submit" className="btn btn-primary h-11 text-[14px]">
+                  {copy.loop.sendNow}
+                </button>
+              </form>
+            )}
             <form action={pauseAction}>
               <input type="hidden" name="groupId" value={group.id} />
               <input type="hidden" name="paused" value={group.pausedAt ? "0" : "1"} />
-              <button type="submit" className="btn btn-quiet h-10 text-[14px]">
+              <button type="submit" className="btn btn-quiet h-11 text-[14px]">
                 {group.pausedAt ? copy.loop.resume : copy.loop.pause}
               </button>
             </form>
           </div>
         ) : null}
       </div>
-
-      {openIssue ? (
-        <div className="card ride-in mt-5 p-5 pt-7">
-          <Tape tone="dots" position="right" />
-          <div className="flex items-baseline justify-between gap-3">
-            <p className="text-[13px] font-medium text-ink-muted">{issueTitle(copy.loop.round, openIssue.number, openIssue.name)}</p>
-            <p className="text-[13px] font-medium text-ink-soft numeric">
-              {text(copy.loop.progress, { answered: progress.length, writers })}
-            </p>
-          </div>
-          <p className="mt-1 text-[15px] leading-relaxed text-ink-soft">
-            {text(copy.loop.closes, { deadline: openIssueDeadlineLabel ?? "" })}
-          </p>
-          <div className="mt-3 flex flex-wrap gap-1.5">
-            {progress.map((person) => (
-              <span
-                key={person.id}
-                className="rounded-full bg-field px-2.5 py-1 text-[12px] font-medium text-ink-soft"
-              >
-                {person.name ?? person.email.split("@")[0]}
-              </span>
-            ))}
-            {progress.length === 0 ? (
-              <span className="text-[13px] text-ink-muted">{copy.loop.nobody}</span>
-            ) : null}
-          </div>
-
-          {writers > 0 ? (
-            openWaiting.length > 0 ? (
-              <div className="mt-3">
-                <p className="text-[12px] font-medium text-ink-muted">{copy.loop.waitingTitle}</p>
-                <div className="mt-1.5 flex flex-wrap gap-1.5">
-                  {openWaiting.map((person) => (
-                    <span
-                      key={person.id}
-                      className="rounded-full border border-line px-2.5 py-1 text-[12px] font-medium text-ink-soft"
-                    >
-                      {person.name ?? person.email.split("@")[0]}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            ) : (
-              <p className="mt-3 text-[13px] text-ink-muted">{copy.loop.everyoneIn}</p>
-            )
-          ) : null}
-
-          <div className="mt-4 flex flex-wrap items-center gap-3">
-            <Link
-              href={`/g/${group.id}/issues`}
-              className="text-[14px] font-medium text-accent hover:underline"
-            >
-              {copy.loop.seeRound}
-            </Link>
-            {manages && openWaiting.length > 0 ? (
-              <form action={nudgeAction}>
-                <input type="hidden" name="groupId" value={group.id} />
-                <button type="submit" className="btn btn-quiet h-9 min-h-9 px-3 text-[13px]">
-                  {copy.loop.nudge}
-                </button>
-              </form>
-            ) : null}
-          </div>
-        </div>
-      ) : null}
 
       <div className="mt-5 grid grid-cols-2 gap-4">
         <Link href={`/g/${group.id}/members`} className="card loop-card px-4 py-4 no-underline">

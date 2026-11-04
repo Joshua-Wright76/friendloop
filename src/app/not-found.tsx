@@ -1,6 +1,11 @@
+import { Suspense } from "react";
+import type { Metadata } from "next";
 import Link from "next/link";
 import { Brand, Tape } from "@/components/stationery";
+import { currentUser } from "@/lib/auth";
 import { copy } from "@/lib/copy";
+
+export const metadata: Metadata = { title: copy.pageTitles.notFound };
 
 export default function NotFound() {
   return (
@@ -12,10 +17,23 @@ export default function NotFound() {
         <Tape tone="mint" position="left" />
         <h1 className="text-ink">{copy.common.notFound.title}</h1>
         <p className="mt-2 text-[15px] leading-relaxed text-ink-soft">{copy.common.notFound.body}</p>
-        <Link href="/" className="btn btn-primary mt-5 inline-flex">
-          {copy.common.notFound.home}
-        </Link>
+        <Suspense fallback={<HomeLink />}>
+          <WayBack />
+        </Suspense>
       </div>
     </main>
   );
+}
+
+function HomeLink({ signedIn = false }: { signedIn?: boolean }) {
+  return (
+    <Link href={signedIn ? "/you" : "/"} className="btn btn-primary mt-5 inline-flex">
+      {signedIn ? copy.common.notFound.yourLoops : copy.common.notFound.home}
+    </Link>
+  );
+}
+
+/** Someone signed in is sent back to their loops rather than the landing page. */
+async function WayBack() {
+  return <HomeLink signedIn={Boolean(await currentUser())} />;
 }

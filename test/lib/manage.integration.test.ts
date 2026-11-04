@@ -556,7 +556,12 @@ test("starting a round by hand opens it once", async () => {
   assert.equal(await outboxCount("prompt:"), 3, "contributors are told");
 
   const again = await openIssueNow(loop.groupId, new Date(E2E_NOW.getTime() + 60_000));
-  assert.deepEqual(again, first, "the open round is returned, not a second one");
+  assert.equal(first.created, true);
+  assert.deepEqual(
+    again,
+    { ...first, created: false },
+    "the open round is returned, not a second one, and nothing new was sent",
+  );
 });
 
 test("starting a round by hand is refused when it cannot be created", async () => {

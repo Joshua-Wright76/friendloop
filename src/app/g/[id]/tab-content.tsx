@@ -1,49 +1,41 @@
 "use client";
 
+import { useSearchParams } from "next/navigation";
 import OverviewTab from "./overview-tab";
 import MembersTab from "./members/members-tab";
 import QuestionsTab from "./questions/questions-tab";
 import IssuesTab from "./issues/issues-tab";
 import SettingsTab from "./settings/settings-tab";
 
-type Notices = {
-  invited?: string;
-  resent?: string;
-  removed?: string;
-  transferred?: string;
-  transferError?: string;
-  added?: string;
-  archived?: string;
-  suggestion?: string;
-  section?: string;
-  poll?: string;
-  event?: string;
-  opened?: string;
-  named?: string;
-  saved?: string;
-  error?: string;
-  shares?: string;
-  stationery?: string;
-};
-
 type Props =
-  | { tab: "overview"; welcome?: string; nudged?: string }
-  | { tab: "members"; notices: Pick<Notices, "invited" | "resent" | "removed" | "transferred" | "transferError"> }
-  | { tab: "questions"; notices: Pick<Notices, "added" | "archived" | "suggestion" | "section" | "poll" | "event"> }
-  | { tab: "issues"; notices: Pick<Notices, "opened" | "named">; filter?: { memberId: string; roundIds: string[] } | null }
-  | { tab: "settings"; notices: Pick<Notices, "saved" | "error" | "shares" | "stationery"> };
+  | { tab: "overview" | "members" | "questions" | "settings" }
+  | { tab: "issues"; filter?: { memberId: string; roundIds: string[] } | null };
 
+/**
+ * The notices a tab shows come from the URL. Reading them here, on the client,
+ * means a tab switch never waits on the server for them: the router already has
+ * the query string. Pages wrap this in Suspense for the first, server-rendered load.
+ */
 export function LoopTabContent(props: Props) {
+  const params = useSearchParams();
+  const read = <K extends string>(...keys: K[]) =>
+    Object.fromEntries(keys.flatMap((key) => {
+      const value = params.get(key);
+      return value === null ? [] : [[key, value]];
+    })) as Partial<Record<K, string>>;
+
   switch (props.tab) {
-    case "overview":
-      return <OverviewTab welcome={props.welcome} nudged={props.nudged} />;
+    case "overview": {
+      const { welcome, nudged } = read("welcome", "nudged");
+      return <OverviewTab welcome={welcome} nudged={nudged} />;
+    }
     case "members":
-      return <MembersTab notices={props.notices} />;
+      return <MembersTab notices={read("invited", "resent", "removed", "transferred", "transferError")} />;
     case "questions":
-      return <QuestionsTab notices={props.notices} />;
+      return <QuestionsTab notices={read("added", "archived", "skip", "rotation", "fromPacks", "suggestion", "section", "poll", "event")} />;
     case "issues":
-      return <IssuesTab notices={props.notices} filter={props.filter ?? null} />;
+      return <IssuesTab notices={read("opened", "alreadyOpen", "named")} filter={props.filter ?? null} />;
     case "settings":
-      return <SettingsTab notices={props.notices} />;
+      return <SettingsTab notices={read("saved", "error", "shares", "stationery")} />;
   }
 }

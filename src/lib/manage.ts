@@ -41,6 +41,9 @@ export type CreateLoopInput = {
   cadenceWeeks: number;
   questions: string[];
   at: Date;
+  /** The stationery chosen in the wizard, already validated; null keeps the original Gingham. */
+  themePreset?: string | null;
+  themeAccent?: string | null;
 };
 
 export async function createLoop(input: CreateLoopInput): Promise<string> {
@@ -54,6 +57,8 @@ export async function createLoop(input: CreateLoopInput): Promise<string> {
       promptWeekday: input.promptWeekday,
       promptHour: input.promptHour,
       cadenceWeeks: input.cadenceWeeks,
+      themePreset: input.themePreset ?? null,
+      themeAccent: input.themeAccent ?? null,
       createdAt: input.at,
     })
     .returning({ id: groups.id });
@@ -523,7 +528,14 @@ export async function deleteLoop(groupId: string) {
 }
 
 /** Start a round by hand, without waiting for the schedule. */
-export async function openIssueNow(groupId: string, at: Date): Promise<{ issueId: string; number: number } | null> {
+/**
+ * `created` is false when a round was already open: nothing new was sent, so the
+ * caller must not claim everyone was emailed.
+ */
+export async function openIssueNow(
+  groupId: string,
+  at: Date,
+): Promise<{ issueId: string; number: number; created: boolean } | null> {
   const [group] = await db.select().from(groups).where(eq(groups.id, groupId)).limit(1);
   if (!group) return null;
 
@@ -532,7 +544,7 @@ export async function openIssueNow(groupId: string, at: Date): Promise<{ issueId
     .from(issues)
     .where(and(eq(issues.groupId, groupId), eq(issues.status, "open")))
     .limit(1);
-  if (open) return { issueId: open.id, number: open.number };
+  if (open) return { issueId: open.id, number: open.number, created: false };
 
   const deliversAt = deliveryInstant(at, group);
 
@@ -575,7 +587,7 @@ export async function openIssueNow(groupId: string, at: Date): Promise<{ issueId
     questionCount,
   });
 
-  return { issueId: issue.id, number: issue.number };
+  return { issueId: issue.id, number: issue.number, created: true };
 }
 
 export async function membersOf(groupId: string) {

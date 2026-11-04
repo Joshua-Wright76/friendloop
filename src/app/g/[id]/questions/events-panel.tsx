@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { copy, text } from "@/lib/copy";
+import { ConfirmAction } from "@/components/confirm-action";
+import { FieldLabel } from "@/components/field-label";
 import { EVENT_TITLE_MAX } from "@/lib/event-dates";
 import { useLoopData, type LoopEvent } from "../loop-data";
 import { createEventAction, deleteEventAction, updateEventAction } from "./actions";
@@ -30,17 +32,17 @@ export function EventsPanel() {
                 {event.kind === "birthday" ? ` · ${copy.events.yearly}` : ""}
               </p>
               <EventEditor groupId={group.id} event={event} />
-              <form action={deleteEventAction} className="mt-2">
-                <input type="hidden" name="groupId" value={group.id} />
-                <input type="hidden" name="eventId" value={event.id} />
-                <button
-                  type="submit"
-                  aria-label={text(copy.events.removeLabel, { title: event.label })}
-                  className="btn btn-quiet min-h-11 px-4 text-[13px]"
-                >
-                  {copy.events.remove}
-                </button>
-              </form>
+              <ConfirmAction
+                className="mt-2"
+                action={deleteEventAction}
+                fields={{ groupId: group.id, eventId: event.id }}
+                label={copy.events.remove}
+                triggerLabel={text(copy.events.removeLabel, { title: event.label })}
+                question={text(copy.a11yLabels.removeEventQuestion, { title: event.label })}
+                body={copy.a11yLabels.removeEventBody}
+                confirmLabel={text(copy.a11yLabels.removeEventConfirm, { title: event.label })}
+                cancelLabel={copy.a11yLabels.confirmCancel}
+              />
             </li>
           ))}
         </ul>
@@ -51,40 +53,47 @@ export function EventsPanel() {
       <form action={createEventAction} className="mt-4 border-t border-line pt-4">
         <input type="hidden" name="groupId" value={group.id} />
         <h3 className="text-[14px] font-semibold text-ink">{copy.events.addTitle}</h3>
-        <select
-          name="kind"
-          value={kind}
-          onChange={(change) => setKind(change.target.value === "once" ? "once" : "birthday")}
-          aria-label={copy.events.kindLabel}
-          className="field mt-2 h-[46px] py-0"
-        >
-          <option value="birthday">{copy.events.kindBirthday}</option>
-          <option value="once">{copy.events.kindOnce}</option>
-        </select>
-        {kind === "birthday" ? (
-          <select name="membershipId" required aria-label={copy.events.memberLabel} className="field mt-2 h-[46px] py-0" defaultValue="">
-            <option value="" disabled>{copy.events.memberLabel}</option>
-            {people.map((person) => <option key={person.id} value={person.id}>{named(person)}</option>)}
+        <label className="mt-2 flex flex-col gap-1.5">
+          <FieldLabel>{copy.events.kindLabel}</FieldLabel>
+          <select
+            name="kind"
+            value={kind}
+            onChange={(change) => setKind(change.target.value === "once" ? "once" : "birthday")}
+            className="field h-[46px] py-0"
+          >
+            <option value="birthday">{copy.events.kindBirthday}</option>
+            <option value="once">{copy.events.kindOnce}</option>
           </select>
+        </label>
+        {kind === "birthday" ? (
+          <label className="mt-2 flex flex-col gap-1.5">
+            <FieldLabel required>{copy.events.memberLabel}</FieldLabel>
+            <select name="membershipId" required className="field h-[46px] py-0" defaultValue="">
+              <option value="" disabled>{copy.events.memberLabel}</option>
+              {people.map((person) => <option key={person.id} value={person.id}>{named(person)}</option>)}
+            </select>
+          </label>
         ) : (
-          <input
-            name="title"
-            required
-            maxLength={EVENT_TITLE_MAX}
-            placeholder={copy.events.titlePlaceholder}
-            aria-label={copy.events.titleLabel}
-            className="field mt-2 h-[46px] py-0"
-          />
+          <label className="mt-2 flex flex-col gap-1.5">
+            <FieldLabel required>{copy.events.titleLabel}</FieldLabel>
+            <input
+              name="title"
+              required
+              maxLength={EVENT_TITLE_MAX}
+              placeholder={copy.events.titlePlaceholder}
+              className="field h-[46px] py-0"
+            />
+          </label>
         )}
         <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-[1fr_5rem]">
           <div>
-            <label htmlFor="event-date" className="block text-[13px] font-bold text-ink-soft">{copy.events.dateLabel}</label>
+            <label htmlFor="event-date" className="block text-[13px] font-bold text-ink-soft">{copy.events.dateLabel} {copy.a11yLabels.required}</label>
             <input id="event-date" name="date" type="date" required className="field mt-1 h-[46px] py-0" />
             {kind === "birthday" ? <p className="mt-1 text-[12.5px] text-ink-muted">{copy.events.birthdayDateHint}</p> : null}
           </div>
           <div>
             <label htmlFor="event-emoji" className="block text-[13px] font-bold text-ink-soft">{copy.events.emojiLabel}</label>
-            <input id="event-emoji" name="emoji" maxLength={8} placeholder={copy.events.section.defaultEmoji} className="field mt-1 h-[46px] py-0" />
+            <input id="event-emoji" name="emoji" maxLength={8} placeholder={copy.events.section.defaultEmoji} className="field emoji-field mt-1 h-[46px] py-0" />
           </div>
         </div>
         <button type="submit" className="btn btn-primary mt-3">{copy.events.add}</button>
@@ -107,14 +116,26 @@ function EventEditor({ groupId, event }: { groupId: string; event: LoopEvent }) 
         <input type="hidden" name="groupId" value={groupId} />
         <input type="hidden" name="eventId" value={event.id} />
         {event.kind === "birthday" ? (
-          <select name="membershipId" defaultValue={event.membershipId ?? ""} aria-label={copy.events.memberLabel} className="field h-[46px] py-0">
-            {people.map((person) => <option key={person.id} value={person.id}>{person.name ?? person.email.split("@")[0]}</option>)}
-          </select>
+          <label className="flex flex-col gap-1.5">
+            <FieldLabel>{copy.events.memberLabel}</FieldLabel>
+            <select name="membershipId" defaultValue={event.membershipId ?? ""} className="field h-[46px] py-0">
+              {people.map((person) => <option key={person.id} value={person.id}>{person.name ?? person.email.split("@")[0]}</option>)}
+            </select>
+          </label>
         ) : (
-          <input name="title" defaultValue={event.title} required maxLength={EVENT_TITLE_MAX} aria-label={copy.events.titleLabel} className="field h-[46px] py-0" />
+          <label className="flex flex-col gap-1.5">
+            <FieldLabel required>{copy.events.titleLabel}</FieldLabel>
+            <input name="title" defaultValue={event.title} required maxLength={EVENT_TITLE_MAX} className="field h-[46px] py-0" />
+          </label>
         )}
-        <input name="date" type="date" required defaultValue={event.inputDate} aria-label={copy.events.dateLabel} className="field h-[46px] py-0" />
-        <input name="emoji" defaultValue={event.emoji ?? ""} maxLength={8} aria-label={copy.events.emojiLabel} className="field h-[46px] py-0" />
+        <label className="flex flex-col gap-1.5">
+          <FieldLabel required>{copy.events.dateLabel}</FieldLabel>
+          <input name="date" type="date" required defaultValue={event.inputDate} className="field h-[46px] py-0" />
+        </label>
+        <label className="flex flex-col gap-1.5">
+          <FieldLabel>{copy.events.emojiLabel}</FieldLabel>
+          <input name="emoji" defaultValue={event.emoji ?? ""} maxLength={8} className="field h-[46px] py-0" />
+        </label>
         <div>
           <button type="submit" className="btn btn-primary min-h-11 px-4 text-[13px]">{copy.events.save}</button>
         </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { copy, text } from "@/lib/copy";
 
 const MAX_LENGTH = 2000;
@@ -14,6 +14,9 @@ type Status = "idle" | "sending" | "sent";
  */
 export function FeedbackButton() {
   const dialog = useRef<HTMLDialogElement>(null);
+  const done = useRef<HTMLButtonElement>(null);
+  // Permanent, so the thank-you is announced as a change rather than lost as a new node.
+  const [announcement, setAnnouncement] = useState("");
   const [message, setMessage] = useState("");
   const [status, setStatus] = useState<Status>("idle");
   const [error, setError] = useState<string | null>(null);
@@ -33,8 +36,14 @@ export function FeedbackButton() {
     if (status === "sent") {
       setMessage("");
       setStatus("idle");
+      setAnnouncement("");
     }
   };
+
+  // Focus waits for the sent view, then lands on Done once the announcement is already in place.
+  useEffect(() => {
+    if (status === "sent") done.current?.focus();
+  }, [status]);
 
   const send = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -52,6 +61,7 @@ export function FeedbackButton() {
         }),
       });
       if (response.ok) {
+        setAnnouncement(copy.a11yStatus.feedbackSent);
         setStatus("sent");
         return;
       }
@@ -87,13 +97,15 @@ export function FeedbackButton() {
           if (status === "sent") {
             setMessage("");
             setStatus("idle");
+            setAnnouncement("");
           }
         }}
       >
+        <p role="status" aria-live="polite" className="sr-only">{announcement}</p>
         {!isOpen ? null : status === "sent" ? (
-          <div role="status">
+          <div>
             <h2 id="feedback-title" className="text-ink">{copy.feedback.thanks}</h2>
-            <button type="button" className="btn btn-primary mt-5" onClick={close} autoFocus>
+            <button ref={done} type="button" className="btn btn-primary mt-5" onClick={close}>
               {copy.feedback.done}
             </button>
           </div>
@@ -101,6 +113,7 @@ export function FeedbackButton() {
           <form onSubmit={send}>
             <h2 id="feedback-title" className="text-ink">{copy.feedback.title}</h2>
             <p className="mt-1.5 text-[14px] leading-relaxed text-ink-soft">{copy.feedback.hint}</p>
+            <p className="mt-1 text-[13px] leading-relaxed text-ink-muted">{copy.feedback.audience}</p>
             <label htmlFor="feedback-message" className="sr-only">{copy.feedback.label}</label>
             <textarea
               id="feedback-message"
@@ -120,7 +133,7 @@ export function FeedbackButton() {
               <button type="button" className="btn btn-quiet" onClick={close}>
                 {copy.feedback.cancel}
               </button>
-              <button type="submit" className="btn btn-primary" disabled={status === "sending" || !message.trim()}>
+              <button type="submit" className="btn btn-primary aria-disabled:cursor-not-allowed aria-disabled:opacity-45" aria-disabled={status === "sending" || !message.trim() ? true : undefined}>
                 {status === "sending" ? copy.feedback.sending : copy.feedback.send}
               </button>
             </div>

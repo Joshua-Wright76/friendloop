@@ -86,15 +86,76 @@ const PREVIEW_COMMENT_IDS = [
   "22222222-2222-4222-8222-222222222274",
 ] as const;
 
+// Real cards, cached so the preview never calls the providers. Qobuz playlists
+// have no cover, so that card shows the provider tile instead.
+const SPOTIFY_ALBUM_URL = "https://open.spotify.com/album/1DFixLWuPkv3KT3TnV35m3";
+const QOBUZ_PLAYLIST_URL = "https://open.qobuz.com/playlist/2007557";
+const BANDCAMP_ALBUM_URL = "https://radiohead.bandcamp.com/album/in-rainbows";
+const PREVIEW_MUSIC = [
+  {
+    url: SPOTIFY_ALBUM_URL,
+    provider: "spotify",
+    title: "Emotion (Deluxe), by Carly Rae Jepsen",
+    artworkUrl: "https://image-cdn-fa.spotifycdn.com/image/ab67616d00001e025618ee6467c0becf0dd23d68",
+    trackCount: 15,
+    tracks: [
+      { title: "Run Away With Me", artist: "Carly Rae Jepsen", seconds: 251 },
+      { title: "Emotion", artist: "Carly Rae Jepsen", seconds: 197 },
+      { title: "I Really Like You", artist: "Carly Rae Jepsen", seconds: 205 },
+      { title: "Gimmie Love", artist: "Carly Rae Jepsen", seconds: 202 },
+      { title: "All That", artist: "Carly Rae Jepsen", seconds: 277 },
+      { title: "Boy Problems", artist: "Carly Rae Jepsen", seconds: 222 },
+      { title: "Making The Most Of The Night", artist: "Carly Rae Jepsen", seconds: 239 },
+      { title: "Your Type", artist: "Carly Rae Jepsen", seconds: 200 },
+    ],
+  },
+  {
+    url: QOBUZ_PLAYLIST_URL,
+    provider: "qobuz",
+    title: "John Carpenter",
+    artworkUrl: null,
+    trackCount: 39,
+    tracks: [
+      { title: "Weeping Ghost", artist: "John Carpenter", seconds: 213 },
+      { title: "Halloween", artist: "John Carpenter", seconds: 179 },
+      { title: "Vortex", artist: "John Carpenter", seconds: 284 },
+      { title: "Angel's Asylum", artist: "John Carpenter", seconds: 257 },
+      { title: "Assault on Precinct 13", artist: "John Carpenter", seconds: 175 },
+      { title: "Christine", artist: "John Carpenter", seconds: 255 },
+      { title: "Theme from The Fog", artist: "John Carpenter", seconds: 307 },
+      { title: "Starman", artist: "John Carpenter", seconds: 154 },
+    ],
+  },
+  {
+    url: BANDCAMP_ALBUM_URL,
+    provider: "bandcamp",
+    title: "In Rainbows, by Radiohead",
+    artworkUrl: "https://f4.bcbits.com/img/a0552435637_5.jpg",
+    trackCount: 10,
+    tracks: [
+      { title: "15 Step", artist: null, seconds: 237 },
+      { title: "Bodysnatchers", artist: null, seconds: 242 },
+      { title: "Nude", artist: null, seconds: 255 },
+      { title: "Weird Fishes/ Arpeggi", artist: null, seconds: 318 },
+      { title: "All I Need", artist: null, seconds: 228 },
+      { title: "Faust Arp", artist: null, seconds: 129 },
+      { title: "Reckoner", artist: null, seconds: 290 },
+      { title: "House Of Cards", artist: null, seconds: 328 },
+    ],
+  },
+];
+
 export const UI_PREVIEW = {
   groupId: "22222222-2222-4222-8222-222222222222",
   userId: "22222222-2222-4222-8222-222222222223",
   ownerMembershipId: "22222222-2222-4222-8222-222222222224",
   aliceMembershipId: "22222222-2222-4222-8222-222222222225",
+  samMembershipId: "22222222-2222-4222-8222-222222222226",
   openIssueId: "22222222-2222-4222-8222-222222222230",
   deliveredIssueId: "22222222-2222-4222-8222-222222222231",
   ownerToken: "ui-preview-owner-token",
   aliceToken: "ui-preview-alice-token",
+  samToken: "ui-preview-sam-token",
   shareToken: "ui-preview-share-token",
   magicToken: "ui-preview-magic-token",
 } as const;
@@ -233,6 +294,17 @@ export async function enableUiPreview(reset = false) {
         access: "member",
         participation: "contributor",
         replyToken: UI_PREVIEW.aliceToken,
+        acceptedAt: now,
+      },
+      {
+        // Sam only drops a music pick, so the delivered issue shows all three providers.
+        id: UI_PREVIEW.samMembershipId,
+        groupId: UI_PREVIEW.groupId,
+        email: "sam@friendloop.local",
+        name: "Sam",
+        access: "member",
+        participation: "contributor",
+        replyToken: UI_PREVIEW.samToken,
         acceptedAt: now,
       },
     ]).onConflictDoNothing();
@@ -505,8 +577,28 @@ export async function enableUiPreview(reset = false) {
         issueSectionId: DELIVERED_SECTION_IDS[2],
         membershipId: UI_PREVIEW.aliceMembershipId,
         body: "Our road trip record",
-        linkUrl: "https://open.spotify.com/album/1DFixLWuPkv3KT3TnV35m3",
+        linkUrl: SPOTIFY_ALBUM_URL,
         linkProvider: "spotify",
+        status: "submitted",
+        submittedAt: new Date(now.getTime() - 86400000),
+      },
+      {
+        issueId: UI_PREVIEW.deliveredIssueId,
+        issueSectionId: DELIVERED_SECTION_IDS[2],
+        membershipId: UI_PREVIEW.ownerMembershipId,
+        body: "Ghost-story soundtrack for the campfire, as promised",
+        linkUrl: QOBUZ_PLAYLIST_URL,
+        linkProvider: "qobuz",
+        status: "submitted",
+        submittedAt: new Date(now.getTime() - 86400000),
+      },
+      {
+        issueId: UI_PREVIEW.deliveredIssueId,
+        issueSectionId: DELIVERED_SECTION_IDS[2],
+        membershipId: UI_PREVIEW.samMembershipId,
+        body: "For the drive home",
+        linkUrl: BANDCAMP_ALBUM_URL,
+        linkProvider: "bandcamp",
         status: "submitted",
         submittedAt: new Date(now.getTime() - 86400000),
       },
@@ -556,13 +648,13 @@ export async function enableUiPreview(reset = false) {
       },
     ]);
 
-    await tx.insert(musicLinks).values({
-      url: "https://open.spotify.com/album/1DFixLWuPkv3KT3TnV35m3",
-      provider: "spotify",
-      title: "Heavy Weather",
-      artworkUrl: null,
-      fetchedAt: now,
-    }).onConflictDoNothing();
+    // Upserted so an older preview picks up the songs (and stays fresh).
+    for (const card of PREVIEW_MUSIC) {
+      await tx.insert(musicLinks).values({ ...card, fetchedAt: now }).onConflictDoUpdate({
+        target: musicLinks.url,
+        set: { title: card.title, artworkUrl: card.artworkUrl, tracks: card.tracks, trackCount: card.trackCount, fetchedAt: now },
+      });
+    }
 
     await tx.insert(questionSuggestions).values({
       id: "22222222-2222-4222-8222-222222222290",

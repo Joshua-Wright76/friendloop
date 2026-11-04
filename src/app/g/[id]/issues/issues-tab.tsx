@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { LoopNav } from "@/components/loop-nav";
 import { CopyLink } from "@/components/copy-link";
+import { NoticeFocus } from "@/components/notice-focus";
 import { formatDate } from "@/lib/format";
 import { copy, text } from "@/lib/copy";
 import { issueTitle, MAX_ISSUE_NAME } from "@/lib/issue-name";
@@ -13,7 +14,7 @@ export default function IssuesTab({
   notices,
   filter,
 }: {
-  notices: { opened?: string; named?: string };
+  notices: { opened?: string; alreadyOpen?: string; named?: string };
   filter: { memberId: string; roundIds: string[] } | null;
 }) {
   const { group, membership, rounds: allRounds, openIssue: open, people } = useLoopData();
@@ -31,12 +32,7 @@ export default function IssuesTab({
 
   return (
     <main className="mx-auto w-full max-w-[680px] px-4 pb-16 pt-5 sm:px-6">
-      <header className="mb-5">
-        <Link href={`/g/${id}`} className="text-[13px] font-medium text-ink-soft hover:text-ink">
-          ← {group.name}
-        </Link>
-      </header>
-      <LoopNav id={id} active="Rounds" isOwner={membership.access === "owner"} />
+      <LoopNav id={id} name={group.name} access={membership.access} active="Rounds" />
 
       <h1 className="text-[28px] font-semibold leading-tight tracking-[-0.025em] text-ink">{copy.rounds.title}</h1>
       <p className="mt-1.5 text-[15px] leading-relaxed text-ink-soft">
@@ -47,9 +43,10 @@ export default function IssuesTab({
           : copy.rounds.nothingOpen}
       </p>
 
-      {notices.opened ? <Notice>{text(copy.rounds.openedNotice, { number: notices.opened })}</Notice> : null}
-      {notices.named === "1" ? <Notice>{copy.rounds.nameSaved}</Notice> : null}
-      {notices.named === "0" ? <Notice>{copy.rounds.nameCleared}</Notice> : null}
+      {notices.opened ? <NoticeFocus>{text(copy.rounds.openedNotice, { number: notices.opened })}</NoticeFocus> : null}
+      {notices.alreadyOpen ? <NoticeFocus>{text(copy.rounds.alreadyOpenNotice, { number: notices.alreadyOpen })}</NoticeFocus> : null}
+      {notices.named === "1" ? <NoticeFocus>{copy.rounds.nameSaved}</NoticeFocus> : null}
+      {notices.named === "0" ? <NoticeFocus>{copy.rounds.nameCleared}</NoticeFocus> : null}
 
       {contributors.length > 1 && allRounds.some((round) => round.status === "delivered") ? (
         <form method="get" className="mt-5 flex flex-wrap items-end gap-2">
@@ -75,9 +72,9 @@ export default function IssuesTab({
         </p>
       ) : null}
 
-      <div className="mt-5 flex flex-col gap-2.5">
+      {rounds.length > 0 ? <ul className="mt-5 flex flex-col gap-2.5">
         {rounds.map((round) => (
-          <div key={round.id} className="card p-4">
+          <li key={round.id} className="card p-4">
             <div className="flex items-baseline justify-between gap-3">
               <p className="text-[15px] font-medium text-ink">{issueTitle(copy.rounds.round, round.number, round.name)}</p>
               <span className="rounded-full border border-line px-2.5 py-1 text-[12px] font-medium capitalize text-ink-soft">
@@ -95,8 +92,8 @@ export default function IssuesTab({
 
             {isOwner ? (
               <details className="mt-2">
-                <summary className="inline-flex min-h-11 cursor-pointer items-center text-[14px] font-medium text-ink-soft underline decoration-dashed underline-offset-4">
-                  {copy.rounds.rename}
+                <summary aria-label={text(round.name ? copy.a11yLabels.renameNamedRound : copy.a11yLabels.renameRound, { title: issueTitle(copy.rounds.round, round.number, round.name) })} className="inline-flex min-h-11 cursor-pointer items-center text-[14px] font-medium text-ink-soft underline decoration-dashed underline-offset-4">
+                  {round.name ? copy.rounds.renameNamed : copy.rounds.rename}
                 </summary>
                 <form action={renameIssueAction} className="mt-1 flex flex-col gap-2">
                   <input type="hidden" name="groupId" value={id} />
@@ -112,7 +109,7 @@ export default function IssuesTab({
                     />
                   </label>
                   <p className="text-[12px] leading-relaxed text-ink-muted">{text(copy.rounds.nameHint, { number: round.number })}</p>
-                  <button type="submit" className="btn btn-quiet h-10 self-start text-[14px]">{copy.rounds.nameSave}</button>
+                  <button type="submit" className="btn btn-quiet h-11 min-h-11 self-start text-[14px]">{copy.rounds.nameSave}</button>
                 </form>
               </details>
             ) : null}
@@ -120,7 +117,8 @@ export default function IssuesTab({
             {round.status !== "open" ? (
               <Link
                 href={focus ? `/i/${round.id}?by=${focus.id}` : `/i/${round.id}`}
-                className="mt-2 inline-block text-[14px] font-medium text-accent hover:underline"
+                aria-label={text(copy.a11yLabels.readRound, { title: issueTitle(copy.rounds.round, round.number, round.name) })}
+                className="mt-2 inline-block text-[14px] font-medium text-accent-ink hover:underline"
               >
                 {copy.rounds.read}
               </Link>
@@ -128,34 +126,26 @@ export default function IssuesTab({
 
             {round.shareUrl ? (
               <div className="mt-2 flex items-center justify-between gap-2 rounded-lg bg-field px-2.5 py-1.5">
-                <span className="min-w-0 truncate text-[12px] text-ink-muted">
+                <span className="min-w-0 wrap-any text-[12px] text-ink-muted">
                   {round.shareUrl.replace(/^https?:\/\//, "")}
                 </span>
                 <CopyLink url={round.shareUrl} />
               </div>
             ) : null}
-          </div>
+          </li>
         ))}
-        {rounds.length === 0 && focus ? (
-          <div className="card p-5 text-[14px] text-ink-muted">
-            <p>{text(copy.rounds.filter.empty, { name: focus.name })}</p>
-          </div>
-        ) : null}
-        {rounds.length === 0 && !focus ? (
-          <div className="card p-5 text-[14px] text-ink-muted">
-            <p>{copy.rounds.empty}</p>
-            {membership.access !== "member" ? <Link href={`/g/${id}`} className="btn btn-primary mt-4 inline-flex">{copy.rounds.firstRoundAction}</Link> : null}
-          </div>
-        ) : null}
-      </div>
+      </ul> : null}
+      {rounds.length === 0 && focus ? (
+        <div className="card mt-5 p-5 text-[14px] text-ink-muted">
+          <p>{text(copy.rounds.filter.empty, { name: focus.name })}</p>
+        </div>
+      ) : null}
+      {rounds.length === 0 && !focus ? (
+        <div className="card mt-5 p-5 text-[14px] text-ink-muted">
+          <p>{copy.rounds.empty}</p>
+          {membership.access !== "member" ? <Link href={`/g/${id}`} className="btn btn-primary mt-4 inline-flex">{copy.rounds.firstRoundAction}</Link> : null}
+        </div>
+      ) : null}
     </main>
-  );
-}
-
-function Notice({ children }: { children: React.ReactNode }) {
-  return (
-    <div role="status" className="notice settle mt-4 border bg-accent-soft px-4 py-3 text-[14px] leading-relaxed">
-      {children}
-    </div>
   );
 }

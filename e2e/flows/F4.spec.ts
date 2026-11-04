@@ -12,7 +12,15 @@ test("F4 · deleting a loop takes everything with it", async ({ page }) => {
   await signIn(page, "owner@friendloop.test");
 
   await page.goto(`/g/${loop.groupId}/settings`);
-  await page.getByLabel("Loop name").fill("Friday Loop");
+  const confirm = page.getByLabel('Type "Friday Loop" to confirm');
+  const deleteButton = page.getByRole("button", { name: "Delete forever" });
+  // The field starts empty, and the button waits for the exact name.
+  await expect(confirm).toHaveValue("");
+  await expect(deleteButton).toHaveAttribute("aria-disabled", "true");
+  await confirm.fill("Friday");
+  await expect(deleteButton).toHaveAttribute("aria-disabled", "true");
+  await confirm.fill("Friday Loop");
+  await expect(deleteButton).not.toHaveAttribute("aria-disabled");
   await page.getByRole("button", { name: "Delete forever" }).click();
 
   await expect(page).toHaveURL(/\/you(\?.*)?$/);

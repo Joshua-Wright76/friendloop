@@ -56,7 +56,7 @@ export default async function DevOutboxPage() {
               {link ? (
                 <a
                   href={link}
-                  className="mt-2 block break-all text-[13px] font-medium text-accent underline decoration-accent/30 underline-offset-2"
+                  className="mt-2 block break-all text-[13px] font-medium text-accent-ink underline decoration-accent/30 underline-offset-2"
                 >
                   {link}
                 </a>
