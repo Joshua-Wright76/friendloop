@@ -9,7 +9,10 @@ import { copy } from "@/lib/copy";
 
 export const instant = false;
 
-export const metadata: Metadata = { title: copy.pageTitles.newLoop };
+export const metadata: Metadata = {
+  title: copy.pageTitles.newLoop,
+  robots: { index: false, follow: false },
+};
 
 export default async function NewLoopPage() {
   const user = await currentUser();

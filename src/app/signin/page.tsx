@@ -7,7 +7,10 @@ import { copy } from "@/lib/copy";
 
 export const instant = false;
 
-export const metadata: Metadata = { title: copy.pageTitles.signIn };
+export const metadata: Metadata = {
+  title: copy.pageTitles.signIn,
+  robots: { index: false, follow: false },
+};
 
 export default async function SignInPage() {
   if (await currentUser()) redirect("/you");

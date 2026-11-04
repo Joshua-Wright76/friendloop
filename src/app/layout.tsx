@@ -4,6 +4,7 @@ import { FeedbackButton } from "@/components/feedback-button";
 import { ThemeSwitch } from "@/components/theme-switch";
 import { copy } from "@/lib/copy";
 import { THEME_COLORS } from "@/lib/theme";
+import { appUrl } from "@/lib/urls";
 import "./globals.css";
 
 const nunito = Nunito({
@@ -23,6 +24,22 @@ export const metadata: Metadata = {
   description: copy.common.metadataDescription,
   applicationName: copy.common.brand,
   appleWebApp: { capable: true, title: copy.common.brand, statusBarStyle: "black-translucent" },
+  metadataBase: new URL(appUrl()),
+  // Every route inherits this card and the root opengraph-image, private ones
+  // included: a shared reply link or round previews as Friendloop and nothing
+  // more. No page below this layout may set openGraph or twitter from loop data.
+  openGraph: {
+    type: "website",
+    siteName: copy.common.brand,
+    title: copy.common.metadataTitle,
+    description: copy.common.metadataDescription,
+    locale: "en_US",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: copy.common.metadataTitle,
+    description: copy.common.metadataDescription,
+  },
 };
 
 export const viewport: Viewport = {
