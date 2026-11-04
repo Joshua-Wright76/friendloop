@@ -21,6 +21,7 @@ import { newQuestionTexts } from "./question-packs";
 import { snapshotQuestionsForIssue } from "./round-questions";
 import { snapshotEventsForIssue } from "./events";
 import { checkPoll } from "./poll";
+import { eraseLoop } from "./erasure";
 
 export function normalizeEmail(value: string): string {
   return value.trim().toLowerCase();
@@ -532,8 +533,9 @@ export async function setPaused(groupId: string, paused: boolean, at: Date) {
     .where(eq(groups.id, groupId));
 }
 
+/** Every round, answer and comment goes, and so does every photo and voice note. */
 export async function deleteLoop(groupId: string) {
-  await db.delete(groups).where(eq(groups.id, groupId));
+  await eraseLoop(groupId);
 }
 
 /** Start a round by hand, without waiting for the schedule. */

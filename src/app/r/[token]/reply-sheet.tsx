@@ -1525,6 +1525,15 @@ export function ReplySheet({
         {mutedUnsubscribeToken ? <MutedNotice unsubscribeToken={mutedUnsubscribeToken} back={`/r/${token}`} /> : null}
 
         <ReminderPreference token={token} initial={reminderPreference} />
+
+        <p className="mt-6 flex flex-wrap gap-x-4 gap-y-2 text-[13px] leading-relaxed text-ink-muted">
+          <Link href={`/r/${token}/leave`} className="underline decoration-line-strong underline-offset-4 hover:text-ink">
+            {copy.reply.leaveLink}
+          </Link>
+          <Link href="/privacy" className="underline decoration-line-strong underline-offset-4 hover:text-ink">
+            {copy.legal.privacyLink}
+          </Link>
+        </p>
       </main>
 
       <section

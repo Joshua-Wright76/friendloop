@@ -207,11 +207,14 @@ test("every loop email can carry a visible 'stop emails' link in HTML and plain 
   for (const email of loopEmails) {
     assert.ok(email.html.includes(`href="${stop}"`), email.subject);
     assert.ok(email.html.includes("Stop emails from this loop"), email.subject);
-    assert.ok(email.text.endsWith(`Stop emails from this loop: ${stop}`), email.subject);
+    assert.ok(email.text.includes(`Stop emails from this loop: ${stop}`), email.subject);
+    assert.match(email.text, /Privacy: \S+\/privacy\nTerms: \S+\/terms$/, email.subject);
   }
 
   const withoutLink = promptEmail({ groupName: "G", memberName: "M", issueNumber: 1, questionCount: 2, url: "https://x/r/t", deadlineLabel: "Fri" });
   assert.ok(!withoutLink.html.includes("Stop emails from this loop"));
   assert.ok(!withoutLink.text.includes("Stop emails"));
-  assert.ok(!signInEmail("https://x/signin").html.includes("Stop emails from this loop"));
+  const signIn = signInEmail("https://x/signin");
+  assert.ok(!signIn.html.includes("Stop emails from this loop"));
+  assert.match(signIn.text, /Privacy: \S+\/privacy\nTerms: \S+\/terms$/);
 });

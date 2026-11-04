@@ -45,7 +45,7 @@ export const PRIVATE_ROUTES = [
   "/i/:path*",
   "/g/:path*",
   "/album/:path*",
-  "/you",
+  "/you/:path*",
   "/signin/:path*",
   "/dev/:path*",
 ] as const;

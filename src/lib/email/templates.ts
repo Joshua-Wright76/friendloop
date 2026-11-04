@@ -4,6 +4,7 @@
  */
 
 import { copy, text } from "../copy.ts";
+import { url as appLink } from "../urls.ts";
 import { formatAudioDuration } from "../audio-validation.ts";
 import { issueHeading, issueRef } from "../issue-name.ts";
 import { emailPalette, GINGHAM_EMAIL, type EmailPalette } from "../theme.ts";
@@ -184,6 +185,13 @@ function answersHtml(answers: AnswerBlock[], url: string, c: EmailPalette): stri
     .join("");
 }
 
+/** Privacy and terms, under every email's footer. */
+function legalLinks(c: EmailPalette): string {
+  const link = (href: string, label: string) =>
+    `<a href="${escapeHtml(href)}" style="color:${c.muted};text-decoration:underline">${escapeHtml(label)}</a>`;
+  return `<p style="margin:8px 0 0;font:400 12px/1.6 ${BODY_FONT};color:${c.muted};text-align:center">${link(appLink("/privacy"), copy.legal.privacyLink)} · ${link(appLink("/terms"), copy.legal.termsLink)}</p>`;
+}
+
 export function layout({ preheader, heading, body, cta, footer, answers, sections, answersUrl, theme, unsubscribeUrl }: LayoutInput): string {
   const c = theme?.palette ?? GINGHAM_EMAIL;
   const GINGHAM = gingham(c);
@@ -217,15 +225,21 @@ ${sections && sections.length > 0 ? `<tr><td style="padding-top:20px">${sections
     unsubscribeUrl
       ? `<br /><a href="${escapeHtml(unsubscribeUrl)}" style="color:${c.muted};text-decoration:underline">${escapeHtml(copy.emails.stopLink)}</a>`
       : ""
-  }</p></td></tr>
+  }</p>${legalLinks(c)}</td></tr>
 </table></td></tr></table></body></html>`;
 }
 
 export type RenderedEmail = { subject: string; html: string; text: string };
 
-/** The plain-text twin of the footer link. */
+/** The plain-text twin of the footer's legal links. */
+function legalText(): string {
+  return `${copy.legal.privacyLink}: ${appLink("/privacy")}\n${copy.legal.termsLink}: ${appLink("/terms")}`;
+}
+
+/** The plain-text twin of the footer: the stop link, when there is one, then the legal links. */
 function withStopLine(body: string, unsubscribeUrl: string | undefined): string {
-  return unsubscribeUrl ? `${body}\n\n${text(copy.emails.stopText, { url: unsubscribeUrl })}` : body;
+  const stop = unsubscribeUrl ? `\n\n${text(copy.emails.stopText, { url: unsubscribeUrl })}` : "";
+  return `${body}${stop}\n\n${legalText()}`;
 }
 
 export function signInEmail(url: string): RenderedEmail {
@@ -239,7 +253,7 @@ export function signInEmail(url: string): RenderedEmail {
       cta: { label: content.cta, url },
       footer: content.footer,
     }),
-    text: text(content.text, { body: content.body, url }),
+    text: withStopLine(text(content.text, { body: content.body, url }), undefined),
   };
 }
 

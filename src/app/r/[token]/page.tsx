@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { describeDeadline } from "@/lib/schedule";
 import { resolveToken, sheetFor } from "@/lib/reply";
 import { sectionsForSheet } from "@/lib/sections";
@@ -22,7 +23,7 @@ export const metadata: Metadata = {
 
 type Person = { token: string; name: string; photoUrl: string | null };
 
-function Closed({ title, body, next, person, children }: { title: string; body: string; next?: string; person?: Person; children?: React.ReactNode }) {
+function Closed({ title, body, next, person, leaveHref, children }: { title: string; body: string; next?: string; person?: Person; leaveHref?: string; children?: React.ReactNode }) {
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-[560px] flex-col justify-center px-4 py-10">
       <div className="mb-8 self-start"><Brand /></div>
@@ -43,6 +44,13 @@ function Closed({ title, body, next, person, children }: { title: string; body: 
         ) : null}
       </div>
       {children}
+      {leaveHref ? (
+        <p className="mt-6 text-center text-[13px] text-ink-muted">
+          <Link href={leaveHref} className="underline decoration-line-strong underline-offset-4">
+            {copy.reply.leaveLink}
+          </Link>
+        </p>
+      ) : null}
     </main>
   );
 }
@@ -82,6 +90,7 @@ export default async function ReplyPage({ params }: { params: Promise<{ token: s
           title={text(copy.reply.readerTitle, { groupName: context.groupName })}
           body={copy.reply.readerBody}
           person={personOf(token, context.membership)}
+          leaveHref={`/r/${token}/leave`}
         />
       </>
     );
@@ -96,6 +105,7 @@ export default async function ReplyPage({ params }: { params: Promise<{ token: s
           title={copy.reply.nothingOpenTitle}
           body={text(copy.reply.nothingOpenBody, { groupName: context.group.name })}
           person={personOf(token, context.membership)}
+          leaveHref={`/r/${token}/leave`}
         >
           {context.membership.mutedAt ? (
             <MutedNotice unsubscribeToken={context.membership.unsubscribeToken} back={`/r/${token}`} />

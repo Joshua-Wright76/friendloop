@@ -171,7 +171,12 @@
       "delivered": "Last issue delivered {date}",
       "first": "First questions go out {date}",
       "paused": "Paused"
-    }
+    },
+    "dataTitle": "Your data",
+    "dataBody": "Download everything you have written, in every loop, or delete your account and all of it.",
+    "download": "Download my data",
+    "deleteAccount": "Delete my account",
+    "privacyLink": "How we handle your data"
   },
   "newLoop": {
     "pageTitle": "New loop",
@@ -782,9 +787,12 @@
     "resume": "Resume",
     "pause": "Pause",
     "deleteTitle": "Delete the loop",
-    "deleteDescription": "Every round, answer, and comment goes with it. This can't be undone.",
+    "deleteDescription": "Every round, answer, comment, photo, and voice note goes with it. This can't be undone.",
     "deleteConfirmLabel": "Type \"{name}\" to confirm",
-    "delete": "Delete forever"
+    "delete": "Delete forever",
+    "archiveTitle": "Download the loop",
+    "archiveBody": "Every round, question, answer, and comment as one file, with links to the photos and voice notes. Download it before you delete the loop: the links stop working once it is gone.",
+    "archive": "Download the archive"
   },
   "reply": {
     "invalidTitle": "This link doesn't work anymore",
@@ -947,7 +955,8 @@
       "sectionPhotoCap": "A photo wall holds six photos, and this one is full.",
       "sectionPhotoStandardCap": "Standard sections carry one photo.",
       "sectionPhotoCaption": "Give each photo on the wall a one-line caption."
-    }
+    },
+    "leaveLink": "Leave this loop and delete my answers"
   },
   "issue": {
     "eyebrow": "Fresh from the loop",
@@ -1564,5 +1573,160 @@
     "empty": "Nothing yet. Use the button in the corner of any page.",
     "anonymous": "Anonymous visitor",
     "viewport": "Screen {viewport}"
+  },
+  "account": {
+    "metadataTitle": "Delete your account",
+    "eyebrow": "Your account",
+    "title": "Delete your account",
+    "intro": "This deletes your account and everything you have written in every loop: answers, photos, voice notes, comments, reactions, and suggested questions. Rounds that already went out will no longer show anything from you. It cannot be undone.",
+    "downloadFirst": "Want a copy first?",
+    "download": "Download my data",
+    "soloTitle": "These loops have nobody else in them, so they go too:",
+    "blockedTitle": "First, hand on or delete the loops you own",
+    "blockedBody": "Other people are still in these loops. Make one of their admins the owner on the people page, or delete the loop from its settings, then come back.",
+    "blockedPeople": "{count} other people",
+    "blockedPerson": "1 other person",
+    "handOn": "Hand it on",
+    "deleteLoop": "Delete the loop",
+    "confirmLabel": "Type your email address to confirm",
+    "confirmHint": "Type {email} exactly.",
+    "confirmError": "That doesn't match your email address. Nothing was deleted.",
+    "ownerError": "You still own a loop with other people in it. Nothing was deleted.",
+    "submit": "Delete my account forever",
+    "cancel": "Keep my account"
+  },
+  "leave": {
+    "metadataTitle": "Leave this loop",
+    "eyebrow": "Leaving {groupName}",
+    "title": "Leave {groupName}?",
+    "body": "You will stop getting emails from this loop, and everything you have written here goes: answers, photos, voice notes, comments, reactions, and suggested questions. Rounds that already went out will no longer show anything from you. It cannot be undone.",
+    "otherLoops": "This only affects {groupName}. If you are in other loops, each has its own link.",
+    "downloadFirst": "Want a copy first?",
+    "download": "Download what I wrote here",
+    "confirmLabel": "I understand everything I wrote in {groupName} will be deleted",
+    "submit": "Leave and delete my answers",
+    "cancel": "Stay in the loop",
+    "ownerTitle": "You own {groupName}",
+    "ownerBody": "An owner can't leave through their link. Sign in and hand the loop to one of its admins, or delete the loop from its settings.",
+    "ownerAction": "Open the loop's settings",
+    "confirmError": "Tick the box to confirm. Nothing was deleted."
+  },
+  "goodbye": {
+    "metadataTitle": "Deleted",
+    "title": "It's all gone.",
+    "body": "Everything you wrote has been deleted, along with your photos and voice notes. Copies of emails that already reached people's inboxes are theirs, and we can't recall those.",
+    "home": "Back to Friendloop"
+  },
+  "legal": {
+    "contactEmail": "contact@friendloop.dev",
+    "footerLabel": "Legal",
+    "privacyLink": "Privacy",
+    "termsLink": "Terms",
+    "lastUpdated": "Last updated {date}.",
+    "updatedOn": "November 4, 2026",
+    "contactHeading": "Questions",
+    "contactBody": "Write to",
+    "export": {
+      "personalNote": "Everything you wrote on Friendloop, as of exportedAt. Photos and voice notes are links; they keep working until you delete your account or leave the loop, or the loop is deleted, so save any you want to keep first.",
+      "loopNote": "The whole loop as of exportedAt: every round with its questions, sent answers, sections, comments, and reactions. Photos and voice notes are links; they stop working once the loop or the person who added them is deleted, so save any you want to keep first. Drafts nobody has sent are not included."
+    },
+    "privacy": {
+      "metadataTitle": "Privacy",
+      "eyebrow": "Privacy",
+      "title": "What we keep, and why",
+      "intro": "Friendloop is a small private newsletter for groups of friends. It keeps what it needs to send your loop's questions and put your answers in front of the people you chose, and nothing else. There are no ads, no tracking, and nothing is sold.",
+      "sections": [
+        {
+          "heading": "What we store",
+          "items": [
+            "Your email address, and the name you give. If you sign in, the timezone your browser reports, so deadlines read in your own clock.",
+            "For each loop you are in: your name there, your profile photo if you add one, your role, your reminder choice, and the private link that lets you answer without an account.",
+            "Everything you write: answers (saved as drafts while you type, and shared once you send them), poll picks, photos, voice notes, section answers and music links, comments, reactions, and questions you suggest.",
+            "Birthdays and dates the loop's owner adds to its calendar.",
+            "A copy of every email we send, and delivery notices from our email provider (sent, bounced, and so on), so a failed send can be retried and never doubled.",
+            "Notes you send with the feedback button, with the page you were on, your screen size, and your browser.",
+            "One cookie when you sign in, which keeps you signed in for 30 days. Your light or dark choice is kept in your own browser."
+          ]
+        },
+        {
+          "heading": "Who can see it",
+          "paragraphs": [
+            "The people in your loop see the answers you send, your name and photo, your comments and reactions, once the round is delivered. The owner and admins also see members' email addresses and who has answered so far. Drafts are visible to nobody but you.",
+            "If the loop's owner turns on share links, anyone holding a round's share link can read that round. They are off unless the owner turns them on, and the owner can replace them at any time.",
+            "Photos and voice notes are stored at long, unguessable web addresses. Anyone given one of those addresses can open that file."
+          ]
+        },
+        {
+          "heading": "Services that handle it for us",
+          "paragraphs": [
+            "We use a few companies to run Friendloop. Each one handles your data only to do its job for us. Their servers may be outside your country."
+          ],
+          "items": [
+            "Vercel runs the website and stores photos and voice notes (Vercel Blob).",
+            "Neon hosts the database where everything else lives.",
+            "Resend sends our emails, so it sees each recipient's address and the email itself.",
+            "Sentry receives error reports when something breaks, which can include the page address, your browser, and technical details of the failure."
+          ]
+        },
+        {
+          "heading": "How long we keep it",
+          "paragraphs": [
+            "Everything stays until it is deleted: by you, or by the loop's owner deleting the loop. When something is deleted it is removed from the database straight away, and its photos and voice notes are removed from storage moments later (if storage is briefly unavailable, we keep retrying).",
+            "Our database provider keeps a short recovery history for a limited time, so deleted data can linger there for a few days before it ages out. Emails that already reached someone's inbox belong to them, and we can't recall them; our own stored copies of sent emails that name you are blanked when you delete your data."
+          ]
+        },
+        {
+          "heading": "Taking it with you, and deleting it",
+          "items": [
+            "Signed in: open Your loops and use Download my data for a file of everything you have written, or Delete my account to remove your account and all of it, in every loop.",
+            "Only using the link in your email: at the bottom of the answer page, Leave this loop removes you from that loop and deletes everything you wrote there. You can download it first.",
+            "Owners can download a whole loop, and delete it, from the loop's settings. If you own a loop that has other people in it, hand it to one of its admins or delete it before deleting your account.",
+            "If an owner removes you from a loop, you stop getting its emails, but what you already wrote stays until you delete it."
+          ]
+        }
+      ]
+    },
+    "terms": {
+      "metadataTitle": "Terms",
+      "eyebrow": "Terms",
+      "title": "The ground rules",
+      "intro": "Friendloop is free, open source, and run for groups of friends. By using it you agree to these terms. They are short on purpose.",
+      "sections": [
+        {
+          "heading": "Your words stay yours",
+          "paragraphs": [
+            "You own what you write and upload. You let us store it, and show it to the people in your loop (and to anyone the owner shares a round with), only so Friendloop can do its job. That permission ends when you delete it."
+          ]
+        },
+        {
+          "heading": "Be a good friend",
+          "items": [
+            "Only invite people who would want to be invited, and only add your own photos and recordings, or ones you have permission to share.",
+            "Nothing illegal, hateful, or harassing, and nothing that exposes someone else's private information.",
+            "Don't try to get into loops you weren't invited to, overload the service, or get around its limits.",
+            "You need to be at least 13, and old enough where you live to agree to these terms."
+          ]
+        },
+        {
+          "heading": "Owners",
+          "paragraphs": [
+            "The owner of a loop decides who is in it, which questions it asks, whether rounds can be shared by link, and whether it keeps going. Owners can remove people and can delete the whole loop, with everything in it."
+          ]
+        },
+        {
+          "heading": "No guarantees",
+          "paragraphs": [
+            "Friendloop is provided as it is, without warranties. We work to keep it running and your words safe, but emails can be late, things can break, and we may change or stop the service. Keep your own copy of anything you can't bear to lose: Download my data is there for that.",
+            "As far as the law allows, we are not liable for indirect or consequential losses, or for what other people in your loop write."
+          ]
+        },
+        {
+          "heading": "When things go wrong",
+          "paragraphs": [
+            "We may remove content or close an account that breaks these terms. You can stop using Friendloop and delete your data at any time. If these terms change in a way that matters, we will say so before the change applies."
+          ]
+        }
+      ]
+    }
   }
 }

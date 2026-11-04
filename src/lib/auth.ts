@@ -10,7 +10,7 @@ import { isValidTimezone } from "./timezone";
 import { signInEmail } from "./email/templates";
 import { sendEmail } from "./email/send";
 import { signInUrl } from "./urls";
-import { consume, LIMITS } from "./rate-limit";
+import { consume, LIMITS, limitKey } from "./rate-limit";
 
 export const SESSION_COOKIE = "fl_session";
 /** The address a sign-in link was just sent to, echoed on the check-email page. */
@@ -49,8 +49,8 @@ export async function requestMagicLink(
   const email = normalizeEmail(rawEmail);
   const at = await getNow();
 
-  if (!(await consume(`signin:ip:${options.ip ?? "unknown"}`, LIMITS.signInIp, at)).allowed) return "busy";
-  if (!(await consume(`signin:email:${email}`, LIMITS.signInEmail, at)).allowed) return "quiet";
+  if (!(await consume(limitKey.signInIp(options.ip ?? "unknown"), LIMITS.signInIp, at)).allowed) return "busy";
+  if (!(await consume(limitKey.signInEmail(email), LIMITS.signInEmail, at)).allowed) return "quiet";
 
   const token = newToken();
   await db.insert(magicLinks).values({

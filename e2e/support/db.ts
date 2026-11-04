@@ -24,6 +24,7 @@ const TABLES = [
   "feedback",
   "email_events",
   "email_suppressions",
+  "media_deletions",
   "outbox",
   "section_media",
   "section_replies",

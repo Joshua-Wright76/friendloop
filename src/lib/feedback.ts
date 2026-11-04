@@ -4,7 +4,7 @@ import { membershipFromReplyToken } from "./auth";
 import { getNow } from "./clock";
 import { copy } from "./copy.ts";
 import { redactPath } from "./feedback-path";
-import { consume, LIMITS } from "./rate-limit";
+import { consume, LIMITS, limitKey } from "./rate-limit";
 
 export const FEEDBACK_MAX_LENGTH = 2000;
 
@@ -60,10 +60,10 @@ export async function submitFeedback(
 
   const at = await getNow();
   const [key, limit] = sender?.membershipId
-    ? [`feedback:member:${sender.membershipId}`, LIMITS.feedback]
+    ? [limitKey.feedbackMember(sender.membershipId), LIMITS.feedback]
     : sender?.userId
-      ? [`feedback:user:${sender.userId}`, LIMITS.feedback]
-      : [`feedback:ip:${input.ip ?? "unknown"}`, LIMITS.feedbackAnonymous];
+      ? [limitKey.feedbackUser(sender.userId), LIMITS.feedback]
+      : [limitKey.feedbackIp(input.ip ?? "unknown"), LIMITS.feedbackAnonymous];
   if (!(await consume(key, limit, at)).allowed) {
     return { ok: false, status: 429, error: copy.feedback.errors.tooMany };
   }

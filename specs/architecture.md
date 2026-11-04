@@ -415,3 +415,36 @@ signature over the raw body with `node:crypto` (HMAC-SHA256 of
 more than five minutes from now, and stores `svix-id` uniquely so a redelivery is
 recorded once. Events link to their outbox row by `outbox.provider_id`. Without
 `RESEND_WEBHOOK_SECRET` the endpoint refuses everything.
+
+## 23 · Deleting is rows first, files after; exporting is a stream of links
+
+`src/lib/erasure.ts` is the one place people and loops are deleted (account,
+reply-link leave, and the settings "Delete forever"). Each path runs one
+transaction that collects every stored file the doomed rows point at, deletes the
+rows (most of it is `on delete cascade` from `memberships`; the module adds what a
+foreign key cannot say — the email trail keyed by address, the name frozen into a
+suggestion credit or a birthday section, stored copies of sent mail that name the
+person, the §21 abuse counters keyed by their address, account, or membership,
+spelled by `limitKey` in `src/lib/rate-limit-policy.ts`), and writes the file URLs to `media_deletions` in the same commit. Only
+then are the files removed, three quick tries each; anything storage refused stays
+queued and the sweep retries it (`purgeQueuedMedia`, given up after
+`MAX_MEDIA_ATTEMPTS` for a person to look at). A file still referenced by any row
+is never removed. A crash between commit and cleanup leaves an orphaned file on a
+queue, never a page pointing at a missing one.
+
+An owner whose loop has anyone else in it cannot delete their account until they
+hand the loop on (flow N3) or delete it; a loop they own alone goes with them.
+`test/lib/erasure.integration.test.ts` reads every foreign key that points at
+`users` or `memberships` from the Postgres catalog, requires its seed to have put a
+row behind each one, and after deletion checks none remain and that no text or
+JSON column anywhere still holds the person's address or name — so a new table
+that stores someone's data fails that test until erasure handles it.
+`music_links` is left alone: it is a cache of public album metadata keyed by the
+link, and says nothing about who pasted it.
+
+Exports (`src/lib/data-export.ts`) are JSON streamed one loop or one round at a
+time, so nothing has to sit in a function's memory at once. Photos and voice notes
+travel as their permanent, unguessable URLs rather than bytes: zipping every file
+inside one serverless call would hit the platform's time and size limits long
+before a real loop's archive did. The file says the links die with the data, so
+people save what they want before deleting.

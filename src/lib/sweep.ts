@@ -20,6 +20,7 @@ import { newToken } from "./tokens";
 import { snapshotQuestionsForIssue } from "./round-questions";
 import { snapshotSectionsForIssue } from "./sections";
 import { snapshotEventsForIssue } from "./events";
+import { purgeQueuedMedia } from "./media-cleanup.ts";
 import { issueSections, sectionMedia, sectionReplies } from "@/db/schema";
 import { pruneRateLimits } from "./rate-limit";
 
@@ -31,6 +32,8 @@ export type SweepReport = {
   retried: number;
   /** Another trigger held the sweep lock, so this run did nothing. */
   busy: boolean;
+  /** Stored files an earlier deletion queued and this run removed. */
+  mediaPurged: number;
 };
 
 /** Arbitrary, fixed key for `pg_try_advisory_xact_lock`: one sweep at a time. */
@@ -64,7 +67,7 @@ export async function sweep({ at }: { at: Date }): Promise<SweepReport> {
 }
 
 function emptyReport(busy: boolean): SweepReport {
-  return { opened: 0, delivered: 0, skipped: 0, reminded: 0, retried: 0, busy };
+  return { opened: 0, delivered: 0, skipped: 0, reminded: 0, retried: 0, mediaPurged: 0, busy };
 }
 
 async function sweepUnlocked(at: Date): Promise<SweepReport> {
@@ -76,6 +79,7 @@ async function sweepUnlocked(at: Date): Promise<SweepReport> {
   report.skipped = delivery.skipped;
   report.reminded = await remindStragglers(at);
   report.retried = await flushOutbox();
+  report.mediaPurged = await purgeQueuedMedia();
   // Housekeeping, not part of the report: closed abuse windows are just rows.
   await pruneRateLimits(at);
   return report;
