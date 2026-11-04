@@ -104,3 +104,19 @@ test("a member with a reply link is limited by membership", async () => {
   const refused = await submitFeedback(note({ path: `/r/${alice.token}` }), null);
   assert.equal(refused.ok === false && refused.status, 429);
 });
+
+test("strangers are counted per network, so one flood does not silence everyone", async () => {
+  for (let i = 0; i < FEEDBACK_HOURLY_LIMIT_ANONYMOUS; i++) await submitFeedback(note({ ip: "203.0.113.7" }), null);
+  const refused = await submitFeedback(note({ ip: "203.0.113.7" }), null);
+  assert.equal(refused.ok === false && refused.status, 429);
+  assert.equal((await submitFeedback(note({ ip: "198.51.100.2" }), null)).ok, true);
+  assert.equal((await stored()).length, FEEDBACK_HOURLY_LIMIT_ANONYMOUS + 1);
+});
+
+test("the hourly allowance comes back in the next hour", async () => {
+  const session = await ownerSession();
+  for (let i = 0; i < FEEDBACK_HOURLY_LIMIT; i++) await submitFeedback(note(), session);
+  assert.equal((await submitFeedback(note(), session)).ok, false);
+  setRequestHeaders({ "x-e2e-now": new Date(AFTER_FIRST_SLOT.getTime() + 60 * 60 * 1000).toISOString() });
+  assert.equal((await submitFeedback(note(), session)).ok, true);
+});

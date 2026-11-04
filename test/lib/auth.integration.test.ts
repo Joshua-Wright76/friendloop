@@ -11,6 +11,7 @@ import {
   SESSION_COOKIE,
 } from "../../src/lib/auth.ts";
 import { hashToken, newToken } from "../../src/lib/tokens.ts";
+import { LIMITS } from "../../src/lib/rate-limit.ts";
 import { latestOutbox, rows, setupDatabase } from "../support/app.ts";
 import { clearRequest, cookieEntries, setRequestCookies, setRequestHeaders } from "../stubs/request.mjs";
 import { E2E_NOW } from "../../e2e/support/clock.ts";
@@ -249,4 +250,50 @@ test("a reply token resolves to its membership until it is revoked", async () =>
 
 test("email normalization is just trim and lowercase", () => {
   assert.equal(normalizeEmail("  Someone@Example.COM "), "someone@example.com");
+});
+
+const signInCount = async () =>
+  (await rows<{ count: number }>("select count(*)::int as count from outbox where kind = 'signin'"))[0].count;
+const linkCount = async () =>
+  (await rows<{ count: number }>("select count(*)::int as count from magic_links"))[0].count;
+
+test("an address gets five links per window; the sixth is quiet and sends nothing", async () => {
+  const outcomes = [];
+  for (let i = 0; i < LIMITS.signInEmail.max + 1; i++) {
+    outcomes.push(await requestMagicLink(i % 2 ? "Target@Friendloop.Test" : "target@friendloop.test", { ip: `198.51.100.${i}` }));
+  }
+  assert.deepEqual(outcomes, ["sent", "sent", "sent", "sent", "sent", "quiet"]);
+  assert.equal(await signInCount(), LIMITS.signInEmail.max);
+  assert.equal(await linkCount(), LIMITS.signInEmail.max);
+
+  // Someone else is unaffected.
+  assert.equal(await requestMagicLink("other@friendloop.test", { ip: "198.51.100.99" }), "sent");
+});
+
+test("an address can ask again once its window closes", async () => {
+  for (let i = 0; i < LIMITS.signInEmail.max; i++) await requestMagicLink("target@friendloop.test", { ip: "198.51.100.1" });
+  assert.equal(await requestMagicLink("target@friendloop.test", { ip: "198.51.100.1" }), "quiet");
+
+  setRequestHeaders({ "x-e2e-now": new Date(E2E_NOW.getTime() + LIMITS.signInEmail.windowMs).toISOString() });
+  assert.equal(await requestMagicLink("target@friendloop.test", { ip: "198.51.100.1" }), "sent");
+  assert.equal(await signInCount(), LIMITS.signInEmail.max + 1);
+});
+
+test("one network gets twenty requests an hour, whatever the addresses; then busy, and nothing is sent", async () => {
+  for (let i = 0; i < LIMITS.signInIp.max; i++) {
+    assert.equal(await requestMagicLink(`person${i}@friendloop.test`, { ip: "203.0.113.7" }), "sent");
+  }
+  assert.equal(await requestMagicLink("fresh@friendloop.test", { ip: "203.0.113.7" }), "busy");
+  assert.equal(await signInCount(), LIMITS.signInIp.max);
+
+  // A busy network does not use up the address's own allowance.
+  assert.equal(await requestMagicLink("fresh@friendloop.test", { ip: "203.0.113.8" }), "sent");
+  const [bucket] = await rows<{ count: number }>("select count from rate_limits where key = 'signin:email:fresh@friendloop.test'");
+  assert.equal(bucket.count, 1);
+});
+
+test("a request with no known address shares the unknown bucket", async () => {
+  await requestMagicLink("someone@friendloop.test");
+  const keys = await rows<{ key: string }>("select key from rate_limits order by key");
+  assert.deepEqual(keys.map((r) => r.key), ["signin:email:someone@friendloop.test", "signin:ip:unknown"]);
 });

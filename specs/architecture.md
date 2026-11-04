@@ -341,3 +341,28 @@ routes alone, starting with `/r` (already blocking on its request), after confir
 no prerendered shell is served there and measuring the navigation benchmark. Until
 then a CSP violation report endpoint (`report-to`) would show what a stricter policy
 would break.
+
+## 21 · Abuse limits are a counter row, not a service
+
+`src/lib/rate-limit.ts` keeps one row per key in `rate_limits` (`key` primary key,
+`window_start`, `count`, `expires_at`). `consume(key, limit)` is a single upsert: a
+new fixed window starts at 1, the same window adds 1, so Postgres serialises the
+race and there is no Redis and no lock. Refused attempts still count. Windows are
+aligned to the epoch on `getNow()`, so `x-e2e-now` moves them like everything else;
+the sweep deletes rows whose `expires_at` has passed. Fixed windows can let up to
+twice `max` through across a boundary — acceptable for flood control.
+
+| Key | Limit | When exceeded |
+| --- | --- | --- |
+| `signin:ip:<ip>` | 20 / hour | form shows `signIn.tooMany`; no link, no email |
+| `signin:email:<address>` | 5 / 15 min | same "check your inbox" redirect, nothing sent |
+| `comment:member:<membership>` | 30 / 10 min | 429, `issue.errors.tooMany` |
+| `feedback:member:` / `feedback:user:<id>` | 10 / hour | 429, `feedback.errors.tooMany` |
+| `feedback:ip:<ip>` (no session or reply link) | 30 / hour | 429, `feedback.errors.tooMany` |
+
+The per-address sign-in limit is silent on purpose: a different screen would tell a
+caller that someone else has been asking for that address. The network check runs
+first and does not spend the address's allowance. The address is the first entry of
+`x-forwarded-for`, then `x-real-ip` — Vercel overwrites both, so a client cannot pick
+its own bucket there; behind any other proxy they are only as honest as that proxy.
+All numbers live in `src/lib/rate-limit-policy.ts`.

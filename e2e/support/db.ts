@@ -19,6 +19,7 @@ function client() {
 }
 
 const TABLES = [
+  "rate_limits",
   "feedback",
   "email_events",
   "outbox",

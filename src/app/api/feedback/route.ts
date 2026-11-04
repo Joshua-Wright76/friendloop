@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { currentUser } from "@/lib/auth";
 import { copy } from "@/lib/copy";
 import { submitFeedback } from "@/lib/feedback";
+import { clientIp } from "@/lib/rate-limit";
 
 /**
  * One POST behind the corner button. It answers anyone — a reader, a visitor
@@ -24,6 +25,7 @@ export async function POST(request: Request) {
       path: asText(payload.path),
       userAgent: request.headers.get("user-agent") ?? "",
       viewport: asText(payload.viewport),
+      ip: clientIp(request.headers),
     },
     user,
   );

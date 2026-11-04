@@ -8,6 +8,8 @@ import { createSession } from "../../src/lib/auth.ts";
 import { updateLoopSettings } from "../../src/lib/manage.ts";
 import { COMMENT_MAX_LENGTH } from "../../src/lib/comments.ts";
 import { MAX_PHOTO_BYTES } from "../../src/lib/photo-validation.ts";
+import { LIMITS } from "../../src/lib/rate-limit.ts";
+import { copy } from "../../src/lib/copy.ts";
 import {
   E2E_NOW,
   groupOf,
@@ -424,4 +426,21 @@ test("a retried photo comment keeps one file; a storage failure is a plain error
   });
   const failed = await postComment({ issueId: issue.issueId, viewerToken: alice.token, body: "x", photo: { bytes: PNG, type: "image/png" } });
   assert.deepEqual(failed, { ok: false, status: 500, error: "The photo didn't make it. Try again?" });
+});
+
+test("a member posting faster than the limit is refused with 429, and others are not", async () => {
+  const { issue, alice, bob } = await delivered();
+  for (let i = 0; i < LIMITS.comment.max; i++) {
+    const posted = await postComment({ issueId: issue.issueId, viewerToken: alice.token, body: `Note ${i}` });
+    assert.equal(posted.ok, true);
+  }
+  const refused = await postComment({ issueId: issue.issueId, viewerToken: alice.token, body: "One more" });
+  assert.deepEqual(refused, { ok: false, status: 429, error: copy.issue.errors.tooMany });
+  assert.equal((await postComment({ issueId: issue.issueId, viewerToken: bob.token, body: "Me too" })).ok, true);
+
+  const later = new Date(E2E_NOW.getTime() + LIMITS.comment.windowMs);
+  setRequestHeaders({ "x-e2e-now": later.toISOString() });
+  assert.equal((await postComment({ issueId: issue.issueId, viewerToken: alice.token, body: "Later" })).ok, true);
+  const [{ count }] = await rows<{ count: number }>("select count(*)::int as count from comments");
+  assert.equal(count, LIMITS.comment.max + 2);
 });

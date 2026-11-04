@@ -11,6 +11,7 @@ import { membershipForViewer } from "./issue-view";
 import { deleteStoredPhoto, storePhoto } from "./photo-storage";
 import { validatePhoto } from "./photo-validation";
 import { issueUrl } from "./urls";
+import { consume, LIMITS } from "./rate-limit";
 
 export const COMMENT_MAX_LENGTH = 2000;
 /** How much of a comment a mention email carries. */
@@ -18,7 +19,7 @@ export const MENTION_EXCERPT = 240;
 
 export type PostCommentResult =
   | { ok: true; id: string }
-  | { ok: false; status: 400 | 403 | 404 | 409 | 413 | 415 | 500; error: string };
+  | { ok: false; status: 400 | 403 | 404 | 409 | 413 | 415 | 429 | 500; error: string };
 
 export type PostCommentInput = {
   issueId: string;
@@ -72,6 +73,10 @@ export async function postComment(input: PostCommentInput): Promise<PostCommentR
   });
   if (!author) return fail(403, copy.issue.errors.commentMembersOnly);
   if (!group.commentsEnabled) return fail(403, copy.issue.errors.commentsOff);
+  // Per member, whichever way they arrived (session or `?m=` token).
+  if (!(await consume(`comment:member:${author.id}`, LIMITS.comment)).allowed) {
+    return fail(429, copy.issue.errors.tooMany);
+  }
 
   if (input.replyId) {
     const [answer] = await db

@@ -10,6 +10,7 @@ import { isValidTimezone } from "./timezone";
 import { signInEmail } from "./email/templates";
 import { sendEmail } from "./email/send";
 import { signInUrl } from "./urls";
+import { consume, LIMITS } from "./rate-limit";
 
 export const SESSION_COOKIE = "fl_session";
 /** The address a sign-in link was just sent to, echoed on the check-email page. */
@@ -28,15 +29,30 @@ export type CurrentUser = {
   timezone: string;
 };
 
+/** `sent` and `quiet` look identical to the person asking; only `busy` is shown. */
+export type MagicLinkOutcome = "sent" | "quiet" | "busy";
+
 /**
  * Send a sign-in link. The account is created when the link is *used*, so an
  * address nobody has ever seen leaves exactly the same trace as a known one.
+ *
+ * Two ceilings guard the inbox and the sending quota. Too many requests from
+ * one network is `busy`, and the form says so — that tells a caller nothing
+ * about any address. Too many links to one address is `quiet`: nothing is sent,
+ * but the caller is shown the same "check your inbox" as always, so throttling
+ * cannot be used to probe who is signing in.
  */
-export async function requestMagicLink(rawEmail: string): Promise<void> {
+export async function requestMagicLink(
+  rawEmail: string,
+  options: { ip?: string } = {},
+): Promise<MagicLinkOutcome> {
   const email = normalizeEmail(rawEmail);
   const at = await getNow();
-  const token = newToken();
 
+  if (!(await consume(`signin:ip:${options.ip ?? "unknown"}`, LIMITS.signInIp, at)).allowed) return "busy";
+  if (!(await consume(`signin:email:${email}`, LIMITS.signInEmail, at)).allowed) return "quiet";
+
+  const token = newToken();
   await db.insert(magicLinks).values({
     email,
     tokenHash: hashToken(token),
@@ -50,6 +66,7 @@ export async function requestMagicLink(rawEmail: string): Promise<void> {
     kind: "signin",
     dedupeKey: `signin:${hashToken(token)}`,
   });
+  return "sent";
 }
 
 export type ConfirmResult =
