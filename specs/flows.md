@@ -23,6 +23,7 @@ Status: `todo` (not built) · `done` (built and covered).
 | A5 | Sign out | Sign out clears the session, `/you` redirects to `/signin`, and the previous cookie no longer authenticates. | done |
 | A6 | Revoked reply token | Opening a reply link whose token was rotated shows a "this link was replaced" page with no form and no data leak. | done |
 | A7 | Expired session | A session cookie that outlived its 30 days is refused: `/you` redirects to `/signin`, while a session still inside its window is accepted and shows the address. | done |
+| A8 | Abuse limits | Sign-in links are capped per address (5 per 15 min) and per network (20 per hour). A flooded address still lands on the same "check your inbox" screen but no further email is queued, so throttling reveals nothing about who signs in; a flooded network is told plainly to wait and nothing is sent. A stranger's feedback flood (30 per hour per network) and a member's comment flood (30 per 10 min) get a 429 with friendly words. | done |
 
 ## B · Create and invite
 
@@ -204,7 +205,7 @@ rather than renumbering the rest.
 
 ---
 
-**91 flows.** A flow is only `done` when its spec passes locally and in CI.
+**92 flows.** A flow is only `done` when its spec passes locally and in CI.
 
 ## T · Photos
 

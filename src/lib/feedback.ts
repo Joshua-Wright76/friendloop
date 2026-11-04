@@ -1,16 +1,16 @@
-import { and, eq, gt, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { feedback } from "@/db/schema";
 import { membershipFromReplyToken } from "./auth";
 import { getNow } from "./clock";
 import { copy } from "./copy.ts";
 import { redactPath } from "./feedback-path";
+import { consume, LIMITS } from "./rate-limit";
 
 export const FEEDBACK_MAX_LENGTH = 2000;
 
-/** Per sender per hour. Strangers share one bucket, so theirs is wider. */
-export const FEEDBACK_HOURLY_LIMIT = 10;
-export const FEEDBACK_HOURLY_LIMIT_ANONYMOUS = 30;
+/** Per sender per hour. Strangers are counted per network, so theirs is wider. */
+export const FEEDBACK_HOURLY_LIMIT = LIMITS.feedback.max;
+export const FEEDBACK_HOURLY_LIMIT_ANONYMOUS = LIMITS.feedbackAnonymous.max;
 
 export type FeedbackWriteResult =
   | { ok: true }
@@ -22,6 +22,8 @@ export type FeedbackInput = {
   path: string;
   userAgent: string;
   viewport: string;
+  /** The caller's network, used only to count a stranger's notes. Never stored. */
+  ip?: string;
 };
 
 /** Someone the request proved, by session. A reply link is proved from the path itself. */
@@ -57,17 +59,12 @@ export async function submitFeedback(
       : null;
 
   const at = await getNow();
-  const since = new Date(at.getTime() - 60 * 60 * 1000);
-  const same = sender?.membershipId
-    ? eq(feedback.membershipId, sender.membershipId)
+  const [key, limit] = sender?.membershipId
+    ? [`feedback:member:${sender.membershipId}`, LIMITS.feedback]
     : sender?.userId
-      ? eq(feedback.userId, sender.userId)
-      : and(isNull(feedback.userId), isNull(feedback.membershipId));
-  const [{ count }] = await db
-    .select({ count: sql<number>`count(*)::int` })
-    .from(feedback)
-    .where(and(same, gt(feedback.createdAt, since)));
-  if (count >= (sender ? FEEDBACK_HOURLY_LIMIT : FEEDBACK_HOURLY_LIMIT_ANONYMOUS)) {
+      ? [`feedback:user:${sender.userId}`, LIMITS.feedback]
+      : [`feedback:ip:${input.ip ?? "unknown"}`, LIMITS.feedbackAnonymous];
+  if (!(await consume(key, limit, at)).allowed) {
     return { ok: false, status: 429, error: copy.feedback.errors.tooMany };
   }
 

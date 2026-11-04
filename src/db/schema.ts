@@ -504,6 +504,22 @@ export const feedback = pgTable(
   (t) => [index("feedback_created_idx").on(t.createdAt)],
 );
 
+/**
+ * One fixed-window counter per abuse key (`signin:email:…`, `signin:ip:…`,
+ * `comment:member:…`). A single upsert bumps or resets it, so it is atomic
+ * without a lock, and `expires_at` lets the sweep delete stale rows by index.
+ */
+export const rateLimits = pgTable(
+  "rate_limits",
+  {
+    key: text("key").primaryKey(),
+    windowStart: timestamp("window_start", { withTimezone: true }).notNull(),
+    count: integer("count").notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  },
+  (t) => [index("rate_limits_expires_idx").on(t.expiresAt)],
+);
+
 /** Deliverability signal from Resend webhooks. */
 export const emailEvents = pgTable(
   "email_events",

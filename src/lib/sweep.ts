@@ -21,6 +21,7 @@ import { snapshotQuestionsForIssue } from "./round-questions";
 import { snapshotSectionsForIssue } from "./sections";
 import { snapshotEventsForIssue } from "./events";
 import { issueSections, sectionMedia, sectionReplies } from "@/db/schema";
+import { pruneRateLimits } from "./rate-limit";
 
 export type SweepReport = {
   opened: number;
@@ -75,6 +76,8 @@ async function sweepUnlocked(at: Date): Promise<SweepReport> {
   report.skipped = delivery.skipped;
   report.reminded = await remindStragglers(at);
   report.retried = await flushOutbox();
+  // Housekeeping, not part of the report: closed abuse windows are just rows.
+  await pruneRateLimits(at);
   return report;
 }
 

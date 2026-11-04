@@ -119,7 +119,8 @@
     "emailPlaceholder": "you@example.com",
     "sending": "Sending…",
     "submit": "Email me a link",
-    "invalidEmail": "That doesn't look like an email address."
+    "invalidEmail": "That doesn't look like an email address.",
+    "tooMany": "Lots of sign-in requests are coming from your network right now. Please wait a little while and try again."
   },
   "checkEmail": {
     "title": "Check your inbox",
@@ -987,7 +988,8 @@
       "photoInvalid": "Use a JPEG, PNG, WebP or GIF photo.",
       "photoUnreadable": "We couldn't read that photo. Try a JPEG or PNG.",
       "photoFailed": "The photo didn't make it. Try again?",
-      "invalidRequest": "That didn't go through. Try again?"
+      "invalidRequest": "That didn't go through. Try again?",
+      "tooMany": "You're commenting faster than we can keep up. Take a breath and try again in a few minutes."
     },
     "unknownMention": "someone",
     "commentCount": "{count} comments",
