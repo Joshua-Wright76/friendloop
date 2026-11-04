@@ -14,7 +14,7 @@ test("K4 · a photo wall takes several photos with captions", async ({ page }) =
   await signIn(page, "owner@friendloop.test");
   await page.goto(`/g/${loop.groupId}/questions`);
   await page.getByPlaceholder("The potluck corner").fill("The wall");
-  await page.getByLabel("Kind").selectOption({ label: "Photo wall — up to six photos with captions" });
+  await page.getByLabel("Kind").selectOption({ label: "Photo wall, with up to six captioned photos" });
   await page.getByRole("button", { name: "Add section" }).click();
   await runSweep(new Date("2026-01-02T08:00:00Z"));
 

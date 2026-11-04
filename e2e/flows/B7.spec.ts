@@ -35,7 +35,7 @@ test("B7 · the wizard sets the paper, accent and header picture, and they survi
   await page.getByRole("radio", { name: /Meadow Postcard/ }).check();
   await expect(page.getByTestId("stationery-preview-light")).toBeVisible();
   await expect(page.getByTestId("stationery-preview-dark")).toBeVisible();
-  await page.getByLabel("Accent colour as a hex code").fill("#2a6b3c");
+  await page.getByLabel("Accent color as a hex code").fill("#2a6b3c");
 
   await chooseFile(page, "Choose a header picture", { name: "banner.png", mimeType: "image/png", buffer: TINY_PNG });
   await expect(page.locator("img.loop-banner")).toBeVisible();
@@ -45,7 +45,7 @@ test("B7 · the wizard sets the paper, accent and header picture, and they survi
   await page.getByRole("button", { name: NEXT }).click();
   await page.getByRole("button", { name: "Go to the previous setup step" }).click();
   await expect(page.getByRole("radio", { name: /Meadow Postcard/ })).toBeChecked();
-  await expect(page.getByLabel("Accent colour as a hex code")).toHaveValue("#2a6b3c");
+  await expect(page.getByLabel("Accent color as a hex code")).toHaveValue("#2a6b3c");
   await expect(page.locator("img.loop-banner")).toBeVisible();
 
   await createFromLookStep(page);
@@ -70,9 +70,9 @@ test("B7 · skipping the step changes nothing, and a bad accent or an oversize p
   await toLookStep(page, "Plain Loop");
 
   // A made-up accent holds the step; the words say what to do.
-  await page.getByLabel("Accent colour as a hex code").fill("yellow-ish");
+  await page.getByLabel("Accent color as a hex code").fill("yellow-ish");
   await page.getByRole("button", { name: NEXT }).click();
-  await expect(page.getByText("That paper or accent colour wasn't recognised.")).toBeVisible();
+  await expect(page.getByText("That paper or accent color wasn't recognized.")).toBeVisible();
   await page.getByRole("button", { name: "Use the paper's own" }).click();
 
   // A picture that cannot be read is refused before anything is sent.

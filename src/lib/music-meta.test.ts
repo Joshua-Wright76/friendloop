@@ -39,7 +39,7 @@ test("a Spotify embed gives the title, artist, 300px cover, and songs", () => {
     trackList: [...tracks, { subtitle: "untitled rows are dropped" }],
     visualIdentity: { image: [{ url: "https://img/64", maxWidth: 64 }, { url: "https://img/300", maxWidth: 300 }] },
   }));
-  assert.equal(meta?.title, "Emotion — Carly Rae Jepsen");
+  assert.equal(meta?.title, "Emotion, by Carly Rae Jepsen");
   assert.equal(meta?.artworkUrl, "https://img/300");
   assert.equal(meta?.trackCount, 12);
   assert.equal(meta?.tracks.length, MUSIC_TRACKS_KEPT);
@@ -79,7 +79,7 @@ test("a Bandcamp album page gives its byline, cover, and track table", () => {
     "</table>",
   ].join("\n");
   const meta = parseMusicPage("bandcamp", html);
-  assert.equal(meta?.title, "In Rainbows — Radiohead");
+  assert.equal(meta?.title, "In Rainbows, by Radiohead");
   assert.equal(meta?.artworkUrl, "https://f4.bcbits.com/img/a1_5.jpg");
   assert.equal(meta?.trackCount, 3);
   assert.deepEqual(meta?.tracks, [

@@ -52,7 +52,7 @@ const SECTIONS: SectionEmailBlock[] = [
     title: "The potluck corner",
     emoji: "🍲",
     answers: [
-      { author: "Alice", body: "Lemon cake, obviously — got to the corner café early for the last slice." },
+      { author: "Alice", body: "Lemon cake, obviously. Got to the corner café early for the last slice." },
       { author: "Sam", body: "Only soup. Delicious soup.", photoCount: 2 },
     ],
   },

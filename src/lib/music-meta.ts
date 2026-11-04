@@ -62,7 +62,7 @@ export function parseSpotifyEmbed(html: string): MusicMeta | null {
   if (!entity) return null;
 
   const name = entity.name ?? entity.title ?? null;
-  const title = name && entity.subtitle ? `${name} — ${entity.subtitle}` : name;
+  const title = name && entity.subtitle ? `${name}, by ${entity.subtitle}` : name;
   // The 300px rendition is plenty for a 48px tile on a dense screen.
   const images = (entity.visualIdentity?.image ?? []).filter((image) => image.url);
   const artwork = images.find((image) => image.maxWidth === 300) ?? images[0];
@@ -80,9 +80,9 @@ export function parseBandcampPage(html: string): MusicMeta | null {
   const ogTitle = decodeEntities(metaContent(html, "og:title"));
   const artworkUrl = metaContent(html, "og:image");
   if (!ogTitle && !artworkUrl) return null;
-  // "In Rainbows, by Radiohead" reads like the other cards as "In Rainbows — Radiohead".
+  // Bandcamp's "In Rainbows, by Radiohead" already matches how the other cards read.
   const byline = ogTitle ? /^(.*), by (.*)$/.exec(ogTitle) : null;
-  const title = byline ? `${byline[1]} — ${byline[2]}` : ogTitle;
+  const title = byline ? `${byline[1]}, by ${byline[2]}` : ogTitle;
 
   const rows = html.split(/<tr class="track_row_view/).slice(1);
   const all = rows.flatMap((row) => {

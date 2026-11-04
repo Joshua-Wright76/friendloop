@@ -75,12 +75,12 @@ test("N1 · an accent that would be hard to read is nudged, and every preset pas
   // Pale yellow on cream is the classic unreadable accent.
   await page.goto(`/g/${loop.groupId}/settings`);
   await page.getByRole("radio", { name: /Lilac Linen/ }).check();
-  await page.getByLabel("Accent colour as a hex code").fill("#ffee00");
+  await page.getByLabel("Accent color as a hex code").fill("#ffee00");
   await expect(page.getByText(/a little hard to read, so we nudged it/)).toBeVisible();
-  await page.getByLabel("Accent colour as a hex code").fill("yellow-ish");
+  await page.getByLabel("Accent color as a hex code").fill("yellow-ish");
   await expect(page.getByText("Use a hex code like #3366cc.")).toBeVisible();
   await expect(page.getByRole("button", { name: "Save stationery" })).toBeDisabled();
-  await page.getByLabel("Accent colour as a hex code").fill("#ffee00");
+  await page.getByLabel("Accent color as a hex code").fill("#ffee00");
   await page.getByRole("button", { name: "Save stationery" }).click();
   await expect(page.getByText(/We nudged the accent a little/)).toBeVisible();
   const [saved] = await rows<{ theme_accent: string }>("select theme_accent from groups where id = $1", [loop.groupId]);

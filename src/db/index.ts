@@ -14,7 +14,7 @@ let instance: PostgresJsDatabase<typeof schema> | null = null;
 
 function create(): PostgresJsDatabase<typeof schema> {
   if (!process.env.DATABASE_URL) {
-    throw new Error("DATABASE_URL is not set — see .env.example");
+    throw new Error("DATABASE_URL is not set. See .env.example");
   }
   const client = postgres(process.env.DATABASE_URL, { prepare: false, max: 5 });
   return drizzle(client, { schema });

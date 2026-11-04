@@ -103,7 +103,7 @@ export async function seedKeepsake(input: { shareToken?: string } = {}) {
       { url: await writeUpload("print-wall-3", "png"), caption: "Dawn on the tent" },
     ],
   });
-  await rows("insert into music_links (url, provider, title) values ($1, 'spotify', 'Rain Song — The Keepsakes') on conflict do nothing", [MUSIC_URL]);
+  await rows("insert into music_links (url, provider, title) values ($1, 'spotify', 'Rain Song, by The Keepsakes') on conflict do nothing", [MUSIC_URL]);
   await sectionReply(issueId, "Song of the week", bob.id, { body: "On repeat.", link: { url: MUSIC_URL, provider: "spotify" } });
   await sectionReply(issueId, "Owners only", sam.id, { body: "Budget stays secret." });
 

@@ -125,7 +125,7 @@ export function IssuePrint({
                         <img src={item.url} alt={item.caption ? "" : text(copy.issue.photoAlt, { author: reply.author })} />
                         {item.caption ? (
                           <figcaption>
-                            <strong>{reply.author}</strong> — {item.caption}
+                            <strong>{reply.author}</strong>, {item.caption}
                           </figcaption>
                         ) : null}
                       </figure>

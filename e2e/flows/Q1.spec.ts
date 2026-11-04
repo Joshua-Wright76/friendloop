@@ -146,7 +146,7 @@ test("Q1 · a delivered round prints as chromeless light paper with page breaks,
   await expect(page.getByRole("heading", { level: 2, name: /Highlights/ })).toBeVisible();
   await expect(page.getByText("Marshmallows, obviously")).toBeVisible();
   await expect(page.getByText("The bridge at night")).toBeVisible();
-  const music = page.locator(".print-card").filter({ hasText: "Rain Song — The Keepsakes" });
+  const music = page.locator(".print-card").filter({ hasText: "Rain Song, by The Keepsakes" });
   await expect(music).toContainText(/spotify/i);
   await expect(music).toContainText("https://open.spotify.com/track/keepsake");
   await expect(page.getByRole("heading", { level: 2, name: "Nobody wrote here" })).toHaveCount(0);

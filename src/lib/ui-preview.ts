@@ -95,7 +95,7 @@ const PREVIEW_MUSIC = [
   {
     url: SPOTIFY_ALBUM_URL,
     provider: "spotify",
-    title: "Emotion (Deluxe) — Carly Rae Jepsen",
+    title: "Emotion (Deluxe), by Carly Rae Jepsen",
     artworkUrl: "https://image-cdn-fa.spotifycdn.com/image/ab67616d00001e025618ee6467c0becf0dd23d68",
     trackCount: 15,
     tracks: [
@@ -129,7 +129,7 @@ const PREVIEW_MUSIC = [
   {
     url: BANDCAMP_ALBUM_URL,
     provider: "bandcamp",
-    title: "In Rainbows — Radiohead",
+    title: "In Rainbows, by Radiohead",
     artworkUrl: "https://f4.bcbits.com/img/a0552435637_5.jpg",
     trackCount: 10,
     tracks: [
@@ -560,7 +560,7 @@ export async function enableUiPreview(reset = false) {
         issueId: UI_PREVIEW.deliveredIssueId,
         issueSectionId: DELIVERED_SECTION_IDS[0],
         membershipId: UI_PREVIEW.aliceMembershipId,
-        body: "Lemon cake, obviously — got to the corner café early for the last slice.",
+        body: "Lemon cake, obviously. Got to the corner café early for the last slice.",
         status: "submitted",
         submittedAt: new Date(now.getTime() - 86400000),
       },

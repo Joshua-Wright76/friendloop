@@ -227,7 +227,7 @@ function PhotoWall({ section }: { section: IssueSectionBlock }) {
             </button>
             {item.caption ? (
               <figcaption className="mt-1 text-[12.5px] leading-snug text-ink-soft">
-                <span className="font-bold">{reply.author}</span> — {item.caption}
+                <span className="font-bold">{reply.author}</span>, {item.caption}
               </figcaption>
             ) : null}
           </figure>
