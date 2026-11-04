@@ -23,6 +23,7 @@ const TABLES = [
   "heartbeats",
   "feedback",
   "email_events",
+  "email_suppressions",
   "outbox",
   "section_media",
   "section_replies",

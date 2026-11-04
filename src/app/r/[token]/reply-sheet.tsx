@@ -8,6 +8,7 @@ import type { Deadline } from "@/lib/schedule";
 import { LoopBanner } from "@/components/loop-theme";
 import { ProfilePhoto } from "@/components/profile-photo";
 import { ReminderPreference } from "@/components/reminder-preference";
+import { MutedNotice } from "@/components/muted-notice";
 import type { ReminderPreference as ReminderPreferenceValue } from "@/lib/reminders";
 import { Cherries, Tape } from "@/components/stationery";
 import { issueTitle } from "@/lib/issue-name";
@@ -66,6 +67,8 @@ type Props = {
   displayName: string;
   initialName: string | null;
   reminderPreference: ReminderPreferenceValue;
+  /** Set when this member turned off the loop's emails: offers the way back. */
+  mutedUnsubscribeToken?: string | null;
   questions: SheetQuestion[];
 };
 
@@ -109,6 +112,7 @@ export function ReplySheet({
   displayName,
   initialName,
   reminderPreference,
+  mutedUnsubscribeToken,
   questions,
 }: Props) {
   const [bodies, setBodies] = useState<Record<string, string>>(() =>
@@ -1517,6 +1521,8 @@ export function ReplySheet({
             </Link>
           </p>
         ) : null}
+
+        {mutedUnsubscribeToken ? <MutedNotice unsubscribeToken={mutedUnsubscribeToken} back={`/r/${token}`} /> : null}
 
         <ReminderPreference token={token} initial={reminderPreference} />
       </main>

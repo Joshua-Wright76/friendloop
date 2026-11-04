@@ -242,6 +242,11 @@ public, detail-free liveness check.
 
 Deliverability is monitored separately from function: Resend webhooks →
 `email_events`, with a daily canary that asserts a `delivered` event arrives.
+The same webhook (`/api/webhooks/resend`, Svix signature checked with
+`node:crypto`, five-minute replay window, `svix-id` stored uniquely) writes
+`email_suppressions` on a hard bounce or complaint. `sendEmail` consults it, and
+the membership's `muted_at`, before anything leaves: a held-back email is still an
+outbox row, with status `suppressed` and a reason. Only `signin` is exempt.
 
 ## 7 · Rendering
 

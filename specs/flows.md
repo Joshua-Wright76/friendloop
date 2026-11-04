@@ -205,10 +205,17 @@ rather than renumbering the rest.
 
 ---
 
-**92 flows.** A flow is only `done` when its spec passes locally and in CI.
+**94 flows.** A flow is only `done` when its spec passes locally and in CI.
 
 ## T · Photos
 
 | ID | Flow | Acceptance criteria | Status |
 | --- | --- | --- | --- |
 | T1 | Upload a camera-roll photo | A full-size phone photo (well over 5 MB, any orientation) uploads from every place a picture can be added — an answer, a section photo, a comment, a profile photo, a header picture — without the person resizing anything: the browser scales it down (answers and comments to 2560 px and 3.5 MB, profile photos to 512 px, header pictures to 2400 px) and re-encodes it, so it clears Vercel's 4.5 MB request limit; camera photos (JPEG, WebP) are always redrawn, which strips the location the camera wrote into them, while a PNG or GIF that already fits is sent byte for byte; Send and Post wait while a photo is still being prepared or uploaded; bytes that cannot be read as a picture are turned away in plain words and nothing is stored. | done |
+
+## U · Email deliverability
+
+| ID | Flow | Acceptance criteria | Status |
+| --- | --- | --- | --- |
+| U1 | Stop emails from a loop | Every loop email (invite, prompt, reminder, mention, issue, paused notice) carries `List-Unsubscribe` and `List-Unsubscribe-Post: List-Unsubscribe=One-Click` naming that membership's own unsubscribe token, plus a visible "Stop emails from this loop" footer link in HTML and plain text; sign-in emails carry neither. Opening the link (or a GET on the one-click URL) changes nothing and asks first; confirming mutes. A one-click POST mutes with no confirmation and answers 2xx. A muted member stays in the loop: their reply link still works and shows a "turn emails back on" notice (on the reply sheet and on a delivered round), prompts, reminders, nudges and issue emails to them are recorded as suppressed and never sent, and owners and admins see "Emails off" on the people tab. Unmuting from the reply page or the unsubscribe page brings the next email back. | done |
+| U2 | Bouncing addresses | A Resend webhook is accepted only with a valid Svix signature inside the five-minute window (a bad signature or an old timestamp gets 401 and records nothing; a redelivery is recorded once); each event is stored in `email_events` linked to its outbox row. A hard bounce or a spam complaint suppresses the address: later loop emails to it are recorded as suppressed, sign-in links still go, and the people tab shows the member as "Bouncing" with how to fix it. | done |

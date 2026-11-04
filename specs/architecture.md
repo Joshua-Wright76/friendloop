@@ -337,7 +337,7 @@ contain no user input — that, not the CSP, is the XSS boundary today.
 
 Referrer: the site default is `strict-origin-when-cross-origin`, so no path or query
 ever leaves for another origin; every route whose URL is a credential or a loop
-(`/r`, `/s`, `/i`, `/g`, `/album`, `/you`, `/signin`, `/dev`) sends no referrer at all.
+(`/r`, `/u`, `/s`, `/i`, `/g`, `/album`, `/you`, `/signin`, `/dev`) sends no referrer at all.
 
 Link previews: the root layout's Open Graph and Twitter metadata and the root
 `opengraph-image` are inherited by every route, private ones included, so a shared
@@ -375,3 +375,43 @@ first and does not spend the address's allowance. The address is the first entry
 `x-forwarded-for`, then `x-real-ip` — Vercel overwrites both, so a client cannot pick
 its own bucket there; behind any other proxy they are only as honest as that proxy.
 All numbers live in `src/lib/rate-limit-policy.ts`.
+
+## 22 · Unsubscribe mutes a membership; bounces suppress an address
+
+Two different things stop mail, and they are kept apart on purpose:
+
+- **Mute** (`memberships.muted_at`) is a person's choice about one loop. They stay
+  in it, and their reply link keeps working; the reply sheet and the delivered
+  round show a "turn emails back on" form. Owners and admins see "Emails off" on
+  the people tab.
+- **Suppression** (`email_suppressions`, keyed by lowercased address) is the
+  provider telling us an address is dead (hard bounce) or the person marked us as
+  spam (complaint). It applies to every loop, and the people tab shows "Bouncing"
+  so the owner can remove the member and invite the right address.
+
+Both are decided in one place, `suppressionFor` in `send.ts`, at queue time and
+again on retry. A held-back email is still written to `outbox` (status
+`suppressed`, with `suppressed_reason`), so the record of intent is complete and
+`dedupe_key` still means "decided once". `signin` is never held back.
+
+**The unsubscribe credential is its own token.** `memberships.unsubscribe_token`
+(64 hex characters from the database, so every insert path and every existing row
+gets one) rides in the `List-Unsubscribe` header, which mailbox providers read,
+fetch and keep. Reusing `reply_token` would have put a full reply credential in
+that header; this token can only mute and unmute one membership, and rotating a
+leaked reply link does not break the unsubscribe links in old emails.
+
+**RFC 8058 vs. "GET never mutates".** The header names
+`/api/unsubscribe/<token>`: a provider's one-click `POST` with
+`List-Unsubscribe=One-Click` mutes immediately and gets a 200, because the RFC
+forbids a confirmation step there. A `GET` on the same URL only redirects to
+`/u/<token>`, the footer link's page, which shows the state and a button that
+POSTs `action=mute|unmute`. The same form, with a same-site `back` path, is what
+the muted notice on `/r` and `/i` uses.
+
+**The webhook verifies before it reads.** `/api/webhooks/resend` checks the Svix
+signature over the raw body with `node:crypto` (HMAC-SHA256 of
+`id.timestamp.body`, keyed by the base64 part of `whsec_…`), refuses timestamps
+more than five minutes from now, and stores `svix-id` uniquely so a redelivery is
+recorded once. Events link to their outbox row by `outbox.provider_id`. Without
+`RESEND_WEBHOOK_SECRET` the endpoint refuses everything.

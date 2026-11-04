@@ -10,7 +10,7 @@ import { excerpt, isUuid, markMentions, mentionIds, plainBody, type MentionPick 
 import { membershipForViewer } from "./issue-view";
 import { deleteStoredPhoto, storePhoto } from "./photo-storage";
 import { validatePhoto } from "./photo-validation";
-import { issueUrl } from "./urls";
+import { issueUrl, unsubscribeUrl } from "./urls";
 import { consume, LIMITS } from "./rate-limit";
 import { log } from "./log";
 
@@ -216,6 +216,7 @@ async function notifyMentioned(input: {
       excerpt: excerptText,
       url: issueUrl(issue.id, person.replyToken),
       theme: emailThemeOf(group),
+      unsubscribeUrl: unsubscribeUrl(person.unsubscribeToken),
     });
     await sendEmail({
       ...rendered,
@@ -226,6 +227,7 @@ async function notifyMentioned(input: {
       issueId: issue.id,
       membershipId: person.id,
       fromName: group.displayName ?? group.name,
+      unsubscribeToken: person.unsubscribeToken,
     });
   }
 }

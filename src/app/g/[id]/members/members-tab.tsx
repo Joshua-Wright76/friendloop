@@ -76,6 +76,27 @@ export default function MembersTab({ notices }: {
                 )}
               </div>
 
+              {manages && (person.mutedAt || person.suppression) ? (
+                <div className="mt-2 flex flex-col gap-1.5" data-email-status>
+                  {person.suppression ? (
+                    <p className="text-[13px] leading-relaxed text-danger">
+                      <span className="mr-1.5 inline-flex rounded-full border border-current px-2 py-0.5 text-[12px] font-bold">
+                        {copy.members.bouncing}
+                      </span>
+                      {person.suppression === "complaint" ? copy.members.complaintHint : copy.members.bouncingHint}
+                    </p>
+                  ) : null}
+                  {person.mutedAt ? (
+                    <p className="text-[13px] leading-relaxed text-ink-soft">
+                      <span className="mr-1.5 inline-flex rounded-full border border-line px-2 py-0.5 text-[12px] font-bold">
+                        {copy.members.muted}
+                      </span>
+                      {copy.members.mutedHint}
+                    </p>
+                  ) : null}
+                </div>
+              ) : null}
+
               {isYou ? (
                 <div className="mt-3 border-t border-dashed border-line pt-3">
                   <p className="mb-2 text-[13px] font-medium text-ink-soft">{copy.identity.profile.title}</p>

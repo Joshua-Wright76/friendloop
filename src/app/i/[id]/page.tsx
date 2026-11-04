@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { currentUser } from "@/lib/auth";
 import { loadIssue, membershipForViewer } from "@/lib/issue-view";
+import { MutedNotice } from "@/components/muted-notice";
 import { formatDate } from "@/lib/format";
 import { IssueBody } from "./issue-body";
 import { Cherries } from "@/components/stationery";
@@ -155,6 +156,13 @@ export default async function IssuePage({
             {copy.print.action}
           </Link>
         </p>
+      ) : null}
+
+      {membership?.mutedAt ? (
+        <MutedNotice
+          unsubscribeToken={membership.unsubscribeToken}
+          back={m ? `/i/${id}?m=${encodeURIComponent(m)}` : `/i/${id}`}
+        />
       ) : null}
 
       {membership ? (

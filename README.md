@@ -30,6 +30,14 @@ real SDK at a local stub that can fail on demand, and `x-e2e-email-transport`
 chooses the transport per request. Both `x-e2e-*` headers are refused when
 `VERCEL_ENV=production`.
 
+Every loop email carries `List-Unsubscribe` and one-click
+`List-Unsubscribe-Post` headers plus a "Stop emails from this loop" footer link.
+Unsubscribing mutes that one membership: the person stays in the loop and keeps
+their reply link, and the loop's mail to them is recorded as `suppressed` instead
+of sent. Resend's webhook (`/api/webhooks/resend`, Svix-signed) does the same for
+an address that hard-bounces or complains, and the people tab shows both. Sign-in
+links are never held back.
+
 Emails are recorded before they leave, keyed by a unique `dedupe_key`, so a retried
 cron run, a redeploy mid-send, or a double click can never send twice. Tests read
 the rendered HTML straight out of `outbox` — there is no mail server in the loop.
@@ -48,6 +56,7 @@ Vercel → Project → Settings → Environment Variables.
 | `DATABASE_URL` | Neon dashboard → Connection Details |
 | `RESEND_API_KEY` | Resend → API Keys |
 | `EMAIL_FROM` | `Friendloop <hello@friendloop.dev>` |
+| `RESEND_WEBHOOK_SECRET` | Resend → Webhooks → your `/api/webhooks/resend` endpoint → Signing secret (`whsec_…`). Without it bounces and complaints are not recorded |
 | `EMAIL_TRANSPORT` | `outbox` to never call Resend (tests, offline dev) |
 | `NEXT_PUBLIC_APP_URL` | `http://localhost:3000` locally; your domain in prod |
 | `CRON_SECRET` | `openssl rand -hex 32` — protects the sweep endpoint |

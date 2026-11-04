@@ -6,6 +6,7 @@ import { LoopTheme } from "@/components/loop-theme";
 import { ProfilePhoto } from "@/components/profile-photo";
 import { Brand, Tape } from "@/components/stationery";
 import { ReplySheet } from "./reply-sheet";
+import { MutedNotice } from "@/components/muted-notice";
 import { copy, text } from "@/lib/copy";
 
 // One indexed query behind this page; a blocking route is faster than a skeleton.
@@ -21,7 +22,7 @@ export const metadata: Metadata = {
 
 type Person = { token: string; name: string; photoUrl: string | null };
 
-function Closed({ title, body, next, person }: { title: string; body: string; next?: string; person?: Person }) {
+function Closed({ title, body, next, person, children }: { title: string; body: string; next?: string; person?: Person; children?: React.ReactNode }) {
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-[560px] flex-col justify-center px-4 py-10">
       <div className="mb-8 self-start"><Brand /></div>
@@ -41,6 +42,7 @@ function Closed({ title, body, next, person }: { title: string; body: string; ne
           </div>
         ) : null}
       </div>
+      {children}
     </main>
   );
 }
@@ -94,7 +96,11 @@ export default async function ReplyPage({ params }: { params: Promise<{ token: s
           title={copy.reply.nothingOpenTitle}
           body={text(copy.reply.nothingOpenBody, { groupName: context.group.name })}
           person={personOf(token, context.membership)}
-        />
+        >
+          {context.membership.mutedAt ? (
+            <MutedNotice unsubscribeToken={context.membership.unsubscribeToken} back={`/r/${token}`} />
+          ) : null}
+        </Closed>
       </>
     );
   }
@@ -120,6 +126,7 @@ export default async function ReplyPage({ params }: { params: Promise<{ token: s
       displayName={context.membership.name ?? context.membership.email.split("@")[0]}
       initialName={context.membership.name}
       reminderPreference={context.membership.reminderPreference}
+      mutedUnsubscribeToken={context.membership.mutedAt ? context.membership.unsubscribeToken : null}
       sections={sections}
       questions={sheet.questions.map((question, index) => ({
         id: question.id,

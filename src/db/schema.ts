@@ -12,6 +12,7 @@ import {
   index,
   type AnyPgColumn,
 } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 
 /** Management rights. */
 export const accessEnum = pgEnum("access", ["owner", "admin", "member"]);
@@ -32,7 +33,10 @@ export const sectionKindEnum = pgEnum("section_kind", ["standard", "photo_wall",
 export const questionKindEnum = pgEnum("question_kind", ["written", "poll"]);
 /** A one-time milestone, or a birthday that comes back every year. */
 export const eventKindEnum = pgEnum("event_kind", ["once", "birthday"]);
-export const outboxStatusEnum = pgEnum("outbox_status", ["pending", "sent", "failed"]);
+/** `suppressed` is recorded, never sent: the member muted the loop or the address bounced. */
+export const outboxStatusEnum = pgEnum("outbox_status", ["pending", "sent", "failed", "suppressed"]);
+/** Why an address stopped receiving loop mail: the provider reported a hard bounce or a spam complaint. */
+export const suppressionReasonEnum = pgEnum("suppression_reason", ["bounce", "complaint"]);
 export const emailKindEnum = pgEnum("email_kind", [
   "signin",
   "invite",
@@ -134,6 +138,22 @@ export const memberships = pgTable(
     reminderPreference: reminderPreferenceEnum("reminder_preference").default("all").notNull(),
     /** Bearer credential for the no-account reply link. Rotatable. */
     replyToken: text("reply_token").notNull(),
+    /**
+     * The List-Unsubscribe credential. Separate from `reply_token` on purpose: it
+     * rides in a mail header that providers read and store, so it can only mute or
+     * unmute this membership — never read the loop or write an answer — and
+     * rotating a leaked reply link leaves old emails' unsubscribe links working.
+     * 64 hex characters (two v4 UUIDs, 244 random bits), filled by the database so
+     * every insert path, and every existing row, gets one.
+     */
+    unsubscribeToken: text("unsubscribe_token")
+      .default(sql`replace(gen_random_uuid()::text, '-', '') || replace(gen_random_uuid()::text, '-', '')`)
+      .notNull(),
+    /**
+     * Set when this person asked the loop to stop emailing them. They stay in the
+     * loop, and their reply link still works; only loop mail is held back.
+     */
+    mutedAt: timestamp("muted_at", { withTimezone: true }),
     invitedAt: timestamp("invited_at", { withTimezone: true }).defaultNow().notNull(),
     acceptedAt: timestamp("accepted_at", { withTimezone: true }),
     revokedAt: timestamp("revoked_at", { withTimezone: true }),
@@ -141,6 +161,7 @@ export const memberships = pgTable(
   },
   (t) => [
     uniqueIndex("memberships_reply_token_idx").on(t.replyToken),
+    uniqueIndex("memberships_unsubscribe_token_idx").on(t.unsubscribeToken),
     uniqueIndex("memberships_group_email_idx").on(t.groupId, t.email),
     index("memberships_user_idx").on(t.userId),
   ],
@@ -469,6 +490,10 @@ export const outbox = pgTable(
     membershipId: uuid("membership_id").references(() => memberships.id, { onDelete: "cascade" }),
     status: outboxStatusEnum("status").default("pending").notNull(),
     providerId: text("provider_id"),
+    /** Extra mail headers (List-Unsubscribe), kept so a retry sends the same message. */
+    headers: jsonb("headers").$type<Record<string, string>>(),
+    /** Why a `suppressed` row was held back: `muted`, `bounce` or `complaint`. */
+    suppressedReason: text("suppressed_reason"),
     error: text("error"),
     attempts: integer("attempts").default(0).notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
@@ -478,6 +503,7 @@ export const outbox = pgTable(
     uniqueIndex("outbox_dedupe_idx").on(t.dedupeKey),
     index("outbox_status_idx").on(t.status),
     index("outbox_group_idx").on(t.groupId),
+    index("outbox_provider_idx").on(t.providerId),
   ],
 );
 
@@ -528,9 +554,16 @@ export const emailEvents = pgTable(
     providerId: text("provider_id").notNull(),
     type: text("type").notNull(),
     payload: jsonb("payload"),
+    /** The webhook's `svix-id`: a redelivered event is recorded once. */
+    messageId: text("message_id"),
+    /** The outbox row this event is about, when the provider id matches one. */
+    outboxId: uuid("outbox_id").references(() => outbox.id, { onDelete: "set null" }),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   },
-  (t) => [index("email_events_provider_idx").on(t.providerId)],
+  (t) => [
+    index("email_events_provider_idx").on(t.providerId),
+    uniqueIndex("email_events_message_idx").on(t.messageId),
+  ],
 );
 
 /**
@@ -541,6 +574,20 @@ export const emailEvents = pgTable(
 export const heartbeats = pgTable("heartbeats", {
   name: text("name").primaryKey(),
   lastOkAt: timestamp("last_ok_at", { withTimezone: true }).notNull(),
+});
+
+/**
+ * An address the provider told us to stop mailing: a hard bounce or a spam
+ * complaint. Every loop email to it is recorded as suppressed instead of sent;
+ * sign-in links still go, because a person asking to sign in is asking for mail.
+ * Stored lowercased.
+ */
+export const emailSuppressions = pgTable("email_suppressions", {
+  email: text("email").primaryKey(),
+  reason: suppressionReasonEnum("reason").notNull(),
+  /** The Resend email id whose event caused it. */
+  providerId: text("provider_id"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
 export type User = typeof users.$inferSelect;

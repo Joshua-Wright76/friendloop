@@ -192,3 +192,26 @@ test("music link labels fall back to a plain one", async () => {
   assert.equal(musicLinkLabel("https://example.com/song"), "Open the link");
   assert.equal(musicLinkLabel("not a url"), "Open the link");
 });
+
+test("every loop email can carry a visible 'stop emails' link in HTML and plain text; sign-in never does", () => {
+  const stop = "https://friendloop.dev/u/0123abcd";
+  const theme = undefined;
+  const loopEmails = [
+    inviteEmail({ groupName: "G", inviterName: "A", url: "https://x/r/t", isReader: false, unsubscribeUrl: stop, theme }),
+    promptEmail({ groupName: "G", memberName: "M", issueNumber: 1, questionCount: 2, url: "https://x/r/t", deadlineLabel: "Fri", unsubscribeUrl: stop }),
+    reminderEmail({ groupName: "G", memberName: "M", url: "https://x/r/t", deadlineLabel: "Fri", remaining: 1, unsubscribeUrl: stop }),
+    mentionEmail({ groupName: "G", memberName: "M", authorName: "A", issueNumber: 1, excerpt: "hi", url: "https://x/i/1", unsubscribeUrl: stop }),
+    deliveryEmail({ groupName: "G", issueNumber: 1, url: "https://x/i/1", answers: [], unsubscribeUrl: stop }),
+    pausedEmail({ groupName: "G", url: "https://x/g/1", unsubscribeUrl: stop }),
+  ];
+  for (const email of loopEmails) {
+    assert.ok(email.html.includes(`href="${stop}"`), email.subject);
+    assert.ok(email.html.includes("Stop emails from this loop"), email.subject);
+    assert.ok(email.text.endsWith(`Stop emails from this loop: ${stop}`), email.subject);
+  }
+
+  const withoutLink = promptEmail({ groupName: "G", memberName: "M", issueNumber: 1, questionCount: 2, url: "https://x/r/t", deadlineLabel: "Fri" });
+  assert.ok(!withoutLink.html.includes("Stop emails from this loop"));
+  assert.ok(!withoutLink.text.includes("Stop emails"));
+  assert.ok(!signInEmail("https://x/signin").html.includes("Stop emails from this loop"));
+});

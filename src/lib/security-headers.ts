@@ -40,6 +40,7 @@ const VERCEL_LIVE = "https://vercel.live";
  */
 export const PRIVATE_ROUTES = [
   "/r/:path*",
+  "/u/:path*",
   "/s/:path*",
   "/i/:path*",
   "/g/:path*",

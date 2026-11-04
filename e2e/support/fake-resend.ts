@@ -15,7 +15,7 @@ import { createServer, type Server } from "node:http";
 export const FAKE_MAIL_PORT = Number(process.env.E2E_FAKE_MAIL_PORT ?? 3101);
 export const FAKE_MAIL_URL = `http://127.0.0.1:${FAKE_MAIL_PORT}`;
 
-type Sent = { to: string; subject: string };
+type Sent = { to: string; subject: string; headers?: Record<string, string> };
 type State = { failNext: number; failStatus: number; sent: Sent[] };
 
 const state: State = { failNext: 0, failStatus: 500, sent: [] };
@@ -63,9 +63,10 @@ async function handle(
     const payload = JSON.parse((await readBody(request)) || "{}") as {
       to?: string | string[];
       subject?: string;
+      headers?: Record<string, string>;
     };
     const to = Array.isArray(payload.to) ? (payload.to[0] ?? "") : (payload.to ?? "");
-    state.sent.push({ to, subject: payload.subject ?? "" });
+    state.sent.push({ to, subject: payload.subject ?? "", ...(payload.headers ? { headers: payload.headers } : {}) });
 
     if (THROTTLED.test(to)) {
       return json(response, 429, {

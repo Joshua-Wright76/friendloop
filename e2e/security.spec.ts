@@ -63,7 +63,7 @@ test("every route sends the security headers; credential routes send no referrer
   expect(headers["permissions-policy"]).toContain("microphone=(self)");
   expect(headers["permissions-policy"]).toContain("camera=()");
 
-  for (const path of ["/r/not-a-token", "/s/not-a-token", "/signin", "/you", "/album/not-an-id"]) {
+  for (const path of ["/r/not-a-token", "/u/not-a-token", "/s/not-a-token", "/signin", "/you", "/album/not-an-id"]) {
     const response = await request.get(path, { maxRedirects: 0 });
     expect(response.headers()["referrer-policy"], path).toBe("no-referrer");
     expect(response.headers()["content-security-policy"], path).toContain("frame-ancestors 'none'");
@@ -184,7 +184,7 @@ test("the landing page has a link-preview card; private pages preview as Friendl
   }
 
   const robots = await (await request.get("/robots.txt")).text();
-  for (const prefix of ["/r/", "/s/", "/i/", "/g/", "/album/", "/you", "/signin", "/dev/"]) {
+  for (const prefix of ["/r/", "/u/", "/s/", "/i/", "/g/", "/album/", "/you", "/signin", "/dev/"]) {
     expect(robots).toContain(`Disallow: ${prefix}`);
   }
 });
