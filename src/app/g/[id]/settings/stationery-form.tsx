@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { LoopBanner } from "@/components/loop-theme";
 import { PaperFields } from "@/components/paper-fields";
 import { copy } from "@/lib/copy";
+import { readUploadResponse } from "@/lib/upload-response";
 import { PHOTO_ACCEPT } from "@/lib/photo-validation";
 import { BANNER_TARGET, prepareImage } from "@/components/prepare-image";
 import { DEFAULT_PRESET, normalizeHex } from "@/lib/theme";
@@ -60,7 +61,9 @@ function HeaderPicture({ groupId, initial }: { groupId: string; initial: string 
     setStatus("saving");
     try {
       const response = await fetch(endpoint, init);
-      const body = (await response.json().catch(() => ({}))) as { url?: string | null; error?: string };
+      const body = await readUploadResponse<{ url?: string | null; error?: string }>(response, copy.identity.errors.bannerTooLarge).catch(
+        () => ({}) as { url?: string | null; error?: string },
+      );
       if (!response.ok) {
         setStatus("error");
         setMessage(body.error ?? copy.stationery.headerError);

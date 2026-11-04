@@ -571,7 +571,9 @@ export function ReplySheet({
         "audio/webm",
         "audio/mp4",
       ].find((candidate) => typeof MediaRecorder !== "undefined" && MediaRecorder.isTypeSupported(candidate));
-      const active = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined);
+      // Speech is clear at 64 kbps, and a full 3-minute note stays near 1.4 MB, well
+      // under the 4 MB cap whatever a browser would otherwise default to.
+      const active = new MediaRecorder(stream, { audioBitsPerSecond: 64_000, ...(mime ? { mimeType: mime } : {}) });
       recordingChunks.current = [];
       active.ondataavailable = (event) => {
         if (event.data.size > 0) recordingChunks.current.push(event.data);

@@ -1,4 +1,7 @@
 
+import { copy } from "./copy.ts";
+import { readUploadResponse } from "./upload-response.ts";
+
 export type SaveResult = { ok: true; savedAt: string } | { ok: false; error: string };
 export type PhotoSaveResult =
   | { ok: true; savedAt: string; photoUrl: string }
@@ -45,12 +48,12 @@ export async function uploadReplyPhoto(
     form.set("issueQuestionId", issueQuestionId);
     form.set("photo", file, file.name);
     const response = await fetcher(`/api/reply/${token}/photo`, { method: "POST", body: form });
-    const data = (await response.json()) as {
+    const data = await readUploadResponse<{
       ok?: boolean;
       savedAt?: string;
       photoUrl?: string;
       error?: string;
-    };
+    }>(response, copy.reply.errors.photoTooLarge);
     if (!response.ok || !data.ok || !data.photoUrl) {
       return { ok: false, error: data.error ?? genericError };
     }
@@ -133,13 +136,13 @@ export async function uploadReplyAudio(
     form.set("audio", audio, filename);
     form.set("durationMs", String(Math.round(durationMs)));
     const response = await fetcher(`/api/reply/${token}/audio`, { method: "POST", body: form });
-    const data = (await response.json()) as {
+    const data = await readUploadResponse<{
       ok?: boolean;
       savedAt?: string;
       audioUrl?: string;
       audioDurationMs?: number;
       error?: string;
-    };
+    }>(response, copy.reply.errors.voiceTooLarge);
     if (!response.ok || !data.ok || !data.audioUrl || typeof data.audioDurationMs !== "number") {
       return { ok: false, error: data.error ?? genericError };
     }

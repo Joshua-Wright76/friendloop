@@ -42,3 +42,9 @@ test("the response itself can fail to parse", async () => {
   const parse = await uploadReplySectionPhoto("t", "s", new File(["x"], "p.png", { type: "image/png" }), "", 0, "fallback", (async () => new Response("<html>", { status: 502 })) as typeof fetch);
   assert.deepEqual(parse, { ok: false, error: "fallback" });
 });
+
+test("a platform 413 on a section photo reads as the size message, not a generic error", async () => {
+  const platform = (async () => new Response("Request Entity Too Large", { status: 413 })) as typeof fetch;
+  const result = await uploadReplySectionPhoto("t", "s", new File(["x"], "p.png", { type: "image/png" }), "", 0, "generic", platform);
+  assert.deepEqual(result, { ok: false, error: "Photos must be 4 MB or smaller." });
+});
