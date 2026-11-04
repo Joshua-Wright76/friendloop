@@ -402,11 +402,16 @@ body:has(.reply-actionbar:not([hidden])) .feedback-button { bottom: calc(92px + 
    the fixed Send bar and the sticky title bar drift off the screen edges (page
    content shows under the bar, the title slides under the status bar). On a touch
    screen the reply sheet scrolls inside body instead: the document never scrolls,
-   the toolbars never move, and both bars stay where they belong. */
+   the toolbars never move, and both bars stay where they belong. Body is pinned
+   to the viewport rather than given a height: iOS still scrolls an overflow-hidden
+   root to show a focused field's caret, and 100dvh can disagree with the real
+   viewport in iOS Chrome. A fixed body leaves the root nothing to scroll. */
 @media (pointer: coarse) {
-  html:has(.reply-topbar) { height: 100dvh; overflow: hidden; }
+  /* Without this, body's overflow is handed to the viewport and body never scrolls. */
+  html:has(.reply-topbar) { overflow: hidden; }
   html:has(.reply-topbar) body {
-    height: 100dvh;
+    position: fixed;
+    inset: 0;
     min-height: 0;
     overflow-y: auto;
     overscroll-behavior-y: contain;
