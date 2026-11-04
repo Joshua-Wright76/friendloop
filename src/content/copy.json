@@ -597,6 +597,11 @@
     "transferredNotice": "You're now an admin! The loop has a new owner.",
     "you": "you",
     "invitePending": "invite not opened yet",
+    "muted": "Emails off",
+    "mutedHint": "They turned off emails from this loop. They're still in it and can answer through their link.",
+    "bouncing": "Bouncing",
+    "bouncingHint": "Emails to this address bounce, so the loop has stopped sending to it. Remove them and invite the right address.",
+    "complaintHint": "This address marked a loop email as spam, so the loop has stopped sending to it.",
     "roleAriaLabel": "Member type for {name}",
     "resendInvite": "Resend invite",
     "remove": "Remove",
@@ -1033,6 +1038,8 @@
   },
   "emails": {
     "defaultFooter": "You're getting this because you're in a Friendloop.",
+    "stopLink": "Stop emails from this loop",
+    "stopText": "Stop emails from this loop: {url}",
     "questionSingular": "question",
     "questionPlural": "questions",
     "answerSingular": "answer",
@@ -1535,6 +1542,20 @@
     "shared": "A shared round",
     "notFound": "Page not found",
     "somethingWrong": "Something went wrong"
+  },
+  "unsubscribe": {
+    "metaTitle": "Emails from your loop",
+    "title": "Stop emails from {groupName}?",
+    "body": "You'll stay in the loop, and the answer link in your earlier emails keeps working. You just won't get questions, reminders or new rounds by email.",
+    "confirm": "Stop emails",
+    "mutedTitle": "Emails from {groupName} are off",
+    "mutedBody": "You're still in the loop, and the answer link in your earlier emails still works. Changed your mind? Turn them back on.",
+    "unmute": "Turn emails back on",
+    "invalidTitle": "This link doesn't work",
+    "invalidBody": "It may have been copied incompletely, or you're no longer in this loop.",
+    "oneClickDone": "Done. This loop won't email you any more; you're still in it.",
+    "badRequest": "Nothing to do.",
+    "notice": "You've turned off emails from this loop. You won't hear about new rounds unless you check back here."
   },
   "devFeedback": {
     "title": "Feedback",

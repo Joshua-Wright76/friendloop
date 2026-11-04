@@ -15,7 +15,7 @@ import { deliveryEmail, emailThemeOf, reminderEmail, pausedEmail, type AnswerBlo
 import { tallyPoll } from "./poll";
 import { REMINDER_LEADS_MS, wantsReminder } from "./reminders";
 import { copy, text } from "./copy.ts";
-import { issueUrl, replyUrl, url } from "./urls";
+import { issueUrl, replyUrl, unsubscribeUrl, url } from "./urls";
 import { newToken } from "./tokens";
 import { snapshotQuestionsForIssue } from "./round-questions";
 import { snapshotSectionsForIssue } from "./sections";
@@ -263,26 +263,26 @@ async function deliverDueIssues(at: Date): Promise<{ delivered: number; skipped:
         email: memberships.email,
         name: memberships.name,
         replyToken: memberships.replyToken,
+        unsubscribeToken: memberships.unsubscribeToken,
       })
       .from(memberships)
       .where(and(eq(memberships.groupId, group.id), isNull(memberships.revokedAt)));
 
-    const rendered = deliveryEmail({
-      groupName: group.name,
-      issueNumber: issue.number,
-      issueName: issue.name,
-      url: issueUrl(issue.id),
-      answers,
-      sections,
-      shareUrl: shareToken ? url(`/s/${shareToken}`) : null,
-      theme: emailThemeOf(group),
-    });
-
     for (const member of everyone) {
+      // Rendered per member: the issue link and the "stop emails" link are theirs.
+      const rendered = deliveryEmail({
+        groupName: group.name,
+        issueNumber: issue.number,
+        issueName: issue.name,
+        url: issueUrl(issue.id, member.replyToken),
+        answers,
+        sections,
+        shareUrl: shareToken ? url(`/s/${shareToken}`) : null,
+        theme: emailThemeOf(group),
+        unsubscribeUrl: unsubscribeUrl(member.unsubscribeToken),
+      });
       await sendEmail({
         ...rendered,
-        html: rendered.html.replaceAll(issueUrl(issue.id), issueUrl(issue.id, member.replyToken)),
-        text: rendered.text.replaceAll(issueUrl(issue.id), issueUrl(issue.id, member.replyToken)),
         to: member.email,
         kind: "delivery",
         dedupeKey: `delivery:${issue.id}:${member.id}`,
@@ -290,6 +290,7 @@ async function deliverDueIssues(at: Date): Promise<{ delivered: number; skipped:
         issueId: issue.id,
         membershipId: member.id,
         fromName: group.displayName ?? group.name,
+        unsubscribeToken: member.unsubscribeToken,
       });
     }
 
@@ -345,12 +346,17 @@ async function skipIssue(input: {
   await db.update(groups).set({ pausedAt: at }).where(eq(groups.id, group.id));
 
   const owners = await db
-    .select({ id: memberships.id, email: memberships.email })
+    .select({ id: memberships.id, email: memberships.email, unsubscribeToken: memberships.unsubscribeToken })
     .from(memberships)
     .where(and(eq(memberships.groupId, group.id), eq(memberships.access, "owner")));
 
   for (const owner of owners) {
-    const rendered = pausedEmail({ groupName: group.name, url: url(`/g/${group.id}`), theme: emailThemeOf(group) });
+    const rendered = pausedEmail({
+      groupName: group.name,
+      url: url(`/g/${group.id}`),
+      theme: emailThemeOf(group),
+      unsubscribeUrl: unsubscribeUrl(owner.unsubscribeToken),
+    });
     await sendEmail({
       ...rendered,
       to: owner.email,
@@ -360,6 +366,7 @@ async function skipIssue(input: {
       issueId: issue.id,
       membershipId: owner.id,
       fromName: group.displayName ?? group.name,
+      unsubscribeToken: owner.unsubscribeToken,
     });
   }
 }
@@ -388,6 +395,7 @@ async function remindStragglers(at: Date): Promise<number> {
         email: memberships.email,
         name: memberships.name,
         replyToken: memberships.replyToken,
+        unsubscribeToken: memberships.unsubscribeToken,
         timezone: users.timezone,
         reminderPreference: memberships.reminderPreference,
       })
@@ -426,6 +434,7 @@ async function remindStragglers(at: Date): Promise<number> {
         deadlineLabel: deadline.inLoopZone,
         remaining: questionCount,
         theme: emailThemeOf(group),
+        unsubscribeUrl: unsubscribeUrl(member.unsubscribeToken),
       });
       const result = await sendEmail({
         ...rendered,
@@ -436,6 +445,7 @@ async function remindStragglers(at: Date): Promise<number> {
         issueId: issue.id,
         membershipId: member.id,
         fromName: group.displayName ?? group.name,
+        unsubscribeToken: member.unsubscribeToken,
       });
       if (result.queued) reminded += 1;
     }

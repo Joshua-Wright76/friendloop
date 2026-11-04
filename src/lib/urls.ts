@@ -35,3 +35,13 @@ export function shareUrl(token: string): string {
 export function signInUrl(token: string): string {
   return url(`/signin/confirm?token=${encodeURIComponent(token)}`);
 }
+
+/** The page a footer "stop emails" link opens: it confirms before muting. */
+export function unsubscribeUrl(token: string): string {
+  return url(`/u/${token}`);
+}
+
+/** The RFC 8058 one-click endpoint the `List-Unsubscribe` header names. */
+export function oneClickUnsubscribeUrl(token: string): string {
+  return url(`/api/unsubscribe/${token}`);
+}

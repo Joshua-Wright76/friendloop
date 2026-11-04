@@ -77,6 +77,9 @@ const SECTIONS: SectionEmailBlock[] = [
 ];
 
 /** Every email Friendloop sends, rendered with sample data. */
+/** Every loop email carries its recipient's "stop emails" link. */
+const PREVIEW_STOP_URL = "https://friendloop.dev/u/preview-unsubscribe-token";
+
 export function emailPreviews(): EmailPreview[] {
   return [
     {
@@ -89,6 +92,7 @@ export function emailPreviews(): EmailPreview[] {
         groupName: "Saturday Club",
         inviterName: "Alex",
         url: "https://friendloop.dev/r/preview-token",
+        unsubscribeUrl: PREVIEW_STOP_URL,
         isReader: false,
         personalNote: "We're giving this a go. Answer whatever feels easy.",
       }),
@@ -99,6 +103,7 @@ export function emailPreviews(): EmailPreview[] {
         groupName: "Saturday Club",
         inviterName: "Alex",
         url: "https://friendloop.dev/r/preview-token",
+        unsubscribeUrl: PREVIEW_STOP_URL,
         isReader: true,
       }),
     },
@@ -110,6 +115,7 @@ export function emailPreviews(): EmailPreview[] {
         issueNumber: 12,
         questionCount: 3,
         url: "https://friendloop.dev/r/preview-token",
+        unsubscribeUrl: PREVIEW_STOP_URL,
         deadlineLabel: "Friday at 9:00 AM",
       }),
     },
@@ -119,6 +125,7 @@ export function emailPreviews(): EmailPreview[] {
         groupName: "Saturday Club",
         memberName: "Alice",
         url: "https://friendloop.dev/r/preview-token",
+        unsubscribeUrl: PREVIEW_STOP_URL,
         deadlineLabel: "Friday at 9:00 AM",
         remaining: 2,
       }),
@@ -132,6 +139,7 @@ export function emailPreviews(): EmailPreview[] {
         issueNumber: 11,
         excerpt: "@Alice that geese story is the best thing I read all week.",
         url: "https://friendloop.dev/i/preview?m=preview-token",
+        unsubscribeUrl: PREVIEW_STOP_URL,
       }),
     },
     {
@@ -140,6 +148,7 @@ export function emailPreviews(): EmailPreview[] {
         groupName: "Saturday Club",
         issueNumber: 11,
         url: "https://friendloop.dev/i/preview",
+        unsubscribeUrl: PREVIEW_STOP_URL,
         answers: ANSWERS,
         sections: SECTIONS,
       }),
@@ -150,6 +159,7 @@ export function emailPreviews(): EmailPreview[] {
         groupName: "Saturday Club",
         issueNumber: 11,
         url: "https://friendloop.dev/i/preview",
+        unsubscribeUrl: PREVIEW_STOP_URL,
         answers: ANSWERS,
         shareUrl: "https://friendloop.dev/s/preview-share-token",
       }),
@@ -163,6 +173,7 @@ export function emailPreviews(): EmailPreview[] {
         issueNumber: 11,
         issueName: "Camping weekend",
         url: "https://friendloop.dev/i/preview",
+        unsubscribeUrl: PREVIEW_STOP_URL,
         answers: ANSWERS.slice(0, 2),
         theme: emailThemeOf({
           themePreset: "bluebell",
@@ -176,6 +187,7 @@ export function emailPreviews(): EmailPreview[] {
       email: pausedEmail({
         groupName: "Saturday Club",
         url: "https://friendloop.dev/g/preview",
+        unsubscribeUrl: PREVIEW_STOP_URL,
       }),
     },
   ];

@@ -20,6 +20,8 @@ type LayoutInput = {
   answersUrl?: string;
   /** The loop's stationery; absent means Gingham Picnic, exactly as before themes. */
   theme?: EmailTheme;
+  /** This recipient's "stop emails from this loop" page. Every loop email has one. */
+  unsubscribeUrl?: string;
 };
 
 export type EmailTheme = { palette: EmailPalette; headerImageUrl?: string | null };
@@ -182,7 +184,7 @@ function answersHtml(answers: AnswerBlock[], url: string, c: EmailPalette): stri
     .join("");
 }
 
-export function layout({ preheader, heading, body, cta, footer, answers, sections, answersUrl, theme }: LayoutInput): string {
+export function layout({ preheader, heading, body, cta, footer, answers, sections, answersUrl, theme, unsubscribeUrl }: LayoutInput): string {
   const c = theme?.palette ?? GINGHAM_EMAIL;
   const GINGHAM = gingham(c);
   const ctaHtml = cta
@@ -211,11 +213,20 @@ ${answers ? `<tr><td style="padding-top:20px">${answersHtml(answers, answersUrl 
 ${sections && sections.length > 0 ? `<tr><td style="padding-top:20px">${sectionsHtml(sections, c)}</td></tr>` : ""}
 <tr><td align="center" style="padding:24px 10px 0"><p style="display:inline-block;margin:0;padding:4px 10px;font:400 13px/1.6 ${BODY_FONT};color:${c.soft};background-color:${c.page};text-align:center">${escapeHtml(
     footer ?? copy.emails.defaultFooter,
-  )}</p></td></tr>
+  )}${
+    unsubscribeUrl
+      ? `<br /><a href="${escapeHtml(unsubscribeUrl)}" style="color:${c.muted};text-decoration:underline">${escapeHtml(copy.emails.stopLink)}</a>`
+      : ""
+  }</p></td></tr>
 </table></td></tr></table></body></html>`;
 }
 
 export type RenderedEmail = { subject: string; html: string; text: string };
+
+/** The plain-text twin of the footer link. */
+function withStopLine(body: string, unsubscribeUrl: string | undefined): string {
+  return unsubscribeUrl ? `${body}\n\n${text(copy.emails.stopText, { url: unsubscribeUrl })}` : body;
+}
 
 export function signInEmail(url: string): RenderedEmail {
   const content = copy.emails.signIn;
@@ -239,8 +250,9 @@ export function inviteEmail(input: {
   isReader: boolean;
   personalNote?: string;
   theme?: EmailTheme;
+  unsubscribeUrl?: string;
 }): RenderedEmail {
-  const { groupName, inviterName, url, isReader, personalNote, theme } = input;
+  const { groupName, inviterName, url, isReader, personalNote, theme, unsubscribeUrl } = input;
   const content = copy.emails.invite;
   const values = { groupName, inviterName, url, personalNote: personalNote ?? "" };
   const note = personalNote?.trim()
@@ -255,8 +267,9 @@ export function inviteEmail(input: {
       cta: { label: isReader ? content.readerCta : content.contributorCta, url },
       footer: text(content.footer, values),
       theme,
+      unsubscribeUrl,
     }),
-    text: `${text(content.text, values)}${note ? `\n\n${note}` : ""}`,
+    text: withStopLine(`${text(content.text, values)}${note ? `\n\n${note}` : ""}`, unsubscribeUrl),
   };
 }
 
@@ -269,8 +282,9 @@ export function promptEmail(input: {
   url: string;
   deadlineLabel: string;
   theme?: EmailTheme;
+  unsubscribeUrl?: string;
 }): RenderedEmail {
-  const { groupName, memberName, issueNumber, issueName, questionCount, url, deadlineLabel, theme } = input;
+  const { groupName, memberName, issueNumber, issueName, questionCount, url, deadlineLabel, theme, unsubscribeUrl } = input;
   const content = copy.emails.prompt;
   const plural = questionCount === 1 ? copy.emails.questionSingular : copy.emails.questionPlural;
   const values = {
@@ -287,8 +301,9 @@ export function promptEmail(input: {
       cta: { label: text(content.cta, values), url },
       footer: text(content.footer, values),
       theme,
+      unsubscribeUrl,
     }),
-    text: text(content.text, values),
+    text: withStopLine(text(content.text, values), unsubscribeUrl),
   };
 }
 
@@ -299,8 +314,9 @@ export function reminderEmail(input: {
   deadlineLabel: string;
   remaining: number;
   theme?: EmailTheme;
+  unsubscribeUrl?: string;
 }): RenderedEmail {
-  const { groupName, memberName, url, deadlineLabel, remaining, theme } = input;
+  const { groupName, memberName, url, deadlineLabel, remaining, theme, unsubscribeUrl } = input;
   const content = copy.emails.reminder;
   const values = { groupName, memberName, url, deadlineLabel, remaining, prefNote: content.prefNote };
   return {
@@ -312,8 +328,9 @@ export function reminderEmail(input: {
       cta: { label: content.cta, url },
       footer: text(content.footer, values),
       theme,
+      unsubscribeUrl,
     }),
-    text: text(content.text, values),
+    text: withStopLine(text(content.text, values), unsubscribeUrl),
   };
 }
 
@@ -326,8 +343,9 @@ export function mentionEmail(input: {
   excerpt: string;
   url: string;
   theme?: EmailTheme;
+  unsubscribeUrl?: string;
 }): RenderedEmail {
-  const { groupName, memberName, authorName, issueNumber, issueName, excerpt, url, theme } = input;
+  const { groupName, memberName, authorName, issueNumber, issueName, excerpt, url, theme, unsubscribeUrl } = input;
   const content = copy.emails.mention;
   const values = { groupName, memberName, authorName, issueNumber, excerpt, url, issueRef: issueRef(issueNumber, issueName) };
   return {
@@ -339,8 +357,9 @@ export function mentionEmail(input: {
       cta: { label: content.cta, url },
       footer: text(content.footer, values),
       theme,
+      unsubscribeUrl,
     }),
-    text: text(content.text, values),
+    text: withStopLine(text(content.text, values), unsubscribeUrl),
   };
 }
 
@@ -353,8 +372,9 @@ export function deliveryEmail(input: {
   sections?: SectionEmailBlock[];
   shareUrl?: string | null;
   theme?: EmailTheme;
+  unsubscribeUrl?: string;
 }): RenderedEmail {
-  const { groupName, issueNumber, issueName, url, answers, sections, shareUrl, theme } = input;
+  const { groupName, issueNumber, issueName, url, answers, sections, shareUrl, theme, unsubscribeUrl } = input;
   const content = copy.emails.delivery;
   const values = {
     groupName,
@@ -387,13 +407,14 @@ export function deliveryEmail(input: {
       cta: { label: content.cta, url },
       footer: text(shareUrl ? content.shareFooter : content.replyFooter, values),
       theme,
+      unsubscribeUrl,
     }),
-    text: text(content.text, { ...values, answers: answerText }),
+    text: withStopLine(text(content.text, { ...values, answers: answerText }), unsubscribeUrl),
   };
 }
 
-export function pausedEmail(input: { groupName: string; url: string; theme?: EmailTheme }): RenderedEmail {
-  const { groupName, url, theme } = input;
+export function pausedEmail(input: { groupName: string; url: string; theme?: EmailTheme; unsubscribeUrl?: string }): RenderedEmail {
+  const { groupName, url, theme, unsubscribeUrl } = input;
   const content = copy.emails.paused;
   const values = { groupName, url };
   return {
@@ -405,7 +426,8 @@ export function pausedEmail(input: { groupName: string; url: string; theme?: Ema
       cta: { label: content.cta, url },
       footer: text(content.footer, values),
       theme,
+      unsubscribeUrl,
     }),
-    text: text(content.text, values),
+    text: withStopLine(text(content.text, values), unsubscribeUrl),
   };
 }

@@ -23,6 +23,8 @@ if (!isProd) {
   process.env.E2E ??= "1";
   process.env.EMAIL_TRANSPORT ??= "outbox";
   process.env.UI_PREVIEW_SECRET ??= "e2e-preview-secret";
+  // Signs the Resend webhooks the U2 flow posts; any `whsec_` + base64 works.
+  process.env.RESEND_WEBHOOK_SECRET ??= "whsec_ZTJlLXJlc2VuZC13ZWJob29rLXNlY3JldA==";
   if (process.env.TEST_DATABASE_URL) process.env.DATABASE_URL ??= process.env.TEST_DATABASE_URL;
 }
 
@@ -74,6 +76,7 @@ export default defineConfig({
           RESEND_BASE_URL: FAKE_MAIL_URL,
           UI_PREVIEW_SECRET: process.env.UI_PREVIEW_SECRET ?? "e2e-preview-secret",
           CRON_SECRET: process.env.CRON_SECRET ?? "e2e-cron-secret",
+          RESEND_WEBHOOK_SECRET: process.env.RESEND_WEBHOOK_SECRET ?? "",
           DATABASE_URL: process.env.TEST_DATABASE_URL ?? process.env.DATABASE_URL ?? "",
           NEXT_PUBLIC_APP_URL: `http://localhost:${TEST_PORT}`,
         },

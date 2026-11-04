@@ -1,10 +1,11 @@
 import { Resend } from "resend";
 import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { outbox } from "@/db/schema";
+import { emailSuppressions, memberships, outbox } from "@/db/schema";
 import type { RenderedEmail } from "./templates";
 import { copy } from "../copy.ts";
 import { e2eSeamsAllowed } from "../e2e.ts";
+import { oneClickUnsubscribeUrl } from "../urls.ts";
 
 export type EmailKind = (typeof outbox.$inferInsert)["kind"];
 
@@ -18,7 +19,52 @@ export type QueueInput = RenderedEmail & {
   membershipId?: string | null;
   /** Overrides the sender display name, e.g. the loop's name. */
   fromName?: string | null;
+  /**
+   * The recipient membership's unsubscribe token. Every loop email carries one,
+   * which adds `List-Unsubscribe` and `List-Unsubscribe-Post` (RFC 8058).
+   */
+  unsubscribeToken?: string | null;
 };
+
+/** Kinds that are never held back: someone asked for this exact email just now. */
+const TRANSACTIONAL: ReadonlySet<EmailKind> = new Set(["signin"]);
+
+export type SuppressedReason = "muted" | "bounce" | "complaint";
+
+/** RFC 2369 + RFC 8058 headers for one membership's unsubscribe token. */
+export function listUnsubscribeHeaders(token: string): Record<string, string> {
+  return {
+    "List-Unsubscribe": `<${oneClickUnsubscribeUrl(token)}>`,
+    "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+  };
+}
+
+/**
+ * Whether this email must be recorded but not sent. Sign-in links always go. A
+ * loop email is held back when its membership is muted, or when the provider has
+ * reported the address as a hard bounce or a spam complaint.
+ */
+export async function suppressionFor(input: {
+  to: string;
+  kind: EmailKind;
+  membershipId?: string | null;
+}): Promise<SuppressedReason | null> {
+  if (TRANSACTIONAL.has(input.kind)) return null;
+  if (input.membershipId) {
+    const [membership] = await db
+      .select({ mutedAt: memberships.mutedAt })
+      .from(memberships)
+      .where(eq(memberships.id, input.membershipId))
+      .limit(1);
+    if (membership?.mutedAt) return "muted";
+  }
+  const [suppressed] = await db
+    .select({ reason: emailSuppressions.reason })
+    .from(emailSuppressions)
+    .where(eq(emailSuppressions.email, input.to.trim().toLowerCase()))
+    .limit(1);
+  return suppressed?.reason ?? null;
+}
 
 export type Transport = "outbox" | "resend";
 
@@ -85,7 +131,8 @@ function resend(): Resend {
  */
 export async function queueEmail(
   input: QueueInput,
-): Promise<{ id: string | null; deduped: boolean }> {
+): Promise<{ id: string | null; deduped: boolean; suppressed: SuppressedReason | null }> {
+  const suppressed = await suppressionFor(input);
   const inserted = await db
     .insert(outbox)
     .values({
@@ -98,18 +145,20 @@ export async function queueEmail(
       groupId: input.groupId ?? null,
       issueId: input.issueId ?? null,
       membershipId: input.membershipId ?? null,
+      headers: input.unsubscribeToken ? listUnsubscribeHeaders(input.unsubscribeToken) : null,
+      ...(suppressed ? { status: "suppressed" as const, suppressedReason: suppressed } : {}),
     })
     .onConflictDoNothing({ target: outbox.dedupeKey })
     .returning({ id: outbox.id });
 
-  if (inserted.length > 0) return { id: inserted[0].id, deduped: false };
+  if (inserted.length > 0) return { id: inserted[0].id, deduped: false, suppressed };
 
   const existing = await db
     .select({ id: outbox.id })
     .from(outbox)
     .where(eq(outbox.dedupeKey, input.dedupeKey))
     .limit(1);
-  return { id: existing[0]?.id ?? null, deduped: true };
+  return { id: existing[0]?.id ?? null, deduped: true, suppressed: null };
 }
 
 async function dispatch(row: {
@@ -119,6 +168,7 @@ async function dispatch(row: {
   html: string;
   text: string;
   fromName?: string | null;
+  headers?: Record<string, string> | null;
 }): Promise<void> {
   if ((await transport()) === "outbox") {
     await db
@@ -135,6 +185,7 @@ async function dispatch(row: {
       subject: row.subject,
       html: row.html,
       text: row.text,
+      ...(row.headers ? { headers: row.headers } : {}),
     });
     if (error) throw new Error(error.message ?? "resend rejected the message");
     await db
@@ -155,9 +206,14 @@ async function dispatch(row: {
  * stays `failed` in the outbox and the next sweep retries it.
  */
 export async function sendEmail(input: QueueInput): Promise<{ queued: boolean; emailId: string | null }> {
-  const { id, deduped } = await queueEmail(input);
-  if (deduped || !id) return { queued: false, emailId: id };
-  await dispatch({ ...input, id, fromName: input.fromName });
+  const { id, deduped, suppressed } = await queueEmail(input);
+  if (deduped || !id || suppressed) return { queued: false, emailId: id };
+  await dispatch({
+    ...input,
+    id,
+    fromName: input.fromName,
+    headers: input.unsubscribeToken ? listUnsubscribeHeaders(input.unsubscribeToken) : null,
+  });
   return { queued: true, emailId: id };
 }
 
@@ -170,6 +226,9 @@ export async function flushOutbox(limit = 25): Promise<number> {
       subject: outbox.subject,
       html: outbox.html,
       text: outbox.text,
+      headers: outbox.headers,
+      kind: outbox.kind,
+      membershipId: outbox.membershipId,
     })
     .from(outbox)
     .where(inArray(outbox.status, ["pending", "failed"]))
@@ -177,6 +236,16 @@ export async function flushOutbox(limit = 25): Promise<number> {
     .limit(limit);
 
   for (const row of pending) {
+    // A retry asks again: the member may have muted, or the address bounced,
+    // since the first attempt failed.
+    const suppressed = await suppressionFor(row);
+    if (suppressed) {
+      await db
+        .update(outbox)
+        .set({ status: "suppressed", suppressedReason: suppressed })
+        .where(eq(outbox.id, row.id));
+      continue;
+    }
     await dispatch(row);
   }
   return pending.length;

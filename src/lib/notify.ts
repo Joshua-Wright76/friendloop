@@ -4,7 +4,7 @@ import { groups, issueQuestions, issues, memberships, outbox, replies, users } f
 import { describeDeadline } from "./schedule";
 import { sendEmail } from "./email/send";
 import { emailThemeOf, promptEmail, reminderEmail } from "./email/templates";
-import { replyUrl } from "./urls";
+import { replyUrl, unsubscribeUrl } from "./urls";
 
 /** One prompt per contributor for a round that just opened. */
 export async function sendPromptEmails(input: {
@@ -24,6 +24,7 @@ export async function sendPromptEmails(input: {
       email: memberships.email,
       name: memberships.name,
       replyToken: memberships.replyToken,
+      unsubscribeToken: memberships.unsubscribeToken,
       timezone: users.timezone,
     })
     .from(memberships)
@@ -48,6 +49,7 @@ export async function sendPromptEmails(input: {
       url: replyUrl(recipient.replyToken),
       deadlineLabel: deadline.inLoopZone,
       theme: emailThemeOf(group),
+      unsubscribeUrl: unsubscribeUrl(recipient.unsubscribeToken),
     });
     const result = await sendEmail({
       ...rendered,
@@ -58,6 +60,7 @@ export async function sendPromptEmails(input: {
       issueId,
       membershipId: recipient.id,
       fromName: group.displayName ?? group.name,
+      unsubscribeToken: recipient.unsubscribeToken,
     });
     if (result.queued) sent += 1;
   }
@@ -99,6 +102,7 @@ export async function nudgeStragglers(groupId: string): Promise<number> {
       email: memberships.email,
       name: memberships.name,
       replyToken: memberships.replyToken,
+      unsubscribeToken: memberships.unsubscribeToken,
       timezone: users.timezone,
     })
     .from(memberships)
@@ -129,6 +133,7 @@ export async function nudgeStragglers(groupId: string): Promise<number> {
       deadlineLabel: deadline.inLoopZone,
       remaining: questionCount,
       theme: emailThemeOf(group),
+      unsubscribeUrl: unsubscribeUrl(member.unsubscribeToken),
     });
     const result = await sendEmail({
       ...rendered,
@@ -139,6 +144,7 @@ export async function nudgeStragglers(groupId: string): Promise<number> {
       issueId: issue.id,
       membershipId: member.id,
       fromName: group.displayName ?? group.name,
+      unsubscribeToken: member.unsubscribeToken,
     });
     if (result.queued) sent += 1;
   }

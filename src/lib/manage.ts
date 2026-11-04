@@ -1,6 +1,7 @@
 import { and, count, eq, inArray, isNotNull, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
 import {
+  emailSuppressions,
   groups,
   issues,
   memberships,
@@ -12,7 +13,7 @@ import { newToken } from "./tokens";
 import { emailThemeOf, inviteEmail } from "./email/templates";
 import { sendEmail } from "./email/send";
 import { sendPromptEmails } from "./notify";
-import { replyUrl, url } from "./urls";
+import { replyUrl, unsubscribeUrl, url } from "./urls";
 import { deliveryInstant, groupSchedule, nextSlot } from "./schedule";
 import { INVITE_DAYS } from "./reply";
 import { reorderIds } from "./question-order";
@@ -204,6 +205,12 @@ async function sendInvite(input: {
     .from(outbox)
     .where(sql`${outbox.dedupeKey} like ${`invite:${input.membershipId}:%`}`);
 
+  const [{ unsubscribeToken }] = await db
+    .select({ unsubscribeToken: memberships.unsubscribeToken })
+    .from(memberships)
+    .where(eq(memberships.id, input.membershipId))
+    .limit(1);
+
   const rendered = inviteEmail({
     groupName: input.groupName,
     inviterName: input.inviterName,
@@ -211,6 +218,7 @@ async function sendInvite(input: {
     isReader: input.participation === "reader",
     personalNote: input.personalNote,
     theme: emailThemeOf(input.group),
+    unsubscribeUrl: unsubscribeUrl(unsubscribeToken),
   });
 
   await sendEmail({
@@ -221,6 +229,7 @@ async function sendInvite(input: {
     groupId: input.groupId,
     membershipId: input.membershipId,
     fromName: input.groupName,
+    unsubscribeToken,
   });
 }
 
@@ -602,8 +611,11 @@ export async function membersOf(groupId: string) {
       invitedAt: memberships.invitedAt,
       acceptedAt: memberships.acceptedAt,
       userId: memberships.userId,
+      mutedAt: memberships.mutedAt,
+      suppression: emailSuppressions.reason,
     })
     .from(memberships)
+    .leftJoin(emailSuppressions, eq(emailSuppressions.email, sql`lower(${memberships.email})`))
     .where(and(eq(memberships.groupId, groupId), isNull(memberships.revokedAt)))
     .orderBy(sql`case when ${memberships.access} = 'owner' then 0 when ${memberships.access} = 'admin' then 1 else 2 end`, memberships.invitedAt);
 }

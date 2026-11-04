@@ -12,7 +12,12 @@ type Membership = Pick<typeof memberships.$inferSelect,
 
 export type LoopPerson = Pick<Membership,
   "id" | "email" | "name" | "photoUrl" | "access" | "participation" | "invitedAt" | "acceptedAt" | "userId"
->;
+> & {
+  /** They turned off this loop's emails; they stay in the loop. */
+  mutedAt: Date | null;
+  /** The provider reported this address as bouncing or a spam complaint. */
+  suppression: "bounce" | "complaint" | null;
+};
 
 export type LoopQuestion = Pick<typeof questions.$inferSelect,
   "id" | "text" | "active" | "skipNext" | "position" | "kind" | "pollMultiple" | "pollOptions"
