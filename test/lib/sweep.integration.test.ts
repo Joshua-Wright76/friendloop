@@ -251,3 +251,33 @@ test("pendingWork describes what a sweep at this instant would act on", async ()
   assert.equal(due.openIssues, 1);
   assert.equal(loop.groupId.length, 36);
 });
+
+test("a sweep that finds another one running does nothing and says so", async () => {
+  await seedLoop();
+  const { db } = await import("../../src/db/index.ts");
+  const { sql } = await import("drizzle-orm");
+
+  // Hold the sweep lock the way a concurrent trigger would, then sweep.
+  const report = await db.transaction(async (tx) => {
+    await tx.execute(sql`select pg_advisory_xact_lock(7311002)`);
+    return sweep({ at: AFTER_FIRST_SLOT });
+  });
+  assert.equal(report.busy, true);
+  assert.equal(report.opened, 0);
+
+  // Released with the transaction: the next sweep does the work.
+  const next = await sweep({ at: AFTER_FIRST_SLOT });
+  assert.equal(next.busy, false);
+  assert.equal(next.opened, 1);
+});
+
+test("two triggers at the same instant open one round between them", async () => {
+  const loop = await seedLoop();
+  const [a, b] = await Promise.all([sweep({ at: AFTER_FIRST_SLOT }), sweep({ at: AFTER_FIRST_SLOT })]);
+  assert.equal(a.opened + b.opened, 1);
+
+  const issues = await rows<{ count: number }>("select count(*)::int as count from issues where group_id = $1", [
+    loop.groupId,
+  ]);
+  assert.equal(issues[0].count, 1);
+});

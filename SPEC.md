@@ -169,7 +169,8 @@ run self-heals and a doubled run is a no-op. Triggers:
 
 - Vercel cron, once daily (`vercel.json`) — cannot be disabled for inactivity.
 - GitHub Actions every 15 minutes — fine granularity, free.
-- Both hit the same endpoint; a `pg_try_advisory_lock` keeps concurrent runs from
+- Both hit the same endpoint (`.github/workflows/sweep.yml` is the GitHub one); a
+  transaction-scoped `pg_try_advisory_xact_lock` (pooler-safe) keeps concurrent runs from
   duplicating work (and the constraints cover the rest).
 
 ## 3 · Schedules are local wall-clock, resolved on demand
