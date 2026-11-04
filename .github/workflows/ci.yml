@@ -65,10 +65,17 @@ jobs:
       - name: Flow coverage (strict)
         run: npm run check:flows -- --strict
 
-  e2e:
-    name: End-to-end
+  # The suite runs one test at a time (every test truncates the same database),
+  # so one runner took ~28 minutes. Four shards, each its own runner and its own
+  # Postgres, split it four ways, and none of them wait for `verify`: the two
+  # gates are independent, so running them side by side costs nothing.
+  e2e-shard:
+    name: End-to-end (${{ matrix.shard }}/4)
     runs-on: ubuntu-24.04
-    needs: verify
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
     services:
       # Deterministic and separate from any dev database. When
       # TEST_DATABASE_URL is set, scripts/e2e-db.mjs stands down and uses this.
@@ -102,14 +109,36 @@ jobs:
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium webkit
 
-      - name: Run the suite
-        run: npm run e2e
+      # Next.js build cache: the suite boots a production build, and every
+      # shard builds the same tree.
+      - uses: actions/cache@v4
+        with:
+          path: .next/cache
+          key: next-${{ runner.os }}-${{ hashFiles('package-lock.json') }}-${{ hashFiles('src/**') }}
+          restore-keys: next-${{ runner.os }}-${{ hashFiles('package-lock.json') }}-
+
+      - name: Run the suite (shard ${{ matrix.shard }} of 4)
+        run: npm run e2e -- --shard=${{ matrix.shard }}/4
 
       - name: Upload report on failure
         if: failure()
         uses: actions/upload-artifact@v7
         with:
-          name: playwright-report
+          name: playwright-report-${{ matrix.shard }}
           path: playwright-report/
           if-no-files-found: ignore
           retention-days: 7
+
+  # One stable check name for branch protection, whatever the shard count.
+  e2e:
+    name: End-to-end
+    runs-on: ubuntu-24.04
+    needs: e2e-shard
+    if: always()
+    steps:
+      - name: All shards passed
+        run: |
+          if [ "${{ needs.e2e-shard.result }}" != "success" ]; then
+            echo "::error::An end-to-end shard did not pass (${{ needs.e2e-shard.result }})"
+            exit 1
+          fi
