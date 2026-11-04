@@ -398,9 +398,23 @@ body:has(.reply-actionbar:not([hidden])) .feedback-button { bottom: calc(92px + 
 .loop-card:hover { transform: translateY(-2px) rotate(-.2deg); box-shadow: var(--shadow-lift); }
 .reply-topbar { background: color-mix(in srgb, var(--card) 92%, transparent) !important; }
 .reply-actionbar { background: var(--card) !important; }
-/* iOS Chrome lags moving fixed-bottom bars while its toolbar collapses; a
-   card-colored skirt below the bar keeps page content from showing through. */
-.reply-actionbar::after { content: ""; position: absolute; left: 0; right: 0; top: 100%; height: 120px; background: var(--card); pointer-events: none; }
+/* iOS browsers shrink their toolbars as the document scrolls, and while they do
+   the fixed Send bar and the sticky title bar drift off the screen edges (page
+   content shows under the bar, the title slides under the status bar). On a touch
+   screen the reply sheet scrolls inside body instead: the document never scrolls,
+   the toolbars never move, and both bars stay where they belong. */
+@media (pointer: coarse) {
+  html:has(.reply-topbar) { height: 100dvh; overflow: hidden; }
+  html:has(.reply-topbar) body {
+    height: 100dvh;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior-y: contain;
+    scroll-behavior: inherit; /* smooth, or auto under reduced motion */
+    scroll-padding-block: min(88px, 25vh) 16px;
+  }
+  html:has(.reply-actionbar:not([hidden])) body { scroll-padding-block-end: min(calc(136px + env(safe-area-inset-bottom)), 45vh); }
+}
 .issue-question { font-size: 27px !important; }
 .answer-card { padding-top: 20px; }
 .poll-option { display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 10px 14px; border: 1.5px solid var(--control-line); border-radius: 8px; background: var(--card); cursor: pointer; transition: border-color 160ms ease, background-color 160ms ease; }
