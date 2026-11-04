@@ -127,7 +127,7 @@ export function IssueBody({
                       <img src={item.url} alt={item.caption ?? ""} className="w-full rounded-lg border border-line object-cover" />
                       {item.caption ? (
                         <figcaption className="mt-1 text-[12.5px] leading-snug text-ink-soft">
-                          <span className="font-bold">{reply.author}</span> — {item.caption}
+                          <span className="font-bold">{reply.author}</span>, {item.caption}
                         </figcaption>
                       ) : null}
                     </figure>

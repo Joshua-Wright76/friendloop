@@ -488,7 +488,7 @@ export async function enableUiPreview(reset = false) {
         issueId: UI_PREVIEW.deliveredIssueId,
         issueSectionId: DELIVERED_SECTION_IDS[0],
         membershipId: UI_PREVIEW.aliceMembershipId,
-        body: "Lemon cake, obviously — got to the corner café early for the last slice.",
+        body: "Lemon cake, obviously. Got to the corner café early for the last slice.",
         status: "submitted",
         submittedAt: new Date(now.getTime() - 86400000),
       },

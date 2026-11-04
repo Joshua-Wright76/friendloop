@@ -13,7 +13,7 @@ import {
 
 test("sign-in email uses the requested title, copy, and button", () => {
   const email = signInEmail("https://friendloop.dev/signin/confirm?token=test");
-  const copy = "This link works once and expires in 15 minutes. If you didn't request this link, feel free to ignore it.";
+  const copy = "This link works once and expires in 15 minutes. If you didn't request this link, you can ignore it.";
 
   assert.match(email.html, /Sign in to friendloop/);
   assert.ok(email.html.includes(copy.replace("'", "&#39;")));

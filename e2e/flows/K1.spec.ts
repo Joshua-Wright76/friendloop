@@ -14,7 +14,7 @@ test("K1 · the owner shapes the section list over time", async ({ page }) => {
   await page.goto(`/g/${loop.groupId}/questions`);
   await page.getByPlaceholder("The potluck corner").fill("The potluck corner");
   await page.getByLabel("Emoji").fill("🍲");
-  await page.getByLabel("Kind").selectOption({ label: "Standard — text and a photo" });
+  await page.getByLabel("Kind").selectOption({ label: "Standard, with text and a photo" });
   await page.getByRole("button", { name: "Add section" }).click();
 
   await expect(page.getByText("Section added.")).toBeVisible();

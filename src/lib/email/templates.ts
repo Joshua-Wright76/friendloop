@@ -122,7 +122,7 @@ function answersHtml(answers: AnswerBlock[], url: string, c: EmailPalette): stri
         : "";
       // Email never attempts to play audio; the web issue is the canonical player.
       const voice = answer.audioUrl
-        ? `<div style="margin:14px 0 0;border:1px dashed ${c.lineStrong};border-radius:6px;padding:10px 12px;font:400 13px/1.5 ${BODY_FONT};color:${c.soft}">${escapeHtml(copy.emails.voiceNote.replace("{duration}", formatAudioDuration(answer.audioDurationMs ?? 0)))} — <a href="${escapeHtml(url)}" style="color:${c.accent}">${escapeHtml(copy.emails.voiceNoteListen)}</a></div>`
+        ? `<div style="margin:14px 0 0;border:1px dashed ${c.lineStrong};border-radius:6px;padding:10px 12px;font:400 13px/1.5 ${BODY_FONT};color:${c.soft}">${escapeHtml(copy.emails.voiceNote.replace("{duration}", formatAudioDuration(answer.audioDurationMs ?? 0)))}. <a href="${escapeHtml(url)}" style="color:${c.accent}">${escapeHtml(copy.emails.voiceNoteListen)}</a></div>`
         : "";
       const note = answer.addedLater
         ? `<div style="font:400 12px/1.5 ${BODY_FONT};color:${c.muted};margin-top:10px">${escapeHtml(copy.emails.addedLater)}</div>`
@@ -290,7 +290,7 @@ export function mentionEmail(input: {
     html: layout({
       preheader: text(content.preheader, values),
       heading: text(content.heading, values),
-      body: [text(content.body, values), `“${excerpt}”`],
+      body: [text(content.body, values), `"${excerpt}"`],
       cta: { label: content.cta, url },
       footer: text(content.footer, values),
       theme,

@@ -124,7 +124,7 @@ export function IssuePrint({
                         <img src={item.url} alt={item.caption ?? ""} />
                         {item.caption ? (
                           <figcaption>
-                            <strong>{reply.author}</strong> — {item.caption}
+                            <strong>{reply.author}</strong>, {item.caption}
                           </figcaption>
                         ) : null}
                       </figure>

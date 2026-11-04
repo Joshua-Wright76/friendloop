@@ -34,7 +34,7 @@ test("S1 · anyone sends a note from the corner button with one box and one tap"
 
   await dialog.getByLabel("Your message").fill("The home page logo looks squashed");
   await send.click();
-  await expect(dialog.getByText("Thank you, that reached us.")).toBeVisible();
+  await expect(dialog.getByText("Thanks, we got it.")).toBeVisible();
 
   // A stranger is not asked who they are, and is not guessed at either; the page and screen size come along.
   const [note] = await notes();
@@ -82,14 +82,14 @@ test("S1 · a signed-in owner and a contributor on their link are named, and the
   await page.getByRole("button", { name: "Send feedback" }).click();
   await page.getByLabel("Your message").fill("The reply box jumps when I type");
   await page.getByRole("button", { name: "Send", exact: true }).click();
-  await expect(page.getByText("Thank you, that reached us.")).toBeVisible();
+  await expect(page.getByText("Thanks, we got it.")).toBeVisible();
 
   await signIn(page, "owner@friendloop.test");
   await page.goto(`/g/${loop.groupId}/members`);
   await page.getByRole("button", { name: "Send feedback" }).click();
   await page.getByLabel("Your message").fill("Wish I could reorder members");
   await page.getByRole("button", { name: "Send", exact: true }).click();
-  await expect(page.getByText("Thank you, that reached us.")).toBeVisible();
+  await expect(page.getByText("Thanks, we got it.")).toBeVisible();
 
   const [fromLink, fromSession] = await notes();
   expect(fromLink.sender_email).toBe("alice@friendloop.test");
