@@ -243,32 +243,46 @@ export async function requireUiPreview() {
 }
 
 /**
+ * True for Postgres integrity errors (SQLSTATE class 23), the way stale demo
+ * rows fail. Drizzle wraps the driver's error, so the code is usually on `cause`.
+ */
+export function isConstraintViolation(error: unknown): boolean {
+  const { cause, code } = (error ?? {}) as { cause?: { code?: unknown }; code?: unknown };
+  const sqlState = cause?.code ?? code;
+  return typeof sqlState === "string" && sqlState.startsWith("23");
+}
+
+/**
  * Seeds on top of whatever is there, which only works while that data matches
  * this seed: rows from an older seed keep their old ids behind the unique
- * indexes, and the demo is open for anyone to edit. So when topping up fails,
- * rebuild the demo from scratch rather than leaving /dev/ui broken until someone
- * finds the reset link. Only the demo loop and demo user are ever deleted.
+ * indexes, and the demo is open for anyone to edit. So when topping up breaks a
+ * constraint, rebuild the demo loop rather than leaving /dev/ui broken until
+ * someone finds the reset link. Any other error, such as a dropped connection,
+ * says nothing about the data, so it is not worth wiping the demo for.
+ *
+ * The rebuild keeps the demo user, because deleting it would strip the owner from
+ * any other loop a visitor made while signed in as the demo user.
  */
 export async function enableUiPreview(reset = false) {
   const now = new Date();
 
   try {
-    await seedUiPreview(reset, now);
+    await seedUiPreview(now, { deleteGroup: reset, deleteUser: reset });
   } catch (error) {
-    if (reset) throw error;
-    console.warn("UI preview data could not be topped up, so it is being rebuilt", error);
-    await seedUiPreview(true, now);
+    if (reset || !isConstraintViolation(error)) throw error;
+    const { cause } = error as { cause?: { code?: string; constraint_name?: string } };
+    // Not the error itself: drizzle's message carries the whole query and its parameters.
+    console.warn("UI preview data could not be topped up, so it is being rebuilt", cause?.code, cause?.constraint_name);
+    await seedUiPreview(now, { deleteGroup: true, deleteUser: false });
   }
 
   await createSession(UI_PREVIEW.userId, now);
 }
 
-async function seedUiPreview(reset: boolean, now: Date) {
+async function seedUiPreview(now: Date, { deleteGroup, deleteUser }: { deleteGroup: boolean; deleteUser: boolean }) {
   await db.transaction(async (tx) => {
-    if (reset) {
-      await tx.delete(groups).where(eq(groups.id, UI_PREVIEW.groupId));
-      await tx.delete(users).where(eq(users.id, UI_PREVIEW.userId));
-    }
+    if (deleteGroup) await tx.delete(groups).where(eq(groups.id, UI_PREVIEW.groupId));
+    if (deleteUser) await tx.delete(users).where(eq(users.id, UI_PREVIEW.userId));
 
     await tx.insert(users).values({
       id: UI_PREVIEW.userId,

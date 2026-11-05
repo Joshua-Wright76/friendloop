@@ -8,6 +8,7 @@ import { emailPreviews } from "../../src/lib/email/previews.ts";
 import { deleteStoredPhoto, isManagedBlobPhotoUrl, storePhoto } from "../../src/lib/photo-storage.ts";
 import {
   enableUiPreview,
+  isConstraintViolation,
   isLocalUiPreview,
   previewCookieMatches,
   previewCookieName,
@@ -334,16 +335,28 @@ test("the preview rebuilds itself when an older seed left rows it cannot top up"
   assert.ok(cookieEntries().length > 0, "the rebuilt preview still signs you in");
 });
 
-test("the preview leaves other loops alone when it rebuilds", async () => {
+test("rebuilding the preview leaves other loops and the demo user's place in them alone", async () => {
   const other = await seedLoop();
   await enableUiPreview();
+  await rows("update memberships set user_id = $1 where group_id = $2 and access = 'owner'", [UI_PREVIEW.userId, other.groupId]);
   await rows("delete from comments");
   await rows("update replies set id = gen_random_uuid()");
 
   await enableUiPreview();
 
-  const kept = await rows<{ id: string }>("select id from groups where id = $1", [other.groupId]);
-  assert.equal(kept.length, 1);
+  const owners = await rows<{ user_id: string }>("select user_id from memberships where group_id = $1 and access = 'owner'", [other.groupId]);
+  assert.deepEqual(owners.map((row) => row.user_id), [UI_PREVIEW.userId]);
+});
+
+test("only an integrity error is a reason to rebuild the preview", () => {
+  // Drizzle's wrapper, the bare driver error, then everything that says nothing about the data.
+  assert.equal(isConstraintViolation({ cause: { code: "23503" } }), true);
+  assert.equal(isConstraintViolation({ code: "23505" }), true);
+  assert.equal(isConstraintViolation({ cause: { code: "40001" } }), false, "serialization failure");
+  assert.equal(isConstraintViolation({ cause: { code: "57014" } }), false, "statement timeout");
+  assert.equal(isConstraintViolation({ cause: { code: "ECONNRESET" } }), false);
+  assert.equal(isConstraintViolation(new TypeError("boom")), false);
+  assert.equal(isConstraintViolation(null), false);
 });
 
 test("a local photo that cannot be unlinked is an error worth hearing about", async () => {
