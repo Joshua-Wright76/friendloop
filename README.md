@@ -108,11 +108,23 @@ git config user.email "Joshua-Wright76@users.noreply.github.com"
 
 ### Migrations
 
-Both databases need them, and the dev one is not a copy of production:
+Deploys apply them. `vercel.json` runs `scripts/deploy-migrate.mjs` before `next build`:
+production migrates its database and the `dev` branch migrates its own, which is not a
+copy of production. PR previews never migrate. A failed migration fails the build, so the
+running deployment stays up and the release does not go out.
+
+Each migration goes live a few minutes before the code that needs it, so the code already
+running must still work against the new schema. `check:migrations` fails the build on
+destructive DDL, but it can't catch everything: a new `NOT NULL` column with no default
+still breaks old inserts.
+
+A deploy fails rather than skip a migration: applied ones are tracked by timestamp, so
+one older than the latest applied would otherwise never run. If you apply one by hand,
+for example to try it on dev before merging, regenerate any other unmerged migration
+that now has an older timestamp:
 
 ```sh
-DATABASE_URL="$PROD_URL" npx drizzle-kit migrate
-DATABASE_URL="$DEV_URL"  npx drizzle-kit migrate
+DATABASE_URL="$DEV_URL" npx drizzle-kit migrate
 ```
 
 ## Dev
@@ -350,7 +362,9 @@ every push to `main`, in order:
    runner image are pinned deliberately; a gate should not move underneath us.
 
 Migrations must be additive (`check:migrations` fails step 1 on destructive DDL),
-because reverting a deploy reverts code, not the database.
+because reverting a deploy reverts code, not the database. The same check also fails
+on a journal entry that would be silently skipped, and it runs in the Vercel build
+before anything is migrated.
 
 What CI does **not** do, so nobody is surprised by a bad deploy:
 
