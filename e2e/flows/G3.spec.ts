@@ -18,14 +18,17 @@ test("G3 · an admin manages people but never reaches owner settings", async ({ 
   await card.getByRole("option", { name: "Admin", exact: true }).click();
   await expect(card.getByRole("button", { name: /Member type for.*Admin/ })).toBeVisible();
 
-  const [row] = await rows<{ access: string }>("select access from memberships where id = $1", [member.id]);
-  expect(row.access).toBe("admin");
+  // The menu shows the choice as soon as it's made, so wait for the write behind it.
+  await expect.poll(async () => {
+    const [row] = await rows<{ access: string }>("select access from memberships where id = $1", [member.id]);
+    return row.access;
+  }).toBe("admin");
 
   await page.context().clearCookies();
   await signIn(page, "admin@friendloop.test");
 
   await page.goto(`/g/${loop.groupId}/members`);
-  await expect(page.getByLabel("Email addresses")).toBeVisible();
+  await expect(page.getByLabel("Invite people by email")).toBeVisible();
 
   await page.goto(`/g/${loop.groupId}/questions`);
   await expect(page.getByLabel("New question")).toBeVisible();
@@ -56,7 +59,7 @@ test("G3 · a promotion reaches the other person's live session", async ({ brows
     // The member starts where a plain member starts: the members tab renders,
     // but without the invite form.
     await memberPage.goto(`/g/${loop.groupId}/members`);
-    await expect(memberPage.getByLabel("Email addresses")).toHaveCount(0);
+    await expect(memberPage.getByLabel("Invite people by email")).toHaveCount(0);
 
     await ownerPage.goto(`/g/${loop.groupId}/members`);
     const card = ownerPage.locator(".card").filter({ hasText: "promoted@friendloop.test" });
@@ -66,7 +69,7 @@ test("G3 · a promotion reaches the other person's live session", async ({ brows
 
     // Same browser session, same cookies, no sign-in in between.
     await memberPage.goto(`/g/${loop.groupId}/members`);
-    await expect(memberPage.getByLabel("Email addresses")).toBeVisible();
+    await expect(memberPage.getByLabel("Invite people by email")).toBeVisible();
   } finally {
     await ownerContext.close();
     await memberContext.close();

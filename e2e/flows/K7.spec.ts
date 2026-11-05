@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { resetDatabase, rows } from "../support/db";
 import { seedLoop } from "../support/seed";
-import { runSweep, signIn } from "../support/harness";
+import { openPart, runSweep, signIn } from "../support/harness";
 
 test.beforeEach(async () => {
   await resetDatabase();
@@ -12,6 +12,7 @@ test("K7 · admin-only sections stay invisible to regular members", async ({ pag
 
   await signIn(page, "owner@friendloop.test");
   await page.goto(`/g/${loop.groupId}/questions`);
+  await openPart(page, "Sections and dates");
   await page.getByPlaceholder("The potluck corner").fill("Committee notes");
   await page.getByRole("checkbox", { name: "Owner and admins only" }).check();
   await page.getByRole("button", { name: "Add section" }).click();

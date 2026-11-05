@@ -3,7 +3,7 @@ import { db } from "@/db";
 import { musicLinks } from "@/db/schema";
 import { resetDatabase, rows } from "../support/db";
 import { seedLoop } from "../support/seed";
-import { runSweep, signIn } from "../support/harness";
+import { openPart, pickOption, runSweep, signIn } from "../support/harness";
 
 test.beforeEach(async () => {
   await resetDatabase();
@@ -14,8 +14,9 @@ test("K6 · a delivered issue renders a music card that opens the provider", asy
 
   await signIn(page, "owner@friendloop.test");
   await page.goto(`/g/${loop.groupId}/questions`);
+  await openPart(page, "Sections and dates");
   await page.getByPlaceholder("The potluck corner").fill("Music picks");
-  await page.getByLabel("Kind").selectOption({ label: "Music, with Spotify, Bandcamp, or Qobuz picks" });
+  await pickOption(page, "Kind", "Music, with Spotify, Bandcamp, or Qobuz picks");
   await page.getByRole("button", { name: "Add section" }).click();
   await runSweep(new Date("2026-01-02T08:00:00Z"));
 
@@ -28,13 +29,13 @@ test("K6 · a delivered issue renders a music card that opens the provider", asy
     .insert(musicLinks)
     .values({ url: link, provider: "spotify", title: "Our road trip record", artworkUrl: null, fetchedAt: new Date() });
 
-  await page.getByPlaceholder("Paste a Spotify, Bandcamp, or Qobuz link").fill(link);
-  await page.getByLabel("Caption").first().fill("Our road trip record");
-  await page.getByRole("button", { name: "Save pick" }).click();
+  await page.getByPlaceholder("Spotify, Bandcamp or Qobuz link").fill(link);
+  await page.getByLabel("A line about it").first().fill("Our road trip record");
+  await page.getByLabel("A line about it").first().blur();
   await expect(page.getByText("Saved.").first()).toBeVisible();
 
   await page.getByRole("button", { name: "Send answers" }).click();
-  await expect(page.getByText("Sent").first()).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Sent", exact: true })).toBeVisible();
 
   await runSweep(new Date("2026-01-09T09:00:00Z"));
   const [issue] = await rows<{ id: string }>("select id from issues order by number asc limit 1");

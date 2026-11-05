@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { resetDatabase, rows } from "../support/db";
 import { seedLoop } from "../support/seed";
-import { AFTER_FIRST_SLOT, runSweep, signIn } from "../support/harness";
+import { AFTER_FIRST_SLOT, runSweep, sendNow, signIn } from "../support/harness";
 
 test.beforeEach(async () => {
   await resetDatabase();
@@ -12,7 +12,7 @@ test("D3 · send now opens a round at once and the schedule does not duplicate i
   await signIn(page, "owner@friendloop.test");
 
   await page.goto(`/g/${loop.groupId}`);
-  await page.getByRole("button", { name: "Send now" }).click();
+  await sendNow(page);
   await expect(page.getByText(/Round 1 is open and everyone/)).toBeVisible();
 
   const opened = await rows<{ count: number }>(

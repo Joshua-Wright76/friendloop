@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { resetDatabase, rows } from "../support/db";
 import { seedLoop } from "../support/seed";
-import { DELIVERY_DAY, runSweep, signIn } from "../support/harness";
+import { DELIVERY_DAY, openPart, runSweep, signIn } from "../support/harness";
 import { PAPER, cssVar, gotoScheme, seedWorld } from "../support/identity";
 
 test.beforeEach(async () => {
@@ -24,7 +24,7 @@ test("N2 · a loop that never chose a theme renders exactly as before, in both s
       expect(await cssVar(page, "--accent"), `${path} ${scheme}`).toBe(scheme === "light" ? "#cc3456" : "#ff8ba4");
       // No stationery rule is injected at all: the stylesheet is the whole story.
       await expect(page.locator("style", { hasText: 'data-theme="light"]{' })).toHaveCount(0);
-      await expect(page.locator("img.loop-banner")).toHaveCount(0);
+      await expect(page.locator(".snapshot img, img.loop-banner")).toHaveCount(0);
     }
   }
 
@@ -42,15 +42,14 @@ test("N2 · choosing Gingham again stores nothing, so going back is the same as 
   const loop = await seedLoop();
   await signIn(page, "owner@friendloop.test");
   await page.goto(`/g/${loop.groupId}/settings`);
+  await openPart(page, "Paper");
 
   await page.getByRole("radio", { name: /Bluebell Notebook/ }).check();
-  await page.getByRole("button", { name: "Save stationery" }).click();
-  await expect(page.getByText("Stationery saved.")).toBeVisible();
+  await expect(page.getByText("Saved. Everyone sees it on their next visit.")).toBeVisible();
   await expect.poll(() => cssVar(page, "--page")).toBe(PAPER.bluebell.light);
 
   await page.getByRole("radio", { name: /Gingham Picnic/ }).check();
-  await page.getByRole("button", { name: "Save stationery" }).click();
-  // The notice from the first save is still on the page, so wait on the paper itself.
+  // The note from the first save may still be up, so wait on the paper itself.
   await expect.poll(() => cssVar(page, "--page")).toBe(PAPER.gingham.light);
 
   const [group] = await rows<{ theme_preset: string | null; theme_accent: string | null }>(

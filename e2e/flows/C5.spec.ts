@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { resetDatabase, rows } from "../support/db";
 import { seedLoop, seedReplies } from "../support/seed";
-import { AFTER_FIRST_SLOT, DAY, pickOption, runSweep, signIn } from "../support/harness";
+import { AFTER_FIRST_SLOT, DAY, pickOption, runSweep, sendNow, signIn, unfold } from "../support/harness";
 
 const QUESTIONS = ["Q1", "Q2", "Q3", "Q4", "Q5"];
 
@@ -23,8 +23,9 @@ test("C5 · a question count rotates scheduled rounds and wraps", async ({ page 
   await signIn(page, "owner@friendloop.test");
 
   await page.goto(`/g/${loop.groupId}/questions`);
+  await unfold(page, /Each round asks/);
+  // Choosing a count saves it.
   await pickOption(page, "Questions per round", "2");
-  await page.getByRole("button", { name: "Save question count" }).click();
   await expect(page.getByText("Questions per round updated.")).toBeVisible();
 
   await runSweep(AFTER_FIRST_SLOT);
@@ -53,7 +54,9 @@ test("C5 · saving an unchanged count keeps the cursor", async ({ page }) => {
   await signIn(page, "owner@friendloop.test");
 
   await page.goto(`/g/${loop.groupId}/questions`);
-  await page.getByRole("button", { name: "Save question count" }).click();
+  // Choosing the count it already has still saves, and must leave the cursor alone.
+  await unfold(page, /Each round asks/);
+  await pickOption(page, "Questions per round", "2");
   await expect(page.getByText("Questions per round updated.")).toBeVisible();
 
   const [group] = await rows<{ question_cursor: number }>(
@@ -69,7 +72,7 @@ test("C5 · send now uses the same rotation", async ({ page }) => {
   await signIn(page, "owner@friendloop.test");
 
   await page.goto(`/g/${loop.groupId}`);
-  await page.getByRole("button", { name: "Send now" }).click();
+  await sendNow(page);
   await expect(page.getByText(/Round 1 is open and everyone/)).toBeVisible();
 
   expect(await questionsForRound(loop.groupId, 1)).toEqual(["Q1", "Q2"]);

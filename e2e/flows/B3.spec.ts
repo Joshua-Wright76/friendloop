@@ -12,7 +12,7 @@ test("B3 · inviting three people sends three emails with their own links", asyn
   await signIn(page, "owner@friendloop.test");
 
   await page.goto(`/g/${loop.groupId}/members`);
-  const emailInput = page.getByLabel("Email addresses");
+  const emailInput = page.getByLabel("Invite people by email");
   await emailInput.fill("ana@friendloop.test, ben@friendloop.test; cleo@friendloop.test owner@friendloop.test ana@friendloop.test");
   await emailInput.press("Enter");
   // The invite form sits above the list now.

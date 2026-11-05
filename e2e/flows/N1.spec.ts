@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 import { resetDatabase, rows } from "../support/db";
-import { DELIVERY_DAY, runSweep, signIn } from "../support/harness";
+import { DELIVERY_DAY, openPart, runSweep, signIn } from "../support/harness";
 import { TINY_PNG } from "../support/comments";
 import { PAPER, chooseFile, cssVar, gotoScheme, seedWorld } from "../support/identity";
 
@@ -29,6 +29,7 @@ test("N1 · the owner picks a paper and every member's surfaces wear it, light a
 
   await signIn(page, "owner@friendloop.test");
   await page.goto(`/g/${loop.groupId}/settings`);
+  await openPart(page, "Paper");
 
   // The settings show the original as chosen, and a live preview of both schemes.
   await expect(page.getByRole("radio", { name: /Gingham Picnic/ })).toBeChecked();
@@ -38,8 +39,8 @@ test("N1 · the owner picks a paper and every member's surfaces wear it, light a
   expect(await page.getByTestId("stationery-preview-light").evaluate((el) => getComputedStyle(el).backgroundColor)).toBe("rgb(240, 246, 236)");
   expect(await page.getByTestId("stationery-preview-dark").evaluate((el) => getComputedStyle(el).backgroundColor)).toBe("rgb(24, 33, 27)");
 
-  await page.getByRole("button", { name: "Save stationery" }).click();
-  await expect(page.getByText("Stationery saved.")).toBeVisible();
+  // Choosing a paper saves it.
+  await expect(page.getByText("Saved. Everyone sees it on their next visit.")).toBeVisible();
   const [group] = await rows<{ theme_preset: string | null; theme_accent: string | null }>(
     "select theme_preset, theme_accent from groups where id = $1",
     [loop.groupId],
@@ -74,21 +75,28 @@ test("N1 · an accent that would be hard to read is nudged, and every preset pas
 
   // Pale yellow on cream is the classic unreadable accent.
   await page.goto(`/g/${loop.groupId}/settings`);
+  await openPart(page, "Paper");
   await page.getByRole("radio", { name: /Lilac Linen/ }).check();
+  await expect(page.getByText("Saved. Everyone sees it on their next visit.")).toBeVisible();
   await page.getByLabel("Accent color as a hex code").fill("#ffee00");
   await expect(page.getByText(/a little hard to read, so we nudged it/)).toBeVisible();
   await page.getByLabel("Accent color as a hex code").fill("yellow-ish");
   await expect(page.getByText("Use a hex code like #3366cc.")).toBeVisible();
-  await expect(page.getByRole("button", { name: "Save stationery" })).toBeDisabled();
+  // Leaving the field with something unusable saves nothing.
+  await page.getByLabel("Accent color as a hex code").blur();
+  const [unsaved] = await rows<{ theme_accent: string | null }>("select theme_accent from groups where id = $1", [loop.groupId]);
+  expect(unsaved.theme_accent).toBeNull();
+  // Leaving it with a real colour saves that, and the nudge stays said.
   await page.getByLabel("Accent color as a hex code").fill("#ffee00");
-  await page.getByRole("button", { name: "Save stationery" }).click();
-  await expect(page.getByText(/We nudged the accent a little/)).toBeVisible();
-  const [saved] = await rows<{ theme_accent: string }>("select theme_accent from groups where id = $1", [loop.groupId]);
-  expect(saved.theme_accent).toBe("#ffee00");
+  await page.getByLabel("Accent color as a hex code").blur();
+  await expect(page.getByText(/a little hard to read, so we nudged it/)).toBeVisible();
+  const accent = () => rows<{ theme_accent: string | null }>("select theme_accent from groups where id = $1", [loop.groupId]).then(([row]) => row.theme_accent);
+  await expect.poll(accent).toBe("#ffee00");
 
   // Reset returns the paper's own accent.
   await page.getByRole("button", { name: "Use the paper's own" }).click();
   await expect(page.getByText("Using the paper's own accent.")).toBeVisible();
+  await expect.poll(accent).toBeNull();
 
   for (const preset of ["bluebell", "meadow", "marmalade", "lilac"] as const) {
     await rows("update groups set theme_preset = $2, theme_accent = null where id = $1", [loop.groupId, preset]);
@@ -115,6 +123,7 @@ test("N1 · a header picture shows above every surface and in the email; only th
 
   await signIn(page, "owner@friendloop.test");
   await page.goto(`/g/${loop.groupId}/settings`);
+  await openPart(page, "Paper");
   await chooseFile(page, "Choose a header picture", { name: "banner.png", mimeType: "image/png", buffer: TINY_PNG });
   await expect(page.getByText("Header picture saved.")).toBeVisible();
   const [row] = await rows<{ header_image_url: string }>("select header_image_url from groups where id = $1", [loop.groupId]);
@@ -122,7 +131,7 @@ test("N1 · a header picture shows above every surface and in the email; only th
 
   for (const path of [`/g/${loop.groupId}`, `/r/${alice.token}`, `/i/${delivered.issueId}?m=${alice.token}`]) {
     await page.goto(path);
-    await expect(page.locator(`img.loop-banner[src="${row.header_image_url}"]`)).toBeVisible();
+    await expect(page.locator(`.snapshot img[src="${row.header_image_url}"]`)).toBeVisible();
   }
 
   await runSweep(DELIVERY_DAY);
@@ -133,6 +142,7 @@ test("N1 · a header picture shows above every surface and in the email; only th
   // Something that cannot be read as a picture is refused before it leaves the browser
   // (a real oversize photo is shrunk instead: see T1).
   await page.goto(`/g/${loop.groupId}/settings`);
+  await openPart(page, "Paper");
   await chooseFile(page, "Choose a header picture", { name: "huge.png", mimeType: "image/png", buffer: Buffer.alloc(4 * 1024 * 1024 + 1) });
   await expect(page.getByText("We couldn't read that picture.")).toBeVisible();
 
@@ -140,7 +150,7 @@ test("N1 · a header picture shows above every surface and in the email; only th
   await page.getByRole("button", { name: "Remove picture" }).click();
   await expect(page.getByText("Header picture removed.")).toBeVisible();
   await page.goto(`/r/${alice.token}`);
-  await expect(page.locator("img.loop-banner")).toHaveCount(0);
+  await expect(page.locator(".snapshot img, img.loop-banner")).toHaveCount(0);
 
   // Anyone else — a contributor with only a reply link, or a stranger — is turned away.
   const form = { multipart: { photo: { name: "x.png", mimeType: "image/png", buffer: TINY_PNG } } };

@@ -60,7 +60,7 @@ test("B7 · the wizard sets the paper, accent and header picture, and they survi
   expect(group.header_image_url).toMatch(/\/uploads\/[a-f0-9]{64}\.png$/);
 
   // The very first page of the new loop already wears them.
-  await expect(page.locator(`img.loop-banner[src="${group.header_image_url}"]`)).toBeVisible();
+  await expect(page.locator(`.snapshot img[src="${group.header_image_url}"]`)).toBeVisible();
   await gotoScheme(page, `/g/${groupId}`, "light");
   expect(await cssVar(page, "--page")).toBe(PAPER.meadow.light);
 });
@@ -72,7 +72,9 @@ test("B7 · skipping the step changes nothing, and a bad accent or an oversize p
   // A made-up accent holds the step; the words say what to do.
   await page.getByLabel("Accent color as a hex code").fill("yellow-ish");
   await page.getByRole("button", { name: NEXT }).click();
-  await expect(page.getByText("That paper or accent color wasn't recognized.")).toBeVisible();
+  await expect(page.getByText("Use a hex code like #3366cc.")).toBeVisible();
+  await expect(page.getByLabel("Accent color as a hex code")).toBeFocused();
+  await expect(page.getByRole("heading", { name: "Choose its paper and picture" })).toBeVisible();
   await page.getByRole("button", { name: "Use the paper's own" }).click();
 
   // A picture that cannot be read is refused before anything is sent.
@@ -90,5 +92,5 @@ test("B7 · skipping the step changes nothing, and a bad accent or an oversize p
     ["Plain Loop"],
   );
   expect(group).toEqual({ theme_preset: null, theme_accent: null, header_image_url: null });
-  await expect(page.locator("img.loop-banner")).toHaveCount(0);
+  await expect(page.locator(".snapshot img, img.loop-banner")).toHaveCount(0);
 });

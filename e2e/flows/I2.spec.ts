@@ -2,7 +2,7 @@ import { test, expect } from "@playwright/test";
 import { resetDatabase } from "../support/db";
 import { seedLoop, seedOpenIssue } from "../support/seed";
 import { seedSuggestion } from "../support/suggestions";
-import { signIn } from "../support/harness";
+import { signIn, unfold } from "../support/harness";
 
 test.beforeEach(async () => {
   await resetDatabase();
@@ -31,6 +31,7 @@ test("I2 · the owner accepts with an edit, or turns a suggestion down", async (
   await signIn(page, "owner@friendloop.test");
   await page.goto(`/g/${loop.groupId}/questions`);
 
+  await unfold(page, "2 suggested by members");
   // The anonymous suggestion shows its chip, but the owner still sees who asked.
   await expect(page.getByText("from Bob")).toBeVisible();
   await expect(page.getByText("anonymous")).toBeVisible();
@@ -46,5 +47,5 @@ test("I2 · the owner accepts with an edit, or turns a suggestion down", async (
   // Decline what is left: the queue empties out.
   await page.getByRole("button", { name: "Decline" }).click();
   await expect(page.getByText("Suggestion declined.")).toBeVisible();
-  await expect(page.getByText("Suggested questions")).toHaveCount(0);
+  await expect(page.getByText(/suggested by/)).toHaveCount(0);
 });

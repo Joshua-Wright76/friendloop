@@ -25,6 +25,8 @@ test("B2 · defaults and a quick idea become the ordered question pool", async (
   await signIn(page, uniqueEmail("owner"));
   await moveToDetails(page, "Book Club");
 
+  // Every pack starts folded, and the first two questions are already picked.
+  await page.getByRole("button", { name: new RegExp(`^${QUESTION_PACKS[0].name}`) }).click();
   const questions = page.getByRole("checkbox");
   await expect(questions.nth(0)).toBeChecked();
   await expect(questions.nth(1)).toBeChecked();
@@ -60,7 +62,9 @@ test("B2 · the question bank can start with more than eight prompts", async ({ 
   await signIn(page, uniqueEmail("owner"));
   await moveToDetails(page, "Long Table");
 
-  // Only the first pack starts open; the rest fold out on demand.
+  // Every pack starts folded and opens on demand.
+  await expect(page.getByRole("checkbox")).toHaveCount(0);
+  await page.getByRole("button", { name: new RegExp(`^${QUESTION_PACKS[0].name}`) }).click();
   const questions = page.getByRole("checkbox");
   await expect(questions).toHaveCount(QUESTION_PACKS[0].questions.length);
   await questions.nth(0).uncheck();

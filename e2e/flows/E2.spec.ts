@@ -18,7 +18,7 @@ test("E2 · a share link shows the round to a stranger, read-only", async ({ pag
 
   await page.goto(`/s/${issue && "share-token-abc123"}`);
 
-  await expect(page.getByRole("heading", { name: "Round 1" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Issue 1" })).toBeVisible();
   await expect(page.getByText("Shared with the internet.")).toBeVisible();
   await expect(page.getByLabel("Comment")).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Post" })).toHaveCount(0);

@@ -16,7 +16,7 @@ test("F5 · a plain member is sent away from owner routes", async ({ page }) => 
   await expect(page).toHaveURL(new RegExp(`/g/${loop.groupId}$`));
 
   await page.goto(`/g/${loop.groupId}/members`);
-  await expect(page.getByLabel("Email addresses")).toHaveCount(0);
+  await expect(page.getByLabel("Invite people by email")).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Remove" })).toHaveCount(0);
 
   await page.goto(`/g/${loop.groupId}`);

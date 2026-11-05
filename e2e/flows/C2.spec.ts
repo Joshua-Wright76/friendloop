@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { resetDatabase, rows } from "../support/db";
 import { seedLoop } from "../support/seed";
-import { signIn } from "../support/harness";
+import { openRowMenu, signIn } from "../support/harness";
 
 test.beforeEach(async () => {
   await resetDatabase();
@@ -12,6 +12,7 @@ test("C2 · moving a question changes the order the next round uses", async ({ p
   await signIn(page, "owner@friendloop.test");
 
   await page.goto(`/g/${loop.groupId}/questions`);
+  await openRowMenu(page);
   await page.getByRole("button", { name: "Down" }).first().click();
 
   // The list reorders optimistically, so the visible order can lead the write.

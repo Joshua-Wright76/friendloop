@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { resetDatabase, rows } from "../support/db";
 import { seedLoop } from "../support/seed";
-import { runSweep, signIn } from "../support/harness";
+import { openPart, openRowMenu, runSweep, signIn } from "../support/harness";
 
 test.beforeEach(async () => {
   await resetDatabase();
@@ -12,6 +12,7 @@ test("K8 · editing a section changes future issues, never an open one", async (
 
   await signIn(page, "owner@friendloop.test");
   await page.goto(`/g/${loop.groupId}/questions`);
+  await openPart(page, "Sections and dates");
   await page.getByPlaceholder("The potluck corner").fill("The potluck corner");
   await page.getByRole("button", { name: "Add section" }).click();
   await expect(page.getByText("Section added.")).toBeVisible();
@@ -24,8 +25,10 @@ test("K8 · editing a section changes future issues, never an open one", async (
 
   // The owner rewords it while round one is still open.
   await page.goto(`/g/${loop.groupId}/questions`);
-  const sectionList = page.getByLabel("Sections in order").locator("li");
+  await openPart(page, "Sections and dates");
+  const sectionList = page.getByLabel("Sections in order").locator("> li");
   const item = sectionList.last();
+  await openRowMenu(page, "More for: The potluck corner");
   await item.getByText("Edit").click();
   await item.getByLabel("Title").fill("The potluck corner, revisited");
   await item.getByRole("button", { name: "Save section" }).click();
@@ -36,7 +39,7 @@ test("K8 · editing a section changes future issues, never an open one", async (
   await expect(page.getByText("The potluck corner", { exact: true })).toBeVisible();
   await page.getByRole("textbox", { name: "The potluck corner" }).fill("Banana bread, again.");
   await page.getByRole("button", { name: "Send answers" }).click();
-  await expect(page.getByText("Sent").first()).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Sent", exact: true })).toBeVisible();
 
   await runSweep(new Date("2026-01-09T09:00:00Z"));
   const [issue] = await rows<{ id: string }>("select id from issues order by number asc limit 1");

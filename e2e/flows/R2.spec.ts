@@ -1,7 +1,10 @@
 import { test, expect } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 import { resetDatabase } from "../support/db";
-import { signIn } from "../support/harness";
+import { pickOption, signIn, unfold } from "../support/harness";
+
+/** The reading controls live in the issue bar, folded under who and in what order. */
+const openReading = (page: import("@playwright/test").Page) => unfold(page, /by (question|person)$/i);
 import { seedReading } from "../support/reading";
 
 test.beforeEach(async () => {
@@ -16,16 +19,16 @@ test("R2 · the rounds list narrows to the rounds one person answered in, and re
   // Everything is listed until somebody is chosen.
   for (const name of ["Round 1", "Round 2", "Round 3"]) await expect(page.getByText(name, { exact: true })).toBeVisible();
 
-  await page.getByLabel("Rounds with answers from").selectOption({ label: "Alice" });
-  await page.getByRole("button", { name: "Show rounds" }).click();
+  await unfold(page, "Filter by person");
+  await pickOption(page, "Rounds with answers from", "Alice");
   await expect(page).toHaveURL(new RegExp(`member=${world.alice.id}`));
   await expect(page.getByText("Showing rounds Alice answered in.")).toBeVisible();
   await expect(page.getByText("Round 1", { exact: true })).toBeVisible();
   await expect(page.getByText("Round 2", { exact: true })).toHaveCount(0);
   await expect(page.getByText("Round 3", { exact: true }), "an open round is not a delivered one").toHaveCount(0);
 
-  // "Read it" lands on that person's answers.
-  await page.getByRole("link", { name: "Read it" }).click();
+  // Reading lands on that person's answers.
+  await page.getByRole("link", { name: /^Read the issue/ }).click();
   await expect(page).toHaveURL(new RegExp(`/i/${world.first.issueId}\\?by=${world.alice.id}`));
   await expect(page.getByText("Alice on the goose.")).toBeVisible();
   await expect(page.getByText("Alice looks forward to soup.")).toBeVisible();
@@ -43,10 +46,9 @@ test("R2 · a person with no delivered answers gets a plain empty list and a way
   const world = await seedReading();
   await signIn(page, "owner@friendloop.test");
   await page.goto(`/g/${world.loop.groupId}/issues?member=${world.alice.id}`);
-  await page.getByLabel("Rounds with answers from").selectOption({ label: "Sam" });
-  await page.getByRole("button", { name: "Show rounds" }).click();
+  await pickOption(page, "Rounds with answers from", "Sam");
 
-  await expect(page.getByText("Sam hasn't answered in a delivered round yet.")).toBeVisible();
+  await expect(page.getByText("Sam hasn't answered in a delivered issue yet.")).toBeVisible();
   await expect(page.getByText("Round 1", { exact: true })).toHaveCount(0);
   await page.getByRole("link", { name: "Show every round" }).click();
   await expect(page).toHaveURL(new RegExp(`/g/${world.loop.groupId}/issues$`));
@@ -65,7 +67,8 @@ test("R2 · inside a round, one person's answers can be isolated and the round c
   const path = `/i/${world.first.issueId}?m=${world.alice.token}`;
   await page.goto(path);
 
-  const controls = page.getByRole("navigation", { name: "Reading this round" });
+  await openReading(page);
+  const controls = page.getByRole("navigation", { name: "Reading this issue" });
   await expect(controls).toBeVisible();
   await expect(controls.getByRole("link", { name: /^(✓ )?Everyone$/ })).toHaveAttribute("aria-current", "true");
   await expect(controls.getByRole("link", { name: /By question/ })).toHaveAttribute("aria-current", "true");
@@ -74,6 +77,7 @@ test("R2 · inside a round, one person's answers can be isolated and the round c
   await controls.getByRole("link", { name: "Bob" }).click();
   await expect(page).toHaveURL(new RegExp(`by=${world.bob.id}`));
   await expect(page).toHaveURL(/m=/);
+  await openReading(page);
   await expect(controls.getByRole("link", { name: /Bob/ })).toHaveAttribute("aria-current", "true");
   await expect(page.getByText("Bob on the goose.")).toBeVisible();
   await expect(page.getByText("Bob looks forward to a nap.")).toBeVisible();
@@ -81,10 +85,13 @@ test("R2 · inside a round, one person's answers can be isolated and the round c
   await expect(page.getByText("Small wins"), "a section Bob skipped is not shown").toHaveCount(0);
 
   // Read by person: one card per author, in name order, every answer under its question.
+  await openReading(page);
   await controls.getByRole("link", { name: "Everyone", exact: true }).click();
   // Let the isolation clear before choosing the sort: the sort link is built from the page it was clicked on.
   await expect(page).not.toHaveURL(/by=/);
+  await openReading(page);
   await controls.getByRole("link", { name: "By person" }).click();
+  await openReading(page);
   await expect(controls.getByRole("link", { name: /By person/ })).toHaveAttribute("aria-current", "true");
   const people = page.locator("section[aria-label] > h2");
   // The avatar's initial rides in the text but is hidden from assistive tech.
@@ -99,6 +106,7 @@ test("R2 · inside a round, one person's answers can be isolated and the round c
   await expect(aliceCard.getByText("Bob on the goose.")).toHaveCount(0);
 
   // One person, by person: a single card.
+  await openReading(page);
   await controls.getByRole("link", { name: "Bob" }).click();
   await expect(page.locator("section[aria-label] > h2")).toHaveText([/^B?Bob$/]);
 
@@ -121,7 +129,7 @@ test("R2 · a person who did not write in the round, or a bad address, reads as 
   // The print view is the whole round whatever you were looking at.
   await page.goto(`/i/${world.first.issueId}?print&m=${world.alice.token}&by=${world.alice.id}`);
   await expect(page.getByText("Bob on the goose.")).toBeVisible();
-  await expect(page.getByRole("navigation", { name: "Reading this round" })).toHaveCount(0);
+  await expect(page.getByRole("navigation", { name: "Reading this issue" })).toHaveCount(0);
 });
 
 test("R2 · the reading controls pass the accessibility audit in both colour schemes", async ({ page }) => {
@@ -130,7 +138,9 @@ test("R2 · the reading controls pass the accessibility audit in both colour sch
     await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
     for (const query of ["", `&by=${world.bob.id}`, "&sort=member"]) {
       await page.goto(`/i/${world.first.issueId}?m=${world.alice.token}${query}`);
-      await expect(page.getByRole("navigation", { name: "Reading this round" })).toBeVisible();
+      // Audited with the controls open, so they are what gets measured.
+      await openReading(page);
+      await expect(page.getByRole("navigation", { name: "Reading this issue" })).toBeVisible();
       const result = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"]).analyze();
       expect(result.violations.map((violation) => `${violation.id} ${violation.nodes.map((n) => n.target).join(" ")}`), `${scheme} ${query}`).toEqual([]);
     }

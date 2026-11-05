@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { resetDatabase, rows } from "../support/db";
 import { seedLoop, seedOpenIssue } from "../support/seed";
-import { signIn } from "../support/harness";
+import { signIn, unfold } from "../support/harness";
 
 test.beforeEach(async () => {
   await resetDatabase();
@@ -29,7 +29,7 @@ test("I1 · a contributor suggests a question from the reply sheet", async ({ pa
   // The owner's queue already shows it, attributed.
   await signIn(page, "owner@friendloop.test");
   await page.goto(`/g/${loop.groupId}/questions`);
-  await expect(page.getByText("Suggested questions")).toBeVisible();
+  await unfold(page, "1 suggested by a member");
   await expect(page.getByRole("textbox", { name: "Suggested question" })).toHaveValue(
     "Who taught the dog to open doors?",
   );

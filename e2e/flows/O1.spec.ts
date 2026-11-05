@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { resetDatabase, rows } from "../support/db";
 import { seedLoop } from "../support/seed";
-import { E2E_NOW, freezeClock, signIn } from "../support/harness";
+import { E2E_NOW, freezeClock, openPart, pickOption, signIn } from "../support/harness";
 
 test.beforeEach(async () => {
   await resetDatabase();
@@ -12,20 +12,21 @@ test("O1 · the owner adds a birthday and a one-time event and sees them coming 
   await signIn(page, "owner@friendloop.test");
   await freezeClock(page, E2E_NOW); // 2 Jan 2026 in the loop
   await page.goto(`/g/${loop.groupId}/questions`);
+  await openPart(page, "Sections and dates");
 
   const panel = page.getByRole("region", { name: "Events and birthdays" });
   await expect(panel.getByText("Nothing on the calendar yet.")).toBeVisible();
   const add = panel.locator("form").filter({ has: page.getByRole("button", { name: "Add event" }) });
 
   // A birthday: a member, a date, an emoji. The year doesn't matter.
-  await add.getByLabel("Whose birthday?").selectOption({ label: "Alice" });
+  await pickOption(page, "Whose birthday?", "Alice");
   await add.getByLabel("Date").fill("1990-01-06");
   await add.getByLabel("Icon").fill("🎂");
   await add.getByRole("button", { name: "Add event" }).click();
   await expect(page.getByText("Event added.")).toBeVisible();
 
   // A one-time event, further out.
-  await add.getByLabel("Type of event").selectOption({ label: "One-time event" });
+  await pickOption(page, "Type of event", "One-time event");
   await add.getByLabel("What's the occasion?").fill("The housewarming");
   await add.getByLabel("Date").fill("2026-02-14");
   await add.getByLabel("Icon").fill("🏡");
@@ -62,7 +63,7 @@ test("O1 · the owner adds a birthday and a one-time event and sees them coming 
   await expect(items).toHaveCount(1);
 
   // A date that has already gone by is refused, and the form says so.
-  await add.getByLabel("Type of event").selectOption({ label: "One-time event" });
+  await pickOption(page, "Type of event", "One-time event");
   await add.getByLabel("What's the occasion?").fill("Last week's party");
   await add.getByLabel("Date").fill("2025-12-20");
   await add.getByRole("button", { name: "Add event" }).click();
@@ -89,5 +90,6 @@ test("O1 · only people who manage the loop see the calendar", async ({ page }) 
   await signIn(page, "admin@friendloop.test");
   await freezeClock(page, E2E_NOW);
   await page.goto(`/g/${loop.groupId}/questions`);
+  await openPart(page, "Sections and dates");
   await expect(page.getByRole("region", { name: "Events and birthdays" })).toBeVisible();
 });

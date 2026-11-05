@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { resetDatabase, rows } from "../support/db";
 import { seedLoop } from "../support/seed";
-import { signIn } from "../support/harness";
+import { openRowMenu, signIn } from "../support/harness";
 import { AFTER_FIRST_SLOT, runSweep } from "../support/harness";
 
 test.beforeEach(async () => {
@@ -13,6 +13,7 @@ test("C4 · skipping a question affects one round only", async ({ page }) => {
   await signIn(page, "owner@friendloop.test");
 
   await page.goto(`/g/${loop.groupId}/questions`);
+  await openRowMenu(page);
   await page.getByRole("button", { name: "Skip next round" }).first().click();
   await expect(page.getByText("Sitting out the next round")).toBeVisible();
 

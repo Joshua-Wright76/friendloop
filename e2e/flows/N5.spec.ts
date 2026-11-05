@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { resetDatabase, rows } from "../support/db";
-import { signIn } from "../support/harness";
+import { signIn, unfold } from "../support/harness";
 import { chooseFile, seedWorld } from "../support/identity";
 import { seedLoop } from "../support/seed";
 import { TINY_PNG } from "../support/comments";
@@ -19,6 +19,8 @@ test("N5 · a contributor sets a photo on their reply sheet and it follows their
   await rows("insert into comments (issue_id, membership_id, body) values ($1, $2, 'Quack.')", [delivered.issueId, bob.id]);
 
   await page.goto(`/r/${alice.token}`);
+  // Who is answering sits folded into one line, with the photo inside.
+  await unfold(page, /Answering as/);
   await expect(page.getByText("Shown next to your answers and comments in this loop, and nowhere else.")).toBeVisible();
   await chooseFile(page, "Choose a photo of yourself", { name: "me.png", mimeType: "image/png", buffer: TINY_PNG });
   await expect(page.getByText("Photo saved.")).toBeVisible();
@@ -28,7 +30,7 @@ test("N5 · a contributor sets a photo on their reply sheet and it follows their
 
   // Reload: the sheet remembers it.
   await page.reload();
-  await expect(page.locator(`.avatar img[src="${url}"]`)).toBeVisible();
+  await expect(page.locator(`.avatar img[src="${url}"]`).first()).toBeVisible();
 
   // The delivered issue: the answer and the comment both carry it.
   await page.goto(`/i/${delivered.issueId}?m=${alice.token}`);
@@ -37,6 +39,7 @@ test("N5 · a contributor sets a photo on their reply sheet and it follows their
   await expect(page.locator(".avatar:not(:has(img))", { hasText: "B" }).first()).toBeVisible();
 
   await page.goto(`/r/${alice.token}`);
+  await unfold(page, /Answering as/);
   await page.getByRole("button", { name: "Remove photo" }).click();
   await expect(page.getByText("Photo removed.")).toBeVisible();
   expect(await photoOf("alice@friendloop.test", loop.groupId)).toBeNull();
@@ -55,7 +58,7 @@ test("N5 · an invitee can set a photo straight from the link, before any round 
   const url = await photoOf("alice@friendloop.test", loop.groupId);
   expect(url).toMatch(/\/uploads\/[a-f0-9]{64}\.png$/);
   await page.reload();
-  await expect(page.locator(`.avatar img[src="${url}"]`)).toBeVisible();
+  await expect(page.locator(`.avatar img[src="${url}"]`).first()).toBeVisible();
 
   // A reader's invitation lands on the reader page, with the same control.
   await rows("update memberships set participation = 'reader', photo_url = null where id = $1", [alice.id]);
@@ -77,7 +80,8 @@ test("N5 · a signed-in member sets their own photo on the people page, and nobo
   await chooseFile(page, "Choose a photo of yourself", { name: "me.png", mimeType: "image/png", buffer: TINY_PNG }, mine);
   await expect(mine.getByText("Photo saved.")).toBeVisible();
   const url = await photoOf("owner@friendloop.test", loop.groupId);
-  await expect(page.locator(`.avatar img[src="${url}"]`)).toHaveCount(2);
+  // The controls sit under the person's own row, whose avatar is the one picture.
+  await expect(page.locator(`.avatar img[src="${url}"]`)).toHaveCount(1);
   expect(await photoOf("alice@friendloop.test", loop.groupId)).toBeNull();
 
   // Bytes that are not a picture (a real oversize photo is shrunk: see T1).

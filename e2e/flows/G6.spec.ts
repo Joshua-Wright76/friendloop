@@ -12,7 +12,7 @@ test("G6 · a from-you loop makes everyone else a reader", async ({ page }) => {
   await signIn(page, "owner@friendloop.test");
 
   await page.goto(`/g/${loop.groupId}/members`);
-  await page.getByLabel("Email addresses").fill("fan@friendloop.test");
+  await page.getByLabel("Invite people by email").fill("fan@friendloop.test");
   await page.getByRole("button", { name: "Send invitations" }).click();
   await expect(page.getByText("Invitations sent.")).toBeVisible();
 

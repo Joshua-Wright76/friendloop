@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { resetDatabase, rows } from "../support/db";
 import { seedDeliveredIssue, seedLoop } from "../support/seed";
-import { signIn } from "../support/harness";
+import { openPart, signIn } from "../support/harness";
 
 test.beforeEach(async () => {
   await resetDatabase();
@@ -21,6 +21,7 @@ test("F6 · resetting share links retires every URL that was handed out", async 
 
   await signIn(page, "owner@friendloop.test");
   await page.goto(`/g/${loop.groupId}/settings`);
+  await openPart(page, "Reset and delete");
   await page.getByRole("button", { name: "Reset share links" }).click();
   await page.getByRole("button", { name: "Yes, reset share links" }).click(); // resetting asks first
   await expect(page.getByText("New share links. Old ones no longer work.")).toBeVisible();

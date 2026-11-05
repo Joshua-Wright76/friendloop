@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { resetDatabase, rows } from "../support/db";
 import { seedLoop } from "../support/seed";
-import { runSweep, signIn } from "../support/harness";
+import { openPart, openRowMenu, runSweep, signIn } from "../support/harness";
 import { AFTER_FIRST_SLOT } from "../support/clock";
 
 test.beforeEach(async () => {
@@ -12,6 +12,7 @@ test("L1 · the owner adds a poll that lives in the pool like any question", asy
   const loop = await seedLoop();
   await signIn(page, "owner@friendloop.test");
   await page.goto(`/g/${loop.groupId}/questions`);
+  await openPart(page, "Add more");
 
   // Two options that read the same are one option: the form says so plainly.
   await page.getByLabel("Poll question").fill("Where should we camp?");
@@ -42,6 +43,7 @@ test("L1 · the owner adds a poll that lives in the pool like any question", asy
   expect(poll.poll_multiple).toBe(true);
 
   // It sits at the end of the pool, labelled, with its options listed.
+  await openPart(page, "The pool");
   const pool = page.getByRole("list", { name: "Questions in round order" });
   const item = pool.locator(":scope > li").last();
   await expect(item).toContainText("Where should we camp?");
@@ -49,6 +51,7 @@ test("L1 · the owner adds a poll that lives in the pool like any question", asy
   await expect(item).toContainText("The mountains");
 
   // It reorders and archives like a question.
+  await openRowMenu(page, "More for: Where should we camp?");
   await item.getByRole("button", { name: /^Up\b/ }).click();
   await expect(pool.locator(":scope > li").nth(1)).toContainText("Where should we camp?");
   await expect.poll(async () =>
@@ -63,6 +66,7 @@ test("L1 · the owner adds a poll that lives in the pool like any question", asy
   expect(snapshot).toHaveLength(1);
   expect(snapshot[0].poll_options).toEqual(["The lake", "The mountains", "The coast"]);
 
+  await openRowMenu(page, "More for: Where should we camp?");
   await pool.locator(":scope > li").nth(1).getByRole("button", { name: /^Archive/ }).click();
   await pool.locator(":scope > li").nth(1).getByRole("button", { name: /^Yes, archive/ }).click(); // archiving asks first
   await expect(page.getByText("Archived.")).toBeVisible();

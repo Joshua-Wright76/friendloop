@@ -28,15 +28,16 @@ test("D5 · sending marks the answers submitted and says so", async ({ page }) =
   // The confirmation repeats the real deadline, computed on the server, and the
   // reader's own time when their zone differs from the loop's, as the sheet does.
   await expect(
-    page.getByText(/^It goes out to everyone Friday 9:05 AM( \(.+ where you are\))?\. Until then, you can change anything\.$/),
+    page.getByText(/^It goes out on (.+ your time \()?Fri 9 Jan, 9:05 AM( in Amsterdam\))?\. Until then, you can change anything\.$/),
   ).toBeVisible();
   await expect(page.getByLabel("What made you laugh this week?")).toBeHidden();
 
   // "Edit my answers" brings the sheet back, answers intact, ready to change.
   await page.getByRole("button", { name: "Edit my answers" }).click();
   await expect(page.getByLabel("What made you laugh this week?")).toHaveValue("A cat fist bump.");
-  await expect(page.getByText(/Sent\. You can change these until Friday 9:05 AM/)).toBeVisible();
-  await expect(page.getByRole("button", { name: "Save changes" })).toBeVisible();
+  await expect(page.getByText("Sent. You can still change anything until it closes.")).toBeVisible();
+  // A sent answer changes as it's saved, so all that's left to press is Done.
+  await expect(page.getByRole("button", { name: "Done" })).toBeVisible();
 
   const saved = await rows<{ status: string; submitted_at: string | null }>(
     `select status, submitted_at from replies

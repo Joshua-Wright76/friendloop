@@ -14,7 +14,7 @@ test("D10 · the owner nudges whoever is still missing, and can do it again", as
 
   await page.goto(`/g/${loop.groupId}`);
   await expect(page.getByText("Waiting on")).toBeVisible();
-  await expect(page.getByText("Alice")).toBeVisible();
+  await expect(page.locator(".person-pill", { hasText: "Alice" })).toBeVisible();
 
   // Both nudge rounds land on the same URL, so wait on the rows rather than the
   // address bar: the second click is still in flight while the page re-renders.
@@ -25,13 +25,15 @@ test("D10 · the owner nudges whoever is still missing, and can do it again", as
     return sent.map((row) => row.dedupe_key);
   };
 
-  await page.getByRole("button", { name: "Send a nudge" }).click();
+  await page.getByRole("button", { name: /^Nudge .*Alice/ }).click();
+  await page.getByRole("button", { name: "Send the nudge" }).click();
   await expect(page.getByText("3 nudges sent.")).toBeVisible();
   await expect.poll(reminderKeys).toHaveLength(3);
   expect(new Set(await reminderKeys()).size).toBe(3);
 
   // A second nudge is a second gentle email, not a duplicate row.
-  await page.getByRole("button", { name: "Send a nudge" }).click();
+  await page.getByRole("button", { name: /^Nudge .*Alice.* again$/ }).click();
+  await page.getByRole("button", { name: "Send the nudge" }).click();
   await expect(page.getByText("3 nudges sent.")).toBeVisible();
   await expect.poll(reminderKeys, { timeout: 10_000 }).toHaveLength(6);
   expect(new Set(await reminderKeys()).size).toBe(6);
@@ -56,5 +58,5 @@ test("D10 · nobody is nudged once everyone has answered", async ({ page }) => {
   await signIn(page, "owner@friendloop.test");
   await page.goto(`/g/${loop.groupId}`);
   await expect(page.getByText("Everyone's in.")).toBeVisible();
-  await expect(page.getByRole("button", { name: "Send a nudge" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /^Nudge/ })).toHaveCount(0);
 });

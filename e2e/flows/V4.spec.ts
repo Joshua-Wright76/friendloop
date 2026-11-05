@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 import { test, expect, type Download, type Page } from "@playwright/test";
 import { resetDatabase } from "../support/db";
 import { seedDeliveredIssue, seedLoop } from "../support/seed";
-import { DELIVERY_DAY, signIn } from "../support/harness";
+import { DELIVERY_DAY, openPart, signIn } from "../support/harness";
 
 test.beforeEach(async () => {
   await resetDatabase();
@@ -32,6 +32,7 @@ test("V4 · a person downloads their own words, and the owner downloads the whol
   expect(personal).not.toContain("Alice's answer");
 
   await page.goto(`/g/${loop.groupId}/settings`);
+  await openPart(page, "Pause and export");
   const archive = await downloaded(page, () => page.getByRole("link", { name: "Download the archive" }).click());
   expect(archive.file.suggestedFilename()).toMatch(/^friendloop-friday-loop-\d{4}-\d{2}-\d{2}\.json$/);
   const whole = JSON.stringify(archive.json);

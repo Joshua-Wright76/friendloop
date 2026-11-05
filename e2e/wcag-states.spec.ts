@@ -135,8 +135,17 @@ test("WCAG AA states · every disclosure open on the management and reading page
   for (const [name, href] of pages) {
     problems.push(
       ...(await everywhere(page, href, async (label) => {
-        const opened = await openAllDetails(page);
-        const out = [...(await axeProblems(page, `${name} expanded (${opened}) ${label}`)), ...(await keyboardProblems(page, `${name} expanded ${label}`))];
+        const barMenus: Problems = [];
+        // The issue bar's menus float over the page, one at a time, like a picker. Each is audited on
+        // its own, then tabbed through: focus leaving the bar has to close it, or it covers what's next.
+        for (const menu of await page.locator(".issue-bar details").all()) {
+          await menu.locator("summary").click();
+          barMenus.push(...(await axeProblems(page, `${name} bar menu ${label}`, ".issue-bar")));
+          barMenus.push(...(await keyboardProblems(page, `${name} bar menu ${label}`)));
+          await menu.evaluate((details: HTMLDetailsElement) => { details.open = false; });
+        }
+        const opened = await openAllDetails(page, ".issue-bar details");
+        const out = [...barMenus, ...(await axeProblems(page, `${name} expanded (${opened}) ${label}`)), ...(await keyboardProblems(page, `${name} expanded ${label}`))];
         if (label.endsWith("320px")) out.push(...(await reflowProblems(page, `${name} expanded ${label}`)));
         return out;
       })),

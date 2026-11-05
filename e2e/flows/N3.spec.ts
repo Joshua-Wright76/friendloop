@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { resetDatabase, rows } from "../support/db";
 import { addMember, seedLoop } from "../support/seed";
-import { signIn } from "../support/harness";
+import { openPart, signIn } from "../support/harness";
 
 test.beforeEach(async () => {
   await resetDatabase();
@@ -62,6 +62,7 @@ test("N3 · the owner hands the loop to an admin, names them in the confirmation
   const heirPage = await heirContext.newPage();
   await signIn(heirPage, "heir@friendloop.test");
   await heirPage.goto(`/g/${loop.groupId}/settings`);
+  await openPart(heirPage, "Reset and delete");
   await expect(heirPage.getByRole("button", { name: "Delete forever" })).toBeVisible();
   await heirPage.goto(`/g/${loop.groupId}/members`);
   await heirPage.getByRole("button", { name: "Make Sam the owner" }).click();

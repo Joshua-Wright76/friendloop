@@ -22,8 +22,8 @@ test("P1 · a member opens the Album: delivered photos and voice notes, newest r
   await expect(page.getByText("8 photos and voice notes")).toBeVisible();
 
   // Voice notes play in the gallery; photos open in the viewer.
-  await expect(page.getByLabel(/^Voice note from Bob, 0:04$/)).toBeVisible();
-  await expect(page.getByLabel(/^Voice note from Alice, 0:04$/)).toBeVisible();
+  await expect(page.getByTitle(/^Voice note from Bob, 0:04$/)).toBeVisible();
+  await expect(page.getByTitle(/^Voice note from Alice, 0:04$/)).toBeVisible();
 
   // Nothing from the open round, a draft, or anywhere else.
   await expect(page.getByText("Surprise party plans")).toHaveCount(0);
@@ -55,9 +55,9 @@ test("P1 · a member opens the Album: delivered photos and voice notes, newest r
   await expect(viewer).toBeHidden();
   await expect(tile).toBeFocused();
 
-  // "View in the round" lands on that very answer.
+  // "View in the issue" lands on that very answer.
   await tile.click();
-  await page.getByRole("dialog", { name: "Photo viewer" }).getByRole("link", { name: "View in the round" }).click();
+  await page.getByRole("dialog", { name: "Photo viewer" }).getByRole("link", { name: "View in the issue" }).click();
   await expect(page).toHaveURL(new RegExp(`/i/${world.round2}#answer-`));
   const hash = new URL(page.url()).hash.slice(1);
   await expect(page.locator(`[id="${hash}"]`)).toContainText("Tent at dawn");
@@ -77,6 +77,6 @@ test("P1 · a member who reads from the inbox opens the same Album with their li
   await expect(page.locator(".album-grid").getByText(/You$/).first()).toBeVisible();
 
   // Their "view in the round" link carries the token too.
-  const link = page.getByRole("link", { name: "View in the round" }).first();
+  const link = page.getByRole("link", { name: "View in the issue" }).first();
   await expect(link).toHaveAttribute("href", new RegExp(`/i/${world.round2}\\?m=${world.alice.token}#`));
 });

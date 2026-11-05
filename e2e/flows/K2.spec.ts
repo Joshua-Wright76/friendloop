@@ -4,7 +4,7 @@ import { memberships } from "@/db/schema";
 import { latestOutbox, resetDatabase, rows } from "../support/db";
 import { seedLoop } from "../support/seed";
 import { newToken } from "@/lib/tokens";
-import { runSweep, signIn } from "../support/harness";
+import { openPart, runSweep, signIn } from "../support/harness";
 
 test.beforeEach(async () => {
   await resetDatabase();
@@ -33,6 +33,7 @@ test("K2 · sections ride every issue; readers read but never answer", async ({ 
   // The owner creates a standard section before anything opens.
   await signIn(page, "owner@friendloop.test");
   await page.goto(`/g/${loop.groupId}/questions`);
+  await openPart(page, "Sections and dates");
   await page.getByPlaceholder("The potluck corner").fill("The potluck corner");
   await page.getByRole("button", { name: "Add section" }).click();
   await expect(page.getByText("Section added.")).toBeVisible();
@@ -47,7 +48,7 @@ test("K2 · sections ride every issue; readers read but never answer", async ({ 
   // A section answer is content; the round delivers it.
   await page.getByRole("textbox", { name: "The potluck corner" }).fill("Never too many dips.");
   await page.getByRole("button", { name: "Send answers" }).click();
-  await expect(page.getByText("Sent").first()).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Sent", exact: true })).toBeVisible();
 
   // Deliver, then read: members see the section; readers see it too — read-only.
   await runSweep(new Date("2026-01-09T09:00:00Z"));

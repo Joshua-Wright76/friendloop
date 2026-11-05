@@ -22,13 +22,13 @@ test("J5 · the web issue plays the note; the email points there instead", async
   await runSweep(new Date(opened.deliversAt.getTime() + 60 * 1000));
 
   await page.goto(`/i/${opened.issueId}?m=${alice.token}`);
-  const player = page.locator("audio").first();
-  await expect(player).toBeVisible();
-  await expect(page.getByText("Voice note, 0:01").first()).toBeVisible();
+  await expect(page.locator("audio").first()).toBeAttached();
+  await expect(page.getByRole("button", { name: /^Play voice note/ }).first()).toBeVisible();
+  await expect(page.getByTitle("Voice note, 0:01").first()).toBeVisible();
 
   // The delivery email names the note and sends readers to the web issue.
   const email = await latestOutbox("delivery:");
   expect(email.html).toContain("Voice note");
   expect(email.html).not.toMatch(/<audio/i);
-  expect(email.html).toMatch(/Listen on the web issue/);
+  expect(email.html).toMatch(/Listen on the web/);
 });
