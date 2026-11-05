@@ -45,3 +45,7 @@ test("a place, an hour and a list of names read the way a person says them", () 
   assert.equal(listNames(["Sam", "Alice"]), "Sam and Alice");
   assert.equal(listNames(["Sam", "Alice", "Bo"]), "Sam, Alice and Bo");
 });
+
+test("an unknown zone falls back to UTC for a moment too, instead of throwing", () => {
+  assert.equal(formatMoment(new Date("2026-11-06T08:00:00Z"), "Not/AZone"), "Fri 6 Nov, 8:00 AM");
+});

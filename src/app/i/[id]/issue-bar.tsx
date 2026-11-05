@@ -49,11 +49,17 @@ export function IssueBar({ contents, reading, readingLabel, title }: {
       close();
       open.querySelector("summary")?.focus();
     };
+    // Tabbing out of an open menu closes it, or it would sit over whatever takes focus next.
+    const onFocus = (event: FocusEvent) => {
+      if (!element.contains(event.target as Node)) close();
+    };
     document.addEventListener("pointerdown", onPointer);
     document.addEventListener("keydown", onKey);
+    document.addEventListener("focusin", onFocus);
     return () => {
       document.removeEventListener("pointerdown", onPointer);
       document.removeEventListener("keydown", onKey);
+      document.removeEventListener("focusin", onFocus);
     };
   }, []);
 

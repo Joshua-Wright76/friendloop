@@ -434,3 +434,23 @@ test("a photo that cannot be cleaned up does not fail the save", async (t) => {
   assert.match(logged.join("\n"), /Unable to remove reply photo/);
   assert.ok(bob.id);
 });
+
+test("a background retry never overwrites newer words saved from another device", async () => {
+  const { alice, question } = await openLoop();
+
+  // No row yet: what this device last saw is nothing, and that's still true.
+  const first = await saveDraftFor({ token: alice.token, issueQuestionId: question.id, body: "typed offline", ifBody: "" });
+  assert.equal(first.ok, true);
+
+  await saveDraftFor({ token: alice.token, issueQuestionId: question.id, body: "newer, from the other device" });
+
+  const stale = await saveDraftFor({ token: alice.token, issueQuestionId: question.id, body: "typed offline, more", ifBody: "typed offline" });
+  assert.equal(stale.ok, false);
+  if (!stale.ok) assert.equal(stale.status, 409);
+  const [saved] = await rows<{ body: string }>("select body from replies");
+  assert.equal(saved.body, "newer, from the other device");
+
+  // The same words arriving twice aren't a conflict.
+  const same = await saveDraftFor({ token: alice.token, issueQuestionId: question.id, body: "newer, from the other device", ifBody: "typed offline" });
+  assert.equal(same.ok, true);
+});

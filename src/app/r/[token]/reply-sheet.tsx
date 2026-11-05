@@ -722,7 +722,15 @@ export function ReplySheet({
     }
   }, [audioStates, removeAudio, uploadAudio]);
 
-  const saveSection = useCallback(async (issueSectionId: string, urlOverride?: string) => {
+  // Leaving a field saves its extra, and pressing Send is what leaves it. Send waits for those saves,
+  // or the round closes around a draft that lands just after.
+  const sectionSaves = useRef(new Set<Promise<unknown>>());
+  const trackSectionSave = useCallback((save: Promise<unknown>) => {
+    sectionSaves.current.add(save);
+    void save.finally(() => sectionSaves.current.delete(save));
+  }, []);
+
+  const saveSection = useCallback((issueSectionId: string, urlOverride?: string) => trackSectionSave((async () => {
     setSectionSaveStates((current) => ({ ...current, [issueSectionId]: "saving" }));
     // Clear first, so the same failure twice is announced twice.
     setSectionErrors((current) => ({ ...current, [issueSectionId]: null }));
@@ -742,7 +750,7 @@ export function ReplySheet({
       setSectionErrors((current) => ({ ...current, [issueSectionId]: result.error }));
       rememberPick(token, issueSectionId, { url, caption, error: result.error });
     }
-  }, [sectionCaptions, sectionLinks, token]);
+  })()), [sectionCaptions, sectionLinks, token, trackSectionSave]);
 
   // Words the server hasn't got stay on this device, so a reload or a dropped connection can't lose them.
   useEffect(() => {
@@ -778,14 +786,14 @@ export function ReplySheet({
     setSectionSaveStates((current) => ({ ...current, [issueSectionId]: "saving" }));
     setSectionErrors((current) => ({ ...current, [issueSectionId]: null }));
     const body = sectionBodies[issueSectionId] ?? "";
-    void writeSectionDraft(issueSectionId, body)
+    trackSectionSave(writeSectionDraft(issueSectionId, body)
       .then((result) => {
         setSectionSaveStates((current) => ({ ...current, [issueSectionId]: result.ok ? "saved" : "error" }));
         if (result.ok) letGo(extraKey(token, issueSectionId));
         else keep(extraKey(token, issueSectionId), body);
         if (!result.ok) setSectionErrors((current) => ({ ...current, [issueSectionId]: result.error }));
-      });
-  }, [sectionBodies, token, writeSectionDraft]);
+      }));
+  }, [sectionBodies, token, trackSectionSave, writeSectionDraft]);
 
   const uploadSectionPhoto = useCallback(async (issueSectionId: string, kind: SheetSection["kind"], picked: File, caption: string, position: number) => {
     const lockKey = `${issueSectionId}:${position}`;
@@ -1035,6 +1043,7 @@ export function ReplySheet({
         }
       }
 
+      await Promise.allSettled([...sectionSaves.current]);
       const result = await postReply(token, { action: "submit" }, copy.reply.genericError);
 
       if (!result.ok) {
