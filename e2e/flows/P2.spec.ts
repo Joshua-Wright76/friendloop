@@ -44,13 +44,13 @@ test("P2 · filtering to one person and searching a word both narrow the Album, 
   // Nothing matching: plainly said, with a way out.
   await page.locator('input[name="q"]').fill("zebra");
   await page.getByRole("button", { name: "Search" }).click();
-  await expect(page.getByText("Nothing matches that.")).toBeVisible();
+  await expect(page.getByRole("status").filter({ hasText: "Nothing matches that." })).toBeVisible();
   await page.getByRole("link", { name: "Clear filters" }).click();
   await expect(page.getByText("8 photos and voice notes")).toBeVisible();
 
   // A hand-edited URL is no more than a missing filter.
   await page.goto(`/g/${world.loop.groupId}/album?member=nope&pages=-5&q=%25`);
-  await expect(page.getByText("Nothing matches that.")).toBeVisible();
+  await expect(page.getByRole("status").filter({ hasText: "Nothing matches that." })).toBeVisible();
 });
 
 test("P2 · a long album shows a page at a time and keeps its filters when it grows", async ({ page }) => {
