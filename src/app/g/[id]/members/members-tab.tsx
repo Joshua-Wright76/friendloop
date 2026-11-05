@@ -1,5 +1,6 @@
 "use client";
 
+import { SafeForm } from "@/components/safe-form";
 import { removeAction, resendAction } from "./actions";
 import { ConfirmAction } from "@/components/confirm-action";
 import { MemberRolePicker } from "./member-role-picker";
@@ -23,9 +24,11 @@ export default function MembersTab({ notices }: {
 
   return (
     <main className="mx-auto w-full max-w-[680px] px-4 pb-16 pt-5 sm:px-6">
-      <LoopNav id={id} name={group.name} access={membership.access} active="People" />
-
-      <h1 className="text-[28px] font-semibold leading-tight tracking-[-0.025em] text-ink">{copy.members.title}</h1>
+      <LoopNav id={id} name={group.name} access={membership.access} active="People">
+        <h1>{copy.members.title}</h1>
+        {/* Inviting is the owner's most common job here: one line, right under the title. */}
+        {manages ? <InviteForm groupId={id} /> : null}
+      </LoopNav>
 
       {notices.invited ? <NoticeFocus>{copy.members.invitedNotice}</NoticeFocus> : null}
       {notices.resent ? <NoticeFocus>{copy.members.resentNotice}</NoticeFocus> : null}
@@ -40,17 +43,14 @@ export default function MembersTab({ notices }: {
         </div>
       ) : null}
 
-      {/* Inviting is the owner's most common job here, so the form comes before the list. */}
-      {manages ? <InviteForm groupId={id} /> : null}
-
-      <ul className="mt-5 flex flex-col gap-2.5">
-        {people.map((person) => {
+      <ul className="mt-4 flex flex-col gap-2.5">
+        {[...people].sort((a, b) => Number(a.id === membership.id) - Number(b.id === membership.id)).map((person) => {
           const isYou = person.id === membership.id;
           return (
             <li key={person.id} className="card p-4">
               {/* On a phone the role picker wraps below, so the name keeps a readable width. */}
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div className="flex min-w-[12rem] flex-1 items-center gap-3">
+              <div className="member-row">
+                <div className="member-row__who">
                   <Avatar name={person.name ?? person.email} photoUrl={person.photoUrl} />
                   <div className="min-w-0">
                     <p className="wrap-any text-[15px] font-medium text-ink">
@@ -61,6 +61,7 @@ export default function MembersTab({ notices }: {
                   </div>
                 </div>
                 {manages && person.access !== "owner" ? (
+                  <>
                   <MemberRolePicker
                     groupId={id}
                     membershipId={person.id}
@@ -69,8 +70,20 @@ export default function MembersTab({ notices }: {
                     participation={person.participation}
                     fixedReader={group.mode === "from_you"}
                   />
+                  <ConfirmAction
+                    className="member-remove"
+                    action={removeAction}
+                    fields={{ groupId: id, membershipId: person.id }}
+                    label={copy.members.remove}
+                    triggerLabel={text(copy.a11yLabels.removeMember, { name: person.name ?? person.email })}
+                    question={text(copy.a11yLabels.removeMemberQuestion, { name: person.name ?? person.email })}
+                    body={copy.a11yLabels.removeMemberBody}
+                    confirmLabel={text(copy.a11yLabels.removeMemberConfirm, { name: person.name ?? person.email })}
+                    cancelLabel={copy.a11yLabels.confirmCancel}
+                  />
+                  </>
                 ) : (
-                  <span className="flex-none rounded-full border border-line px-2.5 py-1 text-[12px] font-medium capitalize text-ink-soft">
+                  <span className="chip flex-none border bg-card px-2.5 py-1 text-[12px] font-bold capitalize text-ink-soft">
                     {copy.common.roles[person.access]}
                   </span>
                 )}
@@ -98,13 +111,13 @@ export default function MembersTab({ notices }: {
               ) : null}
 
               {isYou ? (
-                <div className="mt-3 border-t border-dashed border-line pt-3">
-                  <p className="mb-2 text-[13px] font-medium text-ink-soft">{copy.identity.profile.title}</p>
+                <div className="mt-1 border-t border-dashed border-line pt-1">
                   <ProfilePhoto
                     endpoint={`/api/loop/${id}/profile-photo`}
                     name={person.name ?? person.email}
                     photoUrl={person.photoUrl}
                     refresh
+                    compact
                   />
                 </div>
               ) : null}
@@ -124,30 +137,17 @@ export default function MembersTab({ notices }: {
                 <div className="mt-2 flex flex-wrap items-center gap-2 text-[13px] text-ink-soft">
                   <span>{copy.members.invitePending}</span>
                   {manages ? (
-                    <form action={resendAction}>
+                    <SafeForm action={resendAction}>
                       <input type="hidden" name="groupId" value={id} />
                       <input type="hidden" name="membershipId" value={person.id} />
-                      <SubmitButton aria-label={text(copy.a11yLabels.resendInvite, { name: person.name ?? person.email })} className="inline-flex min-h-11 items-center px-1 text-[13px] font-medium text-ink-soft underline decoration-dashed underline-offset-4 hover:text-ink">
+                      <SubmitButton aria-label={text(copy.a11yLabels.resendInvite, { name: person.name ?? person.email })} className="link link--quiet">
                         {copy.members.resendInvite}
                       </SubmitButton>
-                    </form>
+                    </SafeForm>
                   ) : null}
                 </div>
               ) : null}
 
-              {manages && person.access !== "owner" ? (
-                <ConfirmAction
-                  className="mt-3 flex justify-end"
-                  action={removeAction}
-                  fields={{ groupId: id, membershipId: person.id }}
-                  label={copy.members.remove}
-                  triggerLabel={text(copy.a11yLabels.removeMember, { name: person.name ?? person.email })}
-                  question={text(copy.a11yLabels.removeMemberQuestion, { name: person.name ?? person.email })}
-                  body={copy.a11yLabels.removeMemberBody}
-                  confirmLabel={text(copy.a11yLabels.removeMemberConfirm, { name: person.name ?? person.email })}
-                  cancelLabel={copy.a11yLabels.confirmCancel}
-                />
-              ) : null}
             </li>
           );
         })}

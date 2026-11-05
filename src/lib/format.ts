@@ -19,20 +19,20 @@ function toDate(instant: Date | string): Date {
   return instant instanceof Date ? instant : new Date(instant);
 }
 
-/** "Friday 30 October" — the day a round went out, in the loop's own zone. */
+/** "Fri 30 Oct": the day a round went out, in the loop's own zone. */
 export function formatDate(instant: Date | string, timezone: string): string {
   try {
     return cached(dateFormatters, timezone, {
-      weekday: "long",
+      weekday: "short",
       day: "numeric",
-      month: "long",
-    }).format(toDate(instant));
+      month: "short",
+    }).format(toDate(instant)).replace(",", "");
   } catch {
     return cached(dateFormatters, "UTC", {
-      weekday: "long",
+      weekday: "short",
       day: "numeric",
-      month: "long",
-    }).format(toDate(instant));
+      month: "short",
+    }).format(toDate(instant)).replace(",", "");
   }
 }
 
@@ -53,4 +53,62 @@ export function formatTimeInZone(instant: Date | string, timezone: string): stri
       hour12: false,
     }).format(toDate(instant));
   }
+}
+
+const momentFormatters = new Map<string, Intl.DateTimeFormat>();
+
+/**
+ * "Thu 12 Nov, 6:03 AM": the one way a moment is written on every surface, so the
+ * same round always reads as the same time, with its date attached.
+ */
+export function formatMoment(instant: Date | string, timezone: string): string {
+  const build = (zone: string) =>
+    new Intl.DateTimeFormat("en-GB", {
+      weekday: "short",
+      day: "numeric",
+      month: "short",
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+      timeZone: zone,
+    });
+  let formatter = momentFormatters.get(timezone);
+  if (!formatter) {
+    try {
+      formatter = build(timezone);
+    } catch {
+      formatter = build("UTC");
+    }
+    momentFormatters.set(timezone, formatter);
+  }
+  const parts = Object.fromEntries(formatter.formatToParts(toDate(instant)).map((part) => [part.type, part.value]));
+  // "Fri, 12:00 AM" reads as all of Friday when it means the end of Thursday, so midnight names the night before.
+  if (parts.hour === "12" && parts.minute === "00" && String(parts.dayPeriod).toLowerCase() === "am") {
+    const before = Object.fromEntries(formatter.formatToParts(new Date(toDate(instant).getTime() - 60_000)).map((part) => [part.type, part.value]));
+    return `end of ${before.weekday} ${before.day} ${before.month}`;
+  }
+  return `${parts.weekday} ${parts.day} ${parts.month}, ${parts.hour}:${parts.minute} ${String(parts.dayPeriod).toUpperCase()}`;
+}
+
+/** A moment in a sentence: "at the end of Thu 5 Nov", "on Fri 6 Nov, 9:00 AM". */
+export function atMoment(moment: string): string {
+  return moment.startsWith("end of") ? `at the ${moment}` : `on ${moment}`;
+}
+
+/** "America/Los_Angeles" becomes "Los Angeles": how a person says a place. */
+export function timezonePlace(timezone: string): string {
+  const city = timezone.split("/").pop() ?? timezone;
+  return city.replace(/_/g, " ");
+}
+
+/** 9 becomes "9:00 AM", 21 becomes "9:00 PM": hours read the same way as every other time. */
+export function formatHour(hour: number): string {
+  const twelve = hour % 12 === 0 ? 12 : hour % 12;
+  return `${twelve}:00 ${hour < 12 ? "AM" : "PM"}`;
+}
+
+/** "Sam", "Sam and Alice", "Sam, Alice and Bo". */
+export function listNames(names: string[]): string {
+  if (names.length <= 1) return names[0] ?? "";
+  return `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
 }

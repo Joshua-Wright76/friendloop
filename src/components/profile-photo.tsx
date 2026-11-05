@@ -19,12 +19,15 @@ export function ProfilePhoto({
   name,
   photoUrl: initial,
   refresh = false,
+  compact = false,
 }: {
   endpoint: string;
   name: string;
   photoUrl: string | null;
   /** Re-render the surrounding server data after a change (the members list shows the photo too). */
   refresh?: boolean;
+  /** Just the actions, for a row that already shows the person's picture. */
+  compact?: boolean;
 }) {
   const router = useRouter();
   const input = useRef<HTMLInputElement>(null);
@@ -52,7 +55,7 @@ export function ProfilePhoto({
       if (refresh) router.refresh();
     } catch {
       setStatus("error");
-      setMessage(copy.identity.profile.error);
+      setMessage(navigator.onLine === false ? copy.common.offlineUpload : copy.identity.profile.error);
     }
   }
 
@@ -74,13 +77,13 @@ export function ProfilePhoto({
 
   return (
     <div className="flex items-center gap-3">
-      <Avatar name={name} photoUrl={photoUrl} className="!h-14 !w-14 !text-[20px]" />
+      {compact ? null : <Avatar name={name} photoUrl={photoUrl} className="!h-14 !w-14 !text-[20px]" />}
       <div className="min-w-0">
-        <div className="flex flex-wrap gap-2">
+        <div className={compact ? "flex flex-wrap gap-x-5" : "flex flex-wrap gap-2"}>
           <button
             ref={change}
             type="button"
-            className="btn btn-quiet h-10 text-[14px] aria-disabled:cursor-not-allowed aria-disabled:opacity-45"
+            className={`${compact ? "link link--quiet cursor-pointer" : "btn btn-quiet h-11 text-[14px]"} aria-disabled:cursor-not-allowed aria-disabled:opacity-45`}
             aria-disabled={status === "saving" ? true : undefined}
             onClick={() => {
               if (status !== "saving") input.current?.click();
@@ -91,7 +94,7 @@ export function ProfilePhoto({
           {photoUrl ? (
             <button
               type="button"
-              className="btn btn-quiet h-10 text-[14px] aria-disabled:cursor-not-allowed aria-disabled:opacity-45"
+              className={`${compact ? "link link--quiet cursor-pointer" : "btn btn-quiet h-11 text-[14px]"} aria-disabled:cursor-not-allowed aria-disabled:opacity-45`}
               aria-disabled={status === "saving" ? true : undefined}
               onClick={() => {
                 if (status !== "saving") void send({ method: "DELETE" }, "removed");
@@ -111,7 +114,7 @@ export function ProfilePhoto({
         />
         <p
           aria-live="polite"
-          className={`mt-1 text-[12px] leading-relaxed ${status === "error" ? "text-danger" : "text-ink-muted"}`}
+          className={`text-[12px] leading-relaxed ${status === "error" ? "text-danger" : "text-ink-muted"} ${compact ? "empty:hidden" : "mt-1"}`}
         >
           {status === "saving"
             ? copy.identity.profile.saving
@@ -121,7 +124,7 @@ export function ProfilePhoto({
                 ? copy.identity.profile.removed
                 : status === "error"
                   ? message
-                  : copy.identity.profile.hint}
+                  : compact ? "" : copy.identity.profile.hint}
         </p>
       </div>
     </div>

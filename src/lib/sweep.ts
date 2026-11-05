@@ -8,9 +8,9 @@ import {
   replies,
   users,
 } from "@/db/schema";
-import { deliveryInstant, describeDeadline, dueSlot, groupSchedule, nextSlot } from "./schedule";
+import { deliveryInstant, dueSlot, groupSchedule, nextSlot } from "./schedule";
 import { sendEmail, flushOutbox } from "./email/send";
-import { sendPromptEmails } from "./notify";
+import { mailDeadline, sendPromptEmails } from "./notify";
 import { deliveryEmail, emailThemeOf, reminderEmail, pausedEmail, type AnswerBlock } from "./email/templates";
 import { tallyPoll } from "./poll";
 import { REMINDER_LEADS_MS, wantsReminder } from "./reminders";
@@ -430,12 +430,11 @@ async function remindStragglers(at: Date): Promise<number> {
       // The loop sends one reminder, so it is both the first and the last. Only
       // the contributor's own "none" holds it back — the owner's nudge never asks.
       if (!wantsReminder(member.reminderPreference, 0, REMINDER_LEADS_MS.length)) continue;
-      const deadline = describeDeadline(issue.deliversAt, group.timezone, member.timezone);
       const rendered = reminderEmail({
         groupName: group.name,
         memberName: member.name ?? member.email.split("@")[0],
         url: replyUrl(member.replyToken),
-        deadlineLabel: deadline.inLoopZone,
+        deadlineLabel: mailDeadline(issue.deliversAt, group.timezone, member.timezone),
         remaining: questionCount,
         theme: emailThemeOf(group),
         unsubscribeUrl: unsubscribeUrl(member.unsubscribeToken),

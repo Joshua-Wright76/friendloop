@@ -1,10 +1,10 @@
 import { Suspense, type ReactNode } from "react";
 import type { Metadata } from "next";
-import { and, asc, countDistinct, desc, eq, isNull } from "drizzle-orm";
+import { and, asc, countDistinct, desc, eq, isNull, like } from "drizzle-orm";
 import { notFound, redirect } from "next/navigation";
 import { connection } from "next/server";
 import { db } from "@/db";
-import { groups, issues, memberships, questions, replies } from "@/db/schema";
+import { groups, issues, memberships, outbox, questions, replies } from "@/db/schema";
 import { pendingSuggestions } from "@/lib/suggestions";
 import { sectionsOf } from "@/lib/sections";
 import { eventsOf } from "@/lib/events";
@@ -14,8 +14,10 @@ import { membersOf } from "@/lib/manage";
 import { describeDeadline, nextSlot, weekdayName } from "@/lib/schedule";
 import { url } from "@/lib/urls";
 import LoopLoading from "./loading";
-import { LoopBanner, LoopTheme } from "@/components/loop-theme";
+import { LoopTheme } from "@/components/loop-theme";
+import { formatMoment, timezonePlace } from "@/lib/format";
 import { LoopDataProvider, type LoopData } from "./loop-data";
+import { TimezoneSync } from "@/app/you/timezone-sync";
 
 type Props = {
   children: ReactNode;
@@ -34,6 +36,17 @@ export default function GroupLayout(props: Props) {
       <LoadedGroupLayout {...props} />
     </Suspense>
   );
+}
+
+/** A moment on the reader's own clock, and on the loop's when the two differ. */
+function momentsOf(instant: Date, loopTimezone: string, viewerTimezone: string | null | undefined) {
+  // An unlabelled time is a promise that it's the reader's own. If we don't know theirs, name the place.
+  if (!viewerTimezone) return { primary: `${formatMoment(instant, loopTimezone)} ${timezonePlace(loopTimezone)} time`, loop: null };
+  if (viewerTimezone === loopTimezone) return { primary: formatMoment(instant, loopTimezone), loop: null };
+  return {
+    primary: `${formatMoment(instant, viewerTimezone)} your time`,
+    loop: `${formatMoment(instant, loopTimezone)} in ${timezonePlace(loopTimezone)}`,
+  };
 }
 
 async function LoadedGroupLayout({ children, params }: Props) {
@@ -127,6 +140,15 @@ async function LoadedGroupLayout({ children, params }: Props) {
         .innerJoin(memberships, eq(memberships.id, replies.membershipId))
         .where(and(eq(replies.issueId, openIssue.id), eq(replies.status, "submitted")))
     : [];
+  // The owner's nudges are mail like any other, so the outbox remembers the last one.
+  const [lastNudgeRow] = openIssue
+    ? await db
+        .select({ at: outbox.createdAt })
+        .from(outbox)
+        .where(and(eq(outbox.issueId, openIssue.id), like(outbox.dedupeKey, "manual-reminder:%")))
+        .orderBy(desc(outbox.createdAt))
+        .limit(1)
+    : [];
   const answered = new Set(openProgress.map((person) => person.id));
   const openWaiting = openIssue
     ? people.filter((person) => person.participation === "contributor" && !answered.has(person.id))
@@ -174,17 +196,17 @@ async function LoadedGroupLayout({ children, params }: Props) {
     openIssueDeadlineLabel: openIssue
       ? describeDeadline(openIssue.deliversAt, group.timezone, user.timezone).inLoopZone
       : null,
+    nextMoment: momentsOf(next, group.timezone, user.timezone),
+    nextWhenThisCloses: Boolean(openIssue && Math.abs(openIssue.deliversAt.getTime() - next.getTime()) < 60_000),
+    lastNudge: lastNudgeRow?.at ? formatMoment(lastNudgeRow.at, user.timezone || group.timezone) : null,
+    openMoment: openIssue ? momentsOf(openIssue.deliversAt, group.timezone, user.timezone) : null,
     weekdayLabel: weekdayName(group.promptWeekday),
   };
 
   return (
     <LoopDataProvider data={data}>
+      <TimezoneSync stored={user.timezone} />
       <LoopTheme preset={group.themePreset} accent={group.themeAccent} />
-      {group.headerImageUrl ? (
-        <div className="mx-auto w-full max-w-[680px] px-4 pt-5 sm:px-6">
-          <LoopBanner url={group.headerImageUrl} />
-        </div>
-      ) : null}
       {children}
     </LoopDataProvider>
   );

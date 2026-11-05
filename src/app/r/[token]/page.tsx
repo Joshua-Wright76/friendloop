@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { describeDeadline } from "@/lib/schedule";
+import { formatMoment } from "@/lib/format";
 import { resolveToken, sheetFor } from "@/lib/reply";
 import { sectionsForSheet } from "@/lib/sections";
 import { LoopTheme } from "@/components/loop-theme";
@@ -117,7 +117,6 @@ export default async function ReplyPage({ params }: { params: Promise<{ token: s
 
   const issue = sheet.context.issue;
   const sections = await sectionsForSheet(token, issue.id);
-  const deadline = describeDeadline(issue.deliversAt, context.group.timezone);
 
   return (
     <>
@@ -131,7 +130,7 @@ export default async function ReplyPage({ params }: { params: Promise<{ token: s
       roundName={issue.name}
       headerImageUrl={context.group.headerImageUrl}
       photoUrl={context.membership.photoUrl}
-      deadline={deadline}
+      deadlineMoment={formatMoment(issue.deliversAt, context.group.timezone)}
       deliversAtIso={issue.deliversAt.toISOString()}
       displayName={context.membership.name ?? context.membership.email.split("@")[0]}
       initialName={context.membership.name}

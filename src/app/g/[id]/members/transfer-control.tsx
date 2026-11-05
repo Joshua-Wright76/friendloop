@@ -1,14 +1,14 @@
 "use client";
 
+import { SafeForm, useSafeFormPending } from "@/components/safe-form";
 import { useEffect, useRef, useState } from "react";
-import { useFormStatus } from "react-dom";
 import { copy, text } from "@/lib/copy";
 import { transferAction } from "./actions";
 
 type Props = { groupId: string; groupName: string; membershipId: string; name: string };
 
 function Confirm({ name }: { name: string }) {
-  const { pending } = useFormStatus();
+  const pending = useSafeFormPending();
   return (
     <button
       type="submit"
@@ -61,7 +61,7 @@ export function TransferControl({ groupId, groupName, membershipId, name }: Prop
   }
 
   return (
-    <form
+    <SafeForm
       action={transferAction}
       role="group"
       aria-labelledby={`transfer-${membershipId}`}
@@ -83,6 +83,6 @@ export function TransferControl({ groupId, groupName, membershipId, name }: Prop
           {copy.members.transferCancel}
         </button>
       </div>
-    </form>
+    </SafeForm>
   );
 }

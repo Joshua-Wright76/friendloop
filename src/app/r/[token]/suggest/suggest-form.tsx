@@ -133,10 +133,11 @@ export function SuggestForm({ token, displayName }: Props) {
           <button
             type="submit"
             aria-disabled={sending || question.trim().length === 0 ? true : undefined}
-            className="btn btn-primary mt-4 aria-disabled:cursor-not-allowed aria-disabled:opacity-45"
+            className="btn btn-primary mt-4 aria-disabled:cursor-not-allowed"
           >
             {sending ? copy.suggest.sending : copy.suggest.submit}
           </button>
+          {question.trim().length === 0 ? <p className="m-0 mt-2 text-[13px] text-ink-soft">{copy.suggest.writeFirst}</p> : null}
         </form>
       )}
     </>

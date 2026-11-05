@@ -4,8 +4,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
-import type { Deadline } from "@/lib/schedule";
-import { LoopBanner } from "@/components/loop-theme";
+import { LoopSnapshot } from "@/components/loop-theme";
 import { ProfilePhoto } from "@/components/profile-photo";
 import { ReminderPreference } from "@/components/reminder-preference";
 import { MutedNotice } from "@/components/muted-notice";
@@ -13,7 +12,9 @@ import type { ReminderPreference as ReminderPreferenceValue } from "@/lib/remind
 import { Cherries, Tape } from "@/components/stationery";
 import { issueTitle } from "@/lib/issue-name";
 import { copy, text } from "@/lib/copy";
-import { formatTimeInZone } from "@/lib/format";
+import { atMoment, formatMoment, timezonePlace } from "@/lib/format";
+import { Avatar } from "@/components/avatar";
+import { VoiceNote } from "@/components/voice-note";
 import { MAX_DISPLAY_NAME } from "@/lib/names";
 import { PHOTO_ACCEPT } from "@/lib/photo-validation";
 import { PHOTO_TARGET, prepareImage } from "@/components/prepare-image";
@@ -62,7 +63,7 @@ type Props = {
   roundName: string | null;
   headerImageUrl: string | null;
   photoUrl: string | null;
-  deadline: Deadline;
+  deadlineMoment: string;
   deliversAtIso: string;
   displayName: string;
   initialName: string | null;
@@ -86,7 +87,7 @@ function viewerTimeLabel(deliversAtIso: string, loopTimezone: string): string | 
   try {
     const zone = Intl.DateTimeFormat().resolvedOptions().timeZone;
     if (!zone || zone === loopTimezone) return null;
-    return formatTimeInZone(new Date(deliversAtIso), zone);
+    return formatMoment(new Date(deliversAtIso), zone);
   } catch {
     return null;
   }
@@ -107,7 +108,7 @@ export function ReplySheet({
   roundName,
   headerImageUrl,
   photoUrl,
-  deadline,
+  deadlineMoment,
   deliversAtIso,
   displayName,
   initialName,
@@ -126,6 +127,14 @@ export function ReplySheet({
     () => null,
   );
   const [submitFailed, setSubmitFailed] = useState(false);
+  const musicSaved = useRef<Record<string, string>>({});
+  const [editedSinceSend, setEditedSinceSend] = useState(false);
+  const [linkGuard, setLinkGuard] = useState(false);
+  const [conflicts, setConflicts] = useState<Record<string, string | null>>({});
+  const lastSaved = useRef(new Map(questions.map((question) => [question.id, question.body])));
+  const [droppedAttachment, setDroppedAttachment] = useState(false);
+  const [droppedPick, setDroppedPick] = useState(false);
+  const [sentIds, setSentIds] = useState<Set<string>>(() => new Set(questions.filter((question) => question.submitted).map((question) => question.id)));
   const [questionStatuses, setQuestionStatuses] = useState<Record<string, QuestionSaveStatus>>(() =>
     Object.fromEntries(questions.map((question) => [question.id, question.body.trim() ? "saved" : "empty"])),
   );
@@ -180,7 +189,7 @@ export function ReplySheet({
   const [animateSentStamp, setAnimateSentStamp] = useState(false);
   // After a send, the sheet steps aside for a confirmation; "Edit my answers" brings it back.
   // The sheet stays mounted (only hidden) so nothing in it — drafts, photos, previews — is lost.
-  const [confirmation, setConfirmation] = useState<null | "sent" | "updated">(null);
+  const [confirmation, setConfirmation] = useState<null | "sent" | "updated" | "unchanged">(null);
   const confirmationHeading = useRef<HTMLHeadingElement>(null);
   const sheetHeading = useRef<HTMLHeadingElement>(null);
   const [sending, setSending] = useState(false);
@@ -256,12 +265,12 @@ export function ReplySheet({
   const answered = useMemo(
     () => questions.filter((question) =>
       question.kind === "poll"
-        ? (pollPicks[question.id] ?? []).length > 0
+        ? (pollPicks[question.id] ?? []).length > 0 && pollStatuses[question.id] !== "error"
         : (bodies[question.id] ?? "").trim().length > 0 ||
           Boolean(photoUrls[question.id]) ||
           Boolean(audioUrls[question.id]),
     ).length,
-    [audioUrls, bodies, photoUrls, pollPicks, questions],
+    [audioUrls, bodies, photoUrls, pollPicks, pollStatuses, questions],
   );
   // Section answers count toward the action bar, so a section-only round sends.
   const sectionAnswered = useMemo(
@@ -300,8 +309,18 @@ export function ReplySheet({
   const nudgeMessage = useRef<HTMLParagraphElement>(null);
   // The deadline in the loop's zone, and the reader's own when it differs.
   const deadlineBoth = viewerTime
-    ? `${deadline.inLoopZone} ${text(copy.reply.viewerTimezone, { time: viewerTime })}`
-    : deadline.inLoopZone;
+    ? `${atMoment(viewerTime)} ${text(copy.reply.viewerTimezone, { time: `${deadlineMoment} in ${timezonePlace(loopTimezone)}` })}`
+    : atMoment(deadlineMoment);
+  // A refused music link and an unsaved extra are different problems with different words.
+  const sectionFailed = sections.some((section) => section.kind === "music" && sectionSaveStates[section.id] === "error");
+  const extraFailed = sections.some((section) => section.kind !== "music" && sectionSaveStates[section.id] === "error");
+  const pollFailed = questions.some((question) => pollStatuses[question.id] === "error");
+  const attachFailed = questions.some((question) =>
+    (photoStates[question.id] === "uploadError" && retryablePhotos[question.id]) ||
+    (audioStates[question.id] === "uploadError" && retryableAudio[question.id]));
+  // An answer already sent changes in place as it's saved. Only a brand-new one needs sending.
+  const newAfterSend = sent && questions.some((question) =>
+    !sentIds.has(question.id) && (bodies[question.id] ?? "").trim().length > 0);
   const status: SaveStatus = useMemo(() => {
     const states = Object.values(questionStatuses);
     if (submitFailed || states.includes("error")) return "error";
@@ -412,8 +431,13 @@ export function ReplySheet({
       setPhotoStates((current) => ({ ...current, [questionId]: "saved" }));
       setPhotoErrors((current) => ({ ...current, [questionId]: null }));
     } else {
+      if (result.rejected) {
+        // The file itself was refused: trying the same one again can't help.
+        photoFiles.current.delete(questionId);
+        setRetryablePhotos((current) => ({ ...current, [questionId]: false }));
+      }
       setPhotoStates((current) => ({ ...current, [questionId]: "uploadError" }));
-      setPhotoErrors((current) => ({ ...current, [questionId]: result.error }));
+      setPhotoErrors((current) => ({ ...current, [questionId]: navigator.onLine === false ? copy.common.offlineUpload : result.error }));
     }
     clearPhotoPreview(questionId);
   }, [clearPhotoPreview, token]);
@@ -511,10 +535,15 @@ export function ReplySheet({
       setAudioStates((current) => ({ ...current, [questionId]: "saved" }));
       setAudioErrors((current) => ({ ...current, [questionId]: null }));
     } else {
-      audioPending.current.set(questionId, { blob, filename, durationMs });
-      setRetryableAudio((current) => ({ ...current, [questionId]: true }));
+      if (result.rejected) {
+        audioPending.current.delete(questionId);
+        setRetryableAudio((current) => ({ ...current, [questionId]: false }));
+      } else {
+        audioPending.current.set(questionId, { blob, filename, durationMs });
+        setRetryableAudio((current) => ({ ...current, [questionId]: true }));
+      }
       setAudioStates((current) => ({ ...current, [questionId]: "uploadError" }));
-      setAudioErrors((current) => ({ ...current, [questionId]: result.error }));
+      setAudioErrors((current) => ({ ...current, [questionId]: navigator.onLine === false ? copy.common.offlineUpload : result.error }));
     }
     clearAudioPreview(questionId);
   }, [clearAudioPreview, token]);
@@ -679,7 +708,7 @@ export function ReplySheet({
       setAudioStates((current) => ({ ...current, [questionId]: "removed" }));
     } else {
       setAudioStates((current) => ({ ...current, [questionId]: "removeError" }));
-      setAudioErrors((current) => ({ ...current, [questionId]: result.error }));
+      setAudioErrors((current) => ({ ...current, [questionId]: navigator.onLine === false ? copy.common.offlineUpload : result.error }));
     }
   }, [audioUrls, clearAudioPreview, token]);
 
@@ -707,21 +736,56 @@ export function ReplySheet({
     if (result.ok) {
       setSectionSaveStates((current) => ({ ...current, [issueSectionId]: "saved" }));
       setSectionErrors((current) => ({ ...current, [issueSectionId]: null }));
+      forgetPick(token, issueSectionId);
     } else {
       setSectionSaveStates((current) => ({ ...current, [issueSectionId]: "error" }));
       setSectionErrors((current) => ({ ...current, [issueSectionId]: result.error }));
+      rememberPick(token, issueSectionId, { url, caption, error: result.error });
     }
   }, [sectionCaptions, sectionLinks, token]);
+
+  // Words the server hasn't got stay on this device, so a reload or a dropped connection can't lose them.
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => {
+      for (const question of questions) {
+        if (question.kind !== "poll") continue;
+        const kept = recall(pollKey(token, question.id));
+        if (kept === null) continue;
+        setPollPicks((current) => ({ ...current, [question.id]: JSON.parse(kept) as number[] }));
+        setPollStatuses((current) => ({ ...current, [question.id]: "error" }));
+      }
+      for (const section of sections) {
+        if (section.kind === "music") {
+          const kept = recallPick(token, section.id);
+          if (!kept) continue;
+          setSectionLinks((current) => (current[section.id] ? current : { ...current, [section.id]: kept.url }));
+          setSectionCaptions((current) => (current[section.id] ? current : { ...current, [section.id]: kept.caption }));
+          setSectionSaveStates((current) => ({ ...current, [section.id]: "error" }));
+          setSectionErrors((current) => ({ ...current, [section.id]: kept.error }));
+        } else if (section.kind === "standard") {
+          const kept = recall(extraKey(token, section.id));
+          if (kept === null) continue;
+          setSectionBodies((current) => ({ ...current, [section.id]: kept }));
+          setSectionSaveStates((current) => ({ ...current, [section.id]: "error" }));
+          setSectionErrors((current) => ({ ...current, [section.id]: copy.reply.errors.sectionSaveFailed }));
+        }
+      }
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [questions, sections, token]);
 
   const saveSectionText = useCallback((issueSectionId: string) => {
     setSectionSaveStates((current) => ({ ...current, [issueSectionId]: "saving" }));
     setSectionErrors((current) => ({ ...current, [issueSectionId]: null }));
-    void writeSectionDraft(issueSectionId, sectionBodies[issueSectionId] ?? "")
+    const body = sectionBodies[issueSectionId] ?? "";
+    void writeSectionDraft(issueSectionId, body)
       .then((result) => {
         setSectionSaveStates((current) => ({ ...current, [issueSectionId]: result.ok ? "saved" : "error" }));
+        if (result.ok) letGo(extraKey(token, issueSectionId));
+        else keep(extraKey(token, issueSectionId), body);
         if (!result.ok) setSectionErrors((current) => ({ ...current, [issueSectionId]: result.error }));
       });
-  }, [sectionBodies, writeSectionDraft]);
+  }, [sectionBodies, token, writeSectionDraft]);
 
   const uploadSectionPhoto = useCallback(async (issueSectionId: string, kind: SheetSection["kind"], picked: File, caption: string, position: number) => {
     const lockKey = `${issueSectionId}:${position}`;
@@ -794,6 +858,8 @@ export function ReplySheet({
       const result = await writeDraft(questionId, body);
       if ((revisions.current.get(questionId) ?? 0) !== revision) return;
       if (result.ok) {
+        lastSaved.current.set(questionId, body);
+        setConflicts((current) => ({ ...current, [questionId]: null }));
         setQuestionStatuses((current) => ({ ...current, [questionId]: nonEmpty ? "saved" : "empty" }));
         dirty.current.delete(questionId);
         setError(null);
@@ -807,6 +873,7 @@ export function ReplySheet({
 
   const onChange = useCallback(
     (questionId: string, value: string, element: HTMLTextAreaElement) => {
+      setEditedSinceSend(true);
       revisions.current.set(questionId, (revisions.current.get(questionId) ?? 0) + 1);
       dirty.current.add(questionId);
       latestBodies.current[questionId] = value;
@@ -840,12 +907,14 @@ export function ReplySheet({
       if (result.ok) {
         setPollStatuses((current) => ({ ...current, [questionId]: next.length > 0 ? "saved" : "cleared" }));
         setError(null);
+        letGo(pollKey(token, questionId));
       } else {
         setPollStatuses((current) => ({ ...current, [questionId]: "error" }));
         setError(result.error);
+        keep(pollKey(token, questionId), JSON.stringify(next));
       }
     },
-    [writePoll],
+    [token, writePoll],
   );
 
   const saveDisplayName = useCallback(async () => {
@@ -863,6 +932,51 @@ export function ReplySheet({
       setNameStatus("error");
     }
   }, [name, token]);
+
+  // A background retry asks the server to compare first, so words saved elsewhere while
+  // this device was offline are never overwritten without the person choosing to.
+  const resendQuietly = useCallback(async (questionId: string, body: string) => {
+    setQuestionStatuses((current) => ({ ...current, [questionId]: "saving" }));
+    const result = await postReply(
+      token,
+      { action: "draft", issueQuestionId: questionId, body, ifBody: lastSaved.current.get(questionId) ?? "" },
+      copy.reply.genericError,
+    );
+    if (result.ok) {
+      lastSaved.current.set(questionId, body);
+      dirty.current.delete(questionId);
+      setConflicts((current) => ({ ...current, [questionId]: null }));
+      setQuestionStatuses((current) => ({ ...current, [questionId]: body.trim() ? "saved" : "empty" }));
+    } else {
+      setConflicts((current) => ({ ...current, [questionId]: result.error }));
+      setQuestionStatuses((current) => ({ ...current, [questionId]: "error" }));
+    }
+  }, [token]);
+
+  // When the connection comes back, everything still waiting goes on its own.
+  useEffect(() => {
+    const retryAll = () => {
+      setSubmitFailed(false);
+      for (const question of questions) {
+        if (question.kind === "poll") {
+          if (pollStatuses[question.id] === "error") void choosePoll(question.id, pollPicks[question.id] ?? []);
+          continue;
+        }
+        if (photoStates[question.id] === "uploadError" && retryablePhotos[question.id]) retryPhoto(question.id);
+        if (audioStates[question.id] === "uploadError" && retryableAudio[question.id]) retryAudio(question.id);
+        if (dirty.current.has(question.id) || questionStatuses[question.id] === "error") {
+          void resendQuietly(question.id, bodies[question.id] ?? "");
+        }
+      }
+      for (const section of sections) {
+        if (sectionSaveStates[section.id] !== "error") continue;
+        if (section.kind === "standard") saveSectionText(section.id);
+        else if (section.kind === "music" && sectionLinks[section.id]) void saveSection(section.id);
+      }
+    };
+    window.addEventListener("online", retryAll);
+    return () => window.removeEventListener("online", retryAll);
+  }, [audioStates, bodies, choosePoll, photoStates, pollPicks, pollStatuses, questionStatuses, questions, resendQuietly, retryAudio, retryPhoto, retryableAudio, retryablePhotos, saveSection, saveSectionText, sectionLinks, sectionSaveStates, sections]);
 
   const onSend = useCallback(async () => {
     if (photoLocks.current.size > 0 || sectionUploadLocks.current.size > 0) return;
@@ -886,7 +1000,22 @@ export function ReplySheet({
     try {
       for (const question of questions) {
         // Poll picks save the moment they are tapped; there is no draft text to flush.
-        if (question.kind === "poll") continue;
+        if (question.kind === "poll") {
+          if (pollStatuses[question.id] !== "error") continue;
+          const picks = pollPicks[question.id] ?? [];
+          const saved = await writePoll(question.id, JSON.stringify(picks));
+          if (!saved.ok) {
+            // "Sent" must never hide a vote that's gone.
+            setSubmitFailed(true);
+            setError(saved.error);
+            return;
+          }
+          letGo(pollKey(token, question.id));
+          setPollStatuses((current) => ({ ...current, [question.id]: picks.length > 0 ? "saved" : "cleared" }));
+          continue;
+        }
+        // Already safe on the server: a failure below must not paint this one as unsaved.
+        if (!dirty.current.has(question.id) && questionStatuses[question.id] !== "error") continue;
         const body = bodies[question.id] ?? "";
         const revision = (revisions.current.get(question.id) ?? 0) + 1;
         revisions.current.set(question.id, revision);
@@ -914,7 +1043,9 @@ export function ReplySheet({
         return;
       }
 
-      setConfirmation(sent ? "updated" : "sent");
+      setEditedSinceSend(false);
+      setSentIds(new Set(questions.filter((question) => (bodies[question.id] ?? "").trim().length > 0).map((question) => question.id)));
+      setConfirmation(sent && !newAfterSend ? "updated" : "sent");
       setSent(true);
       setAnimateSentStamp(true);
       setAnnouncement(copy.a11yStatus.sentAnnouncement);
@@ -924,7 +1055,7 @@ export function ReplySheet({
     } finally {
       setSending(false);
     }
-  }, [bodies, name, questions, sent, token, writeDraft]);
+  }, [bodies, name, newAfterSend, pollPicks, pollStatuses, questionStatuses, questions, sent, token, writeDraft, writePoll]);
 
   // Each view starts at the top with focus on its heading, so a screen reader hears the change.
   useEffect(() => {
@@ -944,6 +1075,44 @@ export function ReplySheet({
     nudgeMessage.current?.scrollIntoView({ block: "start", behavior: "smooth" });
   }, []);
 
+  const showAllSet = useCallback(() => setConfirmation("unchanged"), []);
+
+  // "Send without it" is a decision: the warning doesn't come back on the next visit.
+  const settleBadPicks = () => {
+    setLinkGuard(false);
+    if (sectionFailed) setDroppedPick(true);
+    if (attachFailed) setDroppedAttachment(true);
+    for (const section of sections) {
+      if (section.kind !== "music" || sectionSaveStates[section.id] !== "error") continue;
+      forgetPick(token, section.id);
+      musicSaved.current[section.id] = "";
+      setSectionLinks((current) => ({ ...current, [section.id]: "" }));
+      setSectionCaptions((current) => ({ ...current, [section.id]: "" }));
+      setSectionSaveStates((current) => ({ ...current, [section.id]: "idle" }));
+      setSectionErrors((current) => ({ ...current, [section.id]: null }));
+    }
+  };
+
+  const fixBadLink = () => {
+    const failed = sections.find((section) => section.kind === "music" && sectionSaveStates[section.id] === "error")?.id;
+    setLinkGuard(false);
+    if (!failed) {
+      const question = questions.find((candidate) =>
+        (photoStates[candidate.id] === "uploadError" && retryablePhotos[candidate.id]) ||
+        (audioStates[candidate.id] === "uploadError" && retryableAudio[candidate.id]));
+      if (question) {
+        const row = document.getElementById(photoStates[question.id] === "uploadError" ? `photo-${question.id}` : `audio-${question.id}`);
+        row?.focus({ preventScroll: true });
+        row?.closest("section")?.scrollIntoView({ block: "center" });
+      }
+    }
+    if (failed) {
+      const field = document.getElementById(`section-link-${failed}`);
+      field?.focus({ preventScroll: true });
+      field?.scrollIntoView({ block: "center" });
+    }
+  };
+
   const editAnswers = useCallback(() => {
     setConfirmation(null);
     // The sheet is unhidden on the next paint; move there once it is.
@@ -956,7 +1125,7 @@ export function ReplySheet({
   return (
     <>
       <header className="reply-topbar stitched sticky top-0 z-20 border-b bg-page/85 backdrop-blur-md">
-        <div className="mx-auto flex min-h-16 w-full max-w-[600px] items-center justify-between gap-3 px-4 py-2">
+        <div className="reply-topbar__row mx-auto flex min-h-14 w-full max-w-[600px] items-center justify-between gap-3 px-4 py-1.5">
           <span className="flex min-w-0 items-center gap-2 font-display text-[23px] font-bold text-ink">
             <Cherries className="h-7 w-7 flex-none" /><span className="wrap-any">{loopName}</span>
           </span>
@@ -967,10 +1136,10 @@ export function ReplySheet({
       </header>
 
       {confirmation ? (
-        <main className="mx-auto w-full max-w-[600px] px-4 pb-16 pt-7" aria-labelledby="reply-confirmation-heading">
-          <LoopBanner url={headerImageUrl} className="mb-5" />
+        <main className="mx-auto w-full max-w-[600px] px-4 pb-16 pt-4" aria-labelledby="reply-confirmation-heading">
           <section className="card relative mt-2 p-6 pt-8 text-center sm:p-8 sm:pt-10">
-            <Tape tone="dots" />
+            <LoopSnapshot url={headerImageUrl} />
+            <Tape tone="dots" position="left" />
             <svg viewBox="0 0 20 20" aria-hidden className={`sent-stamp mx-auto h-14 w-14${animateSentStamp ? " sent-stamp-animate" : ""}`}>
               <path d="M10 1.7a8.3 8.3 0 100 16.6 8.3 8.3 0 000-16.6zm3.8 6.4l-4.4 4.7a.9.9 0 01-1.3 0L6.2 10.9a.9.9 0 111.3-1.3l1.2 1.3 3.8-4a.9.9 0 011.3 1.2z" />
             </svg>
@@ -980,7 +1149,7 @@ export function ReplySheet({
               id="reply-confirmation-heading"
               className="mt-4 text-ink outline-none"
             >
-              {confirmation === "updated" ? copy.reply.confirmation.updatedTitle : copy.reply.confirmation.sentTitle}
+              {confirmation === "updated" ? copy.reply.confirmation.updatedTitle : confirmation === "unchanged" ? copy.reply.confirmation.allSetTitle : copy.reply.confirmation.sentTitle}
             </h1>
             <p className="mt-2 text-[16px] leading-relaxed text-ink">
               {text(copy.reply.confirmation.body, { round: issueTitle(copy.reply.round, roundNumber, roundName) })}
@@ -988,77 +1157,82 @@ export function ReplySheet({
             <p className="mt-1 text-[14px] leading-relaxed text-ink-soft">
               {text(copy.reply.confirmation.delivery, { deadline: deadlineBoth })}
             </p>
+            {droppedPick || sectionFailed ? <p role="status" className="m-0 mt-3 text-[14px] font-bold leading-relaxed text-danger">{copy.reply.pickNotSaved}</p> : null}
+            {droppedAttachment || attachFailed ? <p role="status" className="m-0 mt-3 text-[14px] font-bold leading-relaxed text-danger">{copy.reply.attachDropped}</p> : null}
             <button type="button" onClick={editAnswers} className="btn btn-primary mt-6 min-h-12 w-full sm:w-auto sm:px-8">
               {copy.reply.confirmation.edit}
             </button>
             {canSuggest ? (
-              <p className="mt-4 text-[13px] leading-relaxed text-ink-muted">
-                <Link
-                  href={`/r/${token}/suggest`}
-                  className="font-medium text-ink underline decoration-line-strong underline-offset-4"
-                >
-                  {copy.reply.suggestLink}
-                </Link>
+              <p className="m-0 mt-3">
+                <Link href={`/r/${token}/suggest`} className="link">{copy.reply.suggestLink}</Link>
               </p>
             ) : null}
           </section>
         </main>
       ) : null}
 
-      <main className="mx-auto w-full max-w-[600px] px-4 pb-36 pt-7" hidden={confirmation !== null}>
-        <LoopBanner url={headerImageUrl} className="mb-5" />
-        <div className="relative pr-16">
-          <Cherries className="absolute -top-2 right-0 h-16 w-16 rotate-12" />
-          <p className="eyebrow">{text(copy.reply.hi, { name: name.trim() || displayName })}</p>
-          <h1 ref={sheetHeading} tabIndex={-1} className="mt-1 text-ink outline-none">{issueTitle(copy.reply.round, roundNumber, roundName)}</h1>
-        </div>
-        <p className="mt-3 text-[15px] leading-relaxed text-ink-soft">
-          {text(copy.reply.closes, { deadline: deadline.inLoopZone })}
-          {viewerTime ? ` ${text(copy.reply.viewerTimezone, { time: viewerTime })}` : null}.
-        </p>
-
-        <section className="card mt-5 p-4">
-          <label htmlFor="reply-name" className="block text-[13px] font-medium text-ink-soft">
-            {copy.reply.nameTitle}
-          </label>
-          <input
-            id="reply-name"
-            value={name}
-            onChange={(event) => {
-              setName(event.target.value);
-              if (nameStatus !== "saving") setNameStatus("idle");
-            }}
-            onBlur={() => void saveDisplayName()}
-            maxLength={MAX_DISPLAY_NAME}
-            autoComplete="given-name"
-            aria-invalid={nameStatus === "error" ? "true" : undefined}
-            aria-describedby="reply-name-status"
-            placeholder={copy.reply.namePlaceholder}
-            disabled={sending}
-            className="field mt-1.5 h-11 py-0"
-          />
-          <p
-            id="reply-name-status"
-            aria-live="polite"
-            className={`mt-1 text-[12px] leading-relaxed ${nameStatus === "error" ? "text-danger" : "text-ink-muted"}`}
-          >
-            {nameStatus === "saving"
-              ? copy.reply.nameSaving
-              : nameStatus === "saved"
-                ? copy.reply.nameSaved
-                : nameStatus === "error"
-                  ? copy.reply.nameError
-                  : copy.reply.nameHint}
+      <main className="mx-auto w-full max-w-[600px] px-4 pb-36 pt-3" hidden={confirmation !== null}>
+        <section className={`reply-intro card${headerImageUrl ? " has-snapshot" : ""}`}>
+          <LoopSnapshot url={headerImageUrl} />
+          {headerImageUrl ? null : <Cherries className="reply-intro__cherries" />}
+          <p className="reply-intro__hi">{text(copy.reply.hi, { name: name.trim() || displayName })}</p>
+          <h1 ref={sheetHeading} tabIndex={-1} className="text-ink">{issueTitle(copy.reply.round, roundNumber, roundName)}</h1>
+          <p className="mt-1 text-[14.5px] leading-snug text-ink-soft numeric">
+            {text(copy.reply.closes, { deadline: deadlineBoth })}
           </p>
-          <div className="mt-3 border-t border-dashed border-line pt-3">
-            <p className="mb-2 text-[13px] font-medium text-ink-soft">{copy.identity.profile.title}</p>
-            <ProfilePhoto endpoint={`/api/reply/${token}/profile-photo`} name={name.trim() || displayName} photoUrl={photoUrl} />
-          </div>
+
+          {/* Who is answering is settled in one line; changing it is there for anyone who wants to. */}
+          <details className="reply-identity" open={nameStatus === "error" ? true : undefined}>
+            <summary>
+              <Avatar name={name.trim() || displayName} photoUrl={photoUrl} className="album-avatar" />
+              <span className="min-w-0 flex-1 wrap-any">{text(copy.reply.answeringAs, { name: name.trim() || displayName })}</span>
+              <span className="reply-identity__change">{copy.reply.changeIdentity}</span>
+              <span className="reply-identity__close">{copy.common.close}</span>
+            </summary>
+            <div className="reply-identity__body">
+              <label htmlFor="reply-name" className="block text-[13px] font-bold text-ink-soft">
+                {copy.reply.nameTitle}
+              </label>
+              <input
+                id="reply-name"
+                value={name}
+                onChange={(event) => {
+                  setName(event.target.value);
+                  if (nameStatus !== "saving") setNameStatus("idle");
+                }}
+                onBlur={() => void saveDisplayName()}
+                maxLength={MAX_DISPLAY_NAME}
+                autoComplete="given-name"
+                aria-invalid={nameStatus === "error" ? "true" : undefined}
+                aria-describedby="reply-name-status"
+                placeholder={copy.reply.namePlaceholder}
+                disabled={sending}
+                className="field mt-1.5 h-11 py-0"
+              />
+              <p
+                id="reply-name-status"
+                aria-live="polite"
+                className={`mt-1 text-[12px] leading-relaxed ${nameStatus === "error" ? "text-danger" : "text-ink-muted"}`}
+              >
+                {nameStatus === "saving"
+                  ? copy.reply.nameSaving
+                  : nameStatus === "saved"
+                    ? copy.reply.nameSaved
+                    : nameStatus === "error"
+                      ? copy.reply.nameError
+                      : copy.reply.nameHint}
+              </p>
+              <div className="mt-3 border-t border-dashed border-line pt-3">
+                <p className="mb-2 text-[13px] font-bold text-ink-soft">{copy.identity.profile.title}</p>
+                <ProfilePhoto endpoint={`/api/reply/${token}/profile-photo`} name={name.trim() || displayName} photoUrl={photoUrl} />
+              </div>
+            </div>
+          </details>
         </section>
 
         <p role="status" aria-live="polite" className="sr-only">{announcement}</p>
         {sent ? (
-          <div className="notice settle mt-6 flex items-start gap-3 border bg-accent-soft px-4 py-3">
+          <div className="notice settle mt-4 flex items-start gap-3 border bg-accent-soft px-4 py-3">
             <svg viewBox="0 0 20 20" aria-hidden className={`sent-stamp mt-0.5 h-4 w-4 flex-none${animateSentStamp ? " sent-stamp-animate" : ""}`}>
               <path d="M10 1.7a8.3 8.3 0 100 16.6 8.3 8.3 0 000-16.6zm3.8 6.4l-4.4 4.7a.9.9 0 01-1.3 0L6.2 10.9a.9.9 0 111.3-1.3l1.2 1.3 3.8-4a.9.9 0 011.3 1.2z" />
             </svg>
@@ -1072,12 +1246,12 @@ export function ReplySheet({
           ref={nudgeMessage}
           id="reply-nothing-to-send"
           role="alert"
-          className={showNudge ? "notice mt-6 scroll-mt-24 border bg-accent-soft px-4 py-3 text-[14px] font-bold leading-relaxed text-ink" : "scroll-mt-24"}
+          className={showNudge ? "notice mt-4 scroll-mt-24 border bg-accent-soft px-4 py-3 text-[14px] font-bold leading-relaxed text-ink" : "scroll-mt-24"}
         >
           {showNudge ? copy.reply.nothingToSend : null}
         </p>
 
-        <div ref={questionList} className={showNudge ? "mt-4 flex flex-col gap-6" : "mt-7 flex flex-col gap-6"}>
+        <div ref={questionList} className="mt-5 flex flex-col gap-6">
           {questions.map((question, index) => {
             if (question.kind === "poll") {
               return (
@@ -1103,7 +1277,7 @@ export function ReplySheet({
             const photoBusyForCard = photoState === "uploading" || photoState === "removing";
             // aria-disabled, not disabled: a control the keyboard is on must not drop focus mid-request.
             const photoBlocked = sending || photoBusyForCard;
-            const showRemove = Boolean(photoUrl || preview || photoState === "uploadError" || photoState === "removeError");
+            const showRemove = Boolean(photoUrl || preview || (photoState === "uploadError" && retryablePhotos[question.id]) || photoState === "removeError");
             const photoStatusText = photoState === "uploading"
               ? copy.reply.photoUploading
               : photoState === "removing"
@@ -1139,21 +1313,21 @@ export function ReplySheet({
             return (
             <section key={question.id} className="card paper ride-in block p-5 pt-7">
               <Tape tone={(["dots", "stripe", "mint", "check"] as const)[index % 4]} position={index % 2 ? "right" : "left"} />
-              <div className="mb-3 flex items-start justify-between gap-3">
-                <label htmlFor={`reply-${question.id}`} className="font-display text-[25px] font-bold leading-[1.15] text-ink">
-                  {question.text}
-                </label>
-                <span className="flex flex-none items-center gap-2 text-[12px] text-ink-muted" aria-live="polite">
-                  {questionStatuses[question.id] === "saving" ? <span>{copy.reply.questionStates.saving}</span> : null}
-                  {questionStatuses[question.id] === "saved" ? <span>{copy.reply.questionStates.saved}</span> : null}
-                  {questionStatuses[question.id] === "error" ? <span>{copy.reply.questionStates.error}</span> : null}
-                  {questionStatuses[question.id] === "error" ? (
-                    <button type="button" className="min-h-11 underline underline-offset-2" onClick={() => { pendingFocus.current = [`reply-${question.id}`]; void persist(question.id, bodies[question.id] ?? ""); }}>
-                      {copy.reply.retry}
-                    </button>
-                  ) : null}
-                </span>
-              </div>
+              <span className="question-status" aria-live="polite">
+                {questionStatuses[question.id] === "saving" ? <span>{copy.reply.questionStates.saving}</span> : null}
+                {questionStatuses[question.id] === "saved" ? <span>{copy.reply.questionStates.saved}</span> : null}
+              </span>
+              <label htmlFor={`reply-${question.id}`} className="block font-display text-[26px] font-bold leading-[1.15] text-ink">
+                {question.text}
+              </label>
+              {questionStatuses[question.id] === "error" ? (
+                <p role="alert" className="m-0 mt-1 flex flex-wrap items-center gap-x-3 text-[13px] font-bold text-danger">
+                  {conflicts[question.id] ?? copy.reply.questionStates.error}
+                  <button type="button" className="min-h-11 underline underline-offset-2" onClick={() => { pendingFocus.current = [`reply-${question.id}`]; void persist(question.id, bodies[question.id] ?? ""); }}>
+                    {copy.reply.retry}
+                  </button>
+                </p>
+              ) : null}
 
               <textarea
                 ref={(element) => {
@@ -1183,18 +1357,17 @@ export function ReplySheet({
               ) : null}
 
               {(audioPreview || audioUrl) ? (
-                <audio
-                  controls
-                  preload="metadata"
+                <VoiceNote
                   src={audioPreview ?? audioUrl ?? ""}
-                  aria-label={text(copy.reply.voiceDurationLabel, { duration: formatAudioDuration(audioDurations[question.id] ?? 0) })}
-                  className="mt-3 w-full"
+                  durationMs={audioDurations[question.id] ?? 0}
+                  label={text(copy.reply.voiceDurationLabel, { duration: formatAudioDuration(audioDurations[question.id] ?? 0) })}
+                  className="mt-3"
                 />
               ) : null}
 
               {/* Photo and voice share one quiet row inside the card they belong to. */}
-              <div className="mt-4 flex flex-wrap items-center gap-x-5 border-t border-dashed border-line pt-1">
-                <div className="flex flex-wrap items-center gap-x-5">
+              <div className="attach-row">
+                <div className="contents">
                   <input
                     id={`photo-${question.id}`}
                     type="file"
@@ -1214,26 +1387,27 @@ export function ReplySheet({
                   />
                   <label
                     htmlFor={`photo-${question.id}`}
-                    className="inline-flex min-h-11 items-center rounded-sm text-[13px] font-bold text-ink-soft underline decoration-line-strong underline-offset-4 hover:text-ink peer-aria-disabled:opacity-45 peer-focus-visible:outline peer-focus-visible:outline-3 peer-focus-visible:outline-accent-ink peer-focus-visible:outline-offset-2"
+                    className="attach-btn peer-aria-disabled:opacity-45 peer-focus-visible:outline peer-focus-visible:outline-3 peer-focus-visible:outline-accent-ink peer-focus-visible:outline-offset-2"
                   >
-                    {photoUrl ? copy.reply.replacePhoto : copy.reply.addPhoto}
+                    <svg viewBox="0 0 20 20" aria-hidden="true" className="attach-btn__icon"><path d="M3 6.8c0-.7.6-1.3 1.3-1.3h2l1.2-1.8h5l1.2 1.8h2c.7 0 1.3.6 1.3 1.3v8c0 .7-.6 1.3-1.3 1.3H4.3c-.7 0-1.3-.6-1.3-1.3zM10 13.3a2.6 2.6 0 1 0 0-5.2 2.6 2.6 0 0 0 0 5.2Z" /></svg>
+                    {photoUrl ? copy.reply.attachReplacePhoto : copy.reply.attachPhoto}
                   </label>
                   {showRemove ? (
                     <button
                       type="button"
-                      className="inline-flex min-h-11 items-center rounded-sm text-[13px] font-bold text-ink-soft underline decoration-line-strong underline-offset-4 hover:text-ink aria-disabled:cursor-not-allowed aria-disabled:opacity-45"
+                      className="attach-btn aria-disabled:cursor-not-allowed aria-disabled:opacity-45"
                       aria-label={forQuestion(copy.reply.removePhoto)}
                       aria-disabled={photoBlocked ? true : undefined}
                       onClick={() => {
                         if (!photoBlocked) void removePhoto(question.id);
                       }}
                     >
-                      {copy.reply.removePhoto}
+                      {copy.reply.attachRemovePhoto}
                     </button>
                   ) : null}
                 </div>
 
-                <div role="group" aria-label={forQuestion(copy.reply.voiceGroup)} className="flex flex-wrap items-center gap-x-5">
+                <div role="group" aria-label={forQuestion(copy.reply.voiceGroup)} className="contents">
                   {isRecordingHere ? (
                     // Visual only: a ticking live region would be read out every second.
                     <p className="text-[13px] font-medium text-ink numeric" aria-hidden="true">
@@ -1245,7 +1419,7 @@ export function ReplySheet({
                     <button
                       id={`record-${question.id}`}
                       type="button"
-                      className={`${isRecordingHere ? "btn btn-primary min-h-11 px-4 text-[13px]" : "inline-flex min-h-11 items-center rounded-sm text-[13px] font-bold text-ink-soft underline decoration-line-strong underline-offset-4 hover:text-ink"} aria-disabled:cursor-not-allowed aria-disabled:opacity-45`}
+                      className={`${isRecordingHere ? "btn btn-primary min-h-11 px-4 text-[13px]" : "attach-btn"} aria-disabled:cursor-not-allowed aria-disabled:opacity-45`}
                       aria-label={forQuestion(isRecordingHere ? copy.reply.voiceStop : audioUrl ? copy.reply.voiceReplace : copy.reply.voiceRecord)}
                       aria-describedby={`voice-help-${question.id}`}
                       aria-disabled={(isRecordingHere ? stopping : recordBlocked) ? true : undefined}
@@ -1254,7 +1428,8 @@ export function ReplySheet({
                         else if (!recordBlocked) void startRecording(question.id);
                       }}
                     >
-                      {isRecordingHere ? copy.reply.voiceStop : audioUrl ? copy.reply.voiceReplace : copy.reply.voiceRecord}
+                      {isRecordingHere ? null : <svg viewBox="0 0 20 20" aria-hidden="true" className="attach-btn__icon"><path d="M10 2.8a2.6 2.6 0 0 0-2.6 2.6v4.4a2.6 2.6 0 1 0 5.2 0V5.4A2.6 2.6 0 0 0 10 2.8ZM4.8 9.6a5.2 5.2 0 0 0 10.4 0M10 14.8v2.8" /></svg>}
+                      {isRecordingHere ? copy.reply.voiceStop : audioUrl ? copy.reply.attachReplaceVoice : copy.reply.attachVoice}
                     </button>
                   ) : null}
                   {isRecordingHere ? null : (
@@ -1264,6 +1439,7 @@ export function ReplySheet({
                         type="file"
                         accept={AUDIO_ACCEPT}
                         className="peer sr-only"
+                        aria-label={forQuestion(copy.reply.voicePick)}
                         aria-describedby={`voice-help-${question.id}`}
                         aria-disabled={voiceBlocked || recording ? true : undefined}
                         onClick={(event) => {
@@ -1277,21 +1453,22 @@ export function ReplySheet({
                       />
                       <label
                         htmlFor={`audio-${question.id}`}
-                        className="inline-flex min-h-11 items-center rounded-sm text-[13px] font-bold text-ink-soft underline decoration-line-strong underline-offset-4 hover:text-ink peer-aria-disabled:opacity-45 peer-focus-visible:outline peer-focus-visible:outline-3 peer-focus-visible:outline-accent-ink peer-focus-visible:outline-offset-2"
+                        className="attach-btn peer-aria-disabled:opacity-45 peer-focus-visible:outline peer-focus-visible:outline-3 peer-focus-visible:outline-accent-ink peer-focus-visible:outline-offset-2"
                       >
-                        {copy.reply.voicePick}
+                        <svg viewBox="0 0 20 20" aria-hidden="true" className="attach-btn__icon"><path d="M8 15.2V4.6l8-1.6v10.4M8 15.2a2.3 2.3 0 1 1-4.6 0 2.3 2.3 0 0 1 4.6 0ZM16 13.4a2.3 2.3 0 1 1-4.6 0 2.3 2.3 0 0 1 4.6 0Z" /></svg>
+                        {copy.reply.attachAudio}
                       </label>
                       {showVoiceRemove ? (
                         <button
                           type="button"
-                          className="inline-flex min-h-11 items-center rounded-sm text-[13px] font-bold text-ink-soft underline decoration-line-strong underline-offset-4 hover:text-ink aria-disabled:cursor-not-allowed aria-disabled:opacity-45"
+                          className="attach-btn aria-disabled:cursor-not-allowed aria-disabled:opacity-45"
                           aria-label={forQuestion(copy.reply.voiceRemove)}
                           aria-disabled={voiceBlocked ? true : undefined}
                           onClick={() => {
                             if (!voiceBlocked) void removeAudio(question.id);
                           }}
                         >
-                          {copy.reply.voiceRemove}
+                          {copy.reply.attachRemoveVoice}
                         </button>
                       ) : null}
                     </>
@@ -1306,13 +1483,13 @@ export function ReplySheet({
               {/* Format and size limits stay with the controls for assistive tech, and show when something went wrong. */}
               <p
                 id={`photo-help-${question.id}`}
-                className={photoState === "uploadError" ? "mt-2 text-[12px] leading-relaxed text-ink-muted" : "sr-only"}
+                className="sr-only"
               >
                 {copy.reply.photoFormats}
               </p>
               <p
                 id={`voice-help-${question.id}`}
-                className={audioState === "uploadError" ? "mt-2 text-[12px] leading-relaxed text-ink-muted" : "sr-only"}
+                className="sr-only"
               >
                 {copy.reply.voiceFormats}
               </p>
@@ -1373,44 +1550,54 @@ export function ReplySheet({
                   ) : null}
 
                   {section.kind === "music" ? (
-                    <div className="mt-3 flex flex-col gap-2">
-                      <input
-                        id={`section-link-${section.id}`}
-                        value={sectionLinks[section.id] ?? ""}
-                        onChange={(event) => setSectionLinks((current) => ({ ...current, [section.id]: event.target.value }))}
-                        placeholder={copy.reply.sectionMusicPlaceholder}
-                        aria-label={copy.reply.sectionMusicLabel}
-                        maxLength={500}
-                        disabled={sending}
-                        className="field h-[46px] py-0"
-                      />
-                      <input
-                        value={sectionCaptions[section.id] ?? ""}
-                        onChange={(event) => setSectionCaptions((current) => ({ ...current, [section.id]: event.target.value }))}
-                        placeholder={copy.reply.sectionCaptionPlaceholder}
-                        aria-label={copy.reply.sectionCaptionLabel}
-                        maxLength={120}
-                        disabled={sending}
-                        className="field h-[46px] py-0"
-                      />
-                      <div className="flex items-center gap-2">
-                        <button
-                          type="button"
-                          className="btn btn-primary min-h-11 px-4 text-[13px]"
-                          onClick={() => void saveSection(section.id)}
+                    <div
+                      className="mt-3 flex flex-col gap-3"
+                      onBlur={(event) => {
+                        // Leaving the pair of fields is the save: moving between them isn't.
+                        if (event.currentTarget.contains(event.relatedTarget as Node | null)) return;
+                        const link = (sectionLinks[section.id] ?? "").trim();
+                        if (link && link !== musicSaved.current[section.id]) {
+                          musicSaved.current[section.id] = link;
+                          void saveSection(section.id);
+                        }
+                      }}
+                    >
+                      <label className="block text-[13px] font-bold text-ink-soft">
+                        {copy.reply.sectionMusicLabel}
+                        <input
+                          id={`section-link-${section.id}`}
+                          value={sectionLinks[section.id] ?? ""}
+                          onChange={(event) => setSectionLinks((current) => ({ ...current, [section.id]: event.target.value }))}
+                          placeholder={copy.reply.sectionMusicPlaceholder}
+                          inputMode="url"
+                          maxLength={500}
                           disabled={sending}
-                        >
-                          {copy.reply.sectionMusicSave}
-                        </button>
+                          className="field mt-1 h-[46px] py-0"
+                        />
+                      </label>
+                      <label className="block text-[13px] font-bold text-ink-soft">
+                        {copy.reply.sectionMusicCaptionLabel}
+                        <input
+                          value={sectionCaptions[section.id] ?? ""}
+                          onChange={(event) => setSectionCaptions((current) => ({ ...current, [section.id]: event.target.value }))}
+                          placeholder={copy.reply.sectionCaptionPlaceholder}
+                          maxLength={120}
+                          disabled={sending}
+                          className="field mt-1 h-[46px] py-0"
+                        />
+                      </label>
+                      <div className="flex flex-wrap items-center gap-x-3 empty:hidden">
                         {(sectionLinks[section.id] ?? "") ? (
                           <button
                             type="button"
-                            className="btn btn-quiet min-h-11 px-4 text-[13px] aria-disabled:cursor-not-allowed aria-disabled:opacity-45"
+                            className="link link--quiet cursor-pointer aria-disabled:cursor-not-allowed aria-disabled:opacity-45"
                             aria-disabled={sending ? true : undefined}
                             onClick={() => {
                               if (sending) return;
                               // This button leaves with the link; the field it cleared is where focus goes.
                               pendingFocus.current = [`section-link-${section.id}`];
+                              musicSaved.current[section.id] = "";
+                              forgetPick(token, section.id);
                               setSectionLinks((current) => ({ ...current, [section.id]: "" }));
                               void saveSection(section.id, "");
                             }}
@@ -1418,13 +1605,11 @@ export function ReplySheet({
                             {copy.reply.sectionMusicClear}
                           </button>
                         ) : null}
-                        <span aria-live="polite" className="text-[12.5px] text-ink-muted">
-                          {saveState === "saving" ? copy.reply.sectionSaving : saveState === "saved" ? copy.reply.sectionDraftSaved : null}
+                        <span aria-live="polite" className="text-[13px] text-ink-muted empty:hidden">
+                          {saveState === "saving" ? copy.reply.sectionSaving : saveState === "saved" && (sectionLinks[section.id] ?? "") ? copy.reply.sectionDraftSaved : null}
                         </span>
                       </div>
-                      <p role="alert" className={sectionErrors[section.id] ? "text-[13px] leading-relaxed text-danger" : undefined}>
-                        {sectionErrors[section.id]}
-                      </p>
+                      {sectionErrors[section.id] ? <p role="alert" className="text-[13px] leading-relaxed text-danger">{sectionErrors[section.id]}</p> : null}
                     </div>
                   ) : null}
 
@@ -1432,7 +1617,12 @@ export function ReplySheet({
                     <div className="mt-3">
                       <textarea
                         value={sectionBodies[section.id] ?? ""}
-                        onChange={(event) => setSectionBodies((current) => ({ ...current, [section.id]: event.target.value }))}
+                        onChange={(event) => {
+                          const typed = event.target.value;
+                          setSectionBodies((current) => ({ ...current, [section.id]: typed }));
+                          // On this device from the first keystroke, until the server has it.
+                          keep(extraKey(token, section.id), typed);
+                        }}
                         onBlur={() => saveSectionText(section.id)}
                         placeholder={copy.reply.placeholder}
                         aria-label={section.title}
@@ -1447,6 +1637,9 @@ export function ReplySheet({
                       <p role="alert" className={sectionErrors[section.id] ? "text-[13px] leading-relaxed text-danger" : undefined}>
                         {sectionErrors[section.id]}
                       </p>
+                      {saveState === "error" ? (
+                        <button type="button" className="link cursor-pointer" onClick={() => saveSectionText(section.id)}>{copy.reply.retryExtra}</button>
+                      ) : null}
                     </div>
                   ) : null}
 
@@ -1503,39 +1696,21 @@ export function ReplySheet({
           {error}
         </p>
 
-        <p aria-live="polite" data-save-status className="mt-4 h-5 text-[13px] text-ink-muted">
-          {status === "saving" ? copy.reply.saving : null}
-          {status === "saved" ? (sent ? copy.reply.saved : copy.reply.draftSaved) : null}
-          {status === "error" ? copy.reply.notSaved : null}
-        </p>
-
-        <p className="mt-2 text-[13px] leading-relaxed text-ink-muted">
-          {text(copy.reply.privacy, { displayName: name.trim() || displayName, loopName })}
-        </p>
-
-        {canSuggest ? (
-          <p className="mt-3 text-[13px] leading-relaxed text-ink-muted">
-            <Link
-              href={`/r/${token}/suggest`}
-              className="font-medium text-ink underline decoration-line-strong underline-offset-4"
-            >
-              {copy.reply.suggestLink}
-            </Link>
+        <div className="card mt-6 p-4">
+          <p className="m-0 text-[14px] leading-relaxed text-ink-soft">
+            {text(copy.reply.privacy, { displayName: name.trim() || displayName, loopName })}
           </p>
-        ) : null}
 
-        {mutedUnsubscribeToken ? <MutedNotice unsubscribeToken={mutedUnsubscribeToken} back={`/r/${token}`} /> : null}
+          {mutedUnsubscribeToken ? <MutedNotice unsubscribeToken={mutedUnsubscribeToken} back={`/r/${token}`} /> : null}
 
-        <ReminderPreference token={token} initial={reminderPreference} />
+          <ReminderPreference token={token} initial={reminderPreference} />
 
-        <p className="mt-6 flex flex-wrap gap-x-4 gap-y-2 text-[13px] leading-relaxed text-ink-muted">
-          <Link href={`/r/${token}/leave`} className="underline decoration-line-strong underline-offset-4 hover:text-ink">
-            {copy.reply.leaveLink}
-          </Link>
-          <Link href="/privacy" className="underline decoration-line-strong underline-offset-4 hover:text-ink">
-            {copy.legal.privacyLink}
-          </Link>
-        </p>
+          <p className="m-0 mt-2 flex flex-wrap gap-x-5 border-t border-dashed border-line pt-1">
+            {canSuggest ? <Link href={`/r/${token}/suggest`} className="link">{copy.reply.suggestLink}</Link> : null}
+            <Link href={`/r/${token}/leave`} className="link link--quiet">{copy.reply.leaveLink}</Link>
+            <Link href="/privacy" className="link link--quiet">{copy.legal.privacyLink}</Link>
+          </p>
+        </div>
       </main>
 
       <section
@@ -1544,9 +1719,28 @@ export function ReplySheet({
         className="reply-actionbar stitched-top fixed inset-x-0 bottom-0 z-20 border-t backdrop-blur-md"
         style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}
       >
-        <div className="mx-auto flex w-full max-w-[600px] items-center justify-between gap-3 px-4 pt-3">
-          <span className="text-[13px] font-medium text-ink-soft numeric">
-            {sent ? copy.reply.sentState : text(copy.reply.answered, { answered, total })}
+        <div className="mx-auto flex w-full max-w-[600px] flex-wrap items-center justify-between gap-3 px-4 pt-3">
+          {linkGuard && (sectionFailed || attachFailed) ? (
+            <div className="guard" role="group" aria-labelledby="link-guard">
+              <p id="link-guard" className="guard__q">{sectionFailed ? copy.reply.guardQuestion : copy.reply.attachGuard}</p>
+              <button type="button" className="btn btn-quiet" onClick={fixBadLink}>{sectionFailed ? copy.reply.guardFix : copy.reply.attachFix}</button>
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={() => {
+                  settleBadPicks();
+                  if (sent && !newAfterSend && !editedSinceSend) showAllSet();
+                  else void onSend();
+                }}
+              >
+                {sent ? copy.reply.guardDone : copy.reply.guardSend}
+              </button>
+            </div>
+          ) : (
+          <>
+          {/* The top bar keeps the count. This one says where the words are. */}
+          <span aria-live="polite" data-save-status className={`min-w-0 flex-1 text-[13px] font-bold leading-snug numeric ${status === "error" || pollFailed || sectionFailed || attachFailed || extraFailed ? "text-danger" : "text-ink-soft"}`}>
+            {status === "saving" ? copy.reply.saving : status === "error" ? copy.reply.notSaved : pollFailed ? copy.reply.pollNotSaved : sectionFailed ? copy.reply.attentionNeeded : attachFailed ? copy.reply.attachNotSaved : extraFailed ? copy.reply.extraNotSaved : sent ? copy.reply.liveEdits : status === "saved" ? copy.reply.draftSaved : copy.reply.savedAsYouGo}
           </span>
           {/* aria-disabled, not disabled: the button the keyboard is on must not vanish mid-send. */}
           <button
@@ -1554,18 +1748,52 @@ export function ReplySheet({
             onClick={() => {
               if (sendBlocked) return;
               if (nothingToSend) nudgeToFirstQuestion();
+              else if (sectionFailed || attachFailed) setLinkGuard(true);
+              else if (sent && !newAfterSend && !editedSinceSend) showAllSet();
               else void onSend();
             }}
             aria-disabled={sendBlocked ? true : undefined}
             aria-describedby={showNudge ? "reply-nothing-to-send" : undefined}
-            className="btn btn-primary aria-disabled:cursor-not-allowed aria-disabled:opacity-45"
+            className={`btn ${sent && !newAfterSend ? "btn-quiet" : "btn-primary"} flex-none aria-disabled:cursor-not-allowed aria-disabled:opacity-45`}
           >
-            {sending ? copy.reply.sending : sent ? copy.reply.saveChanges : copy.reply.sendAnswers}
+            {sending ? copy.reply.sending : sent ? (newAfterSend ? copy.reply.sendNew : copy.reply.done) : copy.reply.sendAnswers}
           </button>
+          </>
+          )}
         </div>
       </section>
     </>
   );
+}
+
+// Per link, so two people on one shared device never see each other's words.
+const pickKey = (token: string, sectionId: string) => `friendloop-pick:${token.slice(-12)}:${sectionId}`;
+const pollKey = (token: string, questionId: string) => `friendloop-poll:${token.slice(-12)}:${questionId}`;
+const extraKey = (token: string, sectionId: string) => `friendloop-extra:${token.slice(-12)}:${sectionId}`;
+type KeptPick = { url: string; caption: string; error: string };
+
+function keep(key: string, value: string) {
+  try { localStorage.setItem(key, value); } catch { /* Private mode: the page still shows it. */ }
+}
+function letGo(key: string) {
+  try { localStorage.removeItem(key); } catch { /* Nothing kept. */ }
+}
+function recall(key: string): string | null {
+  try { return localStorage.getItem(key); } catch { return null; }
+}
+function rememberPick(token: string, sectionId: string, pick: KeptPick) {
+  try { localStorage.setItem(pickKey(token, sectionId), JSON.stringify(pick)); } catch { /* Private mode: the page still shows it. */ }
+}
+function forgetPick(token: string, sectionId: string) {
+  try { localStorage.removeItem(pickKey(token, sectionId)); } catch { /* Nothing kept. */ }
+}
+function recallPick(token: string, sectionId: string): KeptPick | null {
+  try {
+    const raw = localStorage.getItem(pickKey(token, sectionId));
+    return raw ? (JSON.parse(raw) as KeptPick) : null;
+  } catch {
+    return null;
+  }
 }
 
 /** On a touch screen the sheet scrolls inside body, not the document (globals.css): reset both. */
@@ -1640,9 +1868,10 @@ function PhotoSlot({
       />
       <label
         htmlFor={id}
-        className="btn btn-quiet min-h-11 px-4 text-[13px] peer-aria-disabled:opacity-45 peer-focus-visible:outline peer-focus-visible:outline-3 peer-focus-visible:outline-accent-ink peer-focus-visible:outline-offset-2"
+        className="attach-btn peer-aria-disabled:opacity-45 peer-focus-visible:outline peer-focus-visible:outline-3 peer-focus-visible:outline-accent-ink peer-focus-visible:outline-offset-2"
       >
-        {kind === "photo_wall" ? copy.reply.sectionAddPhoto : copy.reply.sectionAddPhoto}
+        <svg viewBox="0 0 20 20" aria-hidden="true" className="attach-btn__icon"><path d="M3 6.8c0-.7.6-1.3 1.3-1.3h2l1.2-1.8h5l1.2 1.8h2c.7 0 1.3.6 1.3 1.3v8c0 .7-.6 1.3-1.3 1.3H4.3c-.7 0-1.3-.6-1.3-1.3zM10 13.3a2.6 2.6 0 1 0 0-5.2 2.6 2.6 0 0 0 0 5.2Z" /></svg>
+        {copy.reply.sectionAddPhoto}
       </label>
     </div>
   );

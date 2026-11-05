@@ -116,7 +116,8 @@ export function emailPreviews(): EmailPreview[] {
         questionCount: 3,
         url: "https://friendloop.dev/r/preview-token",
         unsubscribeUrl: PREVIEW_STOP_URL,
-        deadlineLabel: "Friday at 9:00 AM",
+        deadlineLabel: "on Fri 13 Nov, 9:00 AM your time",
+        questions: ["What made you laugh this week?", "What are you looking forward to?", "Where should we camp this summer?"],
       }),
     },
     {
@@ -126,7 +127,7 @@ export function emailPreviews(): EmailPreview[] {
         memberName: "Alice",
         url: "https://friendloop.dev/r/preview-token",
         unsubscribeUrl: PREVIEW_STOP_URL,
-        deadlineLabel: "Friday at 9:00 AM",
+        deadlineLabel: "on Fri 13 Nov, 9:00 AM your time",
         remaining: 2,
       }),
     },
@@ -145,6 +146,7 @@ export function emailPreviews(): EmailPreview[] {
     {
       id: "delivery",
       email: deliveryEmail({
+        issueName: "Camping weekend",
         groupName: "Saturday Club",
         issueNumber: 11,
         url: "https://friendloop.dev/i/preview",

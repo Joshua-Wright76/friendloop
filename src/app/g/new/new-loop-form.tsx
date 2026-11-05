@@ -2,14 +2,16 @@
 
 import { useActionState, useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { createLoopAction, type CreateState } from "./actions";
+import { isFrameworkSignal } from "@/components/safe-form";
 import { TimezoneField } from "./timezone-field";
-import { Tape } from "@/components/stationery";
 import { Picker } from "@/components/picker";
 import { copy, text } from "@/lib/copy";
+import { formatHour } from "@/lib/format";
 import type { QuestionPack } from "@/lib/question-packs";
 import { QuestionPackPicker } from "@/components/question-pack-picker";
 import { PaperFields } from "@/components/paper-fields";
 import { LoopBanner } from "@/components/loop-theme";
+import { LivePaper } from "@/components/live-paper";
 import { PHOTO_ACCEPT } from "@/lib/photo-validation";
 import { BANNER_TARGET, prepareImage } from "@/components/prepare-image";
 import { DEFAULT_PRESET, normalizeHex } from "@/lib/theme";
@@ -19,7 +21,7 @@ const HOURS = Array.from({ length: 24 }, (_, hour) => hour);
 const WEEKDAY_OPTIONS = WEEKDAYS.map((day, index) => ({ value: String(index), label: day }));
 const HOUR_OPTIONS = HOURS.map((hour) => ({
   value: String(hour),
-  label: text(copy.newLoop.wizard.details.hourOption, { hour: String(hour).padStart(2, "0") }),
+  label: formatHour(hour),
 }));
 const CADENCE_OPTIONS = copy.newLoop.cadences;
 const VALID_EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -111,7 +113,15 @@ function AccessibleDialog({
 }
 
 export function NewLoopForm({ packs }: { packs: QuestionPack[] }) {
-  const [state, action, pending] = useActionState(createLoopAction, {} as CreateState);
+  const [state, action, pending] = useActionState(async (previous: CreateState, data: FormData): Promise<CreateState> => {
+    // A dropped connection leaves the wizard as it is, everything chosen still in place.
+    try {
+      return await createLoopAction(previous, data);
+    } catch (error) {
+      if (isFrameworkSignal(error)) throw error;
+      return { error: copy.newLoop.errors.createFailed };
+    }
+  }, {} as CreateState);
   const [step, setStep] = useState(0);
   const [name, setName] = useState("");
   const [cadence, setCadence] = useState("1");
@@ -211,6 +221,16 @@ export function NewLoopForm({ packs }: { packs: QuestionPack[] }) {
   }
 
   function addEmails(raw: string): boolean {
+    const named = raw.split(/[\s,;]+/).map((email) => email.trim()).filter(Boolean);
+    const unusable = named.filter((email) => !VALID_EMAIL.test(email));
+    if (unusable.length && named.length > unusable.length) {
+      // Keep what's good as chips, and leave only the one to fix in the field.
+      const usable = named.filter((email) => VALID_EMAIL.test(email));
+      addEmails(usable.join(" "));
+      setEmailDraft(unusable.join(" "));
+      setEmailError(text(copy.members.invalidEmailNamed, { emails: unusable.join(", ") }));
+      return false;
+    }
     const parsed = raw.split(/[\s,;]+/).map((email) => email.trim().toLowerCase()).filter(Boolean);
     if (parsed.some((email) => !VALID_EMAIL.test(email))) {
       setEmailError(copy.newLoop.wizard.readers.invalidEmail);
@@ -289,7 +309,8 @@ export function NewLoopForm({ packs }: { packs: QuestionPack[] }) {
   function goNext() {
     clearStepError();
     if (step === 1 && accent.trim() !== "" && !normalizeHex(accent)) {
-      failStep(copy.newLoop.errors.theme, null, formErrorId);
+      // The field already says what's wrong, in place. Take the person there.
+      setFocusRequest({ id: "accent-input" });
       return;
     }
     if (step === 0) {
@@ -345,6 +366,8 @@ export function NewLoopForm({ packs }: { packs: QuestionPack[] }) {
       {questions.map((question, index) => <input key={`${index}:${question}`} type="hidden" name="question" value={question} />)}
       {emails.map((email) => <input key={email} type="hidden" name="email" value={email} />)}
 
+      {/* The chosen paper dresses the whole page straight away, so the choice is its own preview. */}
+      {step >= 1 ? <LivePaper preset={preset} accent={normalizeHex(accent)} /> : null}
       <div className="wizard-progress">
         <div className="wizard-progress__row">
           <span className="text-[13px] font-bold text-ink-soft">
@@ -374,18 +397,17 @@ export function NewLoopForm({ packs }: { packs: QuestionPack[] }) {
           <>
             <h1 ref={stepHeading} tabIndex={-1} id="wizard-step-heading" className="wizard-heading">{copy.newLoop.wizard.details.title}</h1>
             <p className="wizard-description">{copy.newLoop.wizard.details.description}</p>
-            <div className="card relative mt-6 p-5 pt-7 sm:p-6 sm:pt-8">
-              <Tape tone="stripe" position="right" />
-              <div className="flex items-end justify-between gap-3">
-                <label htmlFor="loop-name" className="font-display text-[23px] font-bold text-ink">
-                  {copy.newLoop.nameLabel} <span className="font-body text-[13px] font-medium text-ink-soft">{copy.a11yLabels.required}</span>
+            <div className="mt-4">
+              <div className="flex min-h-11 items-center justify-between gap-3">
+                <label htmlFor="loop-name" className="block text-[14px] font-bold text-ink">
+                  {copy.newLoop.nameLabel} <span className="text-[13px] font-semibold text-ink-soft">{copy.a11yLabels.required}</span>
                 </label>
                 <button
                   type="button"
                   aria-haspopup="dialog"
                   aria-expanded={modal === "name-ideas"}
                   onClick={() => openModal("name-ideas")}
-                  className="btn btn-quiet h-10 min-h-10 px-3 text-[13px]"
+                  className="link cursor-pointer"
                 >
                   {copy.newLoop.wizard.details.ideasButton}
                 </button>
@@ -403,11 +425,11 @@ export function NewLoopForm({ packs }: { packs: QuestionPack[] }) {
                 aria-required="true"
                 aria-invalid={Boolean(nameError)}
                 aria-describedby={nameError ? nameErrorId : undefined}
-                className="field mt-2 h-[48px] py-0 text-[16px]"
+                className="field h-[48px] py-0 text-[16px]"
               />
               {nameError ? <p id={nameErrorId} role="alert" className="mt-2 text-[14px] leading-snug text-danger">{nameError}</p> : null}
 
-              <fieldset className="mt-6">
+              <fieldset className="mt-3">
                 <legend className="mb-2 text-[14px] font-bold text-ink">{copy.newLoop.wizard.details.cadence}</legend>
                 <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                   {CADENCE_OPTIONS.map((option) => (
@@ -416,15 +438,16 @@ export function NewLoopForm({ packs }: { packs: QuestionPack[] }) {
                       type="button"
                       aria-pressed={cadence === option.value}
                       onClick={() => setCadence(option.value)}
+                      aria-label={option.label}
                       className={`wizard-pill ${cadence === option.value ? "wizard-pill--selected" : ""}`}
                     >
-                      {cadence === option.value ? <span aria-hidden="true">✓ </span> : null}{option.label}
+                      {option.label.replace(/\s*\(.*\)$/, "")}
                     </button>
                   ))}
                 </div>
               </fieldset>
 
-              <p className="mt-5 text-[13px] font-medium text-ink-soft">{copy.newLoop.wizard.details.schedule}</p>
+              <p className="mt-3 text-[13px] font-medium text-ink-soft">{copy.newLoop.wizard.details.schedule}</p>
               <div className="mt-2 grid grid-cols-2 gap-3">
                 <label className="flex min-w-0 flex-col gap-1.5">
                   <span className="text-[13px] font-medium text-ink-soft">{copy.newLoop.day}</span>
@@ -441,10 +464,10 @@ export function NewLoopForm({ packs }: { packs: QuestionPack[] }) {
                 {timezoneError ? <p id={timezoneErrorId} role="alert" tabIndex={-1} className="col-span-2 text-[14px] leading-snug text-danger outline-none">{timezoneError}</p> : null}
               </div>
               {/* What the three choices add up to, said again whenever one of them changes. */}
-              <p aria-live="polite" aria-atomic="true" className="mt-4 rounded-md border border-dashed border-accent-line bg-accent-soft/60 px-3.5 py-2.5 text-[14px] leading-relaxed text-ink">
+              <p aria-live="polite" aria-atomic="true" className="mt-3 rounded-md border border-dashed border-accent-line bg-accent-soft/60 px-3.5 py-2 text-[14px] leading-snug text-ink">
                 {text(copy.newLoop.wizard.details.scheduleSummary, {
                   when: text(scheduleWhen, { weekday: weekdayName }),
-                  hour: hour.padStart(2, "0"),
+                  hour: formatHour(Number(hour)),
                 })}
               </p>
             </div>
@@ -455,8 +478,7 @@ export function NewLoopForm({ packs }: { packs: QuestionPack[] }) {
           <>
             <h1 ref={stepHeading} tabIndex={-1} id="wizard-step-heading" className="wizard-heading">{copy.newLoop.wizard.look.title}</h1>
             <p className="wizard-description">{copy.newLoop.wizard.look.description}</p>
-            <div className="card relative mt-6 p-5 pt-7 sm:p-6 sm:pt-8">
-              <Tape tone="dots" />
+            <div className="mt-4">
               {/* The hidden fields at the top of the form submit the choice, so moving
                   on from this step never loses it. */}
               <PaperFields preset={preset} onPreset={setPreset} accent={accent} onAccent={setAccent} />
@@ -573,14 +595,14 @@ export function NewLoopForm({ packs }: { packs: QuestionPack[] }) {
             <p className="wizard-description">{copy.newLoop.wizard.readers.groupDescription}</p>
             <div className="mt-5">
               <label htmlFor="reader-emails" className="mb-2 block text-[14px] font-bold text-ink">{copy.newLoop.wizard.readers.emailLabel}</label>
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:gap-3">
+              <div>
               <div
                 className={`field flex min-h-[52px] min-w-0 flex-1 flex-wrap items-center gap-2 p-2 ${emailError ? "border-danger" : ""}`}
                 onClick={(event) => event.currentTarget.querySelector("input")?.focus()}
               >
                 {emails.map((email) => (
                   <span key={email} className="chip inline-flex min-h-9 max-w-full items-center gap-1.5 border bg-card pr-1 text-[13px] font-bold text-ink">
-                    <span className="min-w-0 truncate">{email}</span>
+                    <span className="wrap-any min-w-0">{email}</span>
                     <button
                       type="button"
                       aria-label={text(copy.newLoop.wizard.readers.removeEmail, { email })}
@@ -600,6 +622,7 @@ export function NewLoopForm({ packs }: { packs: QuestionPack[] }) {
                     setEmailNotice("");
                   }}
                   onKeyDown={handleEmailKeyDown}
+                  onBlur={() => { if (emailDraft.trim()) addEmails(emailDraft); }}
                   placeholder={copy.newLoop.wizard.readers.emailPlaceholder}
                   aria-invalid={Boolean(emailError)}
                   aria-describedby={emailError ? errorId : undefined}
@@ -607,9 +630,6 @@ export function NewLoopForm({ packs }: { packs: QuestionPack[] }) {
                   className="min-w-[8rem] flex-1 border-0 bg-transparent p-1 text-[14px] text-ink outline-none"
                 />
               </div>
-              <button type="button" onClick={() => addEmails(emailDraft)} className="btn btn-quiet h-[46px] min-h-[46px] flex-none self-start px-4 text-[13px]">
-                {copy.newLoop.wizard.readers.addEmail}
-              </button>
               </div>
               {emailError ? <p id={errorId} role="alert" className="mt-2 text-[13px] leading-relaxed text-danger">{emailError}</p> : null}
               <p role="status" className={emailNotice ? "mt-2 text-[13px] leading-relaxed text-ink-soft" : undefined}>{emailNotice}</p>
@@ -622,8 +642,7 @@ export function NewLoopForm({ packs }: { packs: QuestionPack[] }) {
           <>
             <h1 ref={stepHeading} tabIndex={-1} id="wizard-step-heading" className="wizard-heading">{copy.newLoop.wizard.note.title}</h1>
             <p className="wizard-description">{copy.newLoop.wizard.note.description}</p>
-            <div className="card relative mt-5 p-5 pt-7">
-              <Tape tone="dots" />
+            <div className="mt-4">
               <label htmlFor="personal-note" className="mb-2 block text-[14px] font-bold text-ink">{copy.newLoop.wizard.note.label}</label>
               <textarea
                 id="personal-note"
@@ -658,9 +677,10 @@ export function NewLoopForm({ packs }: { packs: QuestionPack[] }) {
         <button
           type="button"
           onClick={goBack}
-          disabled={step === 0 || pending}
+          disabled={pending}
+          hidden={step === 0}
           aria-label={copy.newLoop.wizard.backAriaLabel}
-          className="btn btn-quiet min-h-12 px-4 disabled:opacity-40"
+          className="btn btn-quiet min-h-12 px-4 disabled:opacity-40 [&[hidden]]:hidden"
         >
           {copy.newLoop.wizard.back}
         </button>

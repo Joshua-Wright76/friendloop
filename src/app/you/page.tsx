@@ -1,3 +1,4 @@
+import { SafeForm } from "@/components/safe-form";
 import Link from "next/link";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
@@ -5,7 +6,7 @@ import { sql } from "drizzle-orm";
 import { db } from "@/db";
 import { currentUser } from "@/lib/auth";
 import { getNow } from "@/lib/clock";
-import { formatDate } from "@/lib/format";
+import { formatDate, atMoment, formatMoment } from "@/lib/format";
 import { groupSchedule, nextSlot } from "@/lib/schedule";
 import { Brand, Cherries, Tape } from "@/components/stationery";
 import { NoticeFocus } from "@/components/notice-focus";
@@ -34,20 +35,21 @@ export default async function YouPage({ searchParams }: {
   return (
     <main className="mx-auto w-full max-w-[720px] px-4 pb-16 pt-6 sm:px-6">
       <TimezoneSync stored={user.timezone} />
-      <header className="mb-10 flex items-start justify-between gap-3">
-        <Brand href={null} />
-        <form action={signOutAction}>
-          <SubmitButton className="btn btn-quiet h-11 min-h-11 px-4 text-[13px]">{copy.common.signOut}</SubmitButton>
-        </form>
-      </header>
-
-      <div className="flex items-end justify-between gap-4">
-        <h1 className="text-ink">{copy.you.title}</h1>
-        <Link href="/g/new" className="btn btn-primary">{copy.you.newLoop}</Link>
+      <div className="loop-head">
+        <header className="loop-head__row">
+          <Brand href={null} />
+          <SafeForm action={signOutAction}>
+            <SubmitButton className="btn btn-quiet h-11 min-h-11 px-4 text-[13px]">{copy.common.signOut}</SubmitButton>
+          </SafeForm>
+        </header>
+        <div className="loop-head__page flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+          <div className="min-w-0">
+            <h1>{copy.you.title}</h1>
+            <p className="[overflow-wrap:anywhere]">{text(copy.you.signedInAs, { email: user.email })}</p>
+          </div>
+          <Link href="/g/new" className="btn btn-primary">{copy.you.newLoop}</Link>
+        </div>
       </div>
-      <p className="mt-2 text-[14px] leading-relaxed text-ink-muted [overflow-wrap:anywhere]">
-        {text(copy.you.signedInAs, { email: user.email })}
-      </p>
 
       {deleted ? (
         <NoticeFocus spacing="mt-5">{copy.you.deletedNotice}</NoticeFocus>
@@ -61,7 +63,7 @@ export default async function YouPage({ searchParams }: {
           </p>
         </div>
       ) : (
-        <ul className="mt-8 grid gap-5 sm:grid-cols-2">
+        <ul className="mt-6 grid gap-5 sm:grid-cols-2">
           {loops.map((loop, index) => (
             <li key={loop.id} className="flex">
             <Link href={`/g/${loop.id}`} className="card loop-card flex min-h-[156px] w-full flex-col p-5 pt-6 no-underline">
@@ -79,7 +81,7 @@ export default async function YouPage({ searchParams }: {
                 </span>
               </span>
               <span className="mt-auto flex items-center justify-between pt-4 text-[14px] font-extrabold text-ink-soft">
-                {copy.you.openLoop} <span aria-hidden="true">→</span>
+                {copy.you.openLoop} <svg viewBox="0 0 20 20" aria-hidden="true" className="h-4 w-4"><path d="M4 10h11M11 6l4 4-4 4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
               </span>
             </Link>
             </li>
@@ -90,12 +92,12 @@ export default async function YouPage({ searchParams }: {
       <section aria-labelledby="your-data" className="card mt-10 p-5">
         <h2 id="your-data" className="text-[22px] text-ink">{copy.you.dataTitle}</h2>
         <p className="mt-1 text-[14px] leading-relaxed text-ink-soft">{copy.you.dataBody}</p>
-        <div className="mt-4 flex flex-wrap gap-3">
+        <div className="mt-4 flex flex-wrap justify-between gap-3">
           <a href="/you/export" download className="btn btn-quiet">{copy.you.download}</a>
-          <Link href="/you/delete" className="btn btn-quiet text-danger">{copy.you.deleteAccount}</Link>
+          <Link href="/you/delete" className="btn btn-danger-quiet sm:ml-auto">{copy.you.deleteAccount}</Link>
         </div>
         <p className="mt-4 text-[13px] text-ink-muted">
-          <Link href="/privacy" className="underline decoration-line-strong underline-offset-4 hover:text-ink">{copy.you.privacyLink}</Link>
+          <Link href="/privacy" className="link link--quiet">{copy.you.privacyLink}</Link>
         </p>
       </section>
     </main>
@@ -176,7 +178,7 @@ function statusLine(loop: LoopCard, at: Date, timezone: string): string {
   if (loop.issueStatus === "open" && loop.issueNumber != null && loop.deliversAt) {
     return text(copy.you.status.open, {
       number: loop.issueNumber,
-      date: formatDate(loop.deliversAt, timezone),
+      date: `${atMoment(formatMoment(loop.deliversAt, timezone))}${timezone && timezone !== loop.timezone ? " your time" : ""}`,
       answered: loop.answered,
       writers: loop.writers,
     });

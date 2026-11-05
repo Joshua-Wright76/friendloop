@@ -5,7 +5,7 @@ import { readUploadResponse } from "./upload-response.ts";
 export type SaveResult = { ok: true; savedAt: string } | { ok: false; error: string };
 export type PhotoSaveResult =
   | { ok: true; savedAt: string; photoUrl: string }
-  | { ok: false; error: string };
+  | { ok: false; error: string; rejected?: boolean };
 
 async function parseSaveResult(response: Response, genericError: string): Promise<SaveResult> {
   const data = (await response.json()) as { ok?: boolean; savedAt?: string; error?: string };
@@ -55,7 +55,7 @@ export async function uploadReplyPhoto(
       error?: string;
     }>(response, copy.reply.errors.photoTooLarge);
     if (!response.ok || !data.ok || !data.photoUrl) {
-      return { ok: false, error: data.error ?? genericError };
+      return { ok: false, error: data.error ?? genericError, ...(response.status >= 400 && response.status < 500 ? { rejected: true } : {}) };
     }
     return { ok: true, savedAt: data.savedAt ?? "", photoUrl: data.photoUrl };
   } catch {
@@ -118,7 +118,7 @@ export function createSerialDraftWriter<T>(write: (questionId: string, body: str
 
 export type AudioSaveResult =
   | { ok: true; savedAt: string; audioUrl: string; audioDurationMs: number }
-  | { ok: false; error: string };
+  | { ok: false; error: string; rejected?: boolean };
 
 /** A recording or picked file goes straight to the app — it never needs the Blob client flow. */
 export async function uploadReplyAudio(
@@ -144,7 +144,7 @@ export async function uploadReplyAudio(
       error?: string;
     }>(response, copy.reply.errors.voiceTooLarge);
     if (!response.ok || !data.ok || !data.audioUrl || typeof data.audioDurationMs !== "number") {
-      return { ok: false, error: data.error ?? genericError };
+      return { ok: false, error: data.error ?? genericError, ...(response.status >= 400 && response.status < 500 ? { rejected: true } : {}) };
     }
     return {
       ok: true,

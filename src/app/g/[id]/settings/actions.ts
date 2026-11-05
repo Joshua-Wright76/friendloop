@@ -72,6 +72,15 @@ export async function deleteAction(formData: FormData) {
 }
 
 /** The loop's stationery: a preset key and an optional accent. Owner only. */
+/** The paper and colour, saved as they're chosen. The page stays put and says how it went. */
+export async function saveStationery(groupId: string, preset: string, accent: string): Promise<{ ok: boolean; adjusted: boolean }> {
+  await requireOwner(groupId);
+  const result = await saveTheme(groupId, { preset, accent });
+  if (!result.ok) return { ok: false, adjusted: false };
+  revalidatePath(`/g/${groupId}`, "layout");
+  return { ok: true, adjusted: Boolean(result.adjusted) };
+}
+
 export async function stationeryAction(formData: FormData) {
   const groupId = String(formData.get("groupId") ?? "");
   await requireOwner(groupId);

@@ -19,7 +19,7 @@ type Props = {
 
 /**
  * Browse the question library by pack. Each pack folds away to a single row with
- * its counts, and only the first starts open, so the library reads as a short
+ * its counts, and they all start folded, so the library reads as a short
  * list. Picks survive folding, so questions can come from several packs at once.
  */
 export function QuestionPackPicker({
@@ -33,7 +33,8 @@ export function QuestionPackPicker({
 }: Props) {
   const ListHeading = `h${headingLevel}` as "h2" | "h3";
   const PackHeading = `h${headingLevel + 1}` as "h3" | "h4";
-  const [open, setOpen] = useState<string[]>(() => packs.slice(0, 1).map((pack) => pack.id));
+  // Every pack starts folded, except one the person has already picked from: the list of themes is the first thing to read.
+  const [open, setOpen] = useState<string[]>([]);
   const headingId = useId();
   const panelPrefix = useId();
   const chosen = new Set(selected);
@@ -73,7 +74,7 @@ export function QuestionPackPicker({
                       <path d="M7 4.5 12.5 10 7 15.5" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
                     </svg>
                     <span className="min-w-0">
-                      <span className="block font-display text-[20px] font-bold leading-tight text-ink">{pack.name}</span>
+                      <span className="pack-name">{pack.name}</span>
                       <span className="block font-sans text-[13px] font-medium text-ink-muted numeric">{counts}</span>
                     </span>
                   </button>

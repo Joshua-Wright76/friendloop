@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { copy, text } from "@/lib/copy";
+import { copy } from "@/lib/copy";
 import { readingHref, type Reading, type ReadingPerson } from "@/lib/issue-reading";
 
 /**
@@ -8,6 +8,14 @@ import { readingHref, type Reading, type ReadingPerson } from "@/lib/issue-readi
  * in the loop. The current choice is marked in words and `aria-current`, never
  * by colour alone.
  */
+function Check() {
+  return (
+    <svg viewBox="0 0 20 20" aria-hidden="true" className="h-3.5 w-3.5 flex-none">
+      <path d="m4 10 4 4 8-9" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 export function ReadingControls({
   base,
   token,
@@ -22,13 +30,13 @@ export function ReadingControls({
   focus: ReadingPerson | null;
 }) {
   const labels = copy.issue.reading;
-  const chip = "chip inline-flex min-h-11 items-center border px-3.5 text-[14px] font-bold no-underline";
+  const chip = "chip inline-flex min-h-11 items-center gap-1.5 border px-3.5 text-[14px] font-bold no-underline";
   const idle = "bg-card text-ink-soft";
   const current = "bg-accent-soft text-accent-ink";
   const everyoneActive = !focus;
 
   return (
-    <nav aria-label={labels.label} className="mt-6 flex flex-col gap-3" data-reading-controls>
+    <nav aria-label={labels.label} className="flex flex-col gap-3" data-reading-controls>
       <div>
         <p className="m-0 mb-1.5 text-[13px] font-medium text-ink-soft">{labels.peopleLabel}</p>
         <ul className="m-0 flex list-none flex-wrap gap-2 p-0">
@@ -38,7 +46,7 @@ export function ReadingControls({
               aria-current={everyoneActive ? "true" : undefined}
               className={`${chip} ${everyoneActive ? current : idle}`}
             >
-              {everyoneActive ? "✓ " : ""}{labels.everyone}
+              {everyoneActive ? <Check /> : null}{labels.everyone}
             </Link>
           </li>
           {people.map((person) => {
@@ -50,7 +58,7 @@ export function ReadingControls({
                   aria-current={active ? "true" : undefined}
                   className={`${chip} ${active ? current : idle}`}
                 >
-                  {active ? "✓ " : ""}{person.name}
+                  {active ? <Check /> : null}{person.name}
                 </Link>
               </li>
             );
@@ -69,24 +77,13 @@ export function ReadingControls({
                   aria-current={active ? "true" : undefined}
                   className={`${chip} ${active ? current : idle}`}
                 >
-                  {active ? "✓ " : ""}{sort === "question" ? labels.byQuestion : labels.byPerson}
+                  {active ? <Check /> : null}{sort === "question" ? labels.byQuestion : labels.byPerson}
                 </Link>
               </li>
             );
           })}
         </ul>
       </div>
-      {focus ? (
-        <p role="status" className="m-0 text-[14px] text-ink-soft">
-          {text(copy.issue.reading.showing, { name: focus.name })}{" "}
-          <Link
-            href={readingHref(base, token, { ...reading, by: null })}
-            className="inline-flex min-h-11 items-center font-bold text-ink underline decoration-line-strong underline-offset-4"
-          >
-            {labels.showEveryone}
-          </Link>
-        </p>
-      ) : null}
     </nav>
   );
 }

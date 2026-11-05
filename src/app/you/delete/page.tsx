@@ -1,3 +1,4 @@
+import { SafeForm } from "@/components/safe-form";
 import Link from "next/link";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
@@ -76,7 +77,7 @@ export default async function DeleteAccountPage({ searchParams }: {
             </ul>
           </section>
         ) : (
-          <form action={deleteAccountAction} className="mt-6">
+          <SafeForm action={deleteAccountAction} className="mt-6">
             {plan.solo.length > 0 ? (
               <div className="mb-5">
                 <p className="text-[14px] font-bold text-ink">{copy.account.soloTitle}</p>
@@ -102,7 +103,7 @@ export default async function DeleteAccountPage({ searchParams }: {
               <button type="submit" className="btn btn-danger hover:opacity-90">{copy.account.submit}</button>
               <Link href="/you" className="btn btn-quiet">{copy.account.cancel}</Link>
             </div>
-          </form>
+          </SafeForm>
         )}
       </div>
     </main>

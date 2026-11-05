@@ -23,6 +23,10 @@ type LayoutInput = {
   theme?: EmailTheme;
   /** This recipient's "stop emails from this loop" page. Every loop email has one. */
   unsubscribeUrl?: string;
+  /** Whose letter this is. Loop emails lead with the loop; only account mail says Friendloop. */
+  sender?: string;
+  /** Listed in the card, above the button: what's actually being asked. */
+  questions?: { label: string; items: string[] };
 };
 
 export type EmailTheme = { palette: EmailPalette; headerImageUrl?: string | null };
@@ -96,7 +100,10 @@ export function musicLinkLabel(url: string): string {
 }
 
 const BODY_FONT = "Nunito,-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial,sans-serif";
-const DISPLAY_FONT = "Gaegu,Comic Sans MS,Chalkboard SE,cursive";
+// Web fonts don't reach most inboxes, so this asks for the handwriting each system
+// already ships (Comic Sans is deliberately not on the list) and lands on a rounded
+// sans anywhere that has none. No image, no remote font, and it reads with both off.
+const DISPLAY_FONT = "'Noteworthy','Chalkboard SE','Segoe Print','Bradley Hand',ui-rounded,'Arial Rounded MT Bold','Varela Round',Nunito,'Trebuchet MS',sans-serif";
 function gingham(c: EmailPalette): string {
   return `background-color:${c.page};background-image:linear-gradient(90deg,${c.check} 50%,transparent 0),linear-gradient(${c.check} 50%,transparent 0);background-size:32px 32px`;
 }
@@ -178,7 +185,7 @@ function answersHtml(answers: AnswerBlock[], url: string, c: EmailPalette): stri
         })
         .join("");
       return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 18px;background:${c.card};border:1px solid ${c.line};border-radius:6px"><tr><td style="padding:22px 22px 20px">
-  <h2 style="margin:0;font:700 24px/1.2 ${DISPLAY_FONT};color:${c.ink}">${escapeHtml(group.question)}</h2>
+  <h2 style="margin:0;font:700 25px/1.2 ${DISPLAY_FONT};color:${c.ink}">${escapeHtml(group.question)}</h2>
   ${results}${rows}
 </td></tr></table>`;
     })
@@ -192,13 +199,21 @@ function legalLinks(c: EmailPalette): string {
   return `<p style="margin:8px 0 0;font:400 12px/1.6 ${BODY_FONT};color:${c.muted};text-align:center">${link(appLink("/privacy"), copy.legal.privacyLink)} · ${link(appLink("/terms"), copy.legal.termsLink)}</p>`;
 }
 
-export function layout({ preheader, heading, body, cta, footer, answers, sections, answersUrl, theme, unsubscribeUrl }: LayoutInput): string {
+function questionList(questions: LayoutInput["questions"], c: EmailPalette): string {
+  if (!questions || questions.items.length === 0) return "";
+  const rows = questions.items
+    .map((item) => `<tr><td style="padding:12px 0;border-top:1px dashed ${c.lineStrong};font:700 20px/1.25 ${DISPLAY_FONT};color:${c.ink}">${escapeHtml(item)}</td></tr>`)
+    .join("");
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 20px"><tr><td style="padding:0 0 8px;font:800 14px/1.4 ${BODY_FONT};color:${c.soft}">${escapeHtml(questions.label)}</td></tr>${rows}</table>`;
+}
+
+export function layout({ preheader, heading, body, cta, footer, answers, sections, answersUrl, theme, unsubscribeUrl, sender, questions }: LayoutInput): string {
   const c = theme?.palette ?? GINGHAM_EMAIL;
   const GINGHAM = gingham(c);
   const ctaHtml = cta
     ? `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:8px 0 8px"><tr><td style="border-radius:999px;background:${c.accent}"><a href="${escapeHtml(
         cta.url,
-      )}" style="display:inline-block;padding:15px 26px;font:800 16px/1 ${BODY_FONT};color:${c.onAccent};text-decoration:none;border-radius:999px">${escapeHtml(
+      )}" style="display:inline-block;padding:15px 26px;font:700 16px/1 ${BODY_FONT};color:${c.onAccent};text-decoration:none;border-radius:999px">${escapeHtml(
         cta.label,
       )}</a></td></tr></table>`
     : "";
@@ -209,23 +224,23 @@ export function layout({ preheader, heading, body, cta, footer, answers, section
 <div style="display:none;max-height:0;overflow:hidden;opacity:0">${escapeHtml(preheader)}</div>
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="${GINGHAM}"><tr><td align="center" style="padding:36px 14px 40px">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px">
-${headerImage(theme?.headerImageUrl, c)}<tr><td style="padding:0 8px 24px;font:700 27px/1 ${DISPLAY_FONT};color:${c.ink}"><span style="font-size:24px;vertical-align:-2px">${copy.common.cherry}</span> ${escapeHtml(copy.common.brand)}</td></tr>
+${headerImage(theme?.headerImageUrl, c)}<tr><td style="padding:0 8px 20px;font:700 22px/1.2 ${DISPLAY_FONT};color:${c.ink}"><span style="font-size:22px;vertical-align:-1px">${copy.common.cherry}</span> ${escapeHtml(sender ?? copy.common.brand)}</td></tr>
 <tr><td>
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${c.card};border:1px solid ${c.line};border-radius:6px;box-shadow:${c.shadow}"><tr><td style="padding:0 30px 30px">
-<table role="presentation" cellpadding="0" cellspacing="0" style="margin:-11px 0 13px;position:relative;z-index:2;transform:rotate(-2deg);opacity:.92;clip-path:polygon(0 0,100% 0,97% 25%,100% 50%,97% 75%,100% 100%,0 100%,3% 75%,0 50%,3% 25%)"><tr><td width="88" height="22" style="width:88px;height:22px;background-color:${c.tape};background-image:radial-gradient(circle,rgba(255,255,255,.85) 1.8px,transparent 2.3px);background-size:9px 9px"></td></tr></table>
-<h1 style="margin:0 0 22px;font:700 36px/1.08 ${DISPLAY_FONT};color:${c.ink};letter-spacing:0">${escapeHtml(heading)}</h1>
-${paragraphs(body, c)}${ctaHtml}
+<table role="presentation" cellpadding="0" cellspacing="0" style="margin:-11px 0 20px;position:relative;z-index:2;transform:rotate(-2deg);opacity:.92;clip-path:polygon(0 0,100% 0,97% 25%,100% 50%,97% 75%,100% 100%,0 100%,3% 75%,0 50%,3% 25%)"><tr><td width="88" height="22" style="width:88px;height:22px;background-color:${c.tape};background-image:radial-gradient(circle,rgba(255,255,255,.85) 1.8px,transparent 2.3px);background-size:9px 9px"></td></tr></table>
+<h1 style="margin:0 0 14px;padding:0 0 12px;border-bottom:2px dashed ${c.lineStrong};font:700 32px/1.15 ${DISPLAY_FONT};color:${c.ink}">${escapeHtml(heading)}</h1>
+${paragraphs(body, c)}${questionList(questions, c)}${ctaHtml}
 </td></tr></table>
 </td></tr>
 ${answers ? `<tr><td style="padding-top:20px">${answersHtml(answers, answersUrl ?? "#", c)}</td></tr>` : ""}
 ${sections && sections.length > 0 ? `<tr><td style="padding-top:20px">${sectionsHtml(sections, c)}</td></tr>` : ""}
-<tr><td align="center" style="padding:24px 10px 0"><p style="display:inline-block;margin:0;padding:4px 10px;font:400 13px/1.6 ${BODY_FONT};color:${c.soft};background-color:${c.page};text-align:center">${escapeHtml(
+<tr><td align="center" style="padding:20px 0 0"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${c.card};border:1px solid ${c.line};border-radius:6px"><tr><td align="center" style="padding:14px 18px"><p style="margin:0;font:400 13px/1.6 ${BODY_FONT};color:${c.soft};text-align:center">${escapeHtml(
     footer ?? copy.emails.defaultFooter,
   )}${
     unsubscribeUrl
       ? `<br /><a href="${escapeHtml(unsubscribeUrl)}" style="color:${c.muted};text-decoration:underline">${escapeHtml(copy.emails.stopLink)}</a>`
       : ""
-  }</p>${legalLinks(c)}</td></tr>
+  }</p>${legalLinks(c)}</td></tr></table></td></tr>
 </table></td></tr></table></body></html>`;
 }
 
@@ -280,6 +295,7 @@ export function inviteEmail(input: {
       body: [text(content.body, values), isReader ? content.readerBody : content.contributorBody, ...(note ? [note] : [])],
       cta: { label: isReader ? content.readerCta : content.contributorCta, url },
       footer: text(content.footer, values),
+      sender: groupName,
       theme,
       unsubscribeUrl,
     }),
@@ -295,10 +311,12 @@ export function promptEmail(input: {
   issueName?: string | null;
   url: string;
   deadlineLabel: string;
+  /** The questions themselves: the reason to tap the button. */
+  questions?: string[];
   theme?: EmailTheme;
   unsubscribeUrl?: string;
 }): RenderedEmail {
-  const { groupName, memberName, issueNumber, issueName, questionCount, url, deadlineLabel, theme, unsubscribeUrl } = input;
+  const { groupName, memberName, issueNumber, issueName, questionCount, url, deadlineLabel, questions, theme, unsubscribeUrl } = input;
   const content = copy.emails.prompt;
   const plural = questionCount === 1 ? copy.emails.questionSingular : copy.emails.questionPlural;
   const values = {
@@ -312,12 +330,17 @@ export function promptEmail(input: {
       preheader: text(content.preheader, values),
       heading: text(content.heading, values),
       body: [text(content.body, values), content.writingNote],
+      questions: questions?.length ? { label: copy.emails.promptQuestionsLabel, items: questions } : undefined,
       cta: { label: text(content.cta, values), url },
       footer: text(content.footer, values),
+      sender: groupName,
       theme,
       unsubscribeUrl,
     }),
-    text: withStopLine(text(content.text, values), unsubscribeUrl),
+    text: withStopLine(
+      `${text(content.text, values)}${questions?.length ? `\n\n${copy.emails.promptQuestionsLabel}:\n${questions.map((question) => `- ${question}`).join("\n")}` : ""}`,
+      unsubscribeUrl,
+    ),
   };
 }
 
@@ -341,6 +364,7 @@ export function reminderEmail(input: {
       body: [text(remaining === 1 ? content.bodySingular : content.bodyPlural, values), content.writingNote, content.prefNote],
       cta: { label: content.cta, url },
       footer: text(content.footer, values),
+      sender: groupName,
       theme,
       unsubscribeUrl,
     }),
@@ -361,7 +385,7 @@ export function mentionEmail(input: {
 }): RenderedEmail {
   const { groupName, memberName, authorName, issueNumber, issueName, excerpt, url, theme, unsubscribeUrl } = input;
   const content = copy.emails.mention;
-  const values = { groupName, memberName, authorName, issueNumber, excerpt, url, issueRef: issueRef(issueNumber, issueName) };
+  const values = { groupName, memberName, authorName, issueNumber, excerpt, url, issueRef: issueName?.trim() ? issueName : text(copy.emails.issueRef, { number: issueNumber }) };
   return {
     subject: text(content.subject, values),
     html: layout({
@@ -370,6 +394,7 @@ export function mentionEmail(input: {
       body: [text(content.body, values), `"${excerpt}"`],
       cta: { label: content.cta, url },
       footer: text(content.footer, values),
+      sender: groupName,
       theme,
       unsubscribeUrl,
     }),
@@ -393,8 +418,8 @@ export function deliveryEmail(input: {
   const values = {
     groupName,
     issueNumber,
-    issueRef: issueRef(issueNumber, issueName),
-    issueHeading: issueHeading(issueNumber, issueName),
+    issueRef: issueName?.trim() ? issueName : text(copy.emails.issueRef, { number: issueNumber }),
+    issueHeading: issueName?.trim() ? issueName : text(copy.emails.issueHeading, { number: issueNumber }),
     url,
     shareUrl: shareUrl ?? "",
     count: answers.length,
@@ -420,6 +445,7 @@ export function deliveryEmail(input: {
       answersUrl: url,
       cta: { label: content.cta, url },
       footer: text(shareUrl ? content.shareFooter : content.replyFooter, values),
+      sender: groupName,
       theme,
       unsubscribeUrl,
     }),
@@ -439,6 +465,7 @@ export function pausedEmail(input: { groupName: string; url: string; theme?: Ema
       body: [text(content.body, values), content.resumeBody],
       cta: { label: content.cta, url },
       footer: text(content.footer, values),
+      sender: groupName,
       theme,
       unsubscribeUrl,
     }),

@@ -15,10 +15,10 @@ test("sign-in email uses the requested title, copy, and button", () => {
   const email = signInEmail("https://friendloop.dev/signin/confirm?token=test");
   const copy = "This link works once and expires in 15 minutes. If you didn't request this link, you can ignore it.";
 
-  assert.match(email.html, /Sign in to friendloop/);
+  assert.match(email.html, /Sign in to Friendloop/);
   assert.ok(email.html.includes(copy.replace("'", "&#39;")));
   assert.match(email.html, />Sign in<\/a>/);
-  assert.match(email.text, /Sign in to friendloop/);
+  assert.match(email.text, /Sign in to Friendloop/);
   assert.ok(email.text.includes(copy));
 });
 
@@ -37,7 +37,7 @@ test("every email uses Friendloop's stationery system and plain-text twin", () =
     assert.match(email.html, /#fff3f5/);
     assert.match(email.html, /#fffdfa/);
     assert.match(email.html, /#cc3456/);
-    assert.match(email.html, /Gaegu/);
+    assert.match(email.html, /Noteworthy/);
     assert.match(email.html, /Nunito/);
     assert.match(email.html, /🍒/u);
     assert.doesNotMatch(email.html, /\{[a-zA-Z][a-zA-Z0-9]*\}/);
@@ -85,7 +85,7 @@ test("a mention email names who said it, quotes it, and links to the issue", () 
   assert.equal(email.subject, "Alex mentioned you in Friday Loop");
   assert.match(email.html, /@Maya &lt;b&gt;this&lt;\/b&gt; is yours/);
   assert.match(email.html, /See the comment/);
-  assert.match(email.text, /Maya, Alex mentioned you in a comment on round 4 of Friday Loop:/);
+  assert.match(email.text, /Maya, Alex mentioned you in a comment on issue 4 of Friday Loop:/);
   assert.match(email.text, /https:\/\/friendloop\.dev\/i\/1\?m=token/);
 });
 
@@ -114,7 +114,7 @@ test("a header picture sits above the brand line, decorative and escaped", () =>
     url: "https://friendloop.dev/answer", deadlineLabel: "Friday", theme,
   });
   assert.match(email.html, /<img src="https:\/\/cdn\.test\/a&quot;b\.png" alt="" width="600"/);
-  assert.ok(email.html.indexOf("<img") < email.html.indexOf("Friendloop</td>"));
+  assert.ok(email.html.indexOf("<img") < email.html.indexOf("Friday Loop</td>"));
   assert.equal(
     promptEmail({ groupName: "Friday Loop", memberName: "Dev", issueNumber: 3, questionCount: 4, url: "u", deadlineLabel: "Friday" }).html.includes("<img"),
     false,
@@ -134,8 +134,8 @@ test("a named round replaces its number in the subject, headings and sentences",
     groupName: "Friday Loop", issueNumber: 2, url: "https://friendloop.dev/issue",
     answers: [{ question: "q", author: "Dev", body: "b" }],
   });
-  assert.equal(unnamed.subject, "Friday Loop · round 2");
-  assert.match(unnamed.html, /<h1[^>]*>Round 2<\/h1>/);
+  assert.equal(unnamed.subject, "Friday Loop · issue 2");
+  assert.match(unnamed.html, /<h1[^>]*>Issue 2<\/h1>/);
 
   const prompt = promptEmail({
     groupName: "Friday Loop", memberName: "Dev", issueNumber: 3, issueName: "Camping weekend", questionCount: 2,
@@ -217,4 +217,14 @@ test("every loop email can carry a visible 'stop emails' link in HTML and plain 
   const signIn = signInEmail("https://x/signin");
   assert.ok(!signIn.html.includes("Stop emails from this loop"));
   assert.match(signIn.text, /Privacy: \S+\/privacy\nTerms: \S+\/terms$/);
+});
+
+test("a prompt shows the questions themselves, in the HTML and the plain text", () => {
+  const email = promptEmail({
+    groupName: "Friday Loop", memberName: "Dev", issueNumber: 3, questionCount: 2, url: "https://friendloop.dev/answer",
+    deadlineLabel: "on Fri 6 Nov, 9:00 AM your time", questions: ["What made you laugh?", "Where <next>?"],
+  });
+  assert.match(email.html, /What made you laugh\?/);
+  assert.match(email.html, /Where &lt;next&gt;\?/);
+  assert.match(email.text, /- What made you laugh\?/);
 });

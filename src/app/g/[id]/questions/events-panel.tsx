@@ -1,9 +1,11 @@
 "use client";
 
+import { SafeForm } from "@/components/safe-form";
 import { useState } from "react";
 import { copy, text } from "@/lib/copy";
 import { ConfirmAction } from "@/components/confirm-action";
 import { FieldLabel } from "@/components/field-label";
+import { Picker } from "@/components/picker";
 import { EVENT_TITLE_MAX } from "@/lib/event-dates";
 import { useLoopData, type LoopEvent } from "../loop-data";
 import { createEventAction, deleteEventAction, updateEventAction } from "./actions";
@@ -15,8 +17,8 @@ export function EventsPanel() {
   const named = (person: (typeof people)[number]) => person.name ?? person.email.split("@")[0];
 
   return (
-    <section className="card mt-5 p-5" aria-label={copy.events.title}>
-      <h2 className="text-[16px] font-semibold tracking-[-0.01em] text-ink">{copy.events.title}</h2>
+    <section className="card mt-4 p-5" aria-label={copy.events.title}>
+      <h2 className="text-ink">{copy.events.title}</h2>
       <p className="mt-1 text-[14px] leading-relaxed text-ink-soft">{copy.events.description}</p>
 
       <h3 className="mt-4 text-[14px] font-semibold text-ink">{copy.events.upcomingTitle}</h3>
@@ -51,29 +53,30 @@ export function EventsPanel() {
         <p className="mt-2 text-[14px] text-ink-muted">{copy.events.empty}</p>
       )}
 
-      <form action={createEventAction} className="mt-4 border-t border-line pt-4">
+      <SafeForm action={createEventAction} className="mt-4 border-t border-line pt-4">
         <input type="hidden" name="groupId" value={group.id} />
-        <h3 className="text-[14px] font-semibold text-ink">{copy.events.addTitle}</h3>
-        <label className="mt-2 flex flex-col gap-1.5">
+        <h3 className="subhead">{copy.events.addTitle}</h3>
+        <div className="mt-2 flex flex-col gap-1.5">
           <FieldLabel>{copy.events.kindLabel}</FieldLabel>
-          <select
+          <Picker
             name="kind"
+            defaultValue="birthday"
             value={kind}
-            onChange={(change) => setKind(change.target.value === "once" ? "once" : "birthday")}
-            className="field h-[46px] py-0"
-          >
-            <option value="birthday">{copy.events.kindBirthday}</option>
-            <option value="once">{copy.events.kindOnce}</option>
-          </select>
-        </label>
+            ariaLabel={copy.events.kindLabel}
+            onValueChange={(next) => setKind(next === "once" ? "once" : "birthday")}
+            options={[{ value: "birthday", label: copy.events.kindBirthday }, { value: "once", label: copy.events.kindOnce }]}
+          />
+        </div>
         {kind === "birthday" ? (
-          <label className="mt-2 flex flex-col gap-1.5">
+          <div className="mt-2 flex flex-col gap-1.5">
             <FieldLabel required>{copy.events.memberLabel}</FieldLabel>
-            <select name="membershipId" required className="field h-[46px] py-0" defaultValue="">
-              <option value="" disabled>{copy.events.memberLabel}</option>
-              {people.map((person) => <option key={person.id} value={person.id}>{named(person)}</option>)}
-            </select>
-          </label>
+            <Picker
+              name="membershipId"
+              defaultValue={people[0]?.id ?? ""}
+              ariaLabel={copy.events.memberLabel}
+              options={people.map((person) => ({ value: person.id, label: named(person) }))}
+            />
+          </div>
         ) : (
           <label className="mt-2 flex flex-col gap-1.5">
             <FieldLabel required>{copy.events.titleLabel}</FieldLabel>
@@ -98,7 +101,7 @@ export function EventsPanel() {
           </div>
         </div>
         <SubmitButton className="btn btn-primary mt-3">{copy.events.add}</SubmitButton>
-      </form>
+      </SafeForm>
     </section>
   );
 }
@@ -113,16 +116,19 @@ function EventEditor({ groupId, event }: { groupId: string; event: LoopEvent }) 
       >
         {copy.events.edit}
       </summary>
-      <form action={updateEventAction} className="mt-2 flex flex-col gap-2">
+      <SafeForm action={updateEventAction} className="mt-2 flex flex-col gap-2">
         <input type="hidden" name="groupId" value={groupId} />
         <input type="hidden" name="eventId" value={event.id} />
         {event.kind === "birthday" ? (
-          <label className="flex flex-col gap-1.5">
+          <div className="flex flex-col gap-1.5">
             <FieldLabel>{copy.events.memberLabel}</FieldLabel>
-            <select name="membershipId" defaultValue={event.membershipId ?? ""} className="field h-[46px] py-0">
-              {people.map((person) => <option key={person.id} value={person.id}>{person.name ?? person.email.split("@")[0]}</option>)}
-            </select>
-          </label>
+            <Picker
+              name="membershipId"
+              defaultValue={event.membershipId ?? people[0]?.id ?? ""}
+              ariaLabel={copy.events.memberLabel}
+              options={people.map((person) => ({ value: person.id, label: person.name ?? person.email.split("@")[0] }))}
+            />
+          </div>
         ) : (
           <label className="flex flex-col gap-1.5">
             <FieldLabel required>{copy.events.titleLabel}</FieldLabel>
@@ -140,7 +146,7 @@ function EventEditor({ groupId, event }: { groupId: string; event: LoopEvent }) 
         <div>
           <SubmitButton className="btn btn-primary min-h-11 px-4 text-[13px]">{copy.events.save}</SubmitButton>
         </div>
-      </form>
+      </SafeForm>
     </details>
   );
 }

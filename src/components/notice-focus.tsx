@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useSyncExternalStore, type ReactNode } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 
 const BASE = "notice settle border px-4 py-3 text-[14px] leading-relaxed outline-none";
 const SUCCESS = "bg-accent-soft";
@@ -28,14 +28,19 @@ export function NoticeFocus({
   const node = useRef<HTMLDivElement>(null);
   // The server snapshot is what a hydrating component renders first; a component created
   // by a later navigation has no server render, so it reads the client snapshot.
-  const createdOnClient = useRef(useSyncExternalStore(subscribe, () => true, () => false));
+  const snapshot = useSyncExternalStore(subscribe, () => true, () => false);
+  const [createdOnClient] = useState(snapshot);
 
   useEffect(() => {
     const element = node.current;
-    if (!element || !createdOnClient.current) return;
+    if (!element || !createdOnClient) return;
     element.focus({ preventScroll: true });
     element.scrollIntoView({ block: "nearest" });
-  }, []);
+  }, [createdOnClient]);
+
+  // The address still carries the notice after a reload, when it would no longer be news.
+  // A danger notice stays, because whatever went wrong is still true.
+  if (!createdOnClient && tone !== "danger") return null;
 
   return (
     <div
