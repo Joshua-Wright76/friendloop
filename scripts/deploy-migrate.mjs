@@ -93,17 +93,20 @@ export async function applyMigrations(sql, { folder = "drizzle", schema = "drizz
 }
 
 async function main() {
+  const { VERCEL_ENV, VERCEL_GIT_COMMIT_REF, VERCEL_GIT_REPO_OWNER, DATABASE_URL } = process.env;
   const target = migrationTarget(process.env);
   if (!target) {
-    console.log("deploy-migrate: not production or the dev branch, skipping");
+    console.log(
+      `deploy-migrate: skipping (VERCEL_ENV=${VERCEL_ENV}, ref=${VERCEL_GIT_COMMIT_REF}, owner=${VERCEL_GIT_REPO_OWNER})`,
+    );
     return;
   }
-  if (!process.env.DATABASE_URL) throw new Error(`DATABASE_URL is not set for ${target}`);
+  if (!DATABASE_URL) throw new Error(`DATABASE_URL is not set for ${target}`);
 
-  const sql = postgres(process.env.DATABASE_URL, { prepare: false, max: 1, onnotice: () => {} });
+  const { host, pathname } = new URL(DATABASE_URL);
+  const sql = postgres(DATABASE_URL, { prepare: false, max: 1, onnotice: () => {} });
   try {
     const applied = await applyMigrations(sql);
-    const { host, pathname } = new URL(process.env.DATABASE_URL);
     console.log(`deploy-migrate: ${applied} migration(s) applied to ${target} (${host}${pathname})`);
   } finally {
     await sql.end();
@@ -112,7 +115,8 @@ async function main() {
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   main().catch((error) => {
-    console.error("deploy-migrate: failed, nothing was applied:", error);
+    // Only these fields: a bad URL's error object carries the whole URL, password included.
+    console.error("deploy-migrate: failed, nothing was applied:", error.code ?? "", error.message);
     process.exit(1);
   });
 }
