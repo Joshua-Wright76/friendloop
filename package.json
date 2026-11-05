@@ -22,7 +22,8 @@
     "e2e:db:stop": "node scripts/e2e-db.mjs stop",
     "e2e:db:reset": "node scripts/e2e-db.mjs reset",
     "e2e:ui": "node scripts/e2e-db.mjs run playwright test --ui",
-    "verify": "npm run typegen && npm run typecheck && npm run lint && npm run test && npm run test:integration && npm run check:flows && npm run check:test-tables && npm run check:migrations",
+    "verify": "npm run verify:checks && npm run test && npm run test:integration",
+    "verify:checks": "npm run typegen && npm run typecheck && npm run lint && npm run check:flows && npm run check:test-tables && npm run check:migrations",
     "check:migrations": "node scripts/check-migrations.mjs",
     "db:seed": "node scripts/seed-dev.mjs",
     "typegen": "next typegen"
