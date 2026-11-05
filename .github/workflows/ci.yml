@@ -136,14 +136,9 @@ jobs:
             exit 1
           fi
 
-      # Next.js build cache: the suite boots a production build, and every
-      # shard builds the same tree.
-      - uses: actions/cache@v4
-        with:
-          path: .next/cache
-          key: next-${{ runner.os }}-${{ hashFiles('package-lock.json') }}-${{ hashFiles('src/**') }}
-          restore-keys: next-${{ runner.os }}-${{ hashFiles('package-lock.json') }}-
-
+      # No Next.js build cache. Restoring one from older source left a build
+      # missing new CSS, which failed accessibility checks on main (PR #35), and
+      # keying it to the exact source would only ever help a rerun.
       - name: Run the suite (${{ matrix.group }}, shard ${{ matrix.shard }} of ${{ matrix.of }})
         env:
           GROUP: ${{ matrix.group }}
