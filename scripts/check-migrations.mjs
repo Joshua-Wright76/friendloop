@@ -42,6 +42,26 @@ for (const file of files) {
   }
 }
 
+// Migrations apply when their journal timestamp is newer than the last one the
+// database recorded, so an entry older than the one before it is silently skipped
+// forever. Branches that each generated a migration get here by renumbering by hand.
+const journalPath = join(DIR, "meta", "_journal.json");
+if (existsSync(journalPath)) {
+  const { entries } = JSON.parse(readFileSync(journalPath, "utf8"));
+  entries.forEach((entry, index) => {
+    const previous = entries[index - 1];
+    if (previous && entry.when <= previous.when) {
+      problems.push(`${journalPath}: ${entry.tag} is not newer than ${previous.tag}, so it would never be applied`);
+    }
+    if (!files.includes(`${entry.tag}.sql`)) problems.push(`${journalPath}: ${entry.tag} has no .sql file`);
+  });
+  for (const file of files) {
+    if (!entries.some((entry) => `${entry.tag}.sql` === file)) {
+      problems.push(`${DIR}/${file} is not in the journal, so it would never be applied`);
+    }
+  }
+}
+
 if (problems.length > 0) {
   for (const problem of problems) console.error(`✖ ${problem}`);
   console.error(
