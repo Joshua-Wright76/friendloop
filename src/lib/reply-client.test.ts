@@ -247,7 +247,7 @@ test("audio removal reports failures and survives a network error", async () => 
 test("a platform 413 on a photo or voice note reads as the size message, not a generic error", async () => {
   const platform = (async () => new Response("Request Entity Too Large", { status: 413 })) as typeof fetch;
   const photo = await uploadReplyPhoto("t", "q", new File(["x"], "p.png", { type: "image/png" }), "generic", platform);
-  assert.deepEqual(photo, { ok: false, error: "Photos must be 4 MB or smaller." });
+  assert.deepEqual(photo, { ok: false, error: "Photos must be 4 MB or smaller.", rejected: true });
   const audio = await uploadReplyAudio("t", "q", new Blob(["x"]), "note.webm", 1000, "generic", platform);
-  assert.deepEqual(audio, { ok: false, error: "That recording is too big. Try a note under 3 minutes." });
+  assert.deepEqual(audio, { ok: false, error: "That recording is too big. Try a note under 3 minutes.", rejected: true });
 });

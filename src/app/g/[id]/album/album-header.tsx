@@ -9,8 +9,10 @@ export function AlbumHeader() {
   const { group, membership } = useLoopData();
   return (
     <>
-      <LoopNav id={group.id} name={group.name} access={membership.access} active="Album" />
-      <h1 className="text-[28px] font-semibold leading-tight tracking-[-0.025em] text-ink">{copy.album.title}</h1>
+      <LoopNav id={group.id} name={group.name} access={membership.access} active="Album">
+        <h1>{copy.album.title}</h1>
+        <p>{copy.album.intro}</p>
+      </LoopNav>
     </>
   );
 }

@@ -2,6 +2,7 @@
 
 import type { ComponentProps } from "react";
 import { useFormStatus } from "react-dom";
+import { useSafeFormPending } from "./safe-form";
 
 type Props = Omit<ComponentProps<"button">, "type"> & {
   /** Optional label while the form is sending. Keep it close in length to the idle label. */
@@ -17,7 +18,9 @@ type Props = Omit<ComponentProps<"button">, "type"> & {
  * button the keyboard is on must not vanish mid-request.
  */
 export function SubmitButton({ children, pendingLabel, blocked = false, onClick, ...props }: Props) {
-  const { pending } = useFormStatus();
+  const { pending: posting } = useFormStatus();
+  const safePending = useSafeFormPending();
+  const pending = posting || safePending;
   const inert = blocked || pending;
   return (
     <button

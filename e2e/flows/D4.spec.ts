@@ -22,9 +22,9 @@ test("D4 · the sheet names the deadline in the loop's own clock", async ({ page
   await openSheet(page);
 
   // The seeded round closes on the Friday after it opened, at the same local
-  // wall clock (9:05 Amsterdam here), and that is what the
-  // person answering is told — not their own device's idea of the deadline.
-  await expect(page.getByText(/Closes Friday 9:05 AM/)).toBeVisible();
+  // wall clock (9:05 Amsterdam here). The person answering is always told that,
+  // and their own time first when their device is somewhere else.
+  await expect(page.getByText(/^Closes on (.+ your time \()?Fri 9 Jan, 9:05 AM( in Amsterdam\))?$/)).toBeVisible();
 });
 
 test("D4 · typing is saved as a draft and survives a reload", async ({ page }) => {

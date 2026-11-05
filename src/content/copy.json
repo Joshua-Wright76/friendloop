@@ -20,7 +20,7 @@
       "yourLoops": "Back to your loops"
     },
     "errorPage": {
-      "title": "Something went wrong",
+      "title": "That page didn't load",
       "body": "Check your connection, then try again. Anything already saved is safe.",
       "retry": "Try again",
       "home": "Back to Friendloop"
@@ -83,7 +83,9 @@
       "dark": "Dark",
       "switchToDark": "Light mode: switch to dark mode",
       "switchToLight": "Dark mode: switch to light mode"
-    }
+    },
+    "actionFailed": "That didn't go through. Check your connection and try again.",
+    "offlineUpload": "That didn't upload. Check your connection and try again."
   },
   "home": {
     "signIn": "Sign in",
@@ -167,7 +169,7 @@
     "deletedNotice": "That loop is gone.",
     "signedInAs": "Signed in as {email}",
     "status": {
-      "open": "Round {number} closes {date} · {answered} of {writers} in",
+      "open": "Round {number} closes {date}. {answered} of {writers} in.",
       "delivered": "Last issue delivered {date}",
       "first": "First questions go out {date}",
       "paused": "Paused"
@@ -205,7 +207,8 @@
       "noQuestions": "Pick or write at least one question before creating your loop.",
       "theme": "That paper or accent color wasn't recognized. Pick one again and create your loop.",
       "email": "Check the email address and try again.",
-      "section": "Add a title and a prompt for this section."
+      "section": "Add a title and a prompt for this section.",
+      "createFailed": "Your loop didn't get created. Check your connection and try again. Everything you chose is still here."
     },
     "cadences": [
       {
@@ -245,11 +248,11 @@
         "title": "Give your loop a name and rhythm",
         "description": "You can change these details later.",
         "stepCounter": "{current} of {total}",
-        "hourOption": "{hour}:00",
+        "hourOption": "{hour}",
         "nameIdeas": "Name ideas",
         "cadence": "How often should it arrive?",
         "schedule": "Choose the day and local time for each round.",
-        "scheduleSummary": "Questions go out {when} at {hour}:00. Answers close a week later, and the issue goes to everyone then.",
+        "scheduleSummary": "Questions go out {when} at {hour}. Answers close a week later, and the issue goes to everyone then.",
         "scheduleWhen": {
           "1": "every {weekday}",
           "2": "every other {weekday}",
@@ -565,8 +568,7 @@
     }
   ],
   "loop": {
-    "eyebrow": "Your group's schedule",
-    "schedule": "Every {cadence} on {weekday} at {hour}:00, {timezone}.",
+    "schedule": "Every {cadence} on {weekday} at {hour}, {timezone} time.",
     "cadenceWeek": "week",
     "cadenceWeeks": "{count} weeks",
     "paused": "Paused",
@@ -578,7 +580,7 @@
     "sendNow": "Send now",
     "resume": "Resume",
     "pause": "Pause",
-    "welcome": "Loop created. Invite a couple of people and the first round will go out on schedule.",
+    "welcome": "Loop created.",
     "welcomeNoPicture": "The header picture didn't save, so add it again from the settings.",
     "round": "Round {number}",
     "progress": "{answered} of {writers} in",
@@ -587,11 +589,37 @@
     "nudge": "Send a nudge",
     "nudgedOne": "Nudge sent.",
     "nudged": "{count} nudges sent.",
-    "closes": "Closes {deadline}.",
+    "closes": "Closes {deadline}",
     "nobody": "Nobody yet.",
-    "seeRound": "See the round",
+    "seeRound": "All rounds",
     "peopleCount": "{count} in the loop",
-    "questionsCount": "{count} in the pool"
+    "questionsCount": "{count} in the pool",
+    "welcomeInvited": "Loop created. Your invitations are on their way, and the first round goes out on schedule.",
+    "nextRoundWhen": "Next round: {when}",
+    "nudgeNamed": "Nudge {names}",
+    "nudgeQuestion": "Nudge {names}?",
+    "nudgeBody": "They each get one short reminder with their link. Nobody else is told.",
+    "nudgeConfirm": "Send the nudge",
+    "nudgedRecently": "Nudged just now. Give them a little while.",
+    "sendNowQuestion": "Send the next round now?",
+    "sendNowBody": "Everyone in the loop gets this round's questions by email straight away, and answers close in a week.",
+    "sendNowConfirm": "Yes, send it now",
+    "firstRunTitle": "Invite a couple of people",
+    "firstRunBody": "A loop of one is a diary. Add the friends you want to hear from, and they will get the first questions on schedule.",
+    "firstRunInvite": "Invite people",
+    "firstRunQuestions": "Check the questions",
+    "inTitle": "In",
+    "peopleLink": "{count} in the loop",
+    "questionsLink": "{count} in the pool",
+    "nudgeBodyOne": "They get one short reminder with their link. Nobody else is told.",
+    "nudgedAt": "Last nudged {when}.",
+    "nudgeAgain": "Nudge again",
+    "nudgeAgainLabel": "Nudge {names} again",
+    "nextAsThisCloses": "Right as this round closes.",
+    "closesYourTime": "Closes {deadline} your time",
+    "nextRoundLoopTime": "{when} your time",
+    "nextRoundTitle": "Next round",
+    "sendNowBodyAlone": "You're the only one in the loop so far, so this round would go just to you. Answers close in a week."
   },
   "members": {
     "title": "People",
@@ -616,9 +644,9 @@
     "firstPersonAction": "Invite the first person",
     "inviteDescription": "Add email addresses, separated by spaces, commas, or semicolons.",
     "invitePlaceholder": "name@example.com",
-    "inviteAriaLabel": "Email addresses",
+    "inviteAriaLabel": "Invite people by email",
     "sendInvitations": "Send invitations",
-    "invalidEmails": "Enter valid email addresses before sending.",
+    "invalidEmails": "Enter at least one full email address before sending.",
     "inviteFailed": "Invitations couldn't be sent. Please try again.",
     "inviteSuccess": "Invitations sent.",
     "inviteSkipped": "{count} already in the loop.",
@@ -642,7 +670,11 @@
     "transferCancel": "Not yet",
     "transferError": "That didn't go through. Reload the page and check who the owner is now.",
     "transferNeedsAdmin": "Make someone an admin first. Only an admin can become the owner.",
-    "transferPending": "Handing over…"
+    "transferPending": "Handing over…",
+    "invalidEmailNamed": "{emails} doesn't look like a full email address. Fix it and press Enter.",
+    "accessLabel": "Role",
+    "participationLabel": "Takes part",
+    "inviteInlineLabel": "Invite people by email"
   },
   "questions": {
     "title": "Questions",
@@ -684,7 +716,7 @@
     "moveTitle": "Move question",
     "moveItemLabel": "Move question: {question}",
     "moveDescription": "Choose its new place in the list.",
-    "orderError": "The order couldn't be saved, so we put back your previous order.",
+    "orderError": "That move didn't go through. Check your connection and try again.",
     "addTitle": "Add a question",
     "newQuestionPlaceholder": "What did you learn this week?",
     "newQuestionAriaLabel": "New question",
@@ -728,7 +760,23 @@
     "sectionDown": "Down",
     "sectionUpLabel": "Move section up",
     "sectionDownLabel": "Move section down",
-    "sectionListLabel": "Sections in order"
+    "sectionListLabel": "Sections in order",
+    "viewPool": "The pool",
+    "viewAdd": "Add more",
+    "viewExtras": "Sections and dates",
+    "viewsLabel": "Parts of the questions page",
+    "more": "More",
+    "moreLabel": "More for: {question}",
+    "poolSummaryAll": "Each round asks all {count} questions in order.",
+    "poolSummarySome": "Each round asks {per}, working through the {count} in order.",
+    "poolChangeCount": "Change",
+    "suggestionsNotice": "{count} suggested by members",
+    "suggestionsNoticeOne": "1 suggested by a member",
+    "review": "Review",
+    "moveTop": "To the top",
+    "moveBottom": "To the bottom",
+    "movePosition": "Position {n}: {question}",
+    "movedVisible": "Moved to position {position} of {total}."
   },
   "rounds": {
     "title": "Rounds",
@@ -739,7 +787,7 @@
     "round": "Round {number}",
     "answer": "1 person answered",
     "answers": "{count} people answered",
-    "read": "Read it",
+    "read": "Read the issue",
     "empty": "No rounds yet. Send your first round when the questions and people are ready.",
     "firstRoundAction": "Review loop and send first round",
     "rename": "Name this round",
@@ -754,12 +802,14 @@
     "filter": {
       "label": "Rounds with answers from",
       "everyone": "Everyone",
-      "apply": "Show rounds",
       "clear": "Show every round",
       "showing": "Showing rounds {name} answered in.",
-      "empty": "{name} hasn't answered in a delivered round yet.",
-      "openHidden": "Open rounds aren't listed while you filter."
-    }
+      "empty": "{name} hasn't answered in a delivered issue yet.",
+      "openHidden": "Open rounds aren't listed while you filter.",
+      "summary": "Filter by person"
+    },
+    "answeredBy": "In: {names}",
+    "waitingOn": "Waiting on: {names}"
   },
   "settings": {
     "title": "Settings",
@@ -769,15 +819,15 @@
     "day": "Day",
     "time": "Time",
     "timezone": "Timezone",
-    "every": "Every",
+    "every": "How often",
     "sharing": "Anyone with an issue's share link can read it.",
-    "sharingDefault": "Each delivered round gets a private link you can copy from Rounds. New loops start with this off.",
+    "sharingDefault": "Each issue gets a private link you can copy from Rounds. New loops start with this off.",
     "sharesTitle": "Share links",
     "sharesReset": "Reset share links",
-    "sharesResetDescription": "Gives every delivered round a new link. The old ones stop working.",
+    "sharesResetDescription": "Gives every delivered issue a new link. The old ones stop working.",
     "sharesResetNotice": "New share links. Old ones no longer work.",
-    "sharesOff": "Turn sharing on to create links for delivered rounds.",
-    "comments": "Members can comment on delivered rounds.",
+    "sharesOff": "Turn sharing on to create links for delivered issues.",
+    "comments": "Members can comment on delivered issues.",
     "commentsHint": "Turning this off hides every comment box. Turning it back on brings every comment back, because nothing gets deleted.",
     "save": "Save changes",
     "pausedTitle": "The loop is paused",
@@ -792,7 +842,20 @@
     "delete": "Delete forever",
     "archiveTitle": "Download the loop",
     "archiveBody": "Every round, question, answer, and comment as one file, with links to the photos and voice notes. Download it before you delete the loop: the links stop working once it is gone.",
-    "archive": "Download the archive"
+    "archive": "Download the archive",
+    "jumpLabel": "Jump to",
+    "groupDetails": "Details",
+    "groupStationery": "Paper",
+    "groupKeep": "Pause and export",
+    "groupDanger": "Reset and delete",
+    "rhythmSummary": "Questions go out",
+    "groupPaper": "Paper",
+    "tabsLabel": "Parts of the settings",
+    "headerSavesItself": "",
+    "readersGroup": "Who can read and comment",
+    "deleteHint": "Type the name above to unlock this.",
+    "dangerTitle": "Serious stuff",
+    "nameRequired": "Your loop needs a name."
   },
   "reply": {
     "invalidTitle": "This link doesn't work anymore",
@@ -813,14 +876,15 @@
     "nameError": "Your name wasn't saved.",
     "round": "Round {number}",
     "closes": "Closes {deadline}",
-    "viewerTimezone": "({time} where you are)",
-    "sent": "Sent. You can change these until {deadline}.",
+    "viewerTimezone": "your time ({time})",
+    "sent": "Sent. You can still change anything until it closes.",
     "confirmation": {
       "sentTitle": "Sent",
-      "updatedTitle": "Changes sent",
+      "updatedTitle": "Changes saved",
       "body": "Your answers are in for {round}.",
-      "delivery": "It goes out to everyone {deadline}. Until then, you can change anything.",
-      "edit": "Edit my answers"
+      "delivery": "It goes out {deadline}. Until then, you can change anything.",
+      "edit": "Edit my answers",
+      "allSetTitle": "All set"
     },
     "placeholder": "Write a little or a lot",
     "saving": "Saving…",
@@ -848,10 +912,10 @@
     "sentState": "Sent",
     "answered": "{answered} of {total} answered",
     "sending": "Sending…",
-    "saveChanges": "Save changes",
+    "saveChanges": "Send new answers",
     "sendAnswers": "Send answers",
     "nothingToSend": "Write one answer to send. The rest can wait.",
-    "genericError": "Something went wrong.",
+    "genericError": "That didn't send. Check your connection and try again.",
     "errors": {
       "json": "Expected a JSON body.",
       "missingQuestion": "Missing issueQuestionId.",
@@ -874,10 +938,11 @@
       "voiceTooLong": "Voice notes run up to 3 minutes. Try recording a shorter one.",
       "audioSaveFailed": "We couldn't save that recording. Try again.",
       "audioRemoveFailed": "We couldn't remove that recording. Try again.",
-      "sectionSaveFailed": "That couldn't be saved. Try again.",
+      "sectionSaveFailed": "That isn't saved yet. It's safe on this device, and we'll try again when you're back online.",
       "sectionPhotoCap": "A photo wall holds six photos, and this one is full.",
       "sectionPhotoStandardCap": "Standard sections carry one photo.",
-      "sectionPhotoCaption": "Give each photo on the wall a one-line caption."
+      "sectionPhotoCaption": "Give each photo on the wall a one-line caption.",
+      "changedElsewhere": "This answer changed on another device, so we didn't overwrite it. Try again to replace it with what's here."
     },
     "suggestLink": "Have a question for the group? Suggest one",
     "reminders": {
@@ -919,16 +984,15 @@
     "sectionCaptionLabel": "Caption (required)",
     "sectionCaptionPlaceholder": "One line about it",
     "sectionMusicLabel": "Link",
-    "sectionMusicPlaceholder": "Paste a Spotify, Bandcamp, or Qobuz link",
+    "sectionMusicPlaceholder": "Spotify, Bandcamp or Qobuz link",
     "sectionMusicSave": "Save pick",
     "sectionMusicClear": "Clear pick",
     "sectionAddPhoto": "Add a photo",
     "sectionReplacePhoto": "Replace photo",
     "sectionRemovePhoto": "Remove photo",
     "sectionPhotoCaptionPlaceholder": "What's in this photo?",
-    "sectionUploading": "Uploading…",
-    "sectionUploaded": "Photo added.",
     "sectionUploading": "Adding photo…",
+    "sectionUploaded": "Photo added.",
     "sectionRemoved": "Photo removed.",
     "sectionErrors": {
       "json": "Expected a JSON body.",
@@ -956,16 +1020,45 @@
       "sectionPhotoStandardCap": "Standard sections carry one photo.",
       "sectionPhotoCaption": "Give each photo on the wall a one-line caption."
     },
-    "leaveLink": "Leave this loop and delete my answers"
+    "leaveLink": "Leave this loop and delete my answers",
+    "closesLine": "Closes {when}",
+    "loopTimeNote": "({when} in {place})",
+    "answeringAs": "Answering as {name}",
+    "changeIdentity": "Change",
+    "sectionMusicCaptionLabel": "A line about it",
+    "attachPhoto": "Photo",
+    "attachVoice": "Voice note",
+    "attachAudio": "Audio file",
+    "attachReplacePhoto": "New photo",
+    "attachRemovePhoto": "Remove photo",
+    "attachReplaceVoice": "New voice note",
+    "attachRemoveVoice": "Remove voice note",
+    "savedAsYouGo": "Saved as you go",
+    "liveEdits": "Edits to sent answers save as you go",
+    "done": "Done",
+    "sendNew": "Send new answers",
+    "attentionNeeded": "One music link isn't saved yet.",
+    "pickNotSaved": "One music pick didn't save, so it won't go out. You can add it back any time before the round closes.",
+    "guardQuestion": "One music link isn't saved.",
+    "guardFix": "Fix the link",
+    "guardSend": "Send without it",
+    "guardDone": "Finish without it",
+    "extraNotSaved": "One extra isn't saved yet. It's safe on this device.",
+    "retryExtra": "Try again",
+    "pollNotSaved": "One poll pick isn't saved yet. It's safe on this device.",
+    "attachNotSaved": "One photo or voice note isn't saved yet.",
+    "attachGuard": "One photo or voice note isn't saved.",
+    "attachFix": "Go to it",
+    "attachDropped": "One photo or voice note didn't save, so it won't go out. You can add it back any time before the round closes."
   },
   "issue": {
     "eyebrow": "Fresh from the loop",
-    "round": "Round {number}",
+    "round": "Issue {number}",
     "answer": "1 answer from the group.",
     "answers": "{count} answers from the group.",
     "deliveredOn": "Delivered {date}.",
     "reading": {
-      "label": "Reading this round",
+      "label": "Reading this issue",
       "peopleLabel": "Show answers from",
       "everyone": "Everyone",
       "sortLabel": "Order",
@@ -973,20 +1066,24 @@
       "byPerson": "By person",
       "showing": "Showing only {name}'s answers.",
       "showEveryone": "Show everyone",
-      "questionLabel": "On: {question}"
+      "questionLabel": "On: {question}",
+      "menuLabel": "{who}, {order}",
+      "everyoneLower": "Everyone",
+      "byQuestionLower": "by question",
+      "byPersonLower": "by person"
     },
-    "comments": "Comments on the whole round",
+    "comments": "Comments on the whole issue",
     "contents": "In this issue",
     "editYourAnswers": "Edit your answers",
     "addYourAnswers": "Add your answers",
     "stillOpen": "Your answers can still change.",
     "you": "You",
     "noComments": "Nothing yet.",
-    "addedLater": "added after the round went out",
+    "addedLater": "added after the issue went out",
     "photoAlt": "Photo from {author}",
     "reactAriaLabel": "React with {emoji}",
     "writeFirst": "Write something first.",
-    "postError": "Could not post that.",
+    "postError": "That comment didn't post. Check your connection and try again.",
     "commentPlaceholder": "Say something nice.",
     "commentAriaLabel": "Comment",
     "posting": "Posting…",
@@ -1035,11 +1132,15 @@
     "sectionEmpty": "Nothing here yet.",
     "musicSongs": "Songs",
     "musicMoreSongs": "+{count} more songs",
-    "musicMoreSongsOne": "+1 more song"
+    "musicMoreSongsOne": "+1 more song",
+    "contentsButton": "Contents",
+    "meta": "{answers} Delivered {date}.",
+    "keepTitle": "Keep this issue",
+    "reactFailed": "That reaction didn't land. Check your connection and try again."
   },
   "share": {
     "eyebrow": "Fresh from the loop",
-    "round": "Round {number}",
+    "round": "Issue {number}",
     "answer": "1 answer from the group.",
     "answers": "{count} answers from the group.",
     "deliveredOn": "Delivered {date}.",
@@ -1053,15 +1154,15 @@
     "questionPlural": "questions",
     "answerSingular": "answer",
     "answerPlural": "answers",
-    "addedLater": "added after the loop went out",
+    "addedLater": "added after the issue went out",
     "signIn": {
       "subject": "Your Friendloop sign-in link",
       "preheader": "This link works once and expires in 15 minutes.",
-      "heading": "Sign in to friendloop",
+      "heading": "Sign in to Friendloop",
       "body": "This link works once and expires in 15 minutes. If you didn't request this link, you can ignore it.",
       "cta": "Sign in",
       "footer": "Friendloop · private group newsletters",
-      "text": "Sign in to friendloop\n\n{body}\n\nSign in: {url}"
+      "text": "Sign in to Friendloop\n\n{body}\n\nSign in: {url}"
     },
     "invite": {
       "subject": "{inviterName} added you to {groupName}",
@@ -1130,7 +1231,7 @@
       "text": "Nobody answered, so {groupName} skipped this round and paused.\n\n{url}"
     },
     "voiceNote": "Voice note · {duration}",
-    "voiceNoteListen": "Listen on the web issue",
+    "voiceNoteListen": "Listen on the web",
     "openIn": "Open in {provider}",
     "openLink": "Open the link",
     "musicProviders": {
@@ -1141,7 +1242,10 @@
     "photosAdded": "added {count} photos. See them in the web issue.",
     "sectionEmpty": "Nothing here yet.",
     "roundRef": "round {number}",
-    "roundHeading": "Round {number}"
+    "roundHeading": "Round {number}",
+    "promptQuestionsLabel": "This round asks",
+    "issueRef": "issue {number}",
+    "issueHeading": "Issue {number}"
   },
   "devUi": {
     "title": "UI preview",
@@ -1243,7 +1347,8 @@
       "generic": "The suggestion couldn't be saved. Try again.",
       "notPending": "That suggestion was already handled.",
       "musicLink": "That link isn't a Spotify, Bandcamp, or Qobuz page. Paste a link to a track, album, or playlist."
-    }
+    },
+    "writeFirst": "Write your question first."
   },
   "polls": {
     "authoring": {
@@ -1269,7 +1374,8 @@
     },
     "badge": {
       "single": "Poll · pick one",
-      "multiple": "Poll · pick any"
+      "multiple": "Poll · pick any",
+      "singleShort": "Poll · pick one"
     },
     "sheet": {
       "single": "Pick one",
@@ -1279,7 +1385,8 @@
       "saved": "Pick saved",
       "cleared": "Pick cleared",
       "error": "Not saved",
-      "hidden": "Results appear when the round goes out."
+      "hidden": "Results appear when the round goes out.",
+      "retry": "Try again"
     },
     "issue": {
       "results": "Results",
@@ -1370,7 +1477,13 @@
     "save": "Save stationery",
     "saved": "Stationery saved. Everyone sees it on their next visit.",
     "savedAdjusted": "Stationery saved. We nudged the accent a little so it stays easy to read.",
-    "error": "That didn't save. Check the accent code and try again."
+    "error": "That didn't save. Check the accent code and try again.",
+    "autoSaveNote": "Choosing a paper or color saves it straight away, for the whole loop.",
+    "statusSaving": "Saving…",
+    "statusSaved": "Saved. Everyone sees it on their next visit.",
+    "statusAdjusted": "Saved.",
+    "statusError": "That didn't save, so nothing changed.",
+    "statusRetry": "Try again"
   },
   "events": {
     "title": "Events and birthdays",
@@ -1409,34 +1522,34 @@
     "section": {
       "defaultEmoji": "🎉",
       "birthdayTitle": "{name}'s birthday",
-      "birthdayDescription": "Leave {name} a note or a photo. It lands in the round for everyone to read.",
+      "birthdayDescription": "Leave {name} a note or a photo. It lands in the issue for everyone to read.",
       "onceDescription": "Leave a note or a photo for the occasion."
     }
   },
   "album": {
     "title": "Album",
-    "intro": "Every photo and voice note from rounds that have gone out, newest first.",
+    "intro": "Every photo and voice note from issues that have gone out, newest first.",
     "back": "← {name}",
     "eyebrow": "Everything you've shared",
     "filtersLabel": "Find something",
     "searchLabel": "Search",
-    "searchPlaceholder": "Answer, caption or question",
+    "searchPlaceholder": "Words or a question",
     "memberLabel": "From",
     "everyone": "Everyone",
-    "apply": "Show",
+    "apply": "Search",
     "clear": "Clear filters",
     "count": "{shown} of {total}",
     "countAll": "{total} photos and voice notes",
     "countOne": "1 photo or voice note",
     "showMore": "Show more",
-    "empty": "Nothing here yet. Photos and voice notes show up once the round they came with has gone out.",
+    "empty": "Nothing here yet. Photos and voice notes show up once the issue they came with has gone out.",
     "emptyFiltered": "Nothing matches that. Try fewer words, or a different person.",
     "round": "Round {number}",
     "deliveredOn": "Delivered {date}",
     "openPhoto": "Open photo from {author}: {about}",
     "photoAlt": "Photo from {author}",
     "voiceFrom": "Voice note from {author}, {duration}",
-    "viewInIssue": "View in the round",
+    "viewInIssue": "View in the issue",
     "viewer": {
       "label": "Photo viewer",
       "close": "Close",
@@ -1446,18 +1559,19 @@
       "download": "Download"
     },
     "linkLabel": "Album",
-    "issueLink": "See the album"
+    "issueLink": "See the album",
+    "filterSummary": "Search or filter"
   },
   "print": {
-    "action": "Print this round",
+    "action": "Print this issue",
     "toolbarLabel": "Print options",
     "button": "Print or save as PDF",
     "hint": "In the print window, choose \"Save as PDF\" to keep a copy.",
-    "back": "Back to the round",
+    "back": "Back to the issue",
     "documentTitle": "{title} · {loop}",
     "eyebrow": "Kept from the loop",
     "late": "Added late, after the round went out",
-    "voiceCard": "Voice note, {duration}. Listen on the web round.",
+    "voiceCard": "Voice note, {duration}. Listen on the web issue.",
     "reactions": "Reactions: {summary}",
     "commentsHeading": "Comments",
     "answerComments": "Comments on this answer",
@@ -1485,7 +1599,7 @@
   },
   "a11yLabels": {
     "required": "(required)",
-    "readRound": "Read it: {title}",
+    "readRound": "Read the issue: {title}",
     "renameRound": "Name this round: {title}",
     "renameNamedRound": "Rename {title}",
     "resendInvite": "Resend invite: {name}",
@@ -1547,8 +1661,8 @@
     "settings": "Settings",
     "reply": "Your answers",
     "suggest": "Suggest a question",
-    "round": "A round",
-    "shared": "A shared round",
+    "round": "An issue",
+    "shared": "A shared issue",
     "notFound": "Page not found",
     "somethingWrong": "Something went wrong"
   },
@@ -1728,5 +1842,12 @@
         }
       ]
     }
+  },
+  "voiceNote": {
+    "play": "Play voice note from {author}",
+    "pause": "Pause voice note",
+    "playPlain": "Play voice note",
+    "seek": "Position in the voice note",
+    "title": "Voice note"
   }
 }

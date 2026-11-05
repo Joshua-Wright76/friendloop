@@ -15,7 +15,7 @@ test("F1 · a schedule change moves the next round and leaves an open one alone"
   await page.goto(`/g/${loop.groupId}/settings`);
   // The schedule fields are Pickers, not native selects.
   await pickOption(page, "Day", "Monday");
-  await pickOption(page, "Time", "18:00");
+  await pickOption(page, "Time", "6:00 PM");
   await page.getByRole("button", { name: "Save changes" }).click();
   await expect(page.getByText("Saved.")).toBeVisible();
 
@@ -32,5 +32,5 @@ test("F1 · a schedule change moves the next round and leaves an open one alone"
   expect(new Date(stillOpen.delivers_at).toISOString()).toBe(issue.deliversAt.toISOString());
 
   await page.goto(`/g/${loop.groupId}`);
-  await expect(page.getByText(/Monday at 18:00/)).toBeVisible();
+  await expect(page.getByText(/Monday at 6:00 PM/)).toBeVisible();
 });

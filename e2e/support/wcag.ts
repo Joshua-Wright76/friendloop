@@ -488,12 +488,12 @@ export async function focusedProblems(page: Page, label: string): Promise<Proble
 }
 
 /** Expand every disclosure so the controls inside are part of the audit. */
-export async function openAllDetails(page: Page): Promise<number> {
-  return page.evaluate(() => {
-    const all = Array.from(document.querySelectorAll("details"));
+export async function openAllDetails(page: Page, except?: string): Promise<number> {
+  return page.evaluate((skip) => {
+    const all = Array.from(document.querySelectorAll("details")).filter((details) => !skip || !details.matches(skip));
     all.forEach((details) => { details.open = true; });
     return all.length;
-  });
+  }, except);
 }
 
 /**

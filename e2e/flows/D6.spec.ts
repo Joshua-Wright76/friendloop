@@ -22,28 +22,28 @@ test("D6 · a submitted answer can still be rewritten, not duplicated", async ({
 
   await page.getByRole("button", { name: "Edit my answers" }).click();
   await answer.fill("Second version, with the good detail.");
-  await page.getByRole("button", { name: "Save changes" }).click();
+  await page.getByRole("button", { name: "Done" }).click();
   // A second send confirms again, as a change rather than a first send.
-  await expect(page.getByRole("heading", { name: "Changes sent", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Changes saved", exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Edit my answers" }).click();
-  // The overall save status, which several parts of the sheet label "Saved".
-  await expect(page.locator("[data-save-status]")).toHaveText("Saved");
+  // The overall save status says how a sent answer behaves from here.
+  await expect(page.locator("[data-save-status]")).toHaveText("Edits to sent answers save as you go");
 
   // Coming back later opens the sheet itself, with its quiet "Sent" note.
   await page.reload();
-  await expect(page.getByRole("button", { name: "Save changes" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Done" })).toBeVisible();
   await expect(page.locator(".sent-stamp:visible")).not.toHaveClass(/sent-stamp-animate/);
   await expect(page.getByLabel("What made you laugh this week?")).toHaveValue(
     "Second version, with the good detail.",
   );
 
-  // Sending writes one draft per question in the round, so the round's two
-  // questions mean two rows — and rewriting one answer must not add a third.
+  // Only answers that were written get a row, and sending never adds a blank one
+  // for the question left empty. Rewriting the answer must not add a second.
   const saved = await rows<{ body: string; status: string }>(
     `select body, status from replies where issue_id = $1 and membership_id = $2`,
     [issue.issueId, alice.id],
   );
-  expect(saved, "one row per question, updated in place").toHaveLength(2);
+  expect(saved, "one row per answered question, updated in place").toHaveLength(1);
   const answered = saved.filter((row) => row.body.length > 0);
   expect(answered, "the edited answer was updated in place").toHaveLength(1);
   expect(answered[0].body).toBe("Second version, with the good detail.");
@@ -79,7 +79,7 @@ test("D6 · clearing a draft resolves the overall save status after an older wri
   // The late, slower write for the text you deleted is discarded, so the status
   // settles instead of being stuck on "Saving…".
   await expect(page.locator("[data-save-status]")).not.toHaveText(/Saving/);
-  await expect(page.locator("[data-save-status]")).toHaveText("");
+  await expect(page.locator("[data-save-status]")).toHaveText("Saved as you go");
 
   await send.click();
   await expect(page.getByRole("alert").filter({ hasText: "Write one answer to send. The rest can wait." })).toBeVisible();

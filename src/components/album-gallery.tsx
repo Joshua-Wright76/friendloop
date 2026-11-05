@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { Avatar } from "@/components/avatar";
 import { PhotoLightbox, useLightbox } from "@/components/photo-lightbox";
+import { VoiceNote } from "@/components/voice-note";
 import { formatAudioDuration } from "@/lib/audio-validation";
 import { copy, text } from "@/lib/copy";
 import type { AlbumItem } from "@/lib/album";
@@ -30,15 +31,15 @@ export function AlbumGallery({ groups }: { groups: GalleryGroup[] }) {
     <>
       {groups.map((group) => (
         <section key={group.issueId} aria-labelledby={`album-round-${group.issueId}`} className="mt-8">
-          <div className="stitched flex flex-wrap items-baseline justify-between gap-x-3 border-b pb-2">
-            <h2 id={`album-round-${group.issueId}`} className="text-[19px] font-bold text-ink">{group.title}</h2>
-            <p className="m-0 text-[12.5px] text-ink-muted">{group.dateLabel}</p>
+          <div className="album-round-head">
+            <h2 id={`album-round-${group.issueId}`} className="text-ink">{group.title}</h2>
+            <p className="m-0 text-[13px] text-ink-soft">{group.dateLabel}</p>
           </div>
           <ul className="album-grid mt-3">
             {group.items.map((item) => (
               <li key={item.key} className={item.kind === "voice" ? "album-voice" : undefined}>
                 {item.kind === "photo" ? (
-                  <figure className="m-0">
+                  <figure className="card m-0 p-2">
                     <button
                       type="button"
                       className="album-tile"
@@ -52,15 +53,14 @@ export function AlbumGallery({ groups }: { groups: GalleryGroup[] }) {
                   </figure>
                 ) : (
                   <figure className="card m-0 p-3">
-                    <audio
-                      controls
-                      preload="metadata"
+                    <VoiceNote
                       src={item.url}
-                      aria-label={text(copy.album.voiceFrom, {
+                      durationMs={item.durationMs}
+                      label={text(copy.album.voiceFrom, {
                         author: item.author,
                         duration: formatAudioDuration(item.durationMs ?? 0),
                       })}
-                      className="w-full"
+                      playLabel={text(copy.voiceNote.play, { author: item.author })}
                     />
                     <Credit item={item} />
                   </figure>
@@ -95,7 +95,7 @@ function Credit({ item }: { item: AlbumItem }) {
         <span className="mt-0.5 line-clamp-2 block text-[13px] leading-snug text-ink">{item.caption || item.body}</span>
       ) : null}
       <span className="line-clamp-1 block text-[12px] leading-snug text-ink-muted">{item.context}</span>
-      <Link href={item.issueHref} className="inline-flex min-h-11 items-center text-[13px] font-bold text-ink-soft underline underline-offset-4">
+      <Link href={item.issueHref} className="link link--quiet text-[13px]!">
         {copy.album.viewInIssue}
       </Link>
     </figcaption>

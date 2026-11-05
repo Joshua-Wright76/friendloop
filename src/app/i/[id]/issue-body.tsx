@@ -1,9 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useId, useOptimistic, useState, useTransition } from "react";
+import { useEffect, useId, useOptimistic, useState, useTransition, type ReactNode } from "react";
 import { toggleReaction } from "./actions";
 import { CommentThread } from "./comment-thread";
+import { IssueBar } from "./issue-bar";
+import { VoiceNote } from "@/components/voice-note";
 import { formatAudioDuration } from "@/lib/audio-validation";
 import type { IssueComment } from "@/lib/comment-view";
 import type { IssueAnswer, IssueBlock, IssuePoll, IssueSectionBlock, IssueSectionReplyBlock } from "@/lib/issue-view";
@@ -28,6 +30,13 @@ type Props = {
   groups?: PersonGroup[] | null;
   /** The viewer's own reply sheet, while it can still change this round. */
   editHref?: string | null;
+  /** Who to read and in what order, opened from the bar. Absent when there is no choice. */
+  reading?: ReactNode;
+  readingLabel?: string;
+  /** Says when the page is showing less than everything. */
+  readingNote?: ReactNode;
+  /** Keeps the name of what you're reading in view on the bar. */
+  barTitle?: string;
 };
 
 export function IssueBody({
@@ -41,6 +50,10 @@ export function IssueBody({
   mentionables,
   groups = null,
   editHref = null,
+  reading,
+  readingLabel,
+  readingNote,
+  barTitle,
 }: Props) {
   const answered = blocks.filter((block) => block.answers.length > 0);
   const sectionOffset = answered.length;
@@ -63,31 +76,13 @@ export function IssueBody({
       ).find((answer) => answer.isYou)?.replyId ?? null
     : null;
   return (
-    <div className="mt-8 flex flex-col gap-7">
-      {contents.length > 1 ? (
-        <nav aria-labelledby="issue-contents-heading" className="issue-contents no-print card p-4 sm:p-5">
-          <h2 id="issue-contents-heading" className="eyebrow m-0">{copy.issue.contents}</h2>
-          <ol className="m-0 mt-1 list-none p-0">
-            {contents.map((item) => (
-              <li key={item.href}>
-                <a
-                  href={item.href}
-                  className="flex min-h-11 items-center gap-3 rounded-sm py-1 text-[15px] font-bold leading-snug text-ink underline decoration-line-strong decoration-1 underline-offset-4 hover:decoration-accent"
-                >
-                  {item.number !== null ? (
-                    <span aria-hidden="true" className="question-number numeric">{item.number}</span>
-                  ) : null}
-                  <span className="min-w-0 wrap-any">{item.label}</span>
-                </a>
-              </li>
-            ))}
-          </ol>
-        </nav>
-      ) : null}
+    <div className="mt-3 flex flex-col gap-6">
+      <IssueBar contents={contents} reading={reading} readingLabel={readingLabel} title={barTitle} />
+      {readingNote}
 
       {groups
         ? groups.map((group, index) => (
-            <section key={group.id} id={`person-${group.id}`} aria-label={group.name} className="card paper ride-in scroll-mt-6 p-5 pt-7">
+            <section key={group.id} id={`person-${group.id}`} aria-label={group.name} className="card paper ride-in scroll-mt-20 p-5 pt-7">
               <Tape tone={(["dots", "stripe", "mint", "check"] as const)[index % 4]} position={index % 2 ? "right" : "left"} />
               <h2 className="issue-question flex items-center gap-3 text-ink">
                 <span aria-hidden="true"><Avatar name={group.name} photoUrl={group.photoUrl} /></span>
@@ -123,7 +118,7 @@ export function IssueBody({
       {groups ? null : blocks
         .filter((block) => block.answers.length > 0)
         .map((block, index) => (
-          <section key={block.questionId} id={`question-${block.questionId}`} className="card paper ride-in scroll-mt-6 p-5 pt-7">
+          <section key={block.questionId} id={`question-${block.questionId}`} className="card paper ride-in scroll-mt-20 p-5 pt-7">
             <Tape tone={(["dots", "stripe", "mint", "check"] as const)[index % 4]} position={index % 2 ? "right" : "left"} />
             <h2 className="issue-question flex items-start gap-3 text-ink">
               <span className="question-number mt-0.5 numeric">{index + 1}</span>
@@ -155,7 +150,7 @@ export function IssueBody({
         ))}
 
       {groups ? null : sections.map((section, sectionIndex) => (
-        <section key={section.id} id={`section-${section.id}`} className="card paper ride-in scroll-mt-6 p-5 pt-7">
+        <section key={section.id} id={`section-${section.id}`} className="card paper ride-in scroll-mt-20 p-5 pt-7">
           <Tape tone={(["mint", "check", "dots", "stripe"] as const)[sectionIndex % 4]} position="left" />
           <h2 className="issue-question flex items-start gap-3 text-ink">
             <span className="question-number mt-0.5 numeric">{sectionOffset + 1 + sectionIndex}</span>
@@ -339,6 +334,14 @@ function AnswerCard({
 }) {
   const [pending, startTransition] = useTransition();
   const [threadOpen, setThreadOpen] = useState(false);
+  const [reactFailed, setReactFailed] = useState(false);
+  // Once the connection is back, the message no longer applies.
+  useEffect(() => {
+    if (!reactFailed) return;
+    const clear = () => setReactFailed(false);
+    window.addEventListener("online", clear);
+    return () => window.removeEventListener("online", clear);
+  }, [reactFailed]);
   const threadId = useId();
   const owner = answer.isYou ? copy.issue.ownerYour : text(copy.issue.ownerOther, { author: answer.author });
   const count = answer.comments.length;
@@ -389,18 +392,13 @@ function AnswerCard({
         />
       ) : null}
       {answer.audioUrl ? (
-        <figure className="mt-3">
-          <audio
-            controls
-            preload="metadata"
-            src={answer.audioUrl}
-            aria-label={text(copy.issue.voiceLabel, { duration: formatAudioDuration(answer.audioDurationMs ?? 0) })}
-            className="w-full"
-          />
-          <figcaption className="mt-1 text-[12px] text-ink-muted numeric">
-            {text(copy.issue.voiceLabel, { duration: formatAudioDuration(answer.audioDurationMs ?? 0) })}
-          </figcaption>
-        </figure>
+        <VoiceNote
+          className="mt-3"
+          src={answer.audioUrl}
+          durationMs={answer.audioDurationMs}
+          label={text(copy.issue.voiceLabel, { duration: formatAudioDuration(answer.audioDurationMs ?? 0) })}
+          playLabel={text(copy.voiceNote.play, { author: answer.author })}
+        />
       ) : null}
       {answer.addedLater ? (
         <p className="mt-2 text-[12px] text-ink-muted">
@@ -408,7 +406,7 @@ function AnswerCard({
         </p>
       ) : null}
 
-      <div className="mt-3 flex flex-wrap gap-1.5">
+      <div className="answer-actions">
         {local.map((reaction) => (
           <button
             key={reaction.emoji}
@@ -424,6 +422,7 @@ function AnswerCard({
             }
             onClick={() => {
               if (pending) return;
+              setReactFailed(false);
               startTransition(async () => {
                 addLocal(reaction.emoji);
                 try {
@@ -434,39 +433,29 @@ function AnswerCard({
                     viewerToken,
                   });
                 } catch {
-                  // Offline or refused: the optimistic tap springs back on its own,
-                  // which is feedback enough for a reaction. Don't lose the page over it.
+                  // Offline or refused: the optimistic tap springs back, and this says why.
+                  setReactFailed(true);
                 }
               });
             }}
-            className={`reaction-chip flex h-8 items-center gap-1.5 rounded-full border px-2.5 text-[13px] transition-transform disabled:opacity-50 aria-disabled:opacity-50 ${
+            className={`reaction-chip disabled:opacity-50 aria-disabled:opacity-50 ${
               reaction.mine
-                ? "border-accent bg-accent-soft text-accent-ink shadow-[inset_0_0_0_1px_var(--accent)]"
-                : "border-line text-ink-soft hover:bg-field"
+                ? "reaction-chip--mine"
+                : "hover:bg-field"
             }`}
           >
-            {reaction.mine ? (
-              // A shape as well as a tint, so "you reacted" does not rest on colour alone.
-              <svg viewBox="0 0 20 20" aria-hidden="true" className="h-3.5 w-3.5 flex-none">
-                <path d="m4 10 4 4 8-9" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-            ) : null}
             <span className={reaction.mine ? "reaction-selected" : ""} aria-hidden>{reaction.emoji}</span>
-            {reaction.count > 0 ? (
-              <span key={reaction.count} className="reaction-count numeric">{reaction.count}</span>
-            ) : null}
+            {/* Always there, so a first reaction moves nothing beside it. */}
+            <span key={reaction.count} className="reaction-count-slot numeric">{reaction.count > 0 ? reaction.count : ""}</span>
           </button>
         ))}
-      </div>
-
-      {commentsEnabled && (count > 0 || canInteract) ? (
-        <div className="mt-2">
+        {commentsEnabled && (count > 0 || canInteract) ? (
           <button
             type="button"
             aria-expanded={threadOpen}
             aria-controls={threadId}
             onClick={() => setThreadOpen((open) => !open)}
-            className="min-h-8 rounded-md px-1 text-[13px] font-bold text-accent-ink underline decoration-line-strong underline-offset-4"
+            className="link cursor-pointer"
           >
             {count === 0
               ? copy.issue.commentOnAnswer
@@ -474,7 +463,13 @@ function AnswerCard({
                 ? copy.issue.commentCountOne
                 : text(copy.issue.commentCount, { count })}
           </button>
-          {threadOpen ? (
+        ) : null}
+      </div>
+
+      {reactFailed ? <p role="alert" className="action-failed">{copy.issue.reactFailed}</p> : null}
+
+      {threadOpen && commentsEnabled ? (
+        <div className="mt-1">
             <div id={threadId} role="group" aria-label={text(copy.issue.threadLabel, { owner })} className="mt-1">
               <CommentThread
                 issueId={issueId}
@@ -488,7 +483,6 @@ function AnswerCard({
                 focusComposer
               />
             </div>
-          ) : null}
         </div>
       ) : null}
     </article>

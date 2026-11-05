@@ -3,7 +3,6 @@
 import { useId, useRef, useState, useTransition, type FormEvent, type KeyboardEvent } from "react";
 import { useRouter } from "next/navigation";
 import { copy, text } from "@/lib/copy";
-import { FieldLabel } from "@/components/field-label";
 import { inviteAction } from "./actions";
 
 const validEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -22,14 +21,17 @@ export function InviteForm({ groupId }: { groupId: string }) {
 
   function add(raw: string) {
     const parsed = raw.split(/[\s,;]+/).map((email) => email.trim().toLowerCase()).filter(Boolean);
-    if (parsed.some((email) => !validEmail.test(email))) {
+    const good = parsed.filter((email) => validEmail.test(email));
+    const bad = parsed.filter((email) => !validEmail.test(email));
+    // Good addresses become chips whatever else was pasted. A bad one stays in the field, named.
+    setEmails((current) => [...new Set([...current, ...good])]);
+    setInput(bad.join(" "));
+    if (bad.length) {
       setStatus("");
-      setError(copy.members.invalidEmails);
-      return;
+      setError(text(copy.members.invalidEmailNamed, { emails: bad.join(", ") }));
+    } else if (parsed.length) {
+      setError("");
     }
-    if (parsed.length) setError("");
-    setEmails((current) => [...new Set([...current, ...parsed])]);
-    setInput("");
   }
 
   function onKeyDown(event: KeyboardEvent<HTMLInputElement>) {
@@ -49,7 +51,8 @@ export function InviteForm({ groupId }: { groupId: string }) {
     const pendingEmails = input.trim()
       ? [...new Set([...emails, ...input.split(/[\s,;]+/).map((email) => email.trim().toLowerCase()).filter((email) => validEmail.test(email))])]
       : emails;
-    if (!pendingEmails.length || input.trim().split(/[\s,;]+/).some((email) => email && !validEmail.test(email))) {
+    if (input.trim().split(/[\s,;]+/).some((email) => email && !validEmail.test(email))) return;
+    if (!pendingEmails.length) {
       setStatus("");
       setError(copy.members.invalidEmails);
       return;
@@ -86,15 +89,15 @@ export function InviteForm({ groupId }: { groupId: string }) {
   }
 
   return (
-    <form onSubmit={submit} id="invite-people" className="card mt-5 p-5">
+    <form onSubmit={submit} id="invite-people" className="mt-3 scroll-mt-4 border-t border-dashed border-line pt-3">
       <input type="hidden" name="groupId" value={groupId} />
-      <h2 className="text-[16px] font-semibold tracking-[-0.01em] text-ink">{copy.members.inviteTitle}</h2>
-      <p id={hintId} className="mt-1 text-[13px] leading-relaxed text-ink-soft">{copy.members.inviteDescription}</p>
-      <label htmlFor={inputId} className="mt-3 block"><FieldLabel required>{copy.members.inviteAriaLabel}</FieldLabel></label>
-      <div className="field mt-1.5 flex min-h-12 flex-wrap items-center gap-2" onClick={(event) => event.currentTarget.querySelector("input")?.focus()}>
+      <label htmlFor={inputId} className="block text-[14px] font-bold text-ink-soft">{copy.members.inviteAriaLabel}</label>
+      <p id={hintId} className="sr-only">{copy.members.inviteDescription}</p>
+      <div className="invite-line mt-1.5">
+      <div className="field flex min-h-11 flex-wrap items-center gap-2 py-1" onClick={(event) => event.currentTarget.querySelector("input")?.focus()}>
         {emails.map((email) => (
-          <span key={email} className="inline-flex items-center gap-1 rounded-full border border-line bg-card px-2.5 py-1 text-[13px] text-ink">
-            {email}
+          <span key={email} className="chip inline-flex max-w-full items-center gap-1 border bg-card py-0.5 pl-3 pr-1 text-[13px] font-bold text-ink">
+            <span className="wrap-any">{email}</span>
             <button
               type="button"
               aria-label={text(copy.members.removeEmail, { email })}
@@ -105,8 +108,8 @@ export function InviteForm({ groupId }: { groupId: string }) {
                 setEmails(emails.filter((item) => item !== email));
                 field.current?.focus();
               }}
-              className="flex h-6 w-6 flex-none items-center justify-center rounded-full text-ink-muted hover:bg-field hover:text-ink aria-disabled:cursor-not-allowed aria-disabled:opacity-45"
-            >×</button>
+              className="flex h-8 w-8 flex-none items-center justify-center rounded-full text-ink-muted hover:bg-field hover:text-ink aria-disabled:cursor-not-allowed aria-disabled:opacity-45"
+            ><svg viewBox="0 0 20 20" aria-hidden="true" className="h-3.5 w-3.5"><path d="m5 5 10 10M15 5 5 15" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg></button>
           </span>
         ))}
         <input
@@ -122,12 +125,13 @@ export function InviteForm({ groupId }: { groupId: string }) {
           aria-describedby={error ? `${hintId} ${errorId}` : hintId}
           readOnly={pending}
           aria-disabled={pending ? true : undefined}
-          className="min-w-[180px] flex-1 border-0 bg-transparent p-1 text-[14px] text-ink outline-none"
+          className="min-w-[8rem] flex-1 border-0 bg-transparent p-1 text-[15px] text-ink outline-none"
         />
       </div>
-      {error ? <p id={errorId} role="alert" className="mt-2 text-[13px] text-danger">{error}</p> : null}
+      {error ? <p id={errorId} role="alert" className="m-0 order-1 basis-full text-[13px] font-bold text-danger">{error}</p> : null}
+      <button type="submit" aria-disabled={pending ? true : undefined} className="btn btn-primary flex-none aria-disabled:cursor-not-allowed aria-disabled:opacity-45">{pending ? copy.common.loading : copy.members.sendInvitations}</button>
+      </div>
       <p role="status" className="mt-2 text-[13px] text-ink-soft empty:mt-0">{status}</p>
-      <button type="submit" aria-disabled={pending ? true : undefined} className="btn btn-primary mt-4 aria-disabled:cursor-not-allowed aria-disabled:opacity-45">{pending ? copy.common.loading : copy.members.sendInvitations}</button>
     </form>
   );
 }

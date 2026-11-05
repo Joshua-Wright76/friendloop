@@ -1,10 +1,16 @@
 import { and, desc, eq, isNull, like, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { groups, issueQuestions, issues, memberships, outbox, replies, users } from "@/db/schema";
-import { describeDeadline } from "./schedule";
+import { atMoment, formatMoment, timezonePlace } from "./format";
 import { sendEmail } from "./email/send";
 import { emailThemeOf, promptEmail, reminderEmail } from "./email/templates";
 import { replyUrl, unsubscribeUrl } from "./urls";
+
+/** One way to write a deadline in mail: on the reader's clock if we know it, else named for the loop's place. */
+export function mailDeadline(instant: Date, loopTimezone: string, readerTimezone: string | null): string {
+  if (readerTimezone) return `${atMoment(formatMoment(instant, readerTimezone))} your time`;
+  return `${atMoment(formatMoment(instant, loopTimezone))} ${timezonePlace(loopTimezone)} time`;
+}
 
 /** One prompt per contributor for a round that just opened. */
 export async function sendPromptEmails(input: {
@@ -37,9 +43,14 @@ export async function sendPromptEmails(input: {
       ),
     );
 
+  const asked = await db
+    .select({ text: issueQuestions.text })
+    .from(issueQuestions)
+    .where(eq(issueQuestions.issueId, issueId))
+    .orderBy(issueQuestions.position);
+
   let sent = 0;
   for (const recipient of recipients) {
-    const deadline = describeDeadline(deliversAt, group.timezone, recipient.timezone);
     const rendered = promptEmail({
       groupName: group.name,
       memberName: recipient.name ?? recipient.email.split("@")[0],
@@ -47,7 +58,8 @@ export async function sendPromptEmails(input: {
       issueName,
       questionCount,
       url: replyUrl(recipient.replyToken),
-      deadlineLabel: deadline.inLoopZone,
+      deadlineLabel: mailDeadline(deliversAt, group.timezone, recipient.timezone),
+      questions: asked.map((question) => question.text),
       theme: emailThemeOf(group),
       unsubscribeUrl: unsubscribeUrl(recipient.unsubscribeToken),
     });
@@ -125,12 +137,11 @@ export async function nudgeStragglers(groupId: string): Promise<number> {
       .where(like(outbox.dedupeKey, `manual-reminder:${issue.id}:${member.id}:%`));
     const attempt = (previous?.count ?? 0) + 1;
 
-    const deadline = describeDeadline(issue.deliversAt, group.timezone, member.timezone);
     const rendered = reminderEmail({
       groupName: group.name,
       memberName: member.name ?? member.email.split("@")[0],
       url: replyUrl(member.replyToken),
-      deadlineLabel: deadline.inLoopZone,
+      deadlineLabel: mailDeadline(issue.deliversAt, group.timezone, member.timezone),
       remaining: questionCount,
       theme: emailThemeOf(group),
       unsubscribeUrl: unsubscribeUrl(member.unsubscribeToken),

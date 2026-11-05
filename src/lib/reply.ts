@@ -273,6 +273,8 @@ export async function saveDraftFor(input: {
   token: string;
   issueQuestionId: string;
   body: string;
+  /** What this device last saw on the server. A background retry sends it, so newer words elsewhere aren't overwritten. */
+  ifBody?: string;
 }): Promise<WriteResult> {
   const gate = await ensureWritableQuestion(input.token, input.issueQuestionId);
   if (!gate.ok) return gate.result;
@@ -281,6 +283,21 @@ export async function saveDraftFor(input: {
   const at = await getNow();
   const afterDelivery = context.issue.status === "delivered" || at > context.issue.deliversAt;
   const body = input.body.slice(0, 8000);
+
+  if (input.ifBody !== undefined) {
+    const [existing] = await db
+      .select({ body: replies.body })
+      .from(replies)
+      .where(and(
+        eq(replies.issueId, context.issue.id),
+        eq(replies.issueQuestionId, question.id),
+        eq(replies.membershipId, context.membership.id),
+      ))
+      .limit(1);
+    if ((existing?.body ?? "") !== input.ifBody && (existing?.body ?? "") !== body) {
+      return { ok: false, status: 409, error: copy.reply.errors.changedElsewhere };
+    }
+  }
 
   await db
     .insert(replies)

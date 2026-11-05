@@ -59,7 +59,7 @@ export function CopyLink({ url, className = "" }: { url: string; className?: str
         type="button"
         onClick={() => void copyUrl()}
         title={state === "failed" ? copy.common.copyFailed : undefined}
-        className={`btn btn-quiet h-9 min-h-9 flex-none whitespace-nowrap px-3 text-[13px] ${className}`}
+        className={`btn btn-quiet h-11 min-h-11 flex-none whitespace-nowrap px-3 text-[13px] ${className}`}
       >
         {state === "copied"
           ? copy.common.copied

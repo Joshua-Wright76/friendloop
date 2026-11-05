@@ -19,13 +19,15 @@ export default async function NewLoopPage() {
   if (!user) redirect("/signin");
 
   return (
-    <main className="mx-auto w-full max-w-[760px] px-4 pb-10 pt-5 sm:px-6">
-      <header className="stitched mb-8 flex items-center justify-between gap-3 border-b pb-4">
-        <Brand href={null} />
-        <Link href="/you" className="text-[13px] font-bold text-ink-soft hover:text-ink">← {copy.common.yourLoops}</Link>
-      </header>
+    <main className="mx-auto w-full max-w-[680px] px-4 pb-6 pt-4 sm:px-6">
+      <div className="wizard-sheet">
+        <header className="stitched mb-3 flex items-center justify-between gap-3 border-b pb-2">
+          <Brand href={null} />
+          <Link href="/you" className="link link--quiet">{copy.common.yourLoops}</Link>
+        </header>
 
-      <NewLoopForm packs={QUESTION_PACKS} />
+        <NewLoopForm packs={QUESTION_PACKS} />
+      </div>
     </main>
   );
 }

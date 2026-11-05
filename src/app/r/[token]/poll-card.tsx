@@ -61,7 +61,12 @@ export function PollCard({ id, index, prompt, options, multiple, picks, status, 
           {status === "saving" ? copy.polls.sheet.saving : null}
           {status === "saved" ? copy.polls.sheet.saved : null}
           {status === "cleared" ? copy.polls.sheet.cleared : null}
-          {status === "error" ? copy.polls.sheet.error : null}
+          {status === "error" ? (
+            <>
+              {copy.polls.sheet.error}{" "}
+              <button type="button" className="link link--inline cursor-pointer" onClick={() => onChange(picks)}>{copy.polls.sheet.retry}</button>
+            </>
+          ) : null}
           {status === "idle" ? copy.polls.sheet.hidden : null}
         </p>
         {picks.length > 0 ? (

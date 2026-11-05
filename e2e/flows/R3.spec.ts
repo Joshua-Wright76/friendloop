@@ -84,7 +84,8 @@ test("R3 · the loop's reminder follows each choice, never repeats, and leaves t
   // The owner's nudge by hand still reaches Alice, who asked for none.
   await signIn(page, "owner@friendloop.test");
   await page.goto(`/g/${loop.groupId}`);
-  await page.getByRole("button", { name: "Send a nudge" }).click();
+  await page.getByRole("button", { name: /^Nudge .*Alice/ }).click();
+  await page.getByRole("button", { name: "Send the nudge" }).click();
   await expect(page.getByText("3 nudges sent.")).toBeVisible();
   const nudged = await rows<{ to: string }>(
     "select \"to\" from outbox where kind = 'reminder' and dedupe_key like 'manual-reminder:%' order by \"to\"",

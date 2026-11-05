@@ -66,6 +66,7 @@ export function MemberRolePicker({ groupId, membershipId, memberName, current, p
   return (
     <div className="member-role-form">
       <div className="member-role-picker">
+        <span className="member-role-label">{copy.members.accessLabel}</span>
         <Picker
           name="access"
           defaultValue={access}
@@ -78,6 +79,7 @@ export function MemberRolePicker({ groupId, membershipId, memberName, current, p
       </div>
       {fixedReader ? null : (
         <div className="member-role-picker">
+          <span className="member-role-label">{copy.members.participationLabel}</span>
           <Picker
             name="participation"
             defaultValue={participation}
@@ -90,7 +92,7 @@ export function MemberRolePicker({ groupId, membershipId, memberName, current, p
         </div>
       )}
       {/* Both regions stay mounted so a change of text is announced; a node that appears with its text often is not. */}
-      <div className="max-w-[160px] text-right leading-snug">
+      <div className="member-role-status leading-snug">
         <span role="status" aria-live="polite" className={pending || (message && !failed) ? "text-[12px] text-ink-muted" : undefined}>
           {pending ? (saving === "access" ? copy.members.roleSaving : copy.members.participation.saving) : failed ? "" : message}
         </span>

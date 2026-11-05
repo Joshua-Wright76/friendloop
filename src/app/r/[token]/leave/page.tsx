@@ -1,3 +1,4 @@
+import { SafeForm } from "@/components/safe-form";
 import Link from "next/link";
 import type { Metadata } from "next";
 import { leaveContext } from "@/lib/erasure";
@@ -53,7 +54,7 @@ export default async function LeavePage({ params, searchParams }: {
           </div>
         </div>
       ) : (
-        <form action={leaveLoopAction} className="card border-danger/30 p-6 pt-8">
+        <SafeForm action={leaveLoopAction} className="card border-danger/30 p-6 pt-8">
           <Tape tone="stripe" position="left" />
           <input type="hidden" name="token" value={token} />
           <p className="eyebrow">{text(copy.leave.eyebrow, { groupName })}</p>
@@ -81,7 +82,7 @@ export default async function LeavePage({ params, searchParams }: {
             <button type="submit" className="btn btn-danger hover:opacity-90">{copy.leave.submit}</button>
             <Link href={`/r/${token}`} className="btn btn-quiet">{copy.leave.cancel}</Link>
           </div>
-        </form>
+        </SafeForm>
       )}
     </main>
   );

@@ -47,7 +47,7 @@ test("Q2 · the print view is the web round as it is now, late additions marked 
 
   // The web round says exactly as many things were added late.
   await page.goto(`/i/${world.issueId}?m=${world.alice.token}`);
-  await expect(page.getByText("added after the round went out", { exact: true })).toHaveCount(5);
+  await expect(page.getByText("added after the issue went out", { exact: true })).toHaveCount(5);
 
   // Commenting off hides threads on paper exactly as on the web; the words stay stored.
   await rows("update groups set comments_enabled = false where id = $1", [world.loop.groupId]);

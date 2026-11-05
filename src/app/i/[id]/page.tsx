@@ -7,14 +7,15 @@ import { MutedNotice } from "@/components/muted-notice";
 import { formatDate } from "@/lib/format";
 import { IssueBody } from "./issue-body";
 import { Cherries } from "@/components/stationery";
+import { DocumentTitle } from "@/components/document-title";
 import { copy, text } from "@/lib/copy";
 import { issueTitle } from "@/lib/issue-name";
-import { LoopBanner, LoopTheme } from "@/components/loop-theme";
+import { LoopSnapshot, LoopTheme } from "@/components/loop-theme";
 import { albumHref } from "@/lib/album-query";
 import { printHref, wantsPrint, webHref } from "@/lib/print-view";
 import { IssuePrint } from "./issue-print";
 import { ReadingControls } from "./reading-controls";
-import { applyReading, parseReading, readingPeople } from "@/lib/issue-reading";
+import { applyReading, parseReading, readingHref, readingPeople } from "@/lib/issue-reading";
 import { resolveToken } from "@/lib/reply";
 
 export const instant = false;
@@ -94,33 +95,28 @@ export default async function IssuePage({
     view.sections.some((section) => section.replies.some((reply) => reply.isYou));
 
   return (
-    <main className="mx-auto w-full max-w-[680px] px-4 pb-16 pt-5 sm:px-6">
+    <main className="mx-auto w-full max-w-[680px] px-4 pb-16 pt-4 sm:px-6">
+      <DocumentTitle value={`${issueTitle(copy.issue.round, view.issue.number, view.issue.name)} · ${view.group.name}`} />
       <LoopTheme preset={view.group.themePreset} accent={view.group.themeAccent} />
-      <LoopBanner url={view.group.headerImageUrl} className="mb-5" />
-      <header className="stitched mb-8 flex items-center justify-between gap-3 border-b pb-4">
-        <span className="flex min-w-0 items-center gap-2 font-display text-[23px] font-bold text-ink">
-          <Cherries className="h-7 w-7 flex-none" /><span className="wrap-any">{view.group.name}</span>
-        </span>
-        <span className="chip flex-none whitespace-nowrap border bg-card px-2.5 py-1 text-[12px] font-bold text-ink-soft numeric">{text(copy.issue.round, { number: view.issue.number })}</span>
+      <header className={`loop-head${view.group.headerImageUrl ? " has-snapshot" : ""}`}>
+        <LoopSnapshot url={view.group.headerImageUrl} />
+        <div className="loop-head__row">
+          <span className="loop-head__home">
+            <Cherries className="h-7 w-7 flex-none" />
+            <span className="loop-head__name wrap-any">{view.group.name}</span>
+          </span>
+        </div>
+        <div className="loop-head__page">
+          <h1>{issueTitle(copy.issue.round, view.issue.number, view.issue.name)}</h1>
+          <p className="numeric">
+            {view.issue.name ? `${text(copy.issue.round, { number: view.issue.number })}. ` : null}
+            {view.answerCount === 1 ? copy.issue.answer : text(copy.issue.answers, { count: view.answerCount })}{" "}
+            {text(copy.issue.deliveredOn, {
+              date: formatDate(view.issue.deliveredAt ?? view.issue.deliversAt, view.group.timezone),
+            })}
+          </p>
+        </div>
       </header>
-
-      <div className="relative pr-16">
-        <Cherries className="absolute -top-2 right-0 h-16 w-16 rotate-12" />
-        <p className="eyebrow">{copy.issue.eyebrow}</p>
-        <h1 className="mt-1 text-ink">{issueTitle(copy.issue.round, view.issue.number, view.issue.name)}</h1>
-        <p className="mt-2 text-[15px] leading-relaxed text-ink-soft">
-          {view.answerCount === 1 ? copy.issue.answer : text(copy.issue.answers, { count: view.answerCount })}
-        </p>
-        <p className="mt-1 text-[13px] text-ink-muted">
-          {text(copy.issue.deliveredOn, {
-            date: formatDate(view.issue.deliveredAt ?? view.issue.deliversAt, view.group.timezone),
-          })}
-        </p>
-      </div>
-
-      {people.length > 1 ? (
-        <ReadingControls base={`/i/${id}`} token={m ?? null} people={people} reading={effective} focus={arranged.focus} />
-      ) : null}
 
       <IssueBody
         issueId={view.issue.id}
@@ -133,30 +129,40 @@ export default async function IssuePage({
         commentsEnabled={view.commentsEnabled}
         mentionables={view.mentionables}
         editHref={editHref}
+        barTitle={issueTitle(copy.issue.round, view.issue.number, view.issue.name)}
+        reading={people.length > 1 ? (
+          <ReadingControls base={`/i/${id}`} token={m ?? null} people={people} reading={effective} focus={arranged.focus} />
+        ) : undefined}
+        readingLabel={text(copy.issue.reading.menuLabel, {
+          who: arranged.focus?.name ?? copy.issue.reading.everyoneLower,
+          order: effective.sort === "member" ? copy.issue.reading.byPersonLower : copy.issue.reading.byQuestionLower,
+        })}
+        readingNote={arranged.focus ? (
+          <p role="status" className="card m-0 flex flex-wrap items-center gap-x-3 px-4 py-1 text-[14px] text-ink-soft">
+            {text(copy.issue.reading.showing, { name: arranged.focus.name })}
+            <Link href={readingHref(`/i/${id}`, m ?? null, { ...effective, by: null })} className="link">{copy.issue.reading.showEveryone}</Link>
+          </p>
+        ) : undefined}
       />
 
-      {editHref ? (
-        <p className="mt-8 text-center text-[14px] text-ink-soft">
-          {copy.issue.stillOpen}{" "}
-          <Link
-            href={editHref}
-            className="inline-flex min-h-11 items-center font-bold text-ink underline decoration-line-strong underline-offset-4"
-          >
+      <footer className="card mt-6 flex flex-wrap items-center justify-center gap-x-6 gap-y-0 px-4 py-2">
+        {editHref ? (
+          <Link href={editHref} className="link">
             {answeredHere ? copy.issue.editYourAnswers : copy.issue.addYourAnswers}
           </Link>
-        </p>
-      ) : null}
-
-      {delivered ? (
-        <p className="mt-8 text-center text-[14px] font-bold">
-          <Link
-            href={printHref(`/i/${id}`, m ?? null)}
-            className="inline-flex min-h-11 items-center text-ink underline decoration-line-strong underline-offset-4"
-          >
+        ) : null}
+        {delivered ? (
+          <Link href={printHref(`/i/${id}`, m ?? null)} className="link link--quiet">
             {copy.print.action}
           </Link>
-        </p>
-      ) : null}
+        ) : null}
+        {membership ? (
+          <Link href={albumHref({ base: `/album/${view.group.id}`, token: m ?? null })} className="link link--quiet">
+            {copy.album.issueLink}
+          </Link>
+        ) : null}
+        <Link href="/" className="link link--quiet">{copy.common.brand}</Link>
+      </footer>
 
       {membership?.mutedAt ? (
         <MutedNotice
@@ -165,22 +171,6 @@ export default async function IssuePage({
         />
       ) : null}
 
-      {membership ? (
-        <p className="mt-4 text-center text-[14px] font-bold">
-          <Link
-            href={albumHref({ base: `/album/${view.group.id}`, token: m ?? null })}
-            className="inline-flex min-h-11 items-center text-ink underline decoration-line-strong underline-offset-4"
-          >
-            {copy.album.issueLink}
-          </Link>
-        </p>
-      ) : null}
-
-      <p className="mt-4 text-center text-[13px] text-ink-muted">
-        <Link href="/" className="underline decoration-line-strong underline-offset-4">
-          {copy.common.brand}
-        </Link>
-      </p>
     </main>
   );
 }

@@ -63,6 +63,10 @@ export type LoopData = {
   openWaiting: LoopPerson[];
   nextRoundLabel: Deadline;
   openIssueDeadlineLabel: string | null;
+  nextMoment: { primary: string; loop: string | null };
+  openMoment: { primary: string; loop: string | null } | null;
+  nextWhenThisCloses: boolean;
+  lastNudge: string | null;
   weekdayLabel: string;
 };
 

@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { resetDatabase, rows } from "../support/db";
 import { seedLoop } from "../support/seed";
-import { signIn } from "../support/harness";
+import { openPart, signIn } from "../support/harness";
 
 test.beforeEach(async () => {
   await resetDatabase();
@@ -12,6 +12,7 @@ test("F4 · deleting a loop takes everything with it", async ({ page }) => {
   await signIn(page, "owner@friendloop.test");
 
   await page.goto(`/g/${loop.groupId}/settings`);
+  await openPart(page, "Reset and delete");
   const confirm = page.getByLabel('Type "Friday Loop" to confirm');
   const deleteButton = page.getByRole("button", { name: "Delete forever" });
   // The field starts empty, and the button waits for the exact name.

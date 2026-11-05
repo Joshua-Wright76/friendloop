@@ -5,7 +5,7 @@ import { notFound } from "next/navigation";
 import { db } from "@/db";
 import { groups } from "@/db/schema";
 import { AlbumBody } from "@/components/album-body";
-import { LoopBanner, LoopTheme } from "@/components/loop-theme";
+import { LoopSnapshot, LoopTheme } from "@/components/loop-theme";
 import { Cherries } from "@/components/stationery";
 import { loadAlbum } from "@/lib/album";
 import { parseAlbumFilters } from "@/lib/album-query";
@@ -56,17 +56,22 @@ export default async function TokenAlbumPage({
   return (
     <main className="mx-auto w-full max-w-[680px] px-4 pb-16 pt-5 sm:px-6">
       <LoopTheme preset={group.themePreset} accent={group.themeAccent} />
-      <LoopBanner url={group.headerImageUrl} className="mb-5" />
-      <header className="stitched mb-8 flex items-center justify-between gap-3 border-b pb-4">
-        <span className="flex min-w-0 items-center gap-2 font-display text-[23px] font-bold text-ink">
-          <Cherries className="h-7 w-7 flex-none" /><span className="wrap-any">{group.name}</span>
-        </span>
-      </header>
-      <p className="eyebrow">{copy.album.eyebrow}</p>
-      <h1 className="mt-1 text-ink">{copy.album.title}</h1>
+      <div className={`loop-head${group.headerImageUrl ? " has-snapshot" : ""}`}>
+        <LoopSnapshot url={group.headerImageUrl} />
+        <div className="loop-head__row">
+          <span className="loop-head__home">
+            <Cherries className="h-7 w-7 flex-none" />
+            <span className="loop-head__name wrap-any">{group.name}</span>
+          </span>
+        </div>
+        <div className="loop-head__page">
+          <h1>{copy.album.title}</h1>
+          <p>{copy.album.intro}</p>
+        </div>
+      </div>
       <AlbumBody view={view} filters={filters} base={`/album/${id}`} token={token} timezone={group.timezone} />
-      <p className="mt-8 text-center text-[13px] text-ink-muted">
-        <Link href="/" className="underline decoration-line-strong underline-offset-4">{copy.common.brand}</Link>
+      <p className="mt-6 text-center">
+        <Link href="/" className="link link--quiet page-foot-link">{copy.common.brand}</Link>
       </p>
     </main>
   );

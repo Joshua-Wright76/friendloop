@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { resetDatabase, rows } from "../support/db";
 import { seedLoop } from "../support/seed";
-import { AFTER_FIRST_SLOT, runSweep, signIn } from "../support/harness";
+import { AFTER_FIRST_SLOT, openPart, runSweep, signIn } from "../support/harness";
 
 test.beforeEach(async () => {
   await resetDatabase();
@@ -13,12 +13,13 @@ test("F2 · paused loops open nothing; resuming starts from now", async ({ page 
 
   await page.goto(`/g/${loop.groupId}`);
   await page.getByRole("button", { name: "Pause" }).click();
-  await expect(page.getByText("Nothing scheduled")).toBeVisible();
+  await expect(page.getByText("Nothing goes out until you resume it.")).toBeVisible();
 
   const paused = await runSweep(AFTER_FIRST_SLOT);
   expect(paused.opened).toBe(0);
 
   await page.goto(`/g/${loop.groupId}/settings`);
+  await openPart(page, "Pause and export");
   await page.getByRole("button", { name: "Resume" }).click();
   await expect(page.getByRole("button", { name: "Pause" })).toBeVisible();
 

@@ -6,7 +6,7 @@ import { groups } from "@/db/schema";
 import { resetDatabase, rows } from "./support/db";
 import { addMember, seedDeliveredIssue, seedLoop, seedOpenIssue } from "./support/seed";
 import { seedPoll, seedPollVote } from "./support/polls";
-import { signIn } from "./support/harness";
+import { openPart, pickOption, signIn } from "./support/harness";
 import { seedAlbum } from "./support/album";
 
 const TAGS = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"];
@@ -106,9 +106,9 @@ test("WCAG AA · loop management, creation, and reply pages", async ({ page }) =
   await timezoneTrigger.click();
   await expect(pickerSheet).toBeVisible();
   await searchBox.fill("Tokyo");
-  await pickerSheet.getByRole("option", { name: "Asia/Tokyo" }).click();
+  await pickerSheet.getByRole("option", { name: "Tokyo (Asia)" }).click();
   await expect(page.locator('input[name="timezone"]')).toHaveValue("Asia/Tokyo");
-  await expect(page.getByRole("button", { name: "Timezone: Asia/Tokyo" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Timezone: Tokyo (Asia)" })).toBeVisible();
   await expect(pickerSheet).toBeHidden();
   await expect(timezoneTrigger).toBeFocused();
 
@@ -236,9 +236,10 @@ test("WCAG AA · events and birthdays: the calendar with an event open for editi
     if ((await page.locator("html").getAttribute("data-theme")) !== theme) {
       await page.getByRole("button", { name: theme === "light" ? /switch to light mode/ : /switch to dark mode/ }).click();
     }
+    await openPart(page, "Sections and dates");
     const panel = page.getByRole("region", { name: "Events and birthdays" });
     await panel.getByText("Edit").first().click();
-    await panel.getByLabel("Type of event").selectOption({ label: "One-time event" });
+    await pickOption(page, "Type of event", "One-time event");
     await audit(page, `the calendar with an edit form and the one-time form open (${theme})`, false);
   }
 });

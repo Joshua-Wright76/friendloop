@@ -32,11 +32,11 @@ test("Q1 · a delivered round prints as chromeless light paper with page breaks,
 
   // The web round offers the print view; following it opens the same round, bare.
   await page.goto(web);
-  await page.getByRole("link", { name: "Print this round" }).click();
+  await page.getByRole("link", { name: "Print this issue" }).click();
   await expect(page).toHaveURL(new RegExp(`/i/${world.issueId}\\?print&m=${world.alice.token}`));
   await expect(page.getByRole("heading", { level: 1, name: "Camping weekend" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Print or save as PDF" })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Back to the round" })).toHaveAttribute("href", web);
+  await expect(page.getByRole("link", { name: "Back to the issue" })).toHaveAttribute("href", web);
 
   // Nothing prints itself: arriving on the print view does not open a print dialog, a click does.
   await page.addInitScript(() => {
@@ -56,7 +56,7 @@ test("Q1 · a delivered round prints as chromeless light paper with page breaks,
 
     // No chrome: the toolbar, the theme switch and the skip link are gone.
     await expect(page.getByRole("button", { name: "Print or save as PDF" })).toBeHidden();
-    await expect(page.getByRole("link", { name: "Back to the round" })).toBeHidden();
+    await expect(page.getByRole("link", { name: "Back to the issue" })).toBeHidden();
     await expect(page.locator(".theme-switch")).toBeHidden();
     await expect(page.locator(".feedback-button")).toBeHidden();
     await expect(page.locator(".skip-link")).toBeHidden();
@@ -130,7 +130,7 @@ test("Q1 · a delivered round prints as chromeless light paper with page breaks,
   await expect(page.getByText("Sentence number 40 of a very long story about the shed.")).toBeVisible();
 
   // Voice notes become a card (audio cannot print); no player is left behind.
-  await expect(page.getByText("Voice note, 0:04. Listen on the web round.")).toBeVisible();
+  await expect(page.getByText("Voice note, 0:04. Listen on the web issue.")).toBeVisible();
   await expect(page.locator(".print-sheet main").locator("audio, button, textarea, input")).toHaveCount(0);
 
   // Polls: each pick by name, and the tally as words and numbers, not only a bar.
@@ -194,7 +194,7 @@ test("Q1 · a round that has not gone out has no print action, and ?print change
   const open = await seedOpenIssue(world.loop, { openedAt: new Date("2026-11-06T08:00:00Z") });
 
   await page.goto(`/i/${open.issueId}?m=${world.alice.token}`);
-  await expect(page.getByRole("link", { name: "Print this round" })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Print this issue" })).toHaveCount(0);
 
   await page.goto(`/i/${open.issueId}?print&m=${world.alice.token}`);
   await expect(page.locator(".print-sheet")).toHaveCount(0);
@@ -206,9 +206,9 @@ test("Q1 · a shared round prints for people with only the link, and without any
   const world = await seedKeepsake();
 
   await page.goto(`/s/${world.shareToken}`);
-  await page.getByRole("link", { name: "Print this round" }).click();
+  await page.getByRole("link", { name: "Print this issue" }).click();
   await expect(page).toHaveURL(`/s/${world.shareToken}?print`);
-  await expect(page.getByRole("link", { name: "Back to the round" })).toHaveAttribute("href", `/s/${world.shareToken}`);
+  await expect(page.getByRole("link", { name: "Back to the issue" })).toHaveAttribute("href", `/s/${world.shareToken}`);
   await expect(page.getByRole("heading", { level: 3, name: "Alice" }).first()).toBeVisible();
   await expect(page.getByText("A goose on the towpath")).toBeVisible();
   await expect(page.getByText("What a round!")).toHaveCount(0);
@@ -239,7 +239,7 @@ test("Q1 · an empty or tiny round still prints cleanly", async ({ page }) => {
     answers: [{ email: "alice@friendloop.test", body: "Just me." }],
   });
   await page.goto(`/i/${small.issueId}?print`);
-  await expect(page.getByRole("heading", { level: 1, name: "Round 2" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: "Issue 2" })).toBeVisible();
   await expect(page.getByText("Just me.")).toBeVisible();
   await expect(page.getByText("1 answer from the group.")).toBeVisible();
   await expect(page.locator(".print-question")).toHaveCount(1);

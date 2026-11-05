@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { resetDatabase, rows } from "../support/db";
 import { seedLoop } from "../support/seed";
-import { runSweep, signIn } from "../support/harness";
+import { openPart, runSweep, signIn } from "../support/harness";
 import { makePng } from "../support/audio";
 
 test.beforeEach(async () => {
@@ -13,6 +13,7 @@ test("K3 · a standard section takes text and one photo", async ({ page }) => {
 
   await signIn(page, "owner@friendloop.test");
   await page.goto(`/g/${loop.groupId}/questions`);
+  await openPart(page, "Sections and dates");
   await page.getByPlaceholder("The potluck corner").fill("The potluck corner");
   await page.getByRole("button", { name: "Add section" }).click();
   await runSweep(new Date("2026-01-02T08:00:00Z"));
@@ -50,7 +51,7 @@ test("K3 · a standard section takes text and one photo", async ({ page }) => {
   expect((await refused.json()).error).toContain("Standard sections");
 
   await page.getByRole("button", { name: "Send answers" }).click();
-  await expect(page.getByText("Sent").first()).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Sent", exact: true })).toBeVisible();
 
   await runSweep(new Date("2026-01-09T09:00:00Z"));
   const [issue] = await rows<{ id: string }>("select id from issues order by number asc limit 1");

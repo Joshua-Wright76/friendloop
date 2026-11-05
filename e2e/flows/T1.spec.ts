@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { resetDatabase, rows } from "../support/db";
-import { signIn } from "../support/harness";
+import { openPart, signIn, unfold } from "../support/harness";
 import { chooseFile, seedWorld } from "../support/identity";
 import { cameraPhoto, measureUpload } from "../support/camera";
 import { TINY_PNG } from "../support/comments";
@@ -36,6 +36,7 @@ test("T1 · a full-size camera photo goes up everywhere a photo can, and is stor
   expect(answer.width / answer.height).toBeCloseTo(4 / 3, 1);
 
   // A profile picture, from the same link.
+  await unfold(page, /Answering as/);
   await chooseFile(page, "Choose a photo of yourself", photo);
   await expect(page.getByText("Photo saved.")).toBeVisible({ timeout: 60_000 });
   const [member] = await rows<{ photo_url: string }>("select photo_url from memberships where id = $1", [alice.id]);
@@ -57,6 +58,7 @@ test("T1 · a full-size camera photo goes up everywhere a photo can, and is stor
   // The header picture, from the owner's settings.
   await signIn(page, "owner@friendloop.test");
   await page.goto(`/g/${loop.groupId}/settings`);
+  await openPart(page, "Paper");
   await chooseFile(page, "Choose a header picture", photo);
   await expect(page.getByText("Header picture saved.")).toBeVisible({ timeout: 60_000 });
   const [group] = await rows<{ header_image_url: string }>("select header_image_url from groups where id = $1", [loop.groupId]);

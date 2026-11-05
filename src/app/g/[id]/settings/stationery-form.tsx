@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { LoopBanner } from "@/components/loop-theme";
 import { PaperFields } from "@/components/paper-fields";
@@ -9,8 +9,7 @@ import { readUploadResponse } from "@/lib/upload-response";
 import { PHOTO_ACCEPT } from "@/lib/photo-validation";
 import { BANNER_TARGET, prepareImage } from "@/components/prepare-image";
 import { DEFAULT_PRESET, normalizeHex } from "@/lib/theme";
-import { stationeryAction } from "./actions";
-import { SubmitButton } from "@/components/submit-button";
+import { saveStationery, stationeryAction } from "./actions";
 
 type Props = {
   groupId: string;
@@ -19,30 +18,121 @@ type Props = {
   headerImageUrl: string | null;
 };
 
+type SaveStatus = "idle" | "saving" | "saved" | "adjusted" | "error";
+type Choice = { preset: string; accent: string };
+
 export function StationeryForm({ groupId, preset: savedPreset, accent: savedAccent, headerImageUrl }: Props) {
-  const [preset, setPreset] = useState(savedPreset ?? DEFAULT_PRESET);
+  const initial = { preset: savedPreset ?? DEFAULT_PRESET, accent: normalizeHex(savedAccent ?? "") ?? "" };
+  const [preset, setPreset] = useState(initial.preset);
   const [accent, setAccent] = useState(savedAccent ?? "");
+  const [status, setStatus] = useState<SaveStatus>("idle");
+  const [, startSaving] = useTransition();
+  // What the server has, the newest choice, and whether a save is on its way.
+  // A choice made during a save waits its turn and is never dropped.
+  const confirmed = useRef<Choice>(initial);
+  const latest = useRef<Choice>(initial);
+  const failed = useRef<Choice | null>(null);
+  const saving = useRef(false);
   const hex = normalizeHex(accent);
-  const accentInvalid = accent.trim() !== "" && !hex;
+
+  useEffect(() => {
+    if (status !== "saved" && status !== "adjusted") return;
+    const timer = setTimeout(() => setStatus("idle"), 2800);
+    return () => clearTimeout(timer);
+  }, [status]);
+
+  function flush() {
+    if (saving.current) return;
+    saving.current = true;
+    setStatus("saving");
+    startSaving(async () => {
+      try {
+        let sent: Choice;
+        let result: { ok: boolean; adjusted: boolean };
+        do {
+          sent = latest.current;
+          result = await saveStationery(groupId, sent.preset, sent.accent);
+        } while (result.ok && latest.current !== sent);
+        if (!result.ok) throw new Error("not saved");
+        confirmed.current = sent;
+        failed.current = null;
+        setStatus(result.adjusted ? "adjusted" : "saved");
+      } catch {
+        // The tiles go back to the truth, and Try again remembers what was wanted.
+        failed.current = latest.current;
+        latest.current = confirmed.current;
+        setPreset(confirmed.current.preset);
+        setAccent(confirmed.current.accent);
+        setStatus("error");
+      } finally {
+        saving.current = false;
+      }
+    });
+  }
+
+  function commit(change: Partial<Choice>) {
+    const next = { ...latest.current, ...change };
+    if (next.preset === latest.current.preset && next.accent === latest.current.accent) return;
+    latest.current = next;
+    flush();
+  }
+
+  function retry() {
+    const wanted = failed.current;
+    if (!wanted) return;
+    setPreset(wanted.preset);
+    setAccent(wanted.accent);
+    latest.current = wanted;
+    flush();
+  }
 
   return (
-    <section className="card mt-3 p-5" aria-labelledby="stationery-title">
-      <h2 id="stationery-title" className="text-[16px] font-semibold tracking-[-0.01em] text-ink">{copy.stationery.title}</h2>
-      <p className="mt-1 text-[14px] leading-relaxed text-ink-soft">{copy.stationery.intro}</p>
+    <>
+    <section className="card mt-4 p-5" aria-labelledby="stationery-title">
+      <h2 id="stationery-title" className="text-ink">{copy.stationery.title}</h2>
+      <p className="mt-1 text-[14px] leading-relaxed text-ink-soft">{copy.stationery.intro} {copy.stationery.autoSaveNote}</p>
 
-      <form action={stationeryAction} className="mt-4">
+      {/* Floats above the page, so a tile never moves under the thumb when this speaks. */}
+      <p role="status" className={status === "idle" ? "sr-only" : `toast${status === "error" ? " toast--danger" : ""}`}>
+        {status === "saving" ? copy.stationery.statusSaving : null}
+        {status === "saved" ? copy.stationery.statusSaved : null}
+        {status === "adjusted" ? copy.stationery.statusAdjusted : null}
+        {status === "error" ? (
+          <>
+            {copy.stationery.statusError}{" "}
+            <button type="button" className="underline underline-offset-4" onClick={retry}>{copy.stationery.statusRetry}</button>
+          </>
+        ) : null}
+      </p>
+
+      <form
+        action={stationeryAction}
+        className="mt-3"
+        onSubmit={(event) => {
+          // Enter in the color field. Without script the form still posts on its own.
+          event.preventDefault();
+          if (accent.trim() === "" || hex) commit({ accent: hex ?? "" });
+        }}
+      >
         <input type="hidden" name="groupId" value={groupId} />
         <input type="hidden" name="accent" value={hex ?? ""} />
 
-        <PaperFields preset={preset} onPreset={setPreset} accent={accent} onAccent={setAccent} />
-
-        <SubmitButton className="btn btn-primary mt-5" disabled={accentInvalid}>
-          {copy.stationery.save}
-        </SubmitButton>
+        <PaperFields
+          preset={preset}
+          onPreset={(next) => { setPreset(next); commit({ preset: next }); }}
+          accent={accent}
+          onAccent={(next) => { setAccent(next); if (next === "") commit({ accent: "" }); }}
+          onAccentCommit={(value) => {
+            const parsed = normalizeHex(value);
+            if (value.trim() === "" || parsed) commit({ accent: parsed ?? "" });
+          }}
+        />
       </form>
-
+    </section>
+    <section className="card mt-4 p-5">
       <HeaderPicture groupId={groupId} initial={headerImageUrl} />
     </section>
+    </>
   );
 }
 
@@ -76,7 +166,7 @@ function HeaderPicture({ groupId, initial }: { groupId: string; initial: string 
       router.refresh();
     } catch {
       setStatus("error");
-      setMessage(copy.stationery.headerError);
+      setMessage(navigator.onLine === false ? copy.common.offlineUpload : copy.stationery.headerError);
     }
   }
 
@@ -96,9 +186,9 @@ function HeaderPicture({ groupId, initial }: { groupId: string; initial: string 
   }
 
   return (
-    <div className="mt-6 border-t border-dashed border-line pt-4">
-      <p className="text-[13px] font-medium text-ink-soft">{copy.stationery.headerLegend}</p>
-      <p className="mt-1 text-[13px] leading-snug text-ink-muted">{copy.stationery.headerHint}</p>
+    <div>
+      <h2 className="text-ink">{copy.stationery.headerLegend}</h2>
+      <p className="mt-1 text-[14px] leading-relaxed text-ink-soft">{copy.stationery.headerHint} {copy.settings.headerSavesItself}</p>
       <LoopBanner url={url} className="mt-3" />
       <div className="mt-3 flex flex-wrap gap-2">
         <button

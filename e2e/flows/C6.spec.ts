@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { resetDatabase, rows } from "../support/db";
 import { seedLoop } from "../support/seed";
-import { signIn } from "../support/harness";
+import { openPart, signIn } from "../support/harness";
 import { QUESTION_PACKS } from "@/lib/question-packs";
 
 const pack = (name: string) => {
@@ -24,8 +24,9 @@ test("C6 · questions can be picked across packs and added to the pool", async (
   const loop = await seedLoop();
   await signIn(page, "owner@friendloop.test");
   await page.goto(`/g/${loop.groupId}/questions`);
+  await openPart(page, "Add more");
 
-  // Only the first pack starts open; the rest are one row each, with their counts.
+  // Every pack starts as one row, with its counts.
   const silly = page.getByRole("group", { name: "Silly hypotheticals", exact: true });
   await expect(silly.getByRole("checkbox")).toHaveCount(0);
   await page.getByRole("button", { name: /^Silly hypotheticals/ }).click();
@@ -58,6 +59,7 @@ test("C6 · a whole pack adds at once and questions already in the pool are skip
   const loop = await seedLoop();
   await signIn(page, "owner@friendloop.test");
   await page.goto(`/g/${loop.groupId}/questions`);
+  await openPart(page, "Add more");
 
   await page.getByRole("button", { name: "Add all questions in Travel" }).click();
   await expect(page.getByText(`${pack("Travel").questions.length} selected`)).toBeVisible();
@@ -84,6 +86,7 @@ test("C6 · a whole pack adds at once and questions already in the pool are skip
   await page.getByRole("button", { name: "Remove all questions in Everyday" }).click();
   await expect(page.getByText("0 selected")).toBeVisible();
   const fresh = everyday[2];
+  await page.getByRole("button", { name: /^Everyday/ }).click();
   await page.getByRole("group", { name: "Everyday", exact: true }).getByText(fresh).click();
   await page.getByRole("button", { name: "Add to the pool" }).click();
   await expect(page.getByText("1 question added.")).toBeVisible();

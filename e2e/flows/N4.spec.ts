@@ -40,7 +40,7 @@ test("N4 · the owner names a round and the name shows on the dashboard, the web
   await expect(page.getByText("Spring cleaning", { exact: true })).toBeVisible();
   await page.goto(`/i/${delivered.issueId}`);
   await expect(page.getByRole("heading", { level: 1, name: "Camping weekend" })).toBeVisible();
-  await expect(page.locator(".chip", { hasText: "Round 1" })).toBeVisible();
+  await expect(page.getByText(/^Issue 1\. /)).toBeVisible();
   await page.goto(`/s/${shareToken}`);
   await expect(page.getByRole("heading", { level: 1, name: "Camping weekend" })).toBeVisible();
 
@@ -79,7 +79,7 @@ test("N4 · clearing the name puts the number back, and only the owner is offere
   expect(row.name).toBeNull();
 
   await page.goto(`/i/${delivered.issueId}`);
-  await expect(page.getByRole("heading", { level: 1, name: "Round 1" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: "Issue 1" })).toBeVisible();
 
   // An admin reads the rounds but isn't offered the rename.
   await addMember(loop, { email: "admin@friendloop.test", access: "admin" });

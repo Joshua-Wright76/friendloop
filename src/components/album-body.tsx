@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { AlbumGallery } from "@/components/album-gallery";
+import { AutoPicker } from "@/components/auto-picker";
 import { albumHref, type AlbumFilters } from "@/lib/album-query";
 import type { AlbumView } from "@/lib/album";
 import { copy, text } from "@/lib/copy";
@@ -36,42 +37,50 @@ export function AlbumBody({
 
   return (
     <>
-      <p className="mt-1.5 text-[15px] leading-relaxed text-ink-soft">{copy.album.intro}</p>
-
       {/* Keyed on the filters: a soft navigation (Clear filters, Back) must reset the fields, which are otherwise uncontrolled. */}
-      <form key={`${filters.member ?? ""}|${filters.q}`} method="get" action={base} role="search" aria-label={copy.album.filtersLabel} className="card mt-5 p-4">
+      <details className="card filter-fold mt-4 px-4" open={filtered ? true : undefined}>
+        <summary>
+          <span className="numeric" role="status">
+            {view.total === 0
+              ? copy.album.filterSummary
+              : view.hasMore
+                ? text(copy.album.count, { shown: view.shown, total: view.total })
+                : view.total === 1
+                  ? copy.album.countOne
+                  : text(copy.album.countAll, { total: view.total })}
+          </span>
+          <span className="link">{copy.album.filterSummary}</span>
+        </summary>
+      <form key={`${filters.member ?? ""}|${filters.q}`} method="get" action={base} role="search" aria-label={copy.album.filtersLabel} className="pb-3">
         {token ? <input type="hidden" name="m" value={token} /> : null}
-        <div className="flex flex-wrap items-end gap-3">
-          <label className="block min-w-44 flex-[2] text-[13px] font-bold text-ink-soft">
-            {copy.album.searchLabel}
-            <input
-              type="search"
-              name="q"
-              defaultValue={filters.q}
-              maxLength={80}
-              placeholder={copy.album.searchPlaceholder}
-              className="field mt-1 h-[46px] py-0"
+        <div className="album-filters">
+          <label className="block min-w-0 text-[13px] font-bold text-ink-soft">
+            <span className="sr-only">{copy.album.searchLabel}</span>
+            <span className="flex gap-2">
+              <input
+                type="search"
+                name="q"
+                defaultValue={filters.q}
+                maxLength={80}
+                placeholder={copy.album.searchPlaceholder}
+                className="field h-[46px] min-w-0 flex-1 py-0"
+              />
+              <button type="submit" className="btn btn-quiet flex-none px-4 text-[14px]">{copy.album.apply}</button>
+            </span>
+          </label>
+          <div className="filter-line">
+            <span className="text-[14px] font-bold text-ink-soft">{copy.album.memberLabel}</span>
+            <AutoPicker
+              name="member"
+              defaultValue={filters.member ?? ""}
+              ariaLabel={copy.album.memberLabel}
+              options={[{ value: "", label: copy.album.everyone }, ...view.people.map((person) => ({ value: person.id, label: person.name }))]}
             />
-          </label>
-          <label className="block min-w-36 flex-1 text-[13px] font-bold text-ink-soft">
-            {copy.album.memberLabel}
-            <select name="member" defaultValue={filters.member ?? ""} className="field mt-1 h-[46px] py-0">
-              <option value="">{copy.album.everyone}</option>
-              {view.people.map((person) => (
-                <option key={person.id} value={person.id}>{person.name}</option>
-              ))}
-            </select>
-          </label>
-          <button type="submit" className="btn btn-primary">{copy.album.apply}</button>
+          </div>
         </div>
-        {filtered ? (
-          <p className="m-0 mt-3">
-            <Link href={albumHref({ base, token })} className="inline-flex min-h-11 items-center text-[14px] font-bold text-ink-soft underline underline-offset-4">
-              {copy.album.clear}
-            </Link>
-          </p>
-        ) : null}
+        {filtered ? <p className="m-0 mt-1"><Link href={albumHref({ base, token })} className="link link--quiet">{copy.album.clear}</Link></p> : null}
       </form>
+      </details>
 
       {view.total === 0 ? (
         <p className="card mt-6 p-5 text-[15px] leading-relaxed text-ink-soft" role="status">
@@ -79,13 +88,6 @@ export function AlbumBody({
         </p>
       ) : (
         <>
-          <p className="mt-5 text-[13px] font-bold text-ink-muted numeric" role="status">
-            {view.hasMore
-              ? text(copy.album.count, { shown: view.shown, total: view.total })
-              : view.total === 1
-                ? copy.album.countOne
-                : text(copy.album.countAll, { total: view.total })}
-          </p>
           <AlbumGallery groups={groups} />
           {view.hasMore ? (
             <p className="mt-8 text-center">

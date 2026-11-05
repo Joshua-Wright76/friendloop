@@ -33,9 +33,9 @@ export function ReminderPreference({ token, initial }: { token: string; initial:
   }
 
   return (
-    <section id="reminders" className="card mt-6 scroll-mt-20 p-4">
+    <section id="reminders" className="mt-3 scroll-mt-20 border-t border-dashed border-line pt-3">
       <fieldset aria-describedby={hintId}>
-        <legend className="text-[13px] font-medium text-ink-soft">{labels.legend}</legend>
+        <legend className="text-[14px] font-bold text-ink-soft">{labels.legend}</legend>
         <div className="mt-2 flex flex-col gap-1">
           {OPTIONS.map((option) => (
             <label key={option} className="flex min-h-11 cursor-pointer items-center gap-3 text-[15px] text-ink">
@@ -53,7 +53,7 @@ export function ReminderPreference({ token, initial }: { token: string; initial:
         </div>
       </fieldset>
       <p id={hintId} className="mt-1 text-[12px] leading-relaxed text-ink-muted">{labels.hint}</p>
-      <p aria-live="polite" className={`mt-1 min-h-4 text-[12px] ${status === "error" ? "text-danger" : "text-ink-muted"}`}>
+      <p aria-live="polite" className={`mt-1 text-[12px] empty:hidden ${status === "error" ? "text-danger" : "text-ink-muted"}`}>
         {status === "saving" ? labels.saving : status === "saved" ? labels.saved : status === "error" ? labels.error : ""}
       </p>
     </section>

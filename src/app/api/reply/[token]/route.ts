@@ -10,7 +10,7 @@ import { copy } from "@/lib/copy";
 export async function POST(request: Request, { params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
 
-  let payload: { action?: string; issueQuestionId?: string; issueSectionId?: string; choices?: unknown; body?: string; name?: string; preference?: unknown; url?: string; caption?: string };
+  let payload: { action?: string; issueQuestionId?: string; issueSectionId?: string; choices?: unknown; body?: string; name?: string; preference?: unknown; url?: string; caption?: string; ifBody?: unknown };
   try {
     payload = await request.json();
   } catch {
@@ -92,6 +92,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ tok
       token,
       issueQuestionId: payload.issueQuestionId,
       body: typeof payload.body === "string" ? payload.body : "",
+      ifBody: typeof payload.ifBody === "string" ? payload.ifBody : undefined,
     });
     return result.ok
       ? NextResponse.json({ ok: true, savedAt: result.savedAt })

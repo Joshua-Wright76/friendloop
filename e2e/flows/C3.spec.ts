@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { resetDatabase, rows } from "../support/db";
 import { seedDeliveredIssue, seedLoop } from "../support/seed";
-import { signIn } from "../support/harness";
+import { openRowMenu, signIn } from "../support/harness";
 
 test.beforeEach(async () => {
   await resetDatabase();
@@ -16,6 +16,7 @@ test("C3 · archiving removes it from the pool but past rounds keep the wording"
   await signIn(page, "owner@friendloop.test");
 
   await page.goto(`/g/${loop.groupId}/questions`);
+  await openRowMenu(page);
   await page.getByRole("button", { name: /^Archive/ }).first().click();
   await page.getByRole("button", { name: /^Yes, archive/ }).click(); // archiving asks first
   await expect(page.getByText(/Archived/)).toBeVisible();

@@ -10,6 +10,13 @@ export function LoopTheme({ preset, accent }: { preset: string | null; accent: s
   return css ? <style dangerouslySetInnerHTML={{ __html: css }} /> : null;
 }
 
+/** The compact form of the header picture, for pages where the fold belongs to the words. */
+export function LoopSnapshot({ url }: { url: string | null }) {
+  if (!url) return null;
+  // eslint-disable-next-line @next/next/no-img-element -- Uploaded pictures live on local URLs in development and Blob in production.
+  return <span className="snapshot" aria-hidden="true"><img src={url} alt="" /></span>;
+}
+
 /** The owner's header picture. Decorative: the loop's name is the heading. */
 export function LoopBanner({ url, className = "" }: { url: string | null; className?: string }) {
   if (!url) return null;

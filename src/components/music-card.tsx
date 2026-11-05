@@ -1,7 +1,7 @@
 import { copy, text } from "@/lib/copy";
 import { formatTrackTime, type MusicTrack } from "@/lib/music-meta";
 
-const SHOWN = 5;
+const SHOWN = 3;
 
 const PROVIDERS: Record<string, string> = { spotify: "Spotify", bandcamp: "Bandcamp", qobuz: "Qobuz" };
 

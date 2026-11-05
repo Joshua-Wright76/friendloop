@@ -5,8 +5,15 @@ import { Picker } from "@/components/picker";
 import { copy } from "@/lib/copy";
 import { timezoneOptions } from "@/lib/timezone";
 
-const OPTIONS = timezoneOptions().map((timezone) => ({ value: timezone, label: timezone }));
+const OPTIONS = timezoneOptions().map((timezone) => ({ value: timezone, label: placeLabel(timezone) }));
 const FALLBACK_TIMEZONE = copy.common.timezones[copy.common.timezones.length - 1];
+
+/** "Los Angeles (America)": how a person looks a place up. The value stays the IANA name. */
+function placeLabel(timezone: string): string {
+  const parts = timezone.split("/");
+  if (parts.length < 2) return timezone.replace(/_/g, " ");
+  return `${parts[parts.length - 1].replace(/_/g, " ")} (${parts[0]})`;
+}
 
 function browserTimezone(): string {
   if (typeof window === "undefined") return "";

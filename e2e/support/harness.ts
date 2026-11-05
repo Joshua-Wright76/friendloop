@@ -89,7 +89,8 @@ export async function pickOption(
   triggerLabel: string,
   option: string,
 ): Promise<void> {
-  await page.getByRole("button", { name: new RegExp(`^${triggerLabel}:`) }).click();
+  const label = triggerLabel.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  await page.getByRole("button", { name: new RegExp(`^${label}:`) }).click();
   const sheet = page.locator(".picker-sheet");
   const scope = (await sheet.count()) > 0 ? sheet : page;
   await scope.getByRole("option", { name: option, exact: true }).click();
@@ -107,4 +108,39 @@ export async function waitForSheet(page: Page): Promise<void> {
 /** The HTML body of the newest email whose dedupe key starts with `prefix`. */
 export async function latestOutboxBody(prefix: string): Promise<string> {
   return (await latestOutbox(prefix)).html;
+}
+
+/**
+ * Open one part of a page split by a segmented control ("The pool", "Add more",
+ * "Paper"…). The parts switch on the client, so a click that lands before hydration
+ * does nothing: retry until the control says it took.
+ */
+export async function openPart(page: Page, name: string): Promise<void> {
+  const part = page.getByRole("button", { name, exact: true });
+  await expect(async () => {
+    await part.click();
+    await expect(part).toHaveAttribute("aria-pressed", "true", { timeout: 500 });
+  }).toPass();
+}
+
+/** Open a question or section row's "More" menu, where its less common actions live. */
+export async function openRowMenu(page: Page, row?: string | RegExp): Promise<void> {
+  const summary = page.getByLabel(row ?? /^More for: /).first();
+  const details = summary.locator("xpath=ancestor::details[1]");
+  if ((await details.getAttribute("open")) === null) await summary.click();
+  await expect(details).toHaveAttribute("open", "");
+}
+
+/** Open the folded details with this summary text, unless it is already open. */
+export async function unfold(page: Page, summaryText: string | RegExp): Promise<void> {
+  const summary = page.locator("summary").filter({ hasText: summaryText }).first();
+  const details = summary.locator("xpath=ancestor::details[1]");
+  if ((await details.getAttribute("open")) === null) await summary.click();
+  await expect(details).toHaveAttribute("open", "");
+}
+
+/** Press Send now on the overview and say yes to the question it asks first. */
+export async function sendNow(page: Page): Promise<void> {
+  await page.getByRole("button", { name: "Send now" }).click();
+  await page.getByRole("button", { name: "Yes, send it now" }).click();
 }

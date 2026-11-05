@@ -68,7 +68,7 @@ test("L2 · a contributor taps to answer, changes their mind, and never sees a p
 
   await expect(page.getByText("2 of 3 answered").first()).toBeVisible();
   await page.getByRole("button", { name: "Send answers" }).click();
-  await expect(page.getByText("Sent").first()).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Sent", exact: true })).toBeVisible();
 
   const [row] = await rows<{ poll_choices: number[]; status: string }>(
     "select poll_choices, status from replies where issue_question_id = $1 and membership_id = $2",
@@ -78,7 +78,7 @@ test("L2 · a contributor taps to answer, changes their mind, and never sees a p
 
   // Before delivery the web issue hands out no tally, and no one else's pick.
   await page.goto(`/i/${issueId}?m=${alice.token}`);
-  await expect(page.getByRole("heading", { name: "Round 1" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Issue 1" })).toBeVisible();
   await expect(page.getByText("Results")).toHaveCount(0);
   await expect(page.getByText("Bob", { exact: true })).toHaveCount(0);
   await expect(page.getByText("The mountains").first()).toBeVisible();

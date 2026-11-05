@@ -128,7 +128,7 @@ function CommentItem({ comment, onReply }: { comment: IssueComment; onReply: (()
           type="button"
           onClick={onReply}
           aria-label={text(copy.issue.commentReplyLabel, { author: comment.author })}
-          className="mt-1.5 min-h-8 rounded-md px-1 text-[13px] font-bold text-accent-ink underline decoration-line-strong underline-offset-4"
+          className="link cursor-pointer"
         >
           {copy.issue.commentReply}
         </button>
@@ -301,7 +301,7 @@ function CommentComposer({
       {quote ? (
         <div className="mb-2 flex items-center justify-between gap-3 rounded-lg border border-line bg-accent-soft px-3 py-2 text-[13px] text-ink-soft">
           <span>{text(copy.issue.replyingTo, { author: quote.author })}</span>
-          <button type="button" onClick={() => { onClearQuote(); area.current?.focus(); }} className="min-h-8 font-bold text-accent-ink underline underline-offset-4">
+          <button type="button" onClick={() => { onClearQuote(); area.current?.focus(); }} className="link cursor-pointer">
             {copy.issue.replyingToCancel}
           </button>
         </div>
@@ -364,7 +364,7 @@ function CommentComposer({
       {photo ? (
         <div className="mt-2 flex items-center justify-between gap-3 rounded-lg border border-line px-3 py-2 text-[13px] text-ink-soft">
           <span className="min-w-0 wrap-any">{text(copy.issue.photoChosen, { name: photo.name })}</span>
-          <button type="button" onClick={() => { setPhoto(null); setPosted(copy.a11yStatus.photoRemoved); area.current?.focus(); }} className="min-h-8 flex-none font-bold text-accent-ink underline underline-offset-4">
+          <button type="button" onClick={() => { setPhoto(null); setPosted(copy.a11yStatus.photoRemoved); area.current?.focus(); }} className="link flex-none cursor-pointer">
             {copy.issue.removePhoto}
           </button>
         </div>

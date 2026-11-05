@@ -22,6 +22,7 @@ import {
   users,
 } from "@/db/schema";
 import { createSession } from "./auth";
+import { nextSlot } from "./schedule";
 import { hashToken, safeEqual } from "./tokens";
 
 const PREVIEW_COOKIE = "fl_preview";
@@ -360,7 +361,8 @@ async function seedUiPreview(now: Date, { deleteGroup, deleteUser }: { deleteGro
         status: "open",
         slotAt: now,
         opensAt: now,
-        deliversAt: new Date(now.getTime() + 7 * 86400000),
+        // As in a real weekly loop: this round closes when the next one opens.
+        deliversAt: nextSlot({ timezone: "Europe/Amsterdam", promptWeekday: 5, promptHour: 9, cadenceWeeks: 1, windowDays: 7, createdAt: new Date(now.getTime() - 30 * 86400000), lastSlotAt: null }, now),
       },
       {
         id: UI_PREVIEW.deliveredIssueId,

@@ -1,6 +1,6 @@
 "use client";
 
-import type { CSSProperties } from "react";
+import { useRef, type CSSProperties } from "react";
 import { Avatar } from "@/components/avatar";
 import { copy } from "@/lib/copy";
 import {
@@ -18,6 +18,8 @@ type Props = {
   onPreset: (preset: string) => void;
   accent: string;
   onAccent: (accent: string) => void;
+  /** Called when the person is done with the colour: leaving the field, or letting go of the picker. */
+  onAccentCommit?: (accent: string) => void;
 };
 
 /** A small round of the interface in one scheme's tokens: what the owner is choosing. */
@@ -50,7 +52,8 @@ function PreviewCard({ label, tokens }: { label: string; tokens: SchemeTokens })
  * The parent owns the state and submits `preset` (the radios) and the
  * normalised accent (`normalizeHex(accent)`, as a hidden field).
  */
-export function PaperFields({ preset, onPreset, accent, onAccent }: Props) {
+export function PaperFields({ preset, onPreset, accent, onAccent, onAccentCommit }: Props) {
+  const pickerTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hex = normalizeHex(accent);
   const accentInvalid = accent.trim() !== "" && !hex;
   const theme = previewTheme({ preset, accent: hex });
@@ -59,29 +62,26 @@ export function PaperFields({ preset, onPreset, accent, onAccent }: Props) {
     <>
       <fieldset className="m-0 min-w-0 border-0 p-0">
         <legend className="mb-2 text-[13px] font-medium text-ink-soft">{copy.stationery.paperLegend}</legend>
-        <div className="grid gap-2 sm:grid-cols-2">
+        <div className="grid grid-cols-2 gap-2">
           {THEME_PRESET_KEYS.map((key) => {
-            const preview = previewTheme({ preset: key, accent: null }).light;
+            const { light, dark } = previewTheme({ preset: key, accent: null });
             const info = copy.stationery.presets[key as PresetKey];
+            const scrap = {
+              "--scrap-page-light": light.page, "--scrap-check-light": light.check, "--scrap-card-light": light.card, "--scrap-ink-light": light.ink, "--scrap-soft-light": light.inkSoft, "--scrap-accent-light": light.accent, "--scrap-line-light": light.lineStrong,
+              "--scrap-page-dark": dark.page, "--scrap-check-dark": dark.check, "--scrap-card-dark": dark.card, "--scrap-ink-dark": dark.ink, "--scrap-soft-dark": dark.inkSoft, "--scrap-accent-dark": dark.accent, "--scrap-line-dark": dark.lineStrong,
+            } as CSSProperties;
             return (
-              <label key={key} className={`swatch bg-card ${preset === key ? "!border-accent" : ""}`}>
-                <span className="flex items-start gap-2.5">
-                  <input
-                    type="radio"
-                    name="preset"
-                    value={key}
-                    checked={preset === key}
-                    onChange={() => onPreset(key)}
-                    className="mt-1"
-                  />
-                  <span className="min-w-0 flex-1">
-                    <span className="block text-[14px] font-extrabold text-ink">{info.name}</span>
-                    <span className="mt-0.5 block text-[13px] leading-snug text-ink-soft">{info.description}</span>
-                    <span className="swatch-strip mt-2" aria-hidden="true">
-                      {[preview.page, preview.card, preview.line, preview.accent, preview.ink].map((color, index) => (
-                        <span key={index} style={{ background: color }} />
-                      ))}
+              <label key={key} className="paper-tile" style={scrap}>
+                <input type="radio" name="preset" value={key} checked={preset === key} onChange={() => onPreset(key)} />
+                {/* An actual scrap of the paper, in its own colours whatever the page is wearing. */}
+                <span className="paper-tile__ground">
+                  <span className="paper-tile__note">
+                    <span className="paper-tile__tape" aria-hidden="true" />
+                    <span className="paper-tile__mark" aria-hidden="true">
+                      <svg viewBox="0 0 20 20" className="h-3.5 w-3.5"><path d="m5 10.5 3.4 3.4L15 6.5" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" /></svg>
                     </span>
+                    <span className="paper-tile__name">{info.name}</span>
+                    <span className="paper-tile__desc">{info.description}</span>
                   </span>
                 </span>
               </label>
@@ -98,15 +98,23 @@ export function PaperFields({ preset, onPreset, accent, onAccent }: Props) {
             type="color"
             aria-label={copy.stationery.accentPicker}
             value={hex ?? theme.light.accent}
-            onChange={(event) => onAccent(event.target.value)}
+            onChange={(event) => {
+              const value = event.target.value;
+              onAccent(value);
+              // The native picker fires as it's dragged and may never blur: a pause counts as letting go.
+              if (pickerTimer.current) clearTimeout(pickerTimer.current);
+              pickerTimer.current = setTimeout(() => onAccentCommit?.(value), 800);
+            }}
             className="h-11 w-14 cursor-pointer rounded-md border border-line-strong bg-card p-1"
           />
           <input
+            id="accent-input"
             aria-label={copy.stationery.accentInput}
             aria-invalid={accentInvalid}
             aria-describedby="accent-status"
             value={accent}
             onChange={(event) => onAccent(event.target.value)}
+            onBlur={(event) => onAccentCommit?.(event.target.value)}
             placeholder={theme.light.accent}
             maxLength={7}
             spellCheck={false}

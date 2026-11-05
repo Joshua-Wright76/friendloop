@@ -26,7 +26,7 @@ test("M2 · with commenting off every comment surface disappears and writes are 
   // The owner turns it off.
   await signIn(page, "owner@friendloop.test");
   await page.goto(`/g/${loop.groupId}/settings`);
-  await page.getByLabel("Members can comment on delivered rounds.").uncheck();
+  await page.getByLabel("Members can comment on delivered issues.").uncheck();
   await page.getByRole("button", { name: "Save changes" }).click();
   await expect(page.getByText("Saved.")).toBeVisible();
 
@@ -47,7 +47,7 @@ test("M2 · with commenting off every comment surface disappears and writes are 
 
   // Back on: everything that was written is still there.
   await page.goto(`/g/${loop.groupId}/settings`);
-  await page.getByLabel("Members can comment on delivered rounds.").check();
+  await page.getByLabel("Members can comment on delivered issues.").check();
   await page.getByRole("button", { name: "Save changes" }).click();
   await expect(page.getByText("Saved.")).toBeVisible();
 

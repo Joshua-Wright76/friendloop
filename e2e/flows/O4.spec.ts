@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { resetDatabase, rows } from "../support/db";
 import { seedLoop } from "../support/seed";
-import { AFTER_FIRST_SLOT, DELIVERY_DAY, E2E_NOW, freezeClock, runSweep, signIn } from "../support/harness";
+import { AFTER_FIRST_SLOT, DELIVERY_DAY, E2E_NOW, freezeClock, openPart, runSweep, signIn } from "../support/harness";
 
 test.beforeEach(async () => {
   await resetDatabase();
@@ -18,13 +18,14 @@ test("O4 · a round keeps the event section it was given, whatever happens to th
   await page.goto(`/r/${bob.token}`);
   await page.getByRole("textbox", { name: "Alice's birthday" }).fill("Many happy returns.");
   await page.getByRole("button", { name: "Send answers" }).click();
-  await expect(page.getByText("Sent").first()).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Sent", exact: true })).toBeVisible();
 
   // Alice is renamed, then the owner edits the event to someone else's date and deletes it.
   await rows("update memberships set name = 'Alicia' where id = $1", [alice.id]);
   await signIn(page, "owner@friendloop.test");
   await freezeClock(page, E2E_NOW);
   await page.goto(`/g/${loop.groupId}/questions`);
+  await openPart(page, "Sections and dates");
   const item = page.getByRole("list", { name: "Events, soonest first" }).locator("> li").first();
   await expect(item).toContainText("Alicia's birthday"); // the list is live
   await item.getByText("Edit").click();
