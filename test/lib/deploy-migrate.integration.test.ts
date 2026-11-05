@@ -1,7 +1,7 @@
 import { after, before, beforeEach, test } from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import postgres from "postgres";
@@ -31,6 +31,7 @@ function folderWith(migrations: Array<{ tag: string; when: number; body: string 
 }
 
 const first = { tag: "0000_first", when: 1000, body: `CREATE TABLE ${SCHEMA}.a (id int);` };
+const applied = { tag: "0000_applied", when: 2000, body: `CREATE TABLE ${SCHEMA}.applied (id int);` };
 const second = { tag: "0001_second", when: 2000, body: `ALTER TABLE ${SCHEMA}.a ADD COLUMN b int;` };
 
 async function recorded(): Promise<number[]> {
@@ -53,7 +54,10 @@ after(async () => {
 
 test("only production and the dev branch migrate", () => {
   assert.equal(migrationTarget({ VERCEL_ENV: "production", VERCEL_GIT_COMMIT_REF: "main" }), "production");
-  assert.equal(migrationTarget({ VERCEL_ENV: "preview", VERCEL_GIT_COMMIT_REF: "dev" }), "dev");
+  const owner = "Joshua-Wright76";
+  assert.equal(migrationTarget({ VERCEL_ENV: "preview", VERCEL_GIT_COMMIT_REF: "dev", VERCEL_GIT_REPO_OWNER: owner }), "dev");
+  assert.equal(migrationTarget({ VERCEL_ENV: "preview", VERCEL_GIT_COMMIT_REF: "dev", VERCEL_GIT_REPO_OWNER: "a-fork" }), null);
+  assert.equal(migrationTarget({ VERCEL_ENV: "preview", VERCEL_GIT_COMMIT_REF: "dev" }), null);
   assert.equal(migrationTarget({ VERCEL_ENV: "preview", VERCEL_GIT_COMMIT_REF: "some-pr" }), null);
   assert.equal(migrationTarget({ VERCEL_ENV: "development", VERCEL_GIT_COMMIT_REF: "dev" }), null);
   assert.equal(migrationTarget({}), null);
@@ -76,10 +80,37 @@ test("a database ahead of the code is left alone, as when redeploying an older c
 
 test("simultaneous deploys apply each migration once", async () => {
   await sql`create schema ${sql(SCHEMA)}`;
-  const folder = folderWith([first, second]);
+  // Start from an existing table: the real race, where nothing but the lock keeps
+  // two deploys from reading the same last-applied row.
+  await applyMigrations(sql, options(folderWith([first])));
+  // The sleep keeps the first transaction open long enough for the others to overlap it.
+  const folder = folderWith([first, { ...second, body: `SELECT pg_sleep(0.3); ${second.body}` }]);
   const counts = await Promise.all([1, 2, 3].map(() => applyMigrations(sql, options(folder))));
-  assert.deepEqual(counts.sort(), [0, 0, 2]);
+  assert.deepEqual(counts.sort(), [0, 0, 1]);
   assert.deepEqual(await recorded(), [1000, 2000]);
+});
+
+test("a migration older than the latest applied one fails the deploy instead of being skipped", async () => {
+  await sql`create schema ${sql(SCHEMA)}`;
+  await applyMigrations(sql, options(folderWith([applied])));
+  const late = { tag: "0001_late", when: 2000, body: `CREATE TABLE ${SCHEMA}.late (id int);` };
+  await assert.rejects(
+    applyMigrations(sql, options(folderWith([{ ...first, when: 1000 }, { ...late, when: 3000 }]))),
+    /timestamps 1000 are older/,
+  );
+  assert.deepEqual(await recorded(), [2000]);
+});
+
+test("runs every statement in a migration split by drizzle's breakpoints", async () => {
+  await sql`create schema ${sql(SCHEMA)}`;
+  const split = {
+    tag: "0000_split",
+    when: 1000,
+    body: `CREATE TABLE ${SCHEMA}.one (id int);--> statement-breakpoint\nCREATE TABLE ${SCHEMA}.two (id int);`,
+  };
+  assert.equal(await applyMigrations(sql, options(folderWith([split]))), 1);
+  const tables = await sql`select table_name from information_schema.tables where table_schema = ${SCHEMA} and table_name in ('one', 'two')`;
+  assert.equal(tables.length, 2);
 });
 
 test("a failing migration applies nothing, including the ones before it", async () => {
@@ -93,8 +124,7 @@ test("a failing migration applies nothing, including the ones before it", async 
 function runCheck(folder: string) {
   // check-migrations reads ./drizzle, so give it a directory where that is the fixture.
   const cwd = mkdtempSync(path.join(root, "cwd-"));
-  writeFileSync(path.join(cwd, ".keep"), "");
-  spawnSync("cp", ["-R", folder, path.join(cwd, "drizzle")]);
+  cpSync(folder, path.join(cwd, "drizzle"), { recursive: true });
   return spawnSync(process.execPath, [path.resolve("scripts/check-migrations.mjs")], { cwd, encoding: "utf8" });
 }
 

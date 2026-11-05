@@ -118,7 +118,10 @@ running must still work against the new schema. `check:migrations` fails the bui
 destructive DDL, but it can't catch everything: a new `NOT NULL` column with no default
 still breaks old inserts.
 
-To apply one by hand, for example to try it on dev before merging:
+A deploy fails rather than skip a migration: applied ones are tracked by timestamp, so
+one older than the latest applied would otherwise never run. If you apply one by hand,
+for example to try it on dev before merging, regenerate any other unmerged migration
+that now has an older timestamp:
 
 ```sh
 DATABASE_URL="$DEV_URL" npx drizzle-kit migrate
