@@ -929,7 +929,7 @@ export function ReplySheet({
   // Each view starts at the top with focus on its heading, so a screen reader hears the change.
   useEffect(() => {
     if (confirmation === null) return;
-    window.scrollTo({ top: 0 });
+    scrollPageToTop();
     confirmationHeading.current?.focus();
   }, [confirmation]);
 
@@ -948,7 +948,7 @@ export function ReplySheet({
     setConfirmation(null);
     // The sheet is unhidden on the next paint; move there once it is.
     requestAnimationFrame(() => {
-      window.scrollTo({ top: 0 });
+      scrollPageToTop();
       sheetHeading.current?.focus();
     });
   }, []);
@@ -1566,6 +1566,12 @@ export function ReplySheet({
       </section>
     </>
   );
+}
+
+/** On a touch screen the sheet scrolls inside body, not the document (globals.css): reset both. */
+function scrollPageToTop() {
+  window.scrollTo({ top: 0 });
+  document.body.scrollTo({ top: 0 });
 }
 
 /**

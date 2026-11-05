@@ -85,9 +85,14 @@ test("on a phone the theme and feedback controls sit after the page, never over 
   expect(await feedback.evaluate((element) => getComputedStyle(element).position)).toBe("static");
   expect(await theme.evaluate((element) => getComputedStyle(element).position)).toBe("static");
 
+  // On a touch screen the sheet scrolls inside body, so the document never moves
+  // and iOS never shrinks its toolbars under the fixed bars.
+  expect(await page.evaluate(() => getComputedStyle(document.body).overflowY)).toBe("auto");
+  expect(await page.evaluate(() => document.documentElement.scrollHeight <= window.innerHeight + 1)).toBe(true);
+
   // At the very bottom of the reply sheet, both clear the fixed Send bar.
-  await page.evaluate(() => window.scrollTo({ top: document.documentElement.scrollHeight, behavior: "instant" }));
-  await expect.poll(() => page.evaluate(() => Math.ceil(window.scrollY + window.innerHeight) >= document.documentElement.scrollHeight - 1)).toBe(true);
+  await page.evaluate(() => document.body.scrollTo({ top: document.body.scrollHeight, behavior: "instant" }));
+  await expect.poll(() => page.evaluate(() => Math.ceil(document.body.scrollTop + document.body.clientHeight) >= document.body.scrollHeight - 1)).toBe(true);
   const bar = await page.locator(".reply-actionbar").boundingBox();
   for (const control of [feedback, theme]) {
     const box = await control.boundingBox();
