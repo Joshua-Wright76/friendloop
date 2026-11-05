@@ -7,6 +7,12 @@ test.beforeEach(async () => {
   await resetDatabase();
 });
 
+// The button changes as soon as it's pressed, so wait for the write behind it.
+async function reactionCount(): Promise<number> {
+  const [row] = await rows<{ count: number }>("select count(*)::int as count from reactions");
+  return row.count;
+}
+
 test("E4 · reacting toggles on and off", async ({ page }) => {
   const loop = await seedLoop();
   const issue = await seedDeliveredIssue(loop, {
@@ -20,13 +26,11 @@ test("E4 · reacting toggles on and off", async ({ page }) => {
   await heart.click();
   await expect(heart).toHaveAttribute("aria-pressed", "true");
 
-  const after = await rows<{ count: number }>("select count(*)::int as count from reactions");
-  expect(after[0].count).toBe(1);
+  await expect.poll(reactionCount).toBe(1);
 
   await heart.click();
   await expect(heart).toHaveAttribute("aria-pressed", "false");
-  const cleared = await rows<{ count: number }>("select count(*)::int as count from reactions");
-  expect(cleared[0].count).toBe(0);
+  await expect.poll(reactionCount).toBe(0);
 });
 
 test("E4 · a reaction reaches the person whose answer it is", async ({ browser }) => {
@@ -50,6 +54,7 @@ test("E4 · a reaction reaches the person whose answer it is", async ({ browser 
 
     await bobPage.goto(`/i/${issue.issueId}`);
     await bobPage.getByRole("button", { name: /React with ❤️/ }).first().click();
+    await expect.poll(reactionCount).toBe(1);
 
     await alicePage.reload();
     const after = alicePage.getByRole("button", { name: /React with ❤️/ }).first();
