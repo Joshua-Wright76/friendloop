@@ -242,9 +242,28 @@ export async function requireUiPreview() {
   if (!previewCookieMatches(jar.get(PREVIEW_COOKIE)?.value)) notFound();
 }
 
+/**
+ * Seeds on top of whatever is there, which only works while that data matches
+ * this seed: rows from an older seed keep their old ids behind the unique
+ * indexes, and the demo is open for anyone to edit. So when topping up fails,
+ * rebuild the demo from scratch rather than leaving /dev/ui broken until someone
+ * finds the reset link. Only the demo loop and demo user are ever deleted.
+ */
 export async function enableUiPreview(reset = false) {
   const now = new Date();
 
+  try {
+    await seedUiPreview(reset, now);
+  } catch (error) {
+    if (reset) throw error;
+    console.warn("UI preview data could not be topped up, so it is being rebuilt", error);
+    await seedUiPreview(true, now);
+  }
+
+  await createSession(UI_PREVIEW.userId, now);
+}
+
+async function seedUiPreview(reset: boolean, now: Date) {
   await db.transaction(async (tx) => {
     if (reset) {
       await tx.delete(groups).where(eq(groups.id, UI_PREVIEW.groupId));
@@ -679,6 +698,4 @@ export async function enableUiPreview(reset = false) {
 
     await tx.delete(sessions).where(eq(sessions.userId, UI_PREVIEW.userId));
   });
-
-  await createSession(UI_PREVIEW.userId, now);
 }

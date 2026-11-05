@@ -18,7 +18,7 @@ import {
   UI_PREVIEW,
   unlockUiInbox,
 } from "../../src/lib/ui-preview.ts";
-import { resetDatabase, rows, setEnv, setupDatabase } from "../support/app.ts";
+import { resetDatabase, rows, seedLoop, setEnv, setupDatabase } from "../support/app.ts";
 import { E2E_NOW } from "../../e2e/support/clock.ts";
 import {
   clearRequest,
@@ -314,6 +314,36 @@ test("the preview seeds one loop, and can rebuild it from scratch", async () => 
   assert.equal(await media(), 2);
   assert.equal((await rows<{ count: number }>("select count(*)::int as count from groups"))[0].count, 1);
   assert.equal((await rows<{ count: number }>("select count(*)::int as count from memberships"))[0].count, 3, "Alex, Alice, and Sam");
+});
+
+test("the preview rebuilds itself when an older seed left rows it cannot top up", async () => {
+  await enableUiPreview();
+
+  // Older seeds gave replies generated ids. replies_unique_idx then swallows the
+  // current seed's insert, and the comments that hang from its fixed id have no parent.
+  await rows("delete from comments");
+  await rows("update replies set id = gen_random_uuid()");
+
+  await enableUiPreview();
+
+  const threaded = await rows<{ count: number }>(
+    "select count(*)::int as count from comments c join replies r on r.id = c.reply_id",
+  );
+  assert.ok(threaded[0].count > 0, "the seed's comments are back, on the seed's own replies");
+  assert.equal((await rows<{ count: number }>("select count(*)::int as count from groups"))[0].count, 1);
+  assert.ok(cookieEntries().length > 0, "the rebuilt preview still signs you in");
+});
+
+test("the preview leaves other loops alone when it rebuilds", async () => {
+  const other = await seedLoop();
+  await enableUiPreview();
+  await rows("delete from comments");
+  await rows("update replies set id = gen_random_uuid()");
+
+  await enableUiPreview();
+
+  const kept = await rows<{ id: string }>("select id from groups where id = $1", [other.groupId]);
+  assert.equal(kept.length, 1);
 });
 
 test("a local photo that cannot be unlinked is an error worth hearing about", async () => {
