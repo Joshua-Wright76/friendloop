@@ -34,7 +34,7 @@ export async function inviteAction(formData: FormData) {
       groupId,
       emails,
       participation,
-      actorName: viewer.user.name ?? viewer.user.email.split("@")[0],
+      actorName: viewer.membership.name ?? viewer.user.name ?? viewer.user.email.split("@")[0],
       at: await getNow(),
     });
 
@@ -53,7 +53,7 @@ export async function resendAction(formData: FormData) {
   await resendInvite({
     groupId,
     membershipId,
-    actorName: viewer.user.name ?? viewer.user.email.split("@")[0],
+    actorName: viewer.membership.name ?? viewer.user.name ?? viewer.user.email.split("@")[0],
   });
 
   revalidatePath(`/g/${groupId}`, "layout");

@@ -50,9 +50,17 @@ yarn-error.log*
 next-env.d.ts
 
 # agent harness installs (regenerate with: npx impeccable install)
-/.claude/
+/.claude/*
+!/.claude/skills/
+/.claude/skills/*
+!/.claude/skills/record-flows
 /.opencode/
 /.pi/
 /.codex/
 /.agents/skills/impeccable/scripts/
 /.impeccable/live/
+
+# flow recordings: videos and the built gallery are generated
+/recordings/output/
+/recordings/site/
+/recordings/logs/

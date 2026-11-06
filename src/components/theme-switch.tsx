@@ -66,13 +66,15 @@ export function ThemeSwitch() {
       onClick={toggle}
     >
       <svg viewBox="0 0 24 24" aria-hidden="true" className="theme-switch-icon">
-        <g className={`theme-switch-sun${theme === "light" ? " is-visible" : ""}`}>
+        <g className="theme-switch-sun">
           <circle cx="12" cy="12" r="4" fill="currentColor" />
           <path d="M12 2v2M12 20v2M4.93 4.93l1.42 1.42M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.42-1.42M17.66 6.34l1.41-1.41" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
         </g>
-        <path className={`theme-switch-moon${theme === "dark" ? " is-visible" : ""}`} d="M20.5 15.2A8.5 8.5 0 0 1 8.8 3.5 8.5 8.5 0 1 0 20.5 15.2Z" fill="currentColor" />
+        <path className="theme-switch-moon" d="M20.5 15.2A8.5 8.5 0 0 1 8.8 3.5 8.5 8.5 0 1 0 20.5 15.2Z" fill="currentColor" />
       </svg>
-      <span className="theme-switch-label">{theme === "light" ? copy.common.theme.light : copy.common.theme.dark}</span>
+      {/* Both are rendered and CSS shows one: the server can't know the theme, so state alone would paint "Light" first. */}
+      <span className="theme-switch-label theme-switch-label-light">{copy.common.theme.light}</span>
+      <span className="theme-switch-label theme-switch-label-dark">{copy.common.theme.dark}</span>
       <span className="theme-switch-track" aria-hidden="true"><span /></span>
     </button>
   );

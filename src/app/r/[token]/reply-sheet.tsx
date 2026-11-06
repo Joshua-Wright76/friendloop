@@ -65,6 +65,8 @@ type Props = {
   photoUrl: string | null;
   deadlineMoment: string;
   deliversAtIso: string;
+  /** Set once the round has gone out: its deadline has passed, so nothing should promise one. */
+  wentOutLabel: string | null;
   displayName: string;
   initialName: string | null;
   reminderPreference: ReminderPreferenceValue;
@@ -110,6 +112,7 @@ export function ReplySheet({
   photoUrl,
   deadlineMoment,
   deliversAtIso,
+  wentOutLabel,
   displayName,
   initialName,
   reminderPreference,
@@ -1164,7 +1167,7 @@ export function ReplySheet({
               {text(copy.reply.confirmation.body, { round: issueTitle(copy.reply.round, roundNumber, roundName) })}
             </p>
             <p className="mt-1 text-[14px] leading-relaxed text-ink-soft">
-              {text(copy.reply.confirmation.delivery, { deadline: deadlineBoth })}
+              {wentOutLabel ? copy.reply.confirmation.deliveryLate : text(copy.reply.confirmation.delivery, { deadline: deadlineBoth })}
             </p>
             {droppedPick || sectionFailed ? <p role="status" className="m-0 mt-3 text-[14px] font-bold leading-relaxed text-danger">{copy.reply.pickNotSaved}</p> : null}
             {droppedAttachment || attachFailed ? <p role="status" className="m-0 mt-3 text-[14px] font-bold leading-relaxed text-danger">{copy.reply.attachDropped}</p> : null}
@@ -1187,7 +1190,7 @@ export function ReplySheet({
           <p className="reply-intro__hi">{text(copy.reply.hi, { name: name.trim() || displayName })}</p>
           <h1 ref={sheetHeading} tabIndex={-1} className="text-ink">{issueTitle(copy.reply.round, roundNumber, roundName)}</h1>
           <p className="mt-1 text-[14.5px] leading-snug text-ink-soft numeric">
-            {text(copy.reply.closes, { deadline: deadlineBoth })}
+            {wentOutLabel ? text(copy.reply.wentOut, { date: wentOutLabel }) : text(copy.reply.closes, { deadline: deadlineBoth })}
           </p>
 
           {/* Who is answering is settled in one line; changing it is there for anyone who wants to. */}
@@ -1246,7 +1249,7 @@ export function ReplySheet({
               <path d="M10 1.7a8.3 8.3 0 100 16.6 8.3 8.3 0 000-16.6zm3.8 6.4l-4.4 4.7a.9.9 0 01-1.3 0L6.2 10.9a.9.9 0 111.3-1.3l1.2 1.3 3.8-4a.9.9 0 011.3 1.2z" />
             </svg>
             <p className="text-[14px] leading-relaxed text-ink">
-              {text(copy.reply.sent, { deadline: deadlineBoth })}
+              {wentOutLabel ? copy.reply.sentLate : text(copy.reply.sent, { deadline: deadlineBoth })}
             </p>
           </div>
         ) : null}

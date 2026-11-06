@@ -7,6 +7,7 @@ import {
   memberships,
   replies,
   users,
+  musicLinks,
 } from "@/db/schema";
 import { deliveryInstant, dueSlot, groupSchedule, nextSlot } from "./schedule";
 import { sendEmail, flushOutbox } from "./email/send";
@@ -73,10 +74,12 @@ function emptyReport(busy: boolean): SweepReport {
 async function sweepUnlocked(at: Date): Promise<SweepReport> {
   const report = emptyReport(false);
 
-  report.opened = await openDueIssues(at);
+  // Delivery first: a round going out empty pauses its loop, and a paused loop must
+  // not open the next round that falls due at the same instant.
   const delivery = await deliverDueIssues(at);
   report.delivered = delivery.delivered;
   report.skipped = delivery.skipped;
+  report.opened = await openDueIssues(at);
   report.reminded = await remindStragglers(at);
   report.retried = await flushOutbox();
   report.mediaPurged = await purgeQueuedMedia();
@@ -205,12 +208,14 @@ async function deliverDueIssues(at: Date): Promise<{ delivered: number; skipped:
             issueSectionId: sectionReplies.issueSectionId,
             body: sectionReplies.body,
             linkUrl: sectionReplies.linkUrl,
+            linkTitle: musicLinks.title,
             authorName: memberships.name,
             authorEmail: memberships.email,
             addedAfterDelivery: sectionReplies.addedAfterDelivery,
           })
           .from(sectionReplies)
           .innerJoin(memberships, eq(memberships.id, sectionReplies.membershipId))
+          .leftJoin(musicLinks, eq(musicLinks.url, sectionReplies.linkUrl))
           .where(and(eq(sectionReplies.issueId, issue.id), eq(sectionReplies.status, "submitted")))
       : [];
 
@@ -250,6 +255,7 @@ async function deliverDueIssues(at: Date): Promise<{ delivered: number; skipped:
           author: row.authorName ?? row.authorEmail.split("@")[0],
           body: row.body,
           linkUrl: row.linkUrl,
+          linkTitle: row.linkTitle,
           addedLater: row.addedAfterDelivery,
           photoCount: row.replyId ? sectionMediaCounts.get(row.replyId) ?? 0 : 0,
         })),

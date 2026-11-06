@@ -7,7 +7,7 @@ import { db } from "@/db";
 import { currentUser } from "@/lib/auth";
 import { getNow } from "@/lib/clock";
 import { formatDate, atMoment, formatMoment } from "@/lib/format";
-import { groupSchedule, nextSlot } from "@/lib/schedule";
+import { groupSchedule, upcomingSlot } from "@/lib/schedule";
 import { Brand, Cherries, Tape } from "@/components/stationery";
 import { NoticeFocus } from "@/components/notice-focus";
 import { copy, text } from "@/lib/copy";
@@ -187,5 +187,5 @@ function statusLine(loop: LoopCard, at: Date, timezone: string): string {
   if (loop.issueStatus === "delivered" && loop.deliveredAt) {
     return text(copy.you.status.delivered, { date: formatDate(loop.deliveredAt, timezone) });
   }
-  return text(copy.you.status.first, { date: formatDate(nextSlot(groupSchedule(loop), at), timezone) });
+  return text(copy.you.status.first, { date: formatDate(upcomingSlot(groupSchedule(loop), at), timezone) });
 }

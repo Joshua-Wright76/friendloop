@@ -33,6 +33,9 @@ test("K7 · admin-only sections stay invisible to regular members", async ({ pag
   expect(refused.status()).toBe(403);
 
   await runSweep(new Date("2026-01-09T09:00:00Z"));
+  // Nobody answered round 1, so it was skipped and the loop paused. Carry on to round 2.
+  await rows("update groups set paused_at = null where id = $1", [loop.groupId]);
+  await runSweep(new Date("2026-01-09T09:00:00Z"));
   const [issue] = await rows<{ id: string }>("select id from issues order by number asc limit 1");
   await page.goto(`/i/${issue.id}?m=${alice.token}`);
   await expect(page.getByText("Committee notes")).toHaveCount(0);

@@ -641,6 +641,7 @@
     "inviteTitle": "Invite people",
     "firstPersonTitle": "Bring someone into the loop",
     "firstPersonBody": "Invite a friend so they can answer the first round too.",
+    "firstPersonBodyFromYou": "Invite someone to read what you write.",
     "firstPersonAction": "Invite the first person",
     "inviteDescription": "Add email addresses, separated by spaces, commas, or semicolons.",
     "invitePlaceholder": "name@example.com",
@@ -878,11 +879,14 @@
     "closes": "Closes {deadline}",
     "viewerTimezone": "your time ({time})",
     "sent": "Sent. You can still change anything until it closes.",
+    "wentOut": "Went out {date}. You can still add or change answers.",
+    "sentLate": "Sent. This round has gone out, so changes show as added late.",
     "confirmation": {
       "sentTitle": "Sent",
       "updatedTitle": "Changes saved",
       "body": "Your answers are in for {round}.",
       "delivery": "It goes out {deadline}. Until then, you can change anything.",
+      "deliveryLate": "This round has already gone out, so your changes show as added late.",
       "edit": "Edit my answers",
       "allSetTitle": "All set"
     },
@@ -1057,6 +1061,7 @@
     "answer": "1 answer from the group.",
     "answers": "{count} answers from the group.",
     "deliveredOn": "Delivered {date}.",
+    "goesOutOn": "Goes out {date}.",
     "reading": {
       "label": "Reading this issue",
       "peopleLabel": "Show answers from",
@@ -1144,6 +1149,7 @@
     "answer": "1 answer from the group.",
     "answers": "{count} answers from the group.",
     "deliveredOn": "Delivered {date}.",
+    "goesOutOn": "Goes out {date}.",
     "sharedFrom": "Shared from"
   },
   "emails": {

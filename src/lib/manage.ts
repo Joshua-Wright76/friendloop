@@ -20,6 +20,7 @@ import { reorderIds } from "./question-order";
 import { newQuestionTexts } from "./question-packs";
 import { snapshotQuestionsForIssue } from "./round-questions";
 import { snapshotEventsForIssue } from "./events";
+import { snapshotSectionsForIssue } from "./sections";
 import { checkPoll } from "./poll";
 import { eraseLoop } from "./erasure";
 
@@ -528,7 +529,8 @@ export async function setPaused(groupId: string, paused: boolean, at: Date) {
       paused
         ? { pausedAt: at }
         : // Resuming starts the rhythm from now, so a long pause never backfills.
-          { pausedAt: null, lastSlotAt: at },
+          // A slot already used up by "Send now" stays used.
+          { pausedAt: null, lastSlotAt: sql`greatest(${groups.lastSlotAt}, ${at.toISOString()}::timestamptz)` },
     )
     .where(eq(groups.id, groupId));
 }
@@ -580,6 +582,7 @@ export async function openIssueNow(
   if (!issue) return null;
 
   const questionCount = await snapshotQuestionsForIssue({ group, issueId: issue.id });
+  await snapshotSectionsForIssue({ group, issueId: issue.id });
   await snapshotEventsForIssue({
     group,
     issueId: issue.id,
@@ -588,7 +591,12 @@ export async function openIssueNow(
     nextSlotAt: nextSlot(groupSchedule(group), at),
   });
 
-  await db.update(groups).set({ lastSlotAt: at }).where(eq(groups.id, groupId));
+  // This round takes the place of the next scheduled one, so that slot must not
+  // open a second round beside it. The rhythm picks up again at the slot after.
+  await db
+    .update(groups)
+    .set({ lastSlotAt: nextSlot(groupSchedule(group), at) })
+    .where(eq(groups.id, groupId));
 
   await sendPromptEmails({
     group,

@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { deliveryInstant, describeDeadline, dueSlot, nextSlot, weekdayName, type LoopSchedule } from "./schedule.ts";
+import { deliveryInstant, describeDeadline, dueSlot, nextSlot, weekdayName, type LoopSchedule, upcomingSlot } from "./schedule.ts";
 import { copy } from "./copy.ts";
 
 const base: LoopSchedule = {
@@ -130,4 +130,12 @@ test("a loop created exactly on its slot anchors there, not a week later", () =>
   };
   assert.equal(nextSlot(schedule, new Date("2026-01-02T09:00:00Z")).toISOString(), "2026-01-09T09:00:00.000Z");
   assert.equal(dueSlot(schedule, new Date("2026-01-02T09:00:00Z")), null);
+});
+
+
+test("the upcoming slot skips one that send now already used", () => {
+  const at = utc("2026-01-01T07:00:00Z");
+  const friday = utc("2026-01-02T08:00:00Z");
+  assert.equal(upcomingSlot({ ...base, lastSlotAt: null }, at).getTime(), friday.getTime());
+  assert.equal(upcomingSlot({ ...base, lastSlotAt: friday }, at).getTime(), utc("2026-01-09T08:00:00Z").getTime());
 });

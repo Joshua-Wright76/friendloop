@@ -125,6 +125,15 @@ export function dueSlot(schedule: LoopSchedule, at: Date): Date | null {
   return null;
 }
 
+/**
+ * The next slot that will really open a round. "Send now" uses up the slot after it
+ * by moving `lastSlotAt` forward, so that one is skipped here as it is in `dueSlot`.
+ */
+export function upcomingSlot(schedule: LoopSchedule, at: Date): Date {
+  const used = schedule.lastSlotAt;
+  return nextSlot(schedule, used && used.getTime() > at.getTime() ? used : at);
+}
+
 /** The next slot strictly after `at`, for "next send" copy. */
 export function nextSlot(schedule: LoopSchedule, at: Date): Date {
   const now = zoned(at, schedule.timezone);

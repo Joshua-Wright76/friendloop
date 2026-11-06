@@ -8,6 +8,7 @@ import { snapshotSectionsForIssue } from "../../src/lib/sections.ts";
 import { latestOutbox, outboxCount, resetDatabase, rows, seedLoop, seedOpenIssue, seedReplies, setupDatabase } from "../support/app.ts";
 import { saveSectionMusicFor, saveSectionPhotoFor, saveSectionTextFor } from "../../src/lib/sections.ts";
 import { submitFor } from "../../src/lib/reply.ts";
+import { loadIssue } from "../../src/lib/issue-view.ts";
 import { AFTER_FIRST_SLOT, DELIVERY_DAY } from "../../e2e/support/clock.ts";
 import { clearRequest, setRequestHeaders } from "../stubs/request.mjs";
 
@@ -115,17 +116,30 @@ test("a music link answer includes the provider link in the email", async () => 
   );
   await submitFor(alice.token);
 
+  // What the provider told us when the pick was saved.
+  const [{ link_url: linkUrl }] = await rows<{ link_url: string }>("select link_url from section_replies limit 1");
+  await rows(
+    "insert into music_links (url, provider, title) values ($1, 'spotify', 'Rain Song') on conflict (url) do update set title = 'Rain Song'",
+    [linkUrl],
+  );
+
   const delivered = await sweep({ at: new Date(DELIVERY_DAY.getTime() + 60000) });
   assert.equal(delivered.delivered, 1);
   const email = await latestOutbox("delivery:");
   assert.ok(email.html.includes("https://open.spotify.com/track/"));
+  assert.ok(email.html.includes("Rain Song"), "the email names the pick");
+
+  // A section reply is an answer: the round doesn't read "0 answers from the group".
+  const [issue] = await rows<{ id: string }>("select id from issues where number = 1");
+  assert.equal((await loadIssue({ issueId: issue.id }))!.answerCount, 1);
 });
 
 test("a round with sections but nothing submitted still skips", async () => {
   await sectionLoop();
   await sweep({ at: AFTER_FIRST_SLOT });
   const report = await sweep({ at: new Date(DELIVERY_DAY.getTime() + 60000) });
-  assert.equal(report.opened, 1);
+  // The skip pauses the loop, so the slot falling due at the same moment stays shut.
+  assert.equal(report.opened, 0);
   assert.equal(report.skipped, 1);
   assert.equal(await outboxCount("delivery:"), 0);
 });

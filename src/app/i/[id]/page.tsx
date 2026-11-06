@@ -111,7 +111,7 @@ export default async function IssuePage({
           <p className="numeric">
             {view.issue.name ? `${text(copy.issue.round, { number: view.issue.number })}. ` : null}
             {view.answerCount === 1 ? copy.issue.answer : text(copy.issue.answers, { count: view.answerCount })}{" "}
-            {text(copy.issue.deliveredOn, {
+            {text(view.issue.status === "open" ? copy.issue.goesOutOn : copy.issue.deliveredOn, {
               date: formatDate(view.issue.deliveredAt ?? view.issue.deliversAt, view.group.timezone),
             })}
           </p>

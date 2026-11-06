@@ -50,6 +50,8 @@ export type SectionEmailBlock = {
     author: string;
     body: string;
     linkUrl?: string | null;
+    /** The pick's name when the provider told us; the link alone otherwise. */
+    linkTitle?: string | null;
     addedLater?: boolean;
     photoCount?: number;
   }>;
@@ -141,7 +143,7 @@ function sectionsHtml(sections: SectionEmailBlock[], c: EmailPalette): string {
       const rows = section.answers
         .map((answer) => {
           const link = answer.linkUrl
-            ? ` <a href="${escapeHtml(answer.linkUrl)}" style="color:${c.accent}">${escapeHtml(musicLinkLabel(answer.linkUrl))}</a>`
+            ? ` ${answer.linkTitle ? `<strong>${escapeHtml(answer.linkTitle)}</strong> ` : ""}<a href="${escapeHtml(answer.linkUrl)}" style="color:${c.accent}">${escapeHtml(musicLinkLabel(answer.linkUrl))}</a>`
             : "";
           const photos =
             answer.photoCount && answer.photoCount > 0

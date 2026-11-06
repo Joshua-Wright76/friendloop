@@ -281,3 +281,26 @@ test("two triggers at the same instant open one round between them", async () =>
   ]);
   assert.equal(issues[0].count, 1);
 });
+
+
+test("a loop that pauses itself opens no round in the same sweep", async () => {
+  const loop = await seedLoop();
+  const issue = await seedOpenIssue(loop, { openedAt: AFTER_FIRST_SLOT });
+  // The next weekly slot falls due at the instant this round closes.
+  const report = await sweep({ at: issue.deliversAt });
+
+  assert.equal(report.skipped, 1);
+  assert.equal(report.opened, 0);
+  assert.equal(await outboxCount("prompt:"), 0);
+});
+
+test("a healthy round going out still opens the next one", async () => {
+  const loop = await seedLoop();
+  const issue = await seedOpenIssue(loop, { openedAt: AFTER_FIRST_SLOT });
+  const alice = loop.members.find((member) => member.email.startsWith("alice"))!;
+  await seedReplies({ issueId: issue.issueId, membershipId: alice.id, answers: [{ text: ALICE_QUESTION, body: "Yes." }] });
+
+  const report = await sweep({ at: issue.deliversAt });
+  assert.equal(report.delivered, 1);
+  assert.equal(report.opened, 1);
+});
