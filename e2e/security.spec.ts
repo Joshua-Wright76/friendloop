@@ -198,3 +198,10 @@ test("the landing page has a link-preview card; private pages preview as Friendl
     expect(robots).toContain(`Disallow: ${prefix}`);
   }
 });
+
+test("the version route answers uncached, with no commit outside Vercel", async ({ request }) => {
+  const response = await request.get("/api/version");
+  expect(response.status()).toBe(200);
+  expect(response.headers()["cache-control"]).toBe("no-store");
+  expect(await response.json()).toEqual({ commit: null });
+});

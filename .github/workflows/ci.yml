@@ -23,6 +23,7 @@ jobs:
   verify:
     name: Verify
     runs-on: ubuntu-24.04
+    timeout-minutes: 20
     services:
       # The database-backed unit tests need a Postgres of their own; the e2e job
       # gets a separate one so the two never see each other's rows.
@@ -164,6 +165,7 @@ jobs:
   e2e:
     name: End-to-end
     runs-on: ubuntu-24.04
+    timeout-minutes: 5
     needs: e2e-shard
     if: always()
     steps:

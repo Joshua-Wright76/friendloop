@@ -335,6 +335,10 @@ without it.
 - **`GET /api/health`** (`Authorization: Bearer $CRON_SECRET`): 200 when the sweep
   finished within 26 hours and no outbox mail has stayed `pending`/`failed` for 26
   hours, 503 with counts and ages otherwise. Never names a recipient.
+- **`GET /api/version`**: public, the commit this deployment was built from. After
+  each push to `main`, the Verify production deploy workflow waits for it to report
+  that commit and fails if it doesn't within 15 minutes, because a merge can go green
+  on dev without ever deploying production.
 - **`GET /api/healthz`**: public, no details — 200 when the deployment can reach
   its database. Point an uptime monitor at it.
 - **[`.github/workflows/monitor.yml`](.github/workflows/monitor.yml)** probes

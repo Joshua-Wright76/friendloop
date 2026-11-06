@@ -1,0 +1,48 @@
+name: Verify production deploy
+
+# Vercel deploys main on its own, and has once built a merge for dev while
+# never starting the production deployment, with no error anywhere. So after
+# every push to main, wait for production to report that commit. A failed run
+# means the merge isn't live: GitHub emails whoever pushed, and the fix is to
+# check the Vercel dashboard, then deploy main to production from there.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions: {}
+
+# Only the newest push matters: production skips ahead when merges land close
+# together, and the older commit would never appear.
+concurrency:
+  group: verify-deploy
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Production serves this commit
+    # Pinned like ci.yml: a gate should not change distro underneath us.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Wait for https://friendloop.dev/api/version
+        env:
+          VERSION_URL: https://friendloop.dev/api/version
+          # A normal build takes about two minutes, and Hobby builds one at a
+          # time, so this allows for a queue behind other merges.
+          ATTEMPTS: 45
+          DELAY_SECONDS: 20
+        run: |
+          deployed=""
+          for attempt in $(seq 1 "$ATTEMPTS"); do
+            deployed=$(curl --silent --max-time 15 "$VERSION_URL" | jq -r '.commit // empty' 2>/dev/null || true)
+            if [ "$deployed" = "$GITHUB_SHA" ]; then
+              echo "Production is serving $GITHUB_SHA"
+              exit 0
+            fi
+            echo "Attempt $attempt: production reports '${deployed:-nothing}', waiting for $GITHUB_SHA"
+            sleep "$DELAY_SECONDS"
+          done
+          echo "::error::Production is still on '${deployed:-unknown}', not $GITHUB_SHA. The build failed or never started: check the Vercel dashboard."
+          exit 1
