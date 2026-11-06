@@ -1,0 +1,42 @@
+[
+ {
+  "id": "B3",
+  "view": "desktop",
+  "step": "Three emails arrive",
+  "at": 20.8
+ },
+ {
+  "id": "V3",
+  "view": "desktop",
+  "step": "until she confirms",
+  "at": 9.3
+ },
+ {
+  "id": "O4",
+  "view": "desktop",
+  "step": "writes his message",
+  "at": 6.2
+ },
+ {
+  "id": "N3",
+  "view": "desktop",
+  "step": "question names",
+  "at": 19.2
+ },
+ {
+  "id": "N3",
+  "view": "mobile",
+  "step": "question names",
+  "at": 21
+ },
+ {
+  "match": "(asks first|\\buntil\\b|\\bprompt|\\boffers\\b|\\bsees a\\b)",
+  "threshold": 0.002,
+  "settle": 0.6
+ },
+ {
+  "match": "\\b(writes|types|fills)\\b",
+  "threshold": 0.02,
+  "settle": 2
+ }
+]
