@@ -19,6 +19,7 @@ const eslintConfig = defineConfig([
     ".pi/**",
     ".codex/**",
     "e2e/**",
+    "recordings/**",
   ]),
 ]);
 

@@ -23,6 +23,9 @@ test("C4 · skipping a question affects one round only", async ({ page }) => {
 
   // The next round gets it back.
   await runSweep(new Date("2026-01-09T08:05:00Z"));
+  // Nobody answered round 1, so that sweep skipped it and paused the loop. Carry on.
+  await rows("update groups set paused_at = null where id = $1", [loop.groupId]);
+  await runSweep(new Date("2026-01-09T08:05:00Z"));
   const second = await rows<{ text: string }>(
     `select iq.text from issue_questions iq
      join issues i on i.id = iq.issue_id

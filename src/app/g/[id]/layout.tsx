@@ -11,7 +11,7 @@ import { eventsOf } from "@/lib/events";
 import { currentUser } from "@/lib/auth";
 import { getNow } from "@/lib/clock";
 import { membersOf } from "@/lib/manage";
-import { describeDeadline, nextSlot, weekdayName } from "@/lib/schedule";
+import { describeDeadline, upcomingSlot, weekdayName } from "@/lib/schedule";
 import { url } from "@/lib/urls";
 import LoopLoading from "./loading";
 import { LoopTheme } from "@/components/loop-theme";
@@ -154,7 +154,7 @@ async function LoadedGroupLayout({ children, params }: Props) {
     ? people.filter((person) => person.participation === "contributor" && !answered.has(person.id))
     : [];
 
-  const next = nextSlot({
+  const next = upcomingSlot({
     timezone: group.timezone,
     promptWeekday: group.promptWeekday,
     promptHour: group.promptHour,

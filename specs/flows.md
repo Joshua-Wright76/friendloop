@@ -54,12 +54,12 @@ Status: `todo` (not built) · `done` (built and covered).
 | --- | --- | --- | --- |
 | D1 | Open an issue on schedule | With the clock past the loop's slot, the sweep creates exactly one issue with a snapshot of the selected questions and one `prompt` outbox row per contributor. | done |
 | D2 | Do not open early or twice | Running the sweep before the slot creates nothing; running it twice for the same slot creates no second issue and no duplicate email. | done |
-| D3 | Start an issue manually | "Send now" opens an issue immediately, emails contributors, and does not create a duplicate when the scheduled slot later arrives. | done |
+| D3 | Start an issue manually | "Send now" opens an issue immediately with the loop's questions, sections and events, emails contributors, and takes the place of the next scheduled slot: that slot opens no second round, and the dashboard shows the one after it as next. | done |
 | D4 | Draft autosaves | Typing an answer persists it as a draft; reloading the reply page restores every draft. | done |
 | D5 | Submit answers | Submitting marks replies submitted with a timestamp and replaces the sheet with a confirmation screen (focus on its heading) that names the round, repeats when it goes out, and offers "Edit my answers", which brings the sheet back with every answer intact and "Save changes"; the owner's progress count increases. A later visit opens the sheet itself with its "Sent" note. | done |
 | D6 | Edit a submitted answer | Before delivery, editing and re-submitting updates the reply and its timestamp without creating a duplicate row. | done |
 | D7 | Deliver the issue | With the clock past the delivery instant, the sweep sends one issue email per member containing every submitted answer and that member's own link, the issue's status becomes `delivered`, and no loop's email contains another loop's answers. | done |
-| D8 | Nothing to deliver | An issue reaching its delivery instant with zero submitted replies is marked `skipped`, sends no delivery email, and pauses the loop with an explanation to the owner. | done |
+| D8 | Nothing to deliver | An issue reaching its delivery instant with zero submitted replies is marked `skipped`, sends no delivery email, pauses the loop with an explanation to the owner, and opens no new round in the same sweep. | done |
 | D9 | Nudge the stragglers | 48 hours before delivery, contributors with nothing submitted get exactly one reminder; anyone who submitted gets none, and a second sweep sends no duplicate. | done |
 | D10 | Nudge by hand | From the dashboard the owner sees who has not answered and can send one more reminder; anyone who already answered gets none, and each nudge is its own email rather than a duplicate. | done |
 | D11 | Two triggers at once | When the two production triggers run the sweep concurrently, exactly one issue is created for the slot, one prompt per contributor is sent, and concurrent delivery and reminder passes never double-send. | done |
@@ -132,7 +132,7 @@ Status: `todo` (not built) · `done` (built and covered).
 | J3 | Limits, plainly | Duration cap (target 2 minutes, hard stop 3) and size cap produce the same warm plain-language error, never a 500. | done |
 | J4 | Where recording isn't possible | A browser without MediaRecorder sees "your browser can't record here" plus a file-picker fallback accepting m4a/mp3/webm/ogg within the same caps; a page that isn't https says that instead (browsers expose no microphone there and never prompt), and a refused permission or a missing microphone is named as such. | done |
 | J5 | Reading and the email snapshot | The web issue renders a styled audio player; the delivery email renders a "voice note — listen on the web issue" card (email never attempts to embed audio). | done |
-| J6 | Media parity | Audio files are content-hashed and stored exactly like photos (local in dev, Blob in prod); share-link visitors can hear a shared issue's notes under the same rules as photos. | done |
+| J6 | Media parity | Audio files get long random names and are stored exactly like photos (local in dev, Blob in prod); share-link visitors can hear a shared issue's notes under the same rules as photos. | done |
 
 ## L · Polls
 
@@ -176,7 +176,7 @@ Status: `todo` (not built) · `done` (built and covered).
 | --- | --- | --- | --- |
 | P1 | Browse the album | A member opens the Album — a tab of the loop, or a link on any delivered round for people who read from their inbox — and sees every photo and voice note from delivered rounds (answers, photo walls and section photos), newest round first and grouped under the round's name; voice notes play in place, photos open in a keyboard-and-touch-usable fullscreen viewer that offers a download, and "view in the round" lands on that very answer. Nothing from an open round, a draft, or an admin-only section the viewer cannot read is shown. | done |
 | P2 | Filter and search | Choosing one person and searching a word (matched against answer text, photo captions, and the question or section it answered; every word must turn up) each narrow the Album, alone or together; the URL carries the filters, a long album grows a page at a time without losing them, and an empty result says so plainly with a way out. | done |
-| P3 | Privacy holds | Share-link visitors get no Album route, link or data; strangers, revoked members, other loops' members and bad tokens get the plain not-found page with nothing of the loop in it; the media addresses stay content-hashed and unguessable. | done |
+| P3 | Privacy holds | Share-link visitors get no Album route, link or data; strangers, revoked members, other loops' members and bad tokens get the plain not-found page with nothing of the loop in it; the media addresses stay unguessable. | done |
 
 ## Q · Keepsake export
 

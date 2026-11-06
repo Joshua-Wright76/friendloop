@@ -4,6 +4,7 @@ import type { Server } from "node:http";
 import {
   emailIsCaptured,
   flushOutbox,
+  MAX_SEND_ATTEMPTS,
   latestOutboxRow,
   queueEmail,
   sendEmail,
@@ -217,4 +218,25 @@ test("a request whose headers cannot be read still falls back to the configured 
   } finally {
     setRequestBroken(false);
   }
+});
+
+
+test("a row that keeps failing stops retrying, and can't hold up newer mail", async () => {
+  await queueEmail({ to: "stuck@friendloop.test", subject: "s", html: "h", text: "t", kind: "signin", dedupeKey: "cap:stuck" });
+  await queueEmail({ to: "worn@friendloop.test", subject: "s", html: "h", text: "t", kind: "signin", dedupeKey: "cap:worn" });
+  await rows("update outbox set status = 'failed', attempts = $1 where dedupe_key = 'cap:stuck'", [MAX_SEND_ATTEMPTS]);
+  await rows("update outbox set status = 'failed', attempts = 3 where dedupe_key = 'cap:worn'");
+
+  await queueEmail({ to: "new@friendloop.test", subject: "s", html: "h", text: "t", kind: "signin", dedupeKey: "cap:new" });
+  // Only one slot in the batch: the row with the fewest tries gets it.
+  assert.equal(await flushOutbox(1), 1);
+  const after = await rows<{ dedupe_key: string; status: string }>("select dedupe_key, status from outbox where dedupe_key like 'cap:%'");
+  const status = Object.fromEntries(after.map((row) => [row.dedupe_key, row.status]));
+  assert.equal(status["cap:new"], "sent");
+  assert.equal(status["cap:worn"], "failed");
+
+  await flushOutbox();
+  const [stuck] = await rows<{ status: string; attempts: number }>("select status, attempts from outbox where dedupe_key = 'cap:stuck'");
+  assert.equal(stuck.status, "failed");
+  assert.equal(stuck.attempts, MAX_SEND_ATTEMPTS);
 });

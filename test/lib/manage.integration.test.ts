@@ -28,7 +28,8 @@ import {
   userById,
 } from "../../src/lib/manage.ts";
 import { outboxCount, rows, seedDeliveredIssue, seedLoop, setupDatabase } from "../support/app.ts";
-import { E2E_NOW } from "../../e2e/support/clock.ts";
+import { AFTER_FIRST_SLOT, BEFORE_FIRST_SLOT, E2E_NOW } from "../../e2e/support/clock.ts";
+import { sweep } from "../../src/lib/sweep.ts";
 import { clearRequest, setRequestHeaders } from "../stubs/request.mjs";
 
 beforeEach(async () => {
@@ -614,4 +615,32 @@ test("the loop url and a user's loops are readable", async () => {
   assert.equal(loopUrl(loop.groupId), `http://localhost:3100/g/${loop.groupId}`);
   assert.deepEqual(await loopsForUser(userId), [{ groupId: loop.groupId, access: "owner" }]);
   assert.deepEqual(await loopsForUser("00000000-0000-4000-8000-000000000000"), []);
+});
+
+
+test("send now takes the place of the next slot, and resuming doesn't bring it back", async () => {
+  const loop = await seedLoop();
+  const before = new Date(BEFORE_FIRST_SLOT);
+  await openIssueNow(loop.groupId, before);
+
+  const [group] = await rows<{ last_slot_at: string }>("select last_slot_at from groups where id = $1", [loop.groupId]);
+  assert.ok(new Date(group.last_slot_at) > before, "the next slot is used up");
+
+  await setPaused(loop.groupId, true, before);
+  await setPaused(loop.groupId, false, before);
+  const [resumed] = await rows<{ last_slot_at: string }>("select last_slot_at from groups where id = $1", [loop.groupId]);
+  assert.equal(new Date(resumed.last_slot_at).getTime(), new Date(group.last_slot_at).getTime());
+
+  assert.equal((await sweep({ at: AFTER_FIRST_SLOT })).opened, 0);
+  const issues = await rows("select id from issues where group_id = $1", [loop.groupId]);
+  assert.equal(issues.length, 1);
+});
+
+test("send now brings the loop's sections into the round", async () => {
+  const loop = await seedLoop();
+  await rows("insert into sections (group_id, kind, title, position) values ($1, 'standard', 'The potluck corner', 0)", [loop.groupId]);
+
+  const opened = await openIssueNow(loop.groupId, E2E_NOW);
+  const sections = await rows<{ title: string }>("select title from issue_sections where issue_id = $1", [opened!.issueId]);
+  assert.deepEqual(sections.map((section) => section.title), ["The potluck corner"]);
 });

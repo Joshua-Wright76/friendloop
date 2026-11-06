@@ -26,6 +26,7 @@ export default function MembersTab({ notices }: {
     <main className="mx-auto w-full max-w-[680px] px-4 pb-16 pt-5 sm:px-6">
       <LoopNav id={id} name={group.name} access={membership.access} active="People">
         <h1>{copy.members.title}</h1>
+        {group.mode === "from_you" ? <p className="mt-1 text-[14px] leading-relaxed text-ink-soft">{copy.members.fromYouDescription}</p> : null}
         {/* Inviting is the owner's most common job here: one line, right under the title. */}
         {manages ? <InviteForm groupId={id} /> : null}
       </LoopNav>
@@ -39,7 +40,7 @@ export default function MembersTab({ notices }: {
       {manages && people.length === 1 ? (
         <div className="card mt-5 p-5">
           <h2 className="text-[18px] font-bold text-ink">{copy.members.firstPersonTitle}</h2>
-          <p className="mt-1 text-[14px] leading-relaxed text-ink-soft">{copy.members.firstPersonBody}</p>
+          <p className="mt-1 text-[14px] leading-relaxed text-ink-soft">{group.mode === "from_you" ? copy.members.firstPersonBodyFromYou : copy.members.firstPersonBody}</p>
         </div>
       ) : null}
 

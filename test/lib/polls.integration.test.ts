@@ -93,7 +93,11 @@ test("a poll rotates through the pool with the written questions", async () => {
   assert.deepEqual(first.map((row) => [row.text, row.kind]), [["One", "written"]]);
 
   // The next slot (a week on) carries the poll.
-  await sweep({ at: new Date(AFTER_FIRST_SLOT.getTime() + 8 * 24 * 60 * 60 * 1000) });
+  const nextWeek = new Date(AFTER_FIRST_SLOT.getTime() + 8 * 24 * 60 * 60 * 1000);
+  await sweep({ at: nextWeek });
+  // Nobody answered round 1, so that sweep skipped it and paused the loop.
+  await rows("update groups set paused_at = null");
+  await sweep({ at: nextWeek });
   const second = await rows<{ text: string; kind: string }>(
     "select iq.text, iq.kind from issue_questions iq join issues i on i.id = iq.issue_id where i.number = 2",
   );

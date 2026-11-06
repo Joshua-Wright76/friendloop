@@ -1,5 +1,5 @@
 import { Resend } from "resend";
-import { and, asc, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, lt, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { emailSuppressions, memberships, outbox } from "@/db/schema";
 import type { RenderedEmail } from "./templates";
@@ -218,6 +218,12 @@ export async function sendEmail(input: QueueInput): Promise<{ queued: boolean; e
 }
 
 /** Retry anything the provider rejected. Called by the sweep. */
+/**
+ * About a day of 15-minute sweeps. Long enough to outlast a provider outage, and
+ * after that a row stays `failed` with its reason rather than retrying for ever.
+ */
+export const MAX_SEND_ATTEMPTS = 96;
+
 export async function flushOutbox(limit = 25): Promise<number> {
   const pending = await db
     .select({
@@ -231,8 +237,9 @@ export async function flushOutbox(limit = 25): Promise<number> {
       membershipId: outbox.membershipId,
     })
     .from(outbox)
-    .where(inArray(outbox.status, ["pending", "failed"]))
-    .orderBy(asc(outbox.createdAt))
+    .where(and(inArray(outbox.status, ["pending", "failed"]), lt(outbox.attempts, MAX_SEND_ATTEMPTS)))
+    // Fewest tries first, so a batch of stubborn rejections can't hold up newer mail.
+    .orderBy(asc(outbox.attempts), asc(outbox.createdAt))
     .limit(limit);
 
   for (const row of pending) {

@@ -22,9 +22,10 @@ test("O3 · a birthday lands in exactly one round, however many weekly rounds op
   await rows("insert into events (group_id, kind, month, day, membership_id) values ($1, 'birthday', 1, 20, $2)", [loop.groupId, alice.id]);
 
   for (let week = 0; week < 7; week += 1) {
+    const at = new Date(AFTER_FIRST_SLOT.getTime() + week * 7 * DAY);
+    await runSweep(at);
     // Nobody answers, so every round is skipped and pauses the loop; keep it running.
     await rows("update groups set paused_at = null where id = $1", [loop.groupId]);
-    const at = new Date(AFTER_FIRST_SLOT.getTime() + week * 7 * DAY);
     await runSweep(at);
     // A second trigger at the same moment changes nothing.
     await runSweep(at);

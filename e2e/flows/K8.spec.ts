@@ -49,6 +49,9 @@ test("K8 · editing a section changes future issues, never an open one", async (
 
   // The next opened rounds carry the new wording; the delivered one keeps its copy.
   await runSweep(new Date("2026-01-16T08:00:00Z"));
+  // Nobody answered round 2, so it was skipped and the loop paused. Carry on to round 3.
+  await rows("update groups set paused_at = null where id = $1", [loop.groupId]);
+  await runSweep(new Date("2026-01-16T08:00:00Z"));
   const titles = await rows<{ title: string }>(
     "select s.title from issue_sections s inner join issues i on i.id = s.issue_id order by i.number asc",
   );

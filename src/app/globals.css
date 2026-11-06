@@ -330,7 +330,8 @@ html[data-theme="dark"] .tape { opacity: .6; }
 .theme-switch:focus-visible, .feedback-button:focus-visible { box-shadow: var(--shadow-lift), 0 0 0 6px var(--card); }
 .theme-switch-icon { width: 17px; height: 17px; overflow: visible; }
 .theme-switch-sun, .theme-switch-moon { transform-box: fill-box; transform-origin: center; opacity: 0; transform: rotate(-35deg) scale(.72); transition: opacity 180ms ease, transform 220ms cubic-bezier(.2,.8,.2,1); }
-.theme-switch-sun.is-visible, .theme-switch-moon.is-visible { opacity: 1; transform: rotate(0) scale(1); }
+html:not([data-theme="dark"]) .theme-switch-sun, html[data-theme="dark"] .theme-switch-moon { opacity: 1; transform: rotate(0) scale(1); }
+html[data-theme="dark"] .theme-switch-label-light, html:not([data-theme="dark"]) .theme-switch-label-dark { display: none; }
 .theme-switch-track { position: relative; width: 34px; height: 22px; border-radius: 999px; background: var(--line-strong); }
 .theme-switch-track > span { position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: 50%; background: var(--card); box-shadow: 0 1px 2px rgb(0 0 0 / .2); transition: transform 160ms ease; }
 html[data-theme="dark"] .theme-switch-track { background: var(--accent); }

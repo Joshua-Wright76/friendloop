@@ -307,7 +307,8 @@ export async function loadIssue(input: {
     group,
     blocks,
     sections,
-    answerCount: rows.length,
+    // Section replies are answers too: a photo wall or a birthday note counts.
+    answerCount: rows.length + sectionReplyRows.length,
     comments: threads.top,
     commentsEnabled: group.commentsEnabled,
     mentionables: threads.mentionables,

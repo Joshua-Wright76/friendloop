@@ -228,3 +228,15 @@ test("a prompt shows the questions themselves, in the HTML and the plain text", 
   assert.match(email.html, /Where &lt;next&gt;\?/);
   assert.match(email.text, /- What made you laugh\?/);
 });
+
+
+test("a music pick in the delivery email carries its title when the provider gave one", async () => {
+  const { deliveryEmail } = await import("./templates.ts");
+  const base = { groupName: "Loop", issueNumber: 1, url: "https://example.com/i/1", answers: [] };
+  const titled = deliveryEmail({ ...base, sections: [{ title: "Songs", emoji: null, answers: [{ author: "Alice", body: "On repeat", linkUrl: "https://open.spotify.com/track/1", linkTitle: "Rain & Song" }] }] });
+  assert.match(titled.html, /Rain &amp; Song/);
+  assert.match(titled.html, /Open in Spotify/);
+  const untitled = deliveryEmail({ ...base, sections: [{ title: "Songs", emoji: null, answers: [{ author: "Alice", body: "", linkUrl: "https://open.spotify.com/track/1", linkTitle: null }] }] });
+  assert.doesNotMatch(untitled.html, /<strong>/);
+  assert.match(untitled.html, /Open in Spotify/);
+});

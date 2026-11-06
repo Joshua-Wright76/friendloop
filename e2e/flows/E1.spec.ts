@@ -1,6 +1,7 @@
 import { test, expect } from "@playwright/test";
-import { resetDatabase } from "../support/db";
-import { seedDeliveredIssue, seedLoop } from "../support/seed";
+import { resetDatabase, rows } from "../support/db";
+import { seedDeliveredIssue, seedLoop, seedOpenIssue, seedReplies } from "../support/seed";
+import { AFTER_FIRST_SLOT, clockHeaders, runSweep } from "../support/harness";
 
 test.beforeEach(async () => {
   await resetDatabase();
@@ -27,4 +28,31 @@ test("E1 · a delivered round shows every answer and marks your own", async ({ p
   await expect(page.getByText("You", { exact: true })).toBeVisible();
   // Scoped to the answers: the reading controls above them also name Bob.
   await expect(page.locator(".answer-card").getByText("Bob", { exact: true })).toBeVisible();
+});
+
+
+test("E1 · an open round says when it goes out, not that it was delivered", async ({ page }) => {
+  const loop = await seedLoop();
+  const issue = await seedOpenIssue(loop, { openedAt: AFTER_FIRST_SLOT });
+  const alice = loop.members.find((member) => member.email.startsWith("alice"))!;
+
+  await page.setExtraHTTPHeaders(clockHeaders(AFTER_FIRST_SLOT));
+  await page.goto(`/i/${issue.issueId}?m=${encodeURIComponent(alice.token)}`);
+  await expect(page.getByText(/Goes out /)).toBeVisible();
+  await expect(page.getByText(/Delivered /)).toHaveCount(0);
+});
+
+test("E1 · once a round has gone out, its reply sheet stops promising a deadline", async ({ page }) => {
+  const loop = await seedLoop();
+  const issue = await seedOpenIssue(loop, { openedAt: AFTER_FIRST_SLOT });
+  const alice = loop.members.find((member) => member.email.startsWith("alice"))!;
+  await seedReplies({ issueId: issue.issueId, membershipId: alice.id, answers: [{ text: "What made you laugh this week?", body: "Geese." }] });
+  // Paused, so no new round opens and the link stays on the one that went out.
+  await rows("update groups set paused_at = $1 where id = $2", [AFTER_FIRST_SLOT.toISOString(), loop.groupId]);
+  await runSweep(issue.deliversAt);
+
+  await page.setExtraHTTPHeaders(clockHeaders(new Date(issue.deliversAt.getTime() + 60_000)));
+  await page.goto(`/r/${alice.token}`);
+  await expect(page.getByText(/Went out /)).toBeVisible();
+  await expect(page.getByText(/Closes /)).toHaveCount(0);
 });
