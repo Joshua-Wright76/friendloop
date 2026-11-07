@@ -8,6 +8,7 @@ import { groups, issues, memberships, outbox, questions, replies } from "@/db/sc
 import { pendingSuggestions } from "@/lib/suggestions";
 import { sectionsOf } from "@/lib/sections";
 import { eventsOf } from "@/lib/events";
+import { deliveredRoundsAnsweredByEveryone } from "@/lib/rounds-by-member";
 import { currentUser } from "@/lib/auth";
 import { getNow } from "@/lib/clock";
 import { membersOf } from "@/lib/manage";
@@ -86,7 +87,7 @@ async function LoadedGroupLayout({ children, params }: Props) {
   // "Now" belongs to this request, never to a prerender.
   await connection();
   const at = await getNow();
-  const [people, questionRows, roundRows, answerRows, suggestionRows, sectionRows, eventRows] = await Promise.all([
+  const [people, questionRows, roundRows, answerRows, suggestionRows, sectionRows, eventRows, answeredIn] = await Promise.all([
     membersOf(group.id),
     db.select({
       id: questions.id,
@@ -125,6 +126,8 @@ async function LoadedGroupLayout({ children, params }: Props) {
     pendingSuggestions(group.id),
     sectionsOf(group.id),
     membership.access === "member" ? Promise.resolve([]) : eventsOf(group, at),
+    // For the rounds list's "who answered" filter, so it filters without a request.
+    deliveredRoundsAnsweredByEveryone({ groupId: group.id, includeAdminOnly: membership.access !== "member" }),
   ]);
 
   const answeredBy = new Map(answerRows.map((row) => [row.issueId, row.people]));
@@ -203,6 +206,7 @@ async function LoadedGroupLayout({ children, params }: Props) {
     lastNudge: lastNudgeRow?.at ? formatMoment(lastNudgeRow.at, user.timezone || group.timezone) : null,
     openMoment: openIssue ? momentsOf(openIssue.deliversAt, group.timezone, user.timezone) : null,
     weekdayLabel: weekdayName(group.promptWeekday),
+    roundsAnsweredBy: Object.fromEntries(answeredIn),
   };
 
   return (

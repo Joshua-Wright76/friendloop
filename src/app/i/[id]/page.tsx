@@ -2,7 +2,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { currentUser } from "@/lib/auth";
-import { loadIssue, membershipForViewer } from "@/lib/issue-view";
+import { issueGroupId, loadIssue, membershipForViewer } from "@/lib/issue-view";
 import { MutedNotice } from "@/components/muted-notice";
 import { formatDate } from "@/lib/format";
 import { IssueBody } from "./issue-body";
@@ -36,21 +36,26 @@ export default async function IssuePage({
   const { id } = await params;
   const { m, print, by, sort } = await searchParams;
 
-  const user = await currentUser();
-  const probe = await loadIssue({ issueId: id });
-  if (!probe) notFound();
+  // Who is reading decides what loads, and that needs only the issue's loop.
+  const [user, groupId] = await Promise.all([currentUser(), issueGroupId(id)]);
+  if (!groupId) notFound();
 
   const membership = await membershipForViewer({
-    groupId: probe.group.id,
+    groupId,
     userId: user?.id ?? null,
     token: m ?? null,
   });
 
-  const view = await loadIssue({
-    issueId: id,
-    viewerMembershipId: membership?.id ?? null,
-    viewerIsAdmin: membership?.access === "owner" || membership?.access === "admin",
-  });
+  // A reply link edits the loop's latest round, before and after it goes out; this
+  // is asked alongside the round rather than after it.
+  const [view, own] = await Promise.all([
+    loadIssue({
+      issueId: id,
+      viewerMembershipId: membership?.id ?? null,
+      viewerIsAdmin: membership?.access === "owner" || membership?.access === "admin",
+    }),
+    m && membership?.replyToken === m ? resolveToken(m) : Promise.resolve(null),
+  ]);
   if (!view) notFound();
 
   const delivered = view.issue.status === "delivered";
@@ -86,9 +91,7 @@ export default async function IssuePage({
   const arranged = applyReading(view, reading);
   const effective = { by: arranged.focus?.id ?? null, sort: reading.sort };
 
-  // A reply link edits the loop's latest round, before and after it goes out. When
-  // that round is this one and the link is the viewer's own, offer the way back.
-  const own = m && membership?.replyToken === m ? await resolveToken(m) : null;
+  // When the reply link's round is this one and the link is the viewer's own, offer the way back.
   const editHref = own?.state === "ok" && own.issue?.id === view.issue.id ? `/r/${m}` : null;
   const answeredHere =
     view.blocks.some((block) => block.answers.some((answer) => answer.isYou)) ||

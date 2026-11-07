@@ -121,6 +121,8 @@ function CommentItem({ comment, onReply }: { comment: IssueComment; onReply: (()
         <img
           src={comment.photoUrl}
           alt={text(copy.issue.commentPhotoAlt, { author: comment.author })}
+          loading="lazy"
+          decoding="async"
           className="mt-2 w-full max-w-[420px] rounded-lg border border-line object-cover"
         />
       ) : null}

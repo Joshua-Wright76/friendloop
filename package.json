@@ -27,7 +27,11 @@
     "check:migrations": "node scripts/check-migrations.mjs",
     "db:seed": "node scripts/seed-dev.mjs",
     "mail:shim": "node scripts/mailpit-shim.mjs",
-    "typegen": "next typegen"
+    "typegen": "next typegen",
+    "perf": "node --import ./test/register.mjs perf/run.ts",
+    "perf:check": "node --import ./test/register.mjs perf/lib/coverage.ts",
+    "perf:report": "node --import ./test/register.mjs perf/lib/dashboard.ts",
+    "perf:score": "node --import ./test/register.mjs perf/score.ts"
   },
   "engines": {
     "node": ">=22.18"

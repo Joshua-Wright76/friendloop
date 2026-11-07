@@ -263,43 +263,46 @@ export async function replyLinkExport(token: string, at: Date): Promise<{ groupN
 /* --------------------------- a whole loop --------------------------- */
 
 async function roundOf(issue: typeof issues.$inferSelect, names: Names) {
-  const asked = await db
-    .select()
-    .from(issueQuestions)
-    .where(eq(issueQuestions.issueId, issue.id))
-    .orderBy(asc(issueQuestions.position));
-  const answered = await db
-    .select()
-    .from(replies)
-    .where(and(eq(replies.issueId, issue.id), eq(replies.status, "submitted")))
-    .orderBy(asc(replies.submittedAt));
-
-  const carried = await db
-    .select()
-    .from(issueSections)
-    .where(eq(issueSections.issueId, issue.id))
-    .orderBy(asc(issueSections.position));
-  const sectionAnswers = await db
-    .select()
-    .from(sectionReplies)
-    .where(and(eq(sectionReplies.issueId, issue.id), eq(sectionReplies.status, "submitted")))
-    .orderBy(asc(sectionReplies.submittedAt));
-  const media = sectionAnswers.length === 0 ? [] : await db
-    .select()
-    .from(sectionMedia)
-    .where(inArray(sectionMedia.sectionReplyId, sectionAnswers.map((reply) => reply.id)))
-    .orderBy(asc(sectionMedia.position));
-
-  const thread = await db
-    .select()
-    .from(comments)
-    .where(and(eq(comments.issueId, issue.id), isNull(comments.deletedAt)))
-    .orderBy(asc(comments.createdAt));
-  const reacted = answered.length === 0 ? [] : await db
-    .select()
-    .from(reactions)
-    .where(inArray(reactions.replyId, answered.map((reply) => reply.id)))
-    .orderBy(asc(reactions.createdAt));
+  // One round trip per round: everything here hangs off the issue id alone.
+  const [asked, answered, carried, sectionAnswers, media, thread, reacted] = await Promise.all([
+    db
+      .select()
+      .from(issueQuestions)
+      .where(eq(issueQuestions.issueId, issue.id))
+      .orderBy(asc(issueQuestions.position)),
+    db
+      .select()
+      .from(replies)
+      .where(and(eq(replies.issueId, issue.id), eq(replies.status, "submitted")))
+      .orderBy(asc(replies.submittedAt)),
+    db
+      .select()
+      .from(issueSections)
+      .where(eq(issueSections.issueId, issue.id))
+      .orderBy(asc(issueSections.position)),
+    db
+      .select()
+      .from(sectionReplies)
+      .where(and(eq(sectionReplies.issueId, issue.id), eq(sectionReplies.status, "submitted")))
+      .orderBy(asc(sectionReplies.submittedAt)),
+    db
+      .select({ sectionReplyId: sectionMedia.sectionReplyId, url: sectionMedia.url, caption: sectionMedia.caption })
+      .from(sectionMedia)
+      .innerJoin(sectionReplies, eq(sectionReplies.id, sectionMedia.sectionReplyId))
+      .where(and(eq(sectionReplies.issueId, issue.id), eq(sectionReplies.status, "submitted")))
+      .orderBy(asc(sectionMedia.position)),
+    db
+      .select()
+      .from(comments)
+      .where(and(eq(comments.issueId, issue.id), isNull(comments.deletedAt)))
+      .orderBy(asc(comments.createdAt)),
+    db
+      .select({ replyId: reactions.replyId, membershipId: reactions.membershipId, emoji: reactions.emoji })
+      .from(reactions)
+      .innerJoin(replies, eq(replies.id, reactions.replyId))
+      .where(and(eq(replies.issueId, issue.id), eq(replies.status, "submitted")))
+      .orderBy(asc(reactions.createdAt)),
+  ]);
 
   const author = (membershipId: string) => names.get(membershipId) ?? copy.issue.unknownMention;
 

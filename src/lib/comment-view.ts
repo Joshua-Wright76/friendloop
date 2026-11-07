@@ -42,7 +42,7 @@ export async function loadComments(input: {
 }): Promise<CommentThreads> {
   const { issueId, groupId, viewerMembershipId } = input;
 
-  const people = await db
+  const [people, rows] = await Promise.all([db
     .select({
       id: memberships.id,
       name: memberships.name,
@@ -53,16 +53,16 @@ export async function loadComments(input: {
       revokedAt: memberships.revokedAt,
     })
     .from(memberships)
-    .where(eq(memberships.groupId, groupId));
-  const names = new Map(people.map((person) => [person.id, displayName(person)]));
-  const photos = new Map(people.map((person) => [person.id, person.photoUrl]));
-  const looks = new Map(people.map((person) => [person.id, person]));
-
-  const rows = await db
+    .where(eq(memberships.groupId, groupId)),
+  db
     .select()
     .from(comments)
     .where(and(eq(comments.issueId, issueId), isNull(comments.deletedAt)))
-    .orderBy(asc(comments.createdAt), asc(comments.id));
+    .orderBy(asc(comments.createdAt), asc(comments.id)),
+  ]);
+  const names = new Map(people.map((person) => [person.id, displayName(person)]));
+  const photos = new Map(people.map((person) => [person.id, person.photoUrl]));
+  const looks = new Map(people.map((person) => [person.id, person]));
 
   // A quote may point at a comment that has since been removed; look those up
   // separately so the quote can say so instead of silently vanishing.

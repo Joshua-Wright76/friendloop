@@ -1,0 +1,515 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Friendloop performance</title>
+<style>
+.viz-root {
+  color-scheme: light;
+  --plane: #f9f9f7; --surface: #fcfcfb; --ink: #0b0b0b; --ink-2: #52514e; --ink-3: #6d6c67;
+  --grid: #e1e0d9; --axis: #c3c2b7; --ring: rgba(11,11,11,.10); --wash: rgba(11,11,11,.04);
+  --server: #2a78d6; --network: #eb6834; --browser: #1baf7a; --baseline: #52514e;
+  --s1: #2a78d6; --s2: #eb6834;
+  --good: #006300; --bad: #b42828; --warn-bg: #fff4d6; --warn-ink: #5c4300;
+}
+@media (prefers-color-scheme: dark) {
+  :root:where(:not([data-theme="light"])) .viz-root {
+    color-scheme: dark;
+    --plane: #0d0d0d; --surface: #1a1a19; --ink: #f0efec; --ink-2: #c3c2b7; --ink-3: #a3a29a;
+    --grid: #2c2c2a; --axis: #383835; --ring: rgba(255,255,255,.10); --wash: rgba(255,255,255,.05);
+    --server: #3987e5; --network: #d95926; --browser: #199e70; --baseline: #c3c2b7;
+    --s1: #3987e5; --s2: #d95926;
+    --good: #0ca30c; --bad: #e66767; --warn-bg: #3a2f10; --warn-ink: #f4d58a;
+  }
+}
+:root[data-theme="dark"] .viz-root {
+  color-scheme: dark;
+  --plane: #0d0d0d; --surface: #1a1a19; --ink: #f0efec; --ink-2: #c3c2b7; --ink-3: #a3a29a;
+  --grid: #2c2c2a; --axis: #383835; --ring: rgba(255,255,255,.10); --wash: rgba(255,255,255,.05);
+  --server: #3987e5; --network: #d95926; --browser: #199e70; --baseline: #c3c2b7;
+  --s1: #3987e5; --s2: #d95926;
+  --good: #0ca30c; --bad: #e66767; --warn-bg: #3a2f10; --warn-ink: #f4d58a;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+.viz-root { background: var(--plane); color: var(--ink); min-height: 100vh; font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+.wrap { max-width: 1320px; margin: 0 auto; padding: 28px 24px 80px; }
+h1 { font-size: 22px; font-weight: 650; margin: 0; letter-spacing: -.01em; }
+h2 { font-size: 15px; font-weight: 650; margin: 0 0 2px; }
+.sub { color: var(--ink-2); margin: 2px 0 0; }
+.note { color: var(--ink-2); font-size: 13px; margin: 0 0 14px; max-width: 78ch; }
+.controls { display: flex; flex-wrap: wrap; gap: 14px 18px; align-items: end; margin: 20px 0; }
+label.field { display: grid; gap: 4px; font-size: 12px; color: var(--ink-2); font-weight: 550; }
+select, input[type=search] {
+  font: inherit; color: var(--ink); background: var(--surface); border: 1px solid var(--axis);
+  border-radius: 7px; padding: 6px 9px; min-height: 34px; max-width: 320px;
+}
+.seg { display: inline-flex; border: 1px solid var(--axis); border-radius: 8px; overflow: hidden; background: var(--surface); }
+.seg button { font: inherit; color: var(--ink-2); background: none; border: 0; padding: 6px 12px; min-height: 32px; cursor: pointer; }
+.seg button + button { border-left: 1px solid var(--axis); }
+.seg button[aria-pressed=true] { background: var(--ink); color: var(--surface); font-weight: 600; }
+:focus-visible { outline: 2px solid var(--s1); outline-offset: 2px; }
+.card { background: var(--surface); border: 1px solid var(--ring); border-radius: 12px; padding: 18px 20px; margin-top: 14px; }
+.grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); margin-top: 14px; }
+.grid .card { margin: 0; padding: 14px 16px; }
+.hero { display: grid; gap: 26px; grid-template-columns: minmax(280px, 1.2fr) 2fr; align-items: center; }
+@media (max-width: 800px) { .hero { grid-template-columns: 1fr; } }
+.hero-number { font-size: 52px; font-weight: 650; letter-spacing: -.025em; line-height: 1.02; }
+.tile-label { color: var(--ink-2); font-size: 12px; font-weight: 550; }
+.tile-value { font-size: 24px; font-weight: 620; letter-spacing: -.015em; margin-top: 2px; }
+.tile-foot { font-size: 12px; color: var(--ink-2); margin-top: 2px; }
+.delta-good { color: var(--good); font-weight: 600; }
+.delta-bad { color: var(--bad); font-weight: 600; }
+.delta-flat { color: var(--ink-2); }
+.meter { position: relative; height: 10px; border-radius: 5px; background: var(--grid); margin: 22px 0 6px; }
+.meter span { position: absolute; inset: 0 auto 0 0; background: var(--s1); border-radius: 5px; min-width: 4px; }
+.meter-scale { display: flex; justify-content: space-between; font-size: 12px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.legend { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 12.5px; color: var(--ink-2); margin: 6px 0 10px; }
+.legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
+.stack { display: flex; gap: 2px; height: 10px; }
+.stack i { display: block; height: 100%; min-width: 0; }
+.stack i:first-child { border-radius: 4px 0 0 4px; }
+.stack i:last-child { border-radius: 0 4px 4px 0; }
+.stack i:only-child { border-radius: 4px; }
+.barcell { position: relative; min-width: 150px; height: 18px; display: flex; align-items: center; }
+.barcell .tick { position: absolute; top: 1px; bottom: 1px; width: 2px; background: var(--baseline); border-radius: 1px; }
+.surface-row { display: grid; grid-template-columns: 110px 1fr 64px; align-items: center; gap: 12px; min-height: 24px; }
+.surface-row .num { text-align: right; font-variant-numeric: tabular-nums; color: var(--ink-2); font-size: 13px; }
+.table-wrap { overflow-x: auto; margin: 0 -20px; padding: 0 20px; }
+table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
+#table > * > tr > th, #table > * > tr > td { padding: 7px 8px; text-align: right; border-bottom: 1px solid var(--grid); white-space: nowrap; }
+#table > thead > tr > th { font-size: 12px; color: var(--ink-2); font-weight: 600; position: sticky; top: 0; background: var(--surface); }
+th button { all: unset; cursor: pointer; }
+th button:focus-visible { outline: 2px solid var(--s1); outline-offset: 2px; }
+th[aria-sort=ascending] button::after { content: " ↑"; }
+th[aria-sort=descending] button::after { content: " ↓"; }
+#table > * > tr > th:first-child, #table > * > tr > td:first-child { text-align: left; white-space: normal; min-width: 260px; }
+#table td.left, #table th.left { text-align: left; }
+tr.row { cursor: pointer; }
+tr.row:hover td { background: var(--wash); }
+.row-title { all: unset; cursor: pointer; display: block; }
+.row-title:focus-visible { outline: 2px solid var(--s1); outline-offset: 2px; }
+.row-id { font: 11.5px ui-monospace, Menlo, monospace; color: var(--ink-3); }
+.chip { display: inline-block; font-size: 11.5px; color: var(--ink-2); background: var(--wash); border-radius: 5px; padding: 1px 6px; }
+.fail { background: var(--warn-bg); color: var(--warn-ink); border-radius: 5px; padding: 1px 6px; font-size: 12px; font-weight: 600; }
+#table > tbody > tr.detail > td { background: var(--wash); white-space: normal; text-align: left; padding: 14px 16px; }
+.detail-grid { display: grid; gap: 22px; grid-template-columns: minmax(0, .8fr) minmax(0, 1.3fr) minmax(0, 1.1fr); }
+@media (max-width: 1100px) { .detail-grid { grid-template-columns: minmax(0, 1fr); } }
+.kv { display: grid; grid-template-columns: auto 1fr; gap: 2px 14px; margin: 0; font-size: 13px; }
+.kv dt { color: var(--ink-2); }
+.kv dd { margin: 0; text-align: right; }
+h3 { font-size: 12.5px; margin: 0 0 6px; font-weight: 650; }
+.mini { width: 100%; font-size: 12px; table-layout: fixed; }
+.mini td, .mini th { padding: 3px 6px; border-bottom: 1px solid var(--grid); text-align: right; vertical-align: top; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mini th { color: var(--ink-2); font-weight: 600; font-size: 11.5px; }
+.mini .path { text-align: left; font-family: ui-monospace, Menlo, monospace; font-size: 11.5px; }
+.mini .left { text-align: left; }
+.mini td.sql { white-space: pre-wrap; text-align: left; }
+.lane { position: relative; height: 8px; margin-top: 4px; background: var(--grid); border-radius: 2px; }
+.lane i { position: absolute; top: 0; bottom: 0; background: var(--network); border-radius: 2px; min-width: 2px; }
+.sql { font: 11.5px/1.4 ui-monospace, Menlo, monospace; white-space: pre-wrap; word-break: break-word; }
+#tip { position: fixed; z-index: 10; pointer-events: none; background: var(--ink); color: var(--surface); padding: 7px 10px; border-radius: 7px; font-size: 12.5px; line-height: 1.4; max-width: 320px; display: none; font-variant-numeric: tabular-nums; }
+.columns { display: grid; gap: 14px; grid-template-columns: 1fr 1fr; }
+@media (max-width: 900px) { .columns { grid-template-columns: 1fr; } }
+.columns .card { margin-top: 14px; }
+ul.tight { margin: 6px 0 0; padding-left: 18px; font-size: 13px; }
+.empty { color: var(--ink-2); padding: 18px 0; }
+details > summary { cursor: pointer; font-weight: 600; font-size: 13px; }
+</style>
+</head>
+<body>
+<div class="viz-root">
+<div class="wrap">
+  <h1>Friendloop performance</h1>
+  <p class="sub" id="subtitle"></p>
+
+  <div class="controls" role="group" aria-label="What to show">
+    <div class="field">
+      <div class="tile-label" id="profile-label" style="margin-bottom:4px">Who</div>
+      <div class="seg" id="profile" role="group" aria-labelledby="profile-label"></div>
+    </div>
+    <label class="field">Showing run<select id="current"></select></label>
+    <label class="field">Compared with<select id="baseline"></select></label>
+  </div>
+
+  <div id="warnings"></div>
+  <section class="card hero" aria-label="The score">
+    <div>
+      <div class="tile-label">Average time across <span id="hero-count"></span> interactions</div>
+      <div class="hero-number" id="hero-number"></div>
+      <div class="tile-foot" id="hero-foot" style="font-size:14px;margin-top:6px"></div>
+    </div>
+    <div>
+      <div class="tile-label" id="meter-label"></div>
+      <div class="meter" role="img" id="meter"><span id="meter-fill"></span></div>
+      <div class="meter-scale"><span id="meter-start"></span><span id="meter-end"></span></div>
+    </div>
+  </section>
+
+  <div class="grid" id="kinds" aria-label="By kind of interaction"></div>
+  <div class="grid" id="guards" aria-label="Numbers that must not get worse"></div>
+
+  <div class="columns">
+    <section class="card">
+      <h2>The score over time</h2>
+      <p class="note" style="margin-bottom:4px">Full runs only. Lower is better.</p>
+      <div class="legend" id="trend-legend"></div>
+      <div id="trend"></div>
+    </section>
+    <section class="card">
+      <h2>Where the time goes, by part of the app</h2>
+      <p class="note" style="margin-bottom:4px">Mean time per interaction. The server waits for your request to come back; the network moves bytes; the browser renders.</p>
+      <div class="legend">
+        <span><i style="background:var(--server)"></i>Server</span>
+        <span><i style="background:var(--network)"></i>Network</span>
+        <span><i style="background:var(--browser)"></i>Browser</span>
+      </div>
+      <div id="surfaces"></div>
+    </section>
+  </div>
+
+  <section class="card">
+    <h2>Every interaction</h2>
+    <p class="note">Each is timed from the input to the frame after the real result is on screen. Select a row for its requests and queries. The thin mark on a bar is the comparison run.</p>
+    <div class="controls" style="margin:0 0 12px" role="group" aria-label="Filter the table">
+      <label class="field">Part of the app<select id="f-surface"></select></label>
+      <label class="field">Kind<select id="f-kind"></select></label>
+      <label class="field">Find<input type="search" id="f-search" placeholder="Reaction, /g/[id], E4"></label>
+      <div class="tile-foot" id="table-count" style="padding-bottom:8px"></div>
+    </div>
+    <div class="legend">
+      <span><i style="background:var(--server)"></i>Server</span>
+      <span><i style="background:var(--network)"></i>Network</span>
+      <span><i style="background:var(--browser)"></i>Browser</span>
+    </div>
+    <div class="table-wrap"><table id="table"></table></div>
+  </section>
+
+  <div class="columns">
+    <section class="card">
+      <h2>What is covered</h2>
+      <p class="note" id="coverage-note"></p>
+      <details><summary id="exempt-summary"></summary><ul class="tight" id="exempt"></ul></details>
+      <details style="margin-top:8px"><summary id="flows-summary"></summary><p class="note" style="margin:6px 0 0" id="flows"></p></details>
+    </section>
+    <section class="card">
+      <h2>How to read this</h2>
+      <p class="note" id="conditions"></p>
+      <ul class="tight">
+        <li>Every interaction counts the same, whatever its traffic.</li>
+        <li>This is a lab, not real visitors: runs compare with each other and do not predict production numbers.</li>
+        <li>The database round trip is an assumed <span id="db-rtt"></span> ms. Serverless cold starts and Vercel's edge cache are not modelled.</li>
+        <li>Some writes run on small throwaway loops, so they understate the cost on a large loop.</li>
+      </ul>
+    </section>
+  </div>
+</div>
+<div id="tip" role="tooltip"></div>
+</div>
+
+<script type="application/json" id="data">/*__DATA__*/</script>
+<script>
+(() => {
+  const DATA = JSON.parse(document.getElementById("data").textContent);
+  const $ = (id) => document.getElementById(id);
+  const KINDS = { "page-load": "Page loads", navigation: "Moving around", write: "Saving things", instant: "Instant UI" };
+  const KIND_SINGULAR = { "page-load": "Page load", navigation: "Navigation", write: "Save", instant: "Instant" };
+  const TARGET = 0.9;
+  const runs = DATA.runs;
+  const state = { profile: "phone-4g", current: null, baseline: null, surface: "", kind: "", search: "", sort: "now", dir: -1, open: new Set() };
+
+  const escapeHtml = (value) => String(value ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const fmtMs = (v) => (v === null || v === undefined) ? "–" : v >= 1000 ? `${(v / 1000).toFixed(v >= 10000 ? 1 : 2)} s` : `${Math.round(v)} ms`;
+  const fmtKb = (b) => (b === null || b === undefined) ? "–" : b >= 1048576 ? `${(b / 1048576).toFixed(1)} MB` : `${Math.round(b / 1024)} KB`;
+  const fmtNum = (v) => (v === null || v === undefined) ? "–" : String(Math.round(v));
+  const mean = (list) => list.length ? list.reduce((a, b) => a + b, 0) / list.length : null;
+  const runById = (id) => runs.find((run) => run.id === id);
+  const rowsOf = (run) => run ? run.rows.filter((row) => row.profile === state.profile) : [];
+
+  /** The change, as a person reads it: which way, and whether that is good. */
+  function delta(now, then, { lowerIsBetter = true, flat = 0.02 } = {}) {
+    if (now === null || then === null || now === undefined || then === undefined || then === 0) return { text: "–", cls: "delta-flat", pct: null };
+    const change = (now - then) / then;
+    if (Math.abs(change) < flat) return { text: "no change", cls: "delta-flat", pct: change };
+    const better = lowerIsBetter ? change < 0 : change > 0;
+    const arrow = change < 0 ? "↓" : "↑";
+    return { text: `${arrow} ${Math.abs(change * 100).toFixed(0)}%`, cls: better ? "delta-good" : "delta-bad", pct: change };
+  }
+
+  /** Comparisons only ever use interactions both runs measured. */
+  function paired() {
+    const current = rowsOf(runById(state.current));
+    const base = new Map(rowsOf(runById(state.baseline)).map((row) => [row.id, row]));
+    return { current, base, shared: current.filter((row) => base.has(row.id) && row.medians.doneMs !== null && base.get(row.id).medians.doneMs !== null) };
+  }
+  const meanOf = (rows, metric) => mean(rows.map((row) => row.medians[metric]).filter((v) => v !== null && v !== undefined));
+
+  function renderHero() {
+    const run = runById(state.current);
+    const { current, base, shared } = paired();
+    const now = meanOf(shared, "doneMs");
+    const then = meanOf(shared.map((row) => base.get(row.id)), "doneMs");
+    const same = state.current === state.baseline;
+    $("subtitle").textContent = `${run.label} · ${new Date(run.createdAt).toLocaleString()} · commit ${run.git.sha}${run.git.dirtyFiles ? ` + ${run.git.dirtyFiles} changed files` : ""} · ${run.config.reps} repetitions each`;
+    $("hero-count").textContent = shared.length;
+    $("hero-number").textContent = fmtMs(now);
+    const d = delta(now, then);
+    const improved = then ? 1 - now / then : 0;
+    $("hero-foot").innerHTML = same
+      ? "This is the comparison run."
+      : `was ${fmtMs(then)} in ${escapeHtml(runById(state.baseline).label)}: <span class="${d.cls}">${d.text}</span>`;
+    $("meter-label").textContent = same ? `The goal is ${fmtMs(then * (1 - TARGET))}, 90% below this run.` : `${Math.max(0, improved * 100).toFixed(0)}% of the way down, against a goal of 90%. That means reaching ${fmtMs(then * (1 - TARGET))}.`;
+    $("meter-fill").style.width = `${Math.min(100, Math.max(0, improved / TARGET * 100))}%`;
+    $("meter").setAttribute("aria-label", $("meter-label").textContent);
+    $("meter-start").textContent = "Baseline";
+    $("meter-end").textContent = "90% faster";
+
+    const warnings = [];
+    const failed = current.filter((row) => row.failures.length);
+    if (failed.length) warnings.push(`${failed.length} interactions had failed samples in this run.`);
+    const lost = rowsOf(runById(state.baseline)).filter((row) => !current.some((other) => other.id === row.id));
+    if (lost.length && !run.partial) warnings.push(`${lost.length} interactions from the comparison run are missing here and are left out of the score.`);
+    if (run.partial) warnings.push(`This is a partial run of ${current.length} interactions. Its average is only comparable on those.`);
+    $("warnings").innerHTML = warnings.map((text) => `<p class="fail" style="margin:0 0 8px;padding:6px 10px;display:block">⚠ ${escapeHtml(text)}</p>`).join("");
+
+    $("kinds").innerHTML = Object.entries(KINDS).map(([kind, label]) => {
+      const rows = shared.filter((row) => row.kind === kind);
+      if (!rows.length) return "";
+      const n = meanOf(rows, "doneMs");
+      const t = meanOf(rows.map((row) => base.get(row.id)), "doneMs");
+      const change = delta(n, t);
+      return `<div class="card"><div class="tile-label">${label}</div><div class="tile-value">${fmtMs(n)}</div><div class="tile-foot">${rows.length} interactions · ${same ? "" : `<span class="${change.cls}">${change.text}</span>`}</div></div>`;
+    }).join("");
+
+    const guards = [
+      ["Ready to use", "interactiveMs", "page-load", "When a loaded page has hydrated and responds to taps."],
+      ["Server has answered", "confirmedMs", "write", "When a save really finished, however soon the screen changed."],
+      ["Main thread blocked", "longTaskMs", null, "Long-task time after the input."],
+      ["Data per page load", "bytes", "page-load", "Bytes over the network."],
+      ["Queries per load", "dbQueries", "page-load", "Database round trips during a page load."],
+    ];
+    $("guards").innerHTML = guards.map(([label, metric, kind, why]) => {
+      const rows = shared.filter((row) => !kind || row.kind === kind);
+      const n = meanOf(rows, metric);
+      const t = meanOf(rows.map((row) => base.get(row.id)), metric);
+      const fmt = metric === "bytes" ? fmtKb : metric === "dbQueries" ? fmtNum : fmtMs;
+      const change = delta(n, t);
+      return `<div class="card" title="${escapeHtml(why)}"><div class="tile-label">${label}</div><div class="tile-value">${fmt(n)}</div><div class="tile-foot">was ${fmt(t)} · ${same ? "" : `<span class="${change.cls}">${change.text}</span>`}</div></div>`;
+    }).join("");
+  }
+
+  function renderTrend() {
+    const full = runs.filter((run) => !run.partial);
+    const series = [{ id: "phone-4g", label: "Phone on 4G", color: "var(--s1)" }, { id: "desktop", label: "Laptop on broadband", color: "var(--s2)" }];
+    $("trend-legend").innerHTML = series.map((s) => `<span><i style="background:${s.color}"></i>${s.label}</span>`).join("");
+    if (full.length < 1) { $("trend").innerHTML = `<p class="empty">No full runs yet.</p>`; return; }
+    const W = 560, H = 220, L = 52, R = 14, T = 12, B = 34;
+    const points = series.map((s) => ({ ...s, values: full.map((run) => run.scores[s.id]?.mean ?? null) }));
+    const max = Math.max(...points.flatMap((p) => p.values.filter((v) => v !== null)), 1);
+    const nice = (v) => { const step = 10 ** Math.floor(Math.log10(v)); return Math.ceil(v / step) * step; };
+    const top = nice(max);
+    const x = (i) => full.length === 1 ? (L + W - R) / 2 : L + (i / (full.length - 1)) * (W - L - R);
+    const y = (v) => T + (1 - v / top) * (H - T - B);
+    const ticks = [0, .25, .5, .75, 1].map((f) => f * top);
+    let svg = `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Average interaction time for each full run">`;
+    for (const tick of ticks) svg += `<line x1="${L}" x2="${W - R}" y1="${y(tick)}" y2="${y(tick)}" stroke="var(--grid)"/><text x="${L - 8}" y="${y(tick) + 4}" text-anchor="end" font-size="11" fill="var(--ink-3)">${fmtMs(tick)}</text>`;
+    const labelEvery = Math.max(1, Math.ceil(full.length / 6));
+    full.forEach((run, i) => {
+      if (i % labelEvery === 0 || i === full.length - 1) svg += `<text x="${x(i)}" y="${H - 12}" text-anchor="${i === 0 && full.length > 1 ? "start" : i === full.length - 1 && full.length > 1 ? "end" : "middle"}" font-size="11" fill="var(--ink-3)">${escapeHtml(run.label.length > 22 ? `${run.label.slice(0, 21)}…` : run.label)}</text>`;
+    });
+    for (const [seriesIndex, p] of points.entries()) {
+      const line = p.values.map((v, i) => v === null ? null : `${x(i)},${y(v)}`).filter(Boolean).join(" ");
+      svg += `<polyline points="${line}" fill="none" stroke="${p.color}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>`;
+      p.values.forEach((v, i) => { if (v !== null) svg += `<circle cx="${x(i)}" cy="${y(v)}" r="4" fill="${p.color}" stroke="var(--surface)" stroke-width="2"/>`; });
+      const lastIndex = p.values.length - 1;
+      // The first series labels above its end point, the second below, so neither sits on a line.
+      if (p.values[lastIndex] !== null) svg += `<text x="${x(lastIndex) - 10}" y="${y(p.values[lastIndex]) + (seriesIndex === 0 ? -12 : 18)}" text-anchor="end" font-size="11.5" font-weight="600" fill="var(--ink-2)">${fmtMs(p.values[lastIndex])}</text>`;
+    }
+    const slot = full.length === 1 ? W : (W - L - R) / (full.length - 1);
+    full.forEach((run, i) => {
+      const body = `${escapeHtml(run.label)}<br>${series.map((s) => `${s.label}: ${fmtMs(run.scores[s.id]?.mean)}`).join("<br>")}`;
+      svg += `<rect x="${x(i) - slot / 2}" y="${T}" width="${slot}" height="${H - T - B}" fill="transparent" tabindex="0" data-tip="${escapeHtml(body)}" aria-label="${escapeHtml(run.label)}"/>`;
+    });
+    $("trend").innerHTML = svg + "</svg>";
+  }
+
+  const stack = (m, scale) => {
+    const parts = [["server", m.serverMs, "Server"], ["network", m.networkMs, "Network"], ["browser", m.browserMs, "Browser"]].filter(([, v]) => (v ?? 0) > 0);
+    const tip = parts.map(([, v, label]) => `${label}: ${fmtMs(v)}`).join("<br>");
+    return `<div class="stack" data-tip="${escapeHtml(tip || "Nothing to break down")}" style="width:${Math.max(0.5, parts.reduce((a, [, v]) => a + v, 0) / scale * 100)}%">${parts.map(([key, v]) => `<i style="flex:${v} 1 0;background:var(--${key})"></i>`).join("")}</div>`;
+  };
+
+  function renderSurfaces() {
+    const { current } = paired();
+    const surfaces = [...new Set(current.map((row) => row.surface))];
+    const items = surfaces.map((surface) => {
+      const rows = current.filter((row) => row.surface === surface);
+      return { surface, count: rows.length, m: { serverMs: meanOf(rows, "serverMs"), networkMs: meanOf(rows, "networkMs"), browserMs: meanOf(rows, "browserMs") }, done: meanOf(rows, "doneMs") };
+    }).sort((a, b) => b.done - a.done);
+    const scale = Math.max(...items.map((item) => (item.m.serverMs ?? 0) + (item.m.networkMs ?? 0) + (item.m.browserMs ?? 0)), 1);
+    $("surfaces").innerHTML = items.map((item) => `<div class="surface-row"><div>${escapeHtml(item.surface)}</div><div>${stack(item.m, scale)}</div><div class="num">${fmtMs(item.done)}</div></div>`).join("");
+  }
+
+  const COLUMNS = [
+    { key: "label", label: "Interaction", get: (r) => r.label.toLowerCase(), left: true },
+    { key: "kind", label: "Kind", get: (r) => r.kind, left: true },
+    { key: "now", label: "Now", get: (r) => r.medians.doneMs ?? Infinity },
+    { key: "base", label: "Was", get: (r, b) => b?.medians.doneMs ?? -1 },
+    { key: "change", label: "Change", get: (r, b) => { const n = r.medians.doneMs, t = b?.medians.doneMs; return n != null && t ? (n - t) / t : 0; } },
+    { key: "bar", label: "Time split", get: (r) => r.medians.doneMs ?? 0, left: true },
+    { key: "ready", label: "Ready", get: (r) => r.medians.interactiveMs ?? -1, title: "When a loaded page responds to taps" },
+    { key: "confirmed", label: "Answered", get: (r) => r.medians.confirmedMs ?? -1, title: "When the server has answered" },
+    { key: "reqs", label: "Requests", get: (r) => r.medians.requests ?? 0 },
+    { key: "bytes", label: "Data", get: (r) => r.medians.bytes ?? 0 },
+    { key: "queries", label: "Queries", get: (r) => r.medians.dbQueries ?? 0 },
+  ];
+
+  function detailHtml(row, baseRow) {
+    const m = row.medians;
+    const kv = [
+      ["Fastest, slowest", `${fmtMs(row.min)}, ${fmtMs(row.max)} (${row.n} samples)`],
+      ["First frame after input", fmtMs(m.feedbackMs)],
+      ["Ready to use", fmtMs(m.interactiveMs)],
+      ["Server has answered", fmtMs(m.confirmedMs)],
+      ["First and largest paint", `${fmtMs(m.fcpMs)}, ${fmtMs(m.lcpMs)}`],
+      ["Layout shift", m.cls === null ? "–" : m.cls.toFixed(3)],
+      ["Main thread blocked", fmtMs(m.longTaskMs)],
+      ["Database time", `${fmtMs(m.dbMs)} over ${fmtNum(m.dbQueries)} queries`],
+      ["Bytes by type", Object.entries(row.bytesByRole).sort((a, b) => b[1] - a[1]).map(([k, v]) => `${k} ${fmtKb(v)}`).join(", ") || "–"],
+      ["Flows", row.flows.join(", ") || "–"],
+      ["Routes", row.routes.join(", ") || "–"],
+      ["Viewer, cache", `${row.viewer}${row.cache ? `, ${row.cache} cache` : ""}`],
+    ];
+    let html = `<div class="detail-grid"><div><h3>Numbers</h3><dl class="kv">${kv.map(([k, v]) => `<dt>${k}</dt><dd>${escapeHtml(v)}</dd>`).join("")}</dl>`;
+    if (row.failures.length) html += `<h3 style="margin-top:12px">Failures</h3><ul class="tight">${row.failures.map((f) => `<li>${escapeHtml(f)}</li>`).join("")}</ul>`;
+    html += `</div>`;
+    const detail = row.detail;
+    if (!detail) return html + `<div class="empty">Requests and queries are kept only for the baseline and the latest run.</div></div>`;
+    const end = Math.max(...detail.requests.map((r) => r.endMs), m.doneMs ?? 1, 1);
+    const reqs = [...detail.requests].sort((a, b) => a.startMs - b.startMs);
+    const shown = reqs.slice(0, 40);
+    html += `<div><h3>Requests (${reqs.length}${reqs.length > 40 ? ", first 40" : ""})</h3>${reqs.length ? `<table class="mini"><colgroup><col><col style="width:62px"><col style="width:62px"><col style="width:62px"><col style="width:62px"><col style="width:22%"></colgroup><thead><tr><th class="path">Path</th><th class="left">Kind</th><th>Size</th><th>Wait</th><th>Ends</th><th class="left">When</th></tr></thead><tbody>${shown.map((r) => `<tr><td class="path" title="${escapeHtml(r.path)}">${escapeHtml(r.path)}</td><td class="left">${escapeHtml(r.role === "asset" ? r.type.toLowerCase() : r.role)}</td><td>${fmtKb(r.bytes)}</td><td>${fmtMs(r.waitMs)}</td><td>${fmtMs(r.endMs)}</td><td class="left"><div class="lane"><i style="left:${Math.max(0, r.startMs / end * 100)}%;width:${Math.max(1, (r.endMs - r.startMs) / end * 100)}%"></i></div></td></tr>`).join("")}</tbody></table>` : `<div class="empty">No network at all.</div>`}</div>`;
+    const grouped = new Map();
+    for (const q of detail.queries) { const g = grouped.get(q.sql) ?? { sql: q.sql, count: 0, ms: 0 }; g.count++; g.ms += q.ms; grouped.set(q.sql, g); }
+    const list = [...grouped.values()].sort((a, b) => b.ms - a.ms).slice(0, 25);
+    html += `<div><h3>Queries (${detail.queries.length}, ${grouped.size} different)</h3>${list.length ? `<table class="mini"><colgroup><col style="width:44px"><col style="width:64px"><col></colgroup><thead><tr><th>Times</th><th>Total</th><th class="left">SQL</th></tr></thead><tbody>${list.map((q) => `<tr><td>${q.count}</td><td>${fmtMs(q.ms)}</td><td class="left sql">${escapeHtml(q.sql)}</td></tr>`).join("")}</tbody></table>` : `<div class="empty">No database at all.</div>`}</div></div>`;
+    return html;
+  }
+
+  function renderTable() {
+    const { current, base } = paired();
+    const term = state.search.trim().toLowerCase();
+    const rows = current.filter((row) =>
+      (!state.surface || row.surface === state.surface) &&
+      (!state.kind || row.kind === state.kind) &&
+      (!term || `${row.id} ${row.label} ${row.routes.join(" ")} ${row.flows.join(" ")}`.toLowerCase().includes(term)));
+    const column = COLUMNS.find((c) => c.key === state.sort) ?? COLUMNS[2];
+    rows.sort((a, b) => {
+      const x = column.get(a, base.get(a.id)), y = column.get(b, base.get(b.id));
+      return (x < y ? -1 : x > y ? 1 : 0) * state.dir;
+    });
+    $("table-count").textContent = `${rows.length} of ${current.length}`;
+    const scale = Math.max(...rows.map((row) => Math.max(row.medians.doneMs ?? 0, base.get(row.id)?.medians.doneMs ?? 0)), 1);
+    const head = `<thead><tr>${COLUMNS.map((c) => `<th class="${c.left ? "left" : ""}" ${state.sort === c.key ? `aria-sort="${state.dir > 0 ? "ascending" : "descending"}"` : ""} ${c.title ? `title="${c.title}"` : ""}><button type="button" data-sort="${c.key}">${c.label}</button></th>`).join("")}</tr></thead>`;
+    const body = rows.map((row) => {
+      const b = base.get(row.id);
+      const m = row.medians;
+      const d = delta(m.doneMs, b?.medians.doneMs);
+      const tick = b?.medians.doneMs != null && state.current !== state.baseline ? `<span class="tick" style="left:${b.medians.doneMs / scale * 100}%" data-tip="Comparison run: ${fmtMs(b.medians.doneMs)}"></span>` : "";
+      const fail = row.failures.length ? ` <span class="fail">⚠ ${row.failures.length} failed</span>` : "";
+      const open = state.open.has(row.id);
+      const main = `<tr class="row" data-id="${escapeHtml(row.id)}"><td><button type="button" class="row-title" aria-expanded="${open}">${open ? "▾" : "▸"} ${escapeHtml(row.label)}${fail}<br><span class="row-id">${escapeHtml(row.id)}</span></button></td><td class="left"><span class="chip">${KIND_SINGULAR[row.kind]}${row.cache === "warm" ? ", return" : ""}</span></td><td><b>${fmtMs(m.doneMs)}</b></td><td>${fmtMs(b?.medians.doneMs)}</td><td class="${d.cls}">${state.current === state.baseline ? "–" : d.text}</td><td class="left"><div class="barcell">${stack(m, scale)}${tick}</div></td><td>${row.kind === "page-load" ? fmtMs(m.interactiveMs) : "–"}</td><td>${fmtMs(m.confirmedMs)}</td><td>${fmtNum(m.requests)}</td><td>${fmtKb(m.bytes)}</td><td>${fmtNum(m.dbQueries)}</td></tr>`;
+      return main + (open ? `<tr class="detail"><td colspan="${COLUMNS.length}">${detailHtml(row, b)}</td></tr>` : "");
+    }).join("");
+    $("table").innerHTML = head + `<tbody>${body || `<tr><td colspan="${COLUMNS.length}" class="empty">Nothing matches.</td></tr>`}</tbody>`;
+  }
+
+  function renderCoverage() {
+    const c = DATA.coverage;
+    const run = runById(state.current);
+    if (c) {
+      $("coverage-note").textContent = `${c.routes.covered.length} of ${c.routes.total} routes are driven by an interaction, ${c.routes.exempt.length} are exempt with a reason, and ${c.routes.uncovered.length} are uncovered. ${c.flows.covered.length} of ${c.flows.total} flows in specs/flows.md are timed.`;
+      $("exempt-summary").textContent = `Exempt routes (${c.routes.exempt.length})`;
+      $("exempt").innerHTML = c.routes.exempt.map((e) => `<li><code>${escapeHtml(e.route)}</code>: ${escapeHtml(e.reason)}</li>`).join("");
+      $("flows-summary").textContent = `Flows not timed (${c.flows.uncovered.length})`;
+      $("flows").textContent = c.flows.uncovered.map((f) => f.flow).join(", ");
+    }
+    const profiles = run.config.profiles.map((p) => `${p.label}: ${p.cpuSlowdown}x CPU slowdown, ${p.latencyMs} ms latency, ${(p.downKbps / 1000).toFixed(1)} Mbps down`).join(". ");
+    $("conditions").textContent = `A real production build with Sentry running, over HTTP/2, on a six-month-old loop of 12 people and 26 rounds. ${profiles}.`;
+    $("db-rtt").textContent = run.config.dbRoundTripMs;
+  }
+
+  function renderAll() {
+    renderHero();
+    renderTrend();
+    renderSurfaces();
+    renderTable();
+    renderCoverage();
+    document.querySelectorAll("#profile button").forEach((button) => button.setAttribute("aria-pressed", String(button.dataset.value === state.profile)));
+  }
+
+  // Controls
+  const defaultCurrent = [...runs].reverse().find((run) => !run.partial) ?? runs[runs.length - 1];
+  // The original code re-measured under the final lab is the fair comparison (perf/README.md).
+  const defaultBase = runs.find((run) => run.label === "baseline-remeasured" && !run.partial)
+    ?? runs.find((run) => run.label === "baseline" && !run.partial) ?? runs[0];
+  state.current = defaultCurrent.id;
+  state.baseline = defaultBase.id;
+  const runLabel = (run) => `${run.label}${run.partial ? " (partial)" : ""} · ${new Date(run.createdAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })} ${new Date(run.createdAt).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })}`;
+  for (const id of ["current", "baseline"]) {
+    $(id).innerHTML = [...runs].reverse().map((run) => `<option value="${escapeHtml(run.id)}">${escapeHtml(runLabel(run))}</option>`).join("");
+    $(id).value = state[id];
+    $(id).addEventListener("change", (event) => { state[id] = event.target.value; renderAll(); });
+  }
+  $("profile").innerHTML = [["phone-4g", "Phone on 4G"], ["desktop", "Laptop on broadband"]].map(([value, label]) => `<button type="button" data-value="${value}">${label}</button>`).join("");
+  $("profile").addEventListener("click", (event) => {
+    const button = event.target.closest("button");
+    if (button) { state.profile = button.dataset.value; renderAll(); }
+  });
+  const allRows = runs.flatMap((run) => run.rows);
+  const surfaces = [...new Set(allRows.map((row) => row.surface))].sort();
+  $("f-surface").innerHTML = `<option value="">All</option>` + surfaces.map((s) => `<option>${escapeHtml(s)}</option>`).join("");
+  $("f-kind").innerHTML = `<option value="">All</option>` + Object.entries(KINDS).map(([k, v]) => `<option value="${k}">${v}</option>`).join("");
+  $("f-surface").addEventListener("change", (event) => { state.surface = event.target.value; renderTable(); });
+  $("f-kind").addEventListener("change", (event) => { state.kind = event.target.value; renderTable(); });
+  $("f-search").addEventListener("input", (event) => { state.search = event.target.value; renderTable(); });
+  $("table").addEventListener("click", (event) => {
+    const sort = event.target.closest("[data-sort]");
+    if (sort) {
+      if (state.sort === sort.dataset.sort) state.dir *= -1;
+      else { state.sort = sort.dataset.sort; state.dir = sort.dataset.sort === "label" || sort.dataset.sort === "kind" ? 1 : -1; }
+      renderTable();
+      return;
+    }
+    const row = event.target.closest("tr.row");
+    if (!row) return;
+    if (state.open.has(row.dataset.id)) state.open.delete(row.dataset.id); else state.open.add(row.dataset.id);
+    renderTable();
+    document.querySelector(`tr.row[data-id="${CSS.escape(row.dataset.id)}"] .row-title`)?.focus();
+  });
+
+  // One tooltip for every mark, on hover and on keyboard focus.
+  const tip = $("tip");
+  const showTip = (target, x, y) => {
+    tip.innerHTML = target.dataset.tip;
+    tip.style.display = "block";
+    const box = tip.getBoundingClientRect();
+    tip.style.left = `${Math.min(x + 12, innerWidth - box.width - 8)}px`;
+    tip.style.top = `${Math.max(8, y - box.height - 10)}px`;
+  };
+  document.addEventListener("pointermove", (event) => {
+    const target = event.target.closest?.("[data-tip]");
+    if (target) showTip(target, event.clientX, event.clientY); else tip.style.display = "none";
+  });
+  document.addEventListener("focusin", (event) => {
+    const target = event.target.closest?.("[data-tip]");
+    if (target) { const box = target.getBoundingClientRect(); showTip(target, box.left + box.width / 2, box.top); }
+  });
+  document.addEventListener("focusout", () => { tip.style.display = "none"; });
+
+  renderAll();
+})();
+</script>
+</body>
+</html>

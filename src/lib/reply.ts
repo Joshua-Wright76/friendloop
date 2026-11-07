@@ -367,34 +367,35 @@ export async function submitFor(token: string): Promise<WriteResult> {
   if (!context.issue) return { ok: false, status: 409, error: copy.reply.errors.nothingOpen };
 
   const at = await getNow();
-  await db
-    .update(replies)
-    .set({ status: "submitted", submittedAt: at, updatedAt: at })
-    .where(
-      and(
-        eq(replies.issueId, context.issue.id),
-        eq(replies.membershipId, context.membership.id),
-        replyHasContentCondition(),
+  // Three rows of different tables, none reading another: one round trip, not three.
+  await Promise.all([
+    db
+      .update(replies)
+      .set({ status: "submitted", submittedAt: at, updatedAt: at })
+      .where(
+        and(
+          eq(replies.issueId, context.issue.id),
+          eq(replies.membershipId, context.membership.id),
+          replyHasContentCondition(),
+        ),
       ),
-    );
-
-  // Section answers ride the same submission as the questions.
-  await db
-    .update(sectionReplies)
-    .set({
-      status: "submitted",
-      submittedAt: at,
-      addedAfterDelivery: context.issue.status === "delivered" || at > context.issue.deliversAt,
-      updatedAt: at,
-    })
-    .where(
-      and(
-        eq(sectionReplies.issueId, context.issue.id),
-        eq(sectionReplies.membershipId, context.membership.id),
+    // Section answers ride the same submission as the questions.
+    db
+      .update(sectionReplies)
+      .set({
+        status: "submitted",
+        submittedAt: at,
+        addedAfterDelivery: context.issue.status === "delivered" || at > context.issue.deliversAt,
+        updatedAt: at,
+      })
+      .where(
+        and(
+          eq(sectionReplies.issueId, context.issue.id),
+          eq(sectionReplies.membershipId, context.membership.id),
+        ),
       ),
-    );
-
-  await markAccepted(context.membership.id, context.membership.acceptedAt, at);
+    markAccepted(context.membership.id, context.membership.acceptedAt, at),
+  ]);
   return { ok: true, savedAt: at.toISOString() };
 }
 

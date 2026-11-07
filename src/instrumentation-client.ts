@@ -1,14 +1,10 @@
-import * as Sentry from "@sentry/nextjs";
-import { sentryOptions } from "@/lib/sentry-options";
+import { routerTransitionStart, startSentryWhenIdle } from "@/components/sentry-client";
 
 /**
  * Browser error tracking. No-op unless NEXT_PUBLIC_SENTRY_DSN is set at build
- * time. No session replay: the pages are people's private writing.
+ * time. No session replay: the pages are people's private writing. The SDK loads
+ * once the page is idle; see src/components/sentry-client.ts for why.
  */
-const options = sentryOptions({
-  dsn: process.env.NEXT_PUBLIC_SENTRY_DSN,
-  environment: process.env.NEXT_PUBLIC_SENTRY_ENVIRONMENT,
-});
-if (options) Sentry.init(options);
+startSentryWhenIdle();
 
-export const onRouterTransitionStart = Sentry.captureRouterTransitionStart;
+export const onRouterTransitionStart = routerTransitionStart;
