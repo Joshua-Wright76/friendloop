@@ -118,6 +118,18 @@ body::before {
   background-image: var(--page-image, linear-gradient(90deg, var(--check) 50%, transparent 0), linear-gradient(var(--check) 50%, transparent 0));
   background-size: var(--page-size, 32px 32px);
 }
+/* A film of grain over the whole page, so flat colour and crisp patterns read as paper. Above everything and untouchable; `scripts/build-page-grain.mjs` makes the tile. */
+body::after {
+  content: "";
+  position: fixed;
+  z-index: 200;
+  inset: 0;
+  pointer-events: none;
+  background: url("/textures/grain.png") 0 0/64px 64px;
+  opacity: var(--grain, .045);
+}
+html[data-theme="dark"] { --grain: .035; }
+@media print, (prefers-contrast: more) { body::after { display: none; } }
 ::selection { background: color-mix(in oklab, var(--accent) 22%, transparent); }
 /* One focus ring everywhere: opaque --accent-ink, which every theme derives to clear 4.5:1 on the page, the card and the soft accent fill (a translucent ring fell under 3:1 on some papers). */
 :focus-visible { outline: 3px solid var(--accent-ink); outline-offset: 3px; }
