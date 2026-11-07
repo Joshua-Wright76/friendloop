@@ -1,3 +1,6 @@
+import { readFileSync } from "node:fs";
+import path from "node:path";
+import { appUrl } from "../urls.ts";
 import {
   deliveryEmail,
   emailThemeOf,
@@ -79,6 +82,17 @@ const SECTIONS: SectionEmailBlock[] = [
 /** Every email Friendloop sends, rendered with sample data. */
 /** Every loop email carries its recipient's "stop emails" link. */
 const PREVIEW_STOP_URL = "https://friendloop.dev/u/preview-unsubscribe-token";
+
+/**
+ * Previews render in sandboxed frames, whose images must be https or data. A deployed
+ * app's stickers already are; on plain-http localhost they go in as data.
+ */
+function withLocalStickers<T extends { html: string }>(email: T): T {
+  if (!appUrl().startsWith("http:")) return email;
+  const html = email.html.replace(/src="[^"]*\/stickers\/png\/([a-z]+)\.png"/g, (_, key: string) =>
+    `src="data:image/png;base64,${readFileSync(path.join(process.cwd(), "public/stickers/png", `${key}.png`)).toString("base64")}"`);
+  return { ...email, html };
+}
 
 export function emailPreviews(): EmailPreview[] {
   return [
@@ -170,19 +184,20 @@ export function emailPreviews(): EmailPreview[] {
       // A loop with its own stationery and a named round: Bluebell paper, a header
       // picture, and the name where the number would be.
       id: "deliveryThemed",
-      email: deliveryEmail({
+      email: withLocalStickers(deliveryEmail({
         groupName: "Saturday Club",
         issueNumber: 11,
         issueName: "Camping weekend",
         url: "https://friendloop.dev/i/preview",
         unsubscribeUrl: PREVIEW_STOP_URL,
-        answers: ANSWERS.slice(0, 2),
+        answers: ANSWERS.slice(0, 2).map((answer, index) => ({ ...answer, authorCharm: ["frog", "star"][index] })),
         theme: emailThemeOf({
           themePreset: "bluebell",
           themeAccent: null,
           headerImageUrl: "https://friendloop.dev/dev-preview/header.svg",
+          themeMascot: "duck",
         }),
-      }),
+      })),
     },
     {
       id: "paused",

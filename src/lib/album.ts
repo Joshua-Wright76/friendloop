@@ -22,6 +22,8 @@ export type AlbumItem = {
   context: string;
   author: string;
   authorPhotoUrl: string | null;
+  authorCharm: string | null;
+  authorFrame: string | null;
   isYou: boolean;
   /** Where "view in issue" goes. */
   issueHref: string;
@@ -63,6 +65,8 @@ type Row = {
   author_name: string | null;
   author_email: string;
   author_photo: string | null;
+  author_charm: string | null;
+  author_frame: string | null;
 };
 
 /**
@@ -76,7 +80,7 @@ function everything(groupId: string, viewerIsAdmin: boolean): SQL {
       null::integer as duration_ms, null::text as caption, r.body as body, q.text as context,
       i.id as issue_id, i.number as number, i.name as issue_name,
       coalesce(i.delivered_at, i.delivers_at) as delivered_at, 'answer-' || r.id::text as anchor,
-      m.id as member_id, m.name as author_name, m.email as author_email, m.photo_url as author_photo,
+      m.id as member_id, m.name as author_name, m.email as author_email, m.photo_url as author_photo, m.charm as author_charm, m.avatar_frame as author_frame,
       0 as source, q.position as context_position, 0 as media_position, r.created_at as created_at
     from replies r
     join issues i on i.id = r.issue_id
@@ -88,7 +92,7 @@ function everything(groupId: string, viewerIsAdmin: boolean): SQL {
       r.audio_duration_ms, null::text, r.body, q.text,
       i.id, i.number, i.name,
       coalesce(i.delivered_at, i.delivers_at), 'answer-' || r.id::text,
-      m.id, m.name, m.email, m.photo_url,
+      m.id, m.name, m.email, m.photo_url, m.charm, m.avatar_frame,
       0, q.position, 1, r.created_at
     from replies r
     join issues i on i.id = r.issue_id
@@ -100,7 +104,7 @@ function everything(groupId: string, viewerIsAdmin: boolean): SQL {
       null::integer, sm.caption, sr.body, s.title,
       i.id, i.number, i.name,
       coalesce(i.delivered_at, i.delivers_at), 'section-reply-' || sr.id::text,
-      m.id, m.name, m.email, m.photo_url,
+      m.id, m.name, m.email, m.photo_url, m.charm, m.avatar_frame,
       1, s.position, sm.position, sr.created_at
     from section_media sm
     join section_replies sr on sr.id = sm.section_reply_id
@@ -179,6 +183,8 @@ export async function loadAlbum(input: {
       context: row.context,
       author: mine ? copy.issue.you : displayName(row),
       authorPhotoUrl: row.author_photo,
+      authorCharm: row.author_charm,
+      authorFrame: row.author_frame,
       isYou: mine,
       issueHref: issueAnchor(row.anchor, row.issue_id, input.token),
       issueId: row.issue_id,

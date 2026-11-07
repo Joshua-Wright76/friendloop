@@ -38,8 +38,8 @@ It preserves the same contrast relationships and gingham texture.
 - **Cards:** 6px corners, cream fill, a hairline, and one soft pink shadow.
 - **Paper:** the `.paper` treatment adds a notebook margin. Reply fields use
   `.lined-field` for 28px writing rules.
-- **Tape:** four patterns (`dots`, `stripe`, `mint`, `check`) decorate important
-  notes. Tape is always aria-hidden and never carries information.
+- **Tape:** four tones (`dots`, `stripe`, `mint`, `check`), drawn from the loop's tape
+  pack, decorate important notes. Tape is always aria-hidden and never carries information.
 - **Buttons:** pill-shaped, Nunito 800. Primary actions have a 3px pressed edge;
   quiet actions use an inset border. Minimum target height is 44px.
 - **Fields:** cream fill, visible border, and a soft accent focus ring. Every input
@@ -50,10 +50,30 @@ It preserves the same contrast relationships and gingham texture.
 - **Brand:** the cherry illustration and Gaegu wordmark are shared by the landing,
   account, reply, and issue experiences.
 
+## What a loop can choose
+
+Everything below is a set of custom properties from `src/lib/stationery.ts`, read by the
+stylesheet with a fallback. A loop that chose nothing gets no CSS and is plain Gingham.
+
+- **Page background:** gingham or a tile pattern, in the colour scheme's own `--check`. A
+  pattern prints exactly as strong as gingham's stripe crossings, so the contrast the
+  accent was derived against still holds.
+- **Colors:** the five curated schemes plus the accent.
+- **Paper pack:** one texture each for answers, polls, playlists and notes, marked with
+  `data-paper`. Hairlines use `--texture-line`, and ruled answers rule the words themselves
+  (`--answer-lines`, spaced by `1lh`) so the text always sits on the line.
+- **Washi tape:** four tones, chosen separately from the paper.
+- **Mascot:** replaces the cherry mark on the loop's pages and in its emails. The art lives
+  in `public/stickers`, with PNGs for email from `scripts/render-stickers.mjs`.
+
+A member chooses a **name charm** (a die-cut sticker beside their name) and an **avatar
+frame**, which overflows the picture so choosing one never moves the words beside it. All of
+it is decoration: names are always printed, and pattern, tape and stickers carry no meaning.
+
 ## Motion
 
 Cards may ride in 6px over 320ms; confirmations settle from 96% over 220ms.
-Nothing loops or bounces. `prefers-reduced-motion` removes both effects.
+A chosen tape pack unrolls across its preview over 520ms, and a chosen paper pack's fan opens over 320ms. Nothing loops or bounces. `prefers-reduced-motion` removes both effects.
 
 ## Copy
 

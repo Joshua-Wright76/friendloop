@@ -11,7 +11,7 @@ export type Reading = {
   sort: ReadingSort;
 };
 
-export type ReadingPerson = { id: string; name: string; photoUrl: string | null };
+export type ReadingPerson = { id: string; name: string; photoUrl: string | null; charm: string | null; frame: string | null };
 
 export type PersonEntry =
   | { kind: "answer"; question: string; answer: IssueAnswer }
@@ -35,9 +35,9 @@ export function parseReading(params: { by?: string | string[]; sort?: string | s
 /** Everyone who wrote something in the round, by name, each listed once. */
 export function readingPeople(input: { blocks: IssueBlock[]; sections: IssueSectionBlock[] }): ReadingPerson[] {
   const people = new Map<string, ReadingPerson>();
-  const note = (entry: { authorId: string; authorName: string; authorPhotoUrl: string | null }) => {
+  const note = (entry: { authorId: string; authorName: string; authorPhotoUrl: string | null; authorCharm: string | null; authorFrame: string | null }) => {
     if (!people.has(entry.authorId)) {
-      people.set(entry.authorId, { id: entry.authorId, name: entry.authorName, photoUrl: entry.authorPhotoUrl });
+      people.set(entry.authorId, { id: entry.authorId, name: entry.authorName, photoUrl: entry.authorPhotoUrl, charm: entry.authorCharm, frame: entry.authorFrame });
     }
   };
   for (const block of input.blocks) block.answers.forEach(note);

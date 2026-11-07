@@ -3,7 +3,9 @@ const FALLBACK = "http://localhost:3000";
 export function appUrl(): string {
   // A preview must link to itself, never to production: every email a dev loop
   // sends would otherwise point at the live site.
+  // The suite runs one build on several ports, which a build-time value can't say.
   const raw =
+    (process.env.E2E === "1" ? process.env.E2E_APP_URL : undefined) ??
     process.env.NEXT_PUBLIC_APP_URL ??
     (process.env.VERCEL_ENV === "preview" && process.env.VERCEL_URL
       ? `https://${process.env.VERCEL_URL}`

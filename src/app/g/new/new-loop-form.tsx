@@ -9,7 +9,9 @@ import { copy, text } from "@/lib/copy";
 import { formatHour } from "@/lib/format";
 import type { QuestionPack } from "@/lib/question-packs";
 import { QuestionPackPicker } from "@/components/question-pack-picker";
-import { PaperFields } from "@/components/paper-fields";
+import { PaperFields, type StationeryLooks } from "@/components/paper-fields";
+import { DEFAULT_BACKGROUND, DEFAULT_PAPER_PACK, DEFAULT_TAPE_PACK } from "@/lib/stationery";
+import { DEFAULT_MASCOT, stickerSrc } from "@/lib/stickers";
 import { LoopBanner } from "@/components/loop-theme";
 import { LivePaper } from "@/components/live-paper";
 import { PHOTO_ACCEPT } from "@/lib/photo-validation";
@@ -138,6 +140,12 @@ export function NewLoopForm({ packs }: { packs: QuestionPack[] }) {
   const [personalNote, setPersonalNote] = useState("");
   const [preset, setPreset] = useState(DEFAULT_PRESET);
   const [accent, setAccent] = useState("");
+  const [looks, setLooks] = useState<StationeryLooks>({
+    background: DEFAULT_BACKGROUND,
+    paperPack: DEFAULT_PAPER_PACK,
+    tapePack: DEFAULT_TAPE_PACK,
+    mascot: DEFAULT_MASCOT,
+  });
   const [headerFile, setHeaderFile] = useState<File | null>(null);
   const [headerPreview, setHeaderPreview] = useState<string | null>(null);
   const [headerError, setHeaderError] = useState("");
@@ -363,11 +371,15 @@ export function NewLoopForm({ packs }: { packs: QuestionPack[] }) {
       <input type="hidden" name="personalNote" value={personalNote} />
       <input type="hidden" name="preset" value={preset} />
       <input type="hidden" name="accent" value={normalizeHex(accent) ?? ""} />
+      <input type="hidden" name="background" value={looks.background} />
+      <input type="hidden" name="paperPack" value={looks.paperPack} />
+      <input type="hidden" name="tapePack" value={looks.tapePack} />
+      <input type="hidden" name="mascot" value={looks.mascot} />
       {questions.map((question, index) => <input key={`${index}:${question}`} type="hidden" name="question" value={question} />)}
       {emails.map((email) => <input key={email} type="hidden" name="email" value={email} />)}
 
       {/* The chosen paper dresses the whole page straight away, so the choice is its own preview. */}
-      {step >= 1 ? <LivePaper preset={preset} accent={normalizeHex(accent)} /> : null}
+      {step >= 1 ? <LivePaper settings={{ preset, accent: normalizeHex(accent), ...looks }} /> : null}
       <div className="wizard-progress">
         <div className="wizard-progress__row">
           <span className="text-[13px] font-bold text-ink-soft">
@@ -481,7 +493,15 @@ export function NewLoopForm({ packs }: { packs: QuestionPack[] }) {
             <div className="mt-4">
               {/* The hidden fields at the top of the form submit the choice, so moving
                   on from this step never loses it. */}
-              <PaperFields preset={preset} onPreset={setPreset} accent={accent} onAccent={setAccent} />
+              <PaperFields
+                preset={preset}
+                onPreset={setPreset}
+                accent={accent}
+                onAccent={setAccent}
+                looks={looks}
+                onLooks={(change) => setLooks((current) => ({ ...current, ...change }))}
+                loopName={name || copy.newLoop.namePlaceholder}
+              />
 
               <div className="mt-6 border-t border-dashed border-line pt-4">
                 <p className="text-[13px] font-medium text-ink-soft">{copy.stationery.headerLegend}</p>
@@ -785,7 +805,12 @@ export function NewLoopForm({ packs }: { packs: QuestionPack[] }) {
       >
         <article className="wizard-newsletter-preview">
           <div className="text-center">
-            <span className="wizard-newsletter-preview__mark" aria-hidden="true">{copy.common.cherry}</span>
+            <span className="wizard-newsletter-preview__mark" aria-hidden="true">
+              {looks.mascot === DEFAULT_MASCOT ? copy.common.cherry : (
+                // eslint-disable-next-line @next/next/no-img-element -- A tiny static drawing; there is nothing for the image optimiser to do.
+                <img src={stickerSrc(looks.mascot)} alt="" width={26} height={26} />
+              )}
+            </span>
             <h3 className="mt-3 font-display text-[32px] font-bold leading-tight text-ink">{name || copy.newLoop.namePlaceholder}</h3>
             <p className="mt-1 text-[13px] font-bold text-ink-muted">{copy.common.brand}</p>
           </div>

@@ -26,7 +26,8 @@ test("N5 · a contributor sets a photo on their reply sheet and it follows their
   await expect(page.getByText("Photo saved.")).toBeVisible();
   const url = await photoOf("alice@friendloop.test", loop.groupId);
   expect(url).toMatch(/\/uploads\/[a-f0-9]{64}\.png$/);
-  await expect(page.locator(`.avatar img[src="${url}"]`)).toBeVisible();
+  // The frame choices below show the same picture, so this is the first of several.
+  await expect(page.locator(`.avatar img[src="${url}"]`).first()).toBeVisible();
 
   // Reload: the sheet remembers it.
   await page.reload();

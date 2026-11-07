@@ -1,12 +1,13 @@
-import { resolveTheme, themeCss } from "@/lib/theme";
+import { stationeryCss, stationeryOf, type StationeryColumns } from "@/lib/stationery";
 
 /**
  * A loop's stationery, layered over Gingham Picnic. Renders nothing for a loop
  * that never chose one, so those loops stay exactly as they were. The CSS comes
- * from `themeCss`, which only emits colours it derived from validated input.
+ * from `stationeryCss`, which only emits values from its own tables and colours it
+ * derived from validated input.
  */
-export function LoopTheme({ preset, accent }: { preset: string | null; accent: string | null }) {
-  const css = themeCss(resolveTheme({ preset, accent }));
+export function LoopTheme({ group }: { group: StationeryColumns }) {
+  const css = stationeryCss(stationeryOf(group));
   return css ? <style dangerouslySetInnerHTML={{ __html: css }} /> : null;
 }
 

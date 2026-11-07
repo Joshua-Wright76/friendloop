@@ -3,28 +3,52 @@
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { LoopBanner } from "@/components/loop-theme";
-import { PaperFields } from "@/components/paper-fields";
+import { PaperFields, type StationeryLooks } from "@/components/paper-fields";
 import { copy } from "@/lib/copy";
 import { readUploadResponse } from "@/lib/upload-response";
 import { PHOTO_ACCEPT } from "@/lib/photo-validation";
 import { BANNER_TARGET, prepareImage } from "@/components/prepare-image";
+import { DEFAULT_BACKGROUND, DEFAULT_PAPER_PACK, DEFAULT_TAPE_PACK } from "@/lib/stationery";
+import { DEFAULT_MASCOT } from "@/lib/stickers";
 import { DEFAULT_PRESET, normalizeHex } from "@/lib/theme";
 import { saveStationery, stationeryAction } from "./actions";
 
 type Props = {
   groupId: string;
+  loopName: string;
   preset: string | null;
   accent: string | null;
+  background: string | null;
+  paperPack: string | null;
+  tapePack: string | null;
+  mascot: string | null;
   headerImageUrl: string | null;
 };
 
 type SaveStatus = "idle" | "saving" | "saved" | "adjusted" | "error";
-type Choice = { preset: string; accent: string };
+type Choice = StationeryLooks & { preset: string; accent: string };
 
-export function StationeryForm({ groupId, preset: savedPreset, accent: savedAccent, headerImageUrl }: Props) {
-  const initial = { preset: savedPreset ?? DEFAULT_PRESET, accent: normalizeHex(savedAccent ?? "") ?? "" };
+const sameChoice = (a: Choice, b: Choice) =>
+  a.preset === b.preset && a.accent === b.accent && a.background === b.background &&
+  a.paperPack === b.paperPack && a.tapePack === b.tapePack && a.mascot === b.mascot;
+
+export function StationeryForm({ groupId, loopName, preset: savedPreset, accent: savedAccent, background, paperPack, tapePack, mascot, headerImageUrl }: Props) {
+  const initial: Choice = {
+    preset: savedPreset ?? DEFAULT_PRESET,
+    accent: normalizeHex(savedAccent ?? "") ?? "",
+    background: background ?? DEFAULT_BACKGROUND,
+    paperPack: paperPack ?? DEFAULT_PAPER_PACK,
+    tapePack: tapePack ?? DEFAULT_TAPE_PACK,
+    mascot: mascot ?? DEFAULT_MASCOT,
+  };
   const [preset, setPreset] = useState(initial.preset);
   const [accent, setAccent] = useState(savedAccent ?? "");
+  const [looks, setLooks] = useState<StationeryLooks>({
+    background: initial.background,
+    paperPack: initial.paperPack,
+    tapePack: initial.tapePack,
+    mascot: initial.mascot,
+  });
   const [status, setStatus] = useState<SaveStatus>("idle");
   const [, startSaving] = useTransition();
   // What the server has, the newest choice, and whether a save is on its way.
@@ -51,7 +75,7 @@ export function StationeryForm({ groupId, preset: savedPreset, accent: savedAcce
         let result: { ok: boolean; adjusted: boolean };
         do {
           sent = latest.current;
-          result = await saveStationery(groupId, sent.preset, sent.accent);
+          result = await saveStationery(groupId, sent);
         } while (result.ok && latest.current !== sent);
         if (!result.ok) throw new Error("not saved");
         confirmed.current = sent;
@@ -63,6 +87,7 @@ export function StationeryForm({ groupId, preset: savedPreset, accent: savedAcce
         latest.current = confirmed.current;
         setPreset(confirmed.current.preset);
         setAccent(confirmed.current.accent);
+        setLooks(confirmed.current);
         setStatus("error");
       } finally {
         saving.current = false;
@@ -72,7 +97,7 @@ export function StationeryForm({ groupId, preset: savedPreset, accent: savedAcce
 
   function commit(change: Partial<Choice>) {
     const next = { ...latest.current, ...change };
-    if (next.preset === latest.current.preset && next.accent === latest.current.accent) return;
+    if (sameChoice(next, latest.current)) return;
     latest.current = next;
     flush();
   }
@@ -82,6 +107,7 @@ export function StationeryForm({ groupId, preset: savedPreset, accent: savedAcce
     if (!wanted) return;
     setPreset(wanted.preset);
     setAccent(wanted.accent);
+    setLooks(wanted);
     latest.current = wanted;
     flush();
   }
@@ -126,6 +152,12 @@ export function StationeryForm({ groupId, preset: savedPreset, accent: savedAcce
             const parsed = normalizeHex(value);
             if (value.trim() === "" || parsed) commit({ accent: parsed ?? "" });
           }}
+          looks={looks}
+          onLooks={(change) => {
+            setLooks((current) => ({ ...current, ...change }));
+            commit(change);
+          }}
+          loopName={loopName}
         />
       </form>
     </section>

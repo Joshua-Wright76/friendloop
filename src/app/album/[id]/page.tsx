@@ -55,7 +55,7 @@ export default async function TokenAlbumPage({
 
   return (
     <main className="mx-auto w-full max-w-[680px] px-4 pb-16 pt-5 sm:px-6">
-      <LoopTheme preset={group.themePreset} accent={group.themeAccent} />
+      <LoopTheme group={group} />
       <div className={`loop-head${group.headerImageUrl ? " has-snapshot" : ""}`}>
         <LoopSnapshot url={group.headerImageUrl} />
         <div className="loop-head__row">

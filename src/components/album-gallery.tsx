@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Avatar } from "@/components/avatar";
+import { Avatar, NameCharm } from "@/components/avatar";
 import { PhotoLightbox, useLightbox } from "@/components/photo-lightbox";
 import { VoiceNote } from "@/components/voice-note";
 import { formatAudioDuration } from "@/lib/audio-validation";
@@ -88,8 +88,9 @@ function Credit({ item }: { item: AlbumItem }) {
   return (
     <figcaption className="mt-1.5">
       <span className="flex items-center gap-1.5 text-[13px] font-bold text-ink-soft">
-        <Avatar name={item.author} photoUrl={item.authorPhotoUrl} className="album-avatar" />
+        <Avatar name={item.author} photoUrl={item.authorPhotoUrl} frame={item.authorFrame} className="album-avatar" />
         {item.author}
+        <NameCharm charm={item.authorCharm} />
       </span>
       {item.caption || item.body ? (
         <span className="mt-0.5 line-clamp-2 block text-[13px] leading-snug text-ink">{item.caption || item.body}</span>

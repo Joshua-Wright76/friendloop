@@ -1,3 +1,4 @@
+import { busiestPage } from "@/lib/theme";
 import AxeBuilder from "@axe-core/playwright";
 import type { Page } from "@playwright/test";
 import type { RunOptions } from "axe-core";
@@ -52,7 +53,35 @@ function describeNodes(nodes: AxeNode[]): string {
     .join(" | ");
 }
 
+/**
+ * axe can't read a colour through a background image, so it gives up on any text over
+ * a page pattern or a paper texture. Lay the worst colour a page pattern can produce
+ * flat instead, and take the textures off: that gets a real measurement. A texture's
+ * hairlines are checked against the words in src/lib/stationery.test.ts.
+ */
+async function measureOverPatterns(page: Page) {
+  const { paper, check } = await page.evaluate(() => {
+    const root = getComputedStyle(document.documentElement);
+    return { paper: root.getPropertyValue("--page").trim(), check: root.getPropertyValue("--check").trim() };
+  });
+  return page.addStyleTag({
+    content: `
+      html, body::before { background-image: none !important; background-color: ${busiestPage(paper, check)} !important; transition: none !important; }
+      .card[data-paper], .music-card, .answer-text, .bg-tile__swatch, [data-testid^="stationery-preview"] { background-image: none !important; }
+    `,
+  });
+}
+
 export async function axeProblems(page: Page, label: string, scope?: string): Promise<Problems> {
+  const flattened = await measureOverPatterns(page);
+  try {
+    return await auditWithAxe(page, label, scope);
+  } finally {
+    await flattened.evaluate((node) => (node as Element).remove());
+  }
+}
+
+async function auditWithAxe(page: Page, label: string, scope?: string): Promise<Problems> {
   // ignorePseudo: a 1.5px decorative ::before line (the margin rule on `.paper` cards) must not make axe give
   // up on every text node near it; the contrast is then really measured.
   // `scope` narrows the audit to one widget (an open popup legitimately overlaps the page behind it).

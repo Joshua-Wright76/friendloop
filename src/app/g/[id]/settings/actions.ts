@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getNow } from "@/lib/clock";
-import { saveTheme } from "@/lib/identity";
+import { saveTheme, type ThemeInput } from "@/lib/identity";
 import { deleteLoop, rotateShareLinks, setPaused, updateLoopSettings } from "@/lib/manage";
 import { viewerFor } from "@/lib/permissions";
 import { isValidTimezone } from "@/lib/timezone";
@@ -73,9 +73,9 @@ export async function deleteAction(formData: FormData) {
 
 /** The loop's stationery: a preset key and an optional accent. Owner only. */
 /** The paper and colour, saved as they're chosen. The page stays put and says how it went. */
-export async function saveStationery(groupId: string, preset: string, accent: string): Promise<{ ok: boolean; adjusted: boolean }> {
+export async function saveStationery(groupId: string, choice: ThemeInput): Promise<{ ok: boolean; adjusted: boolean }> {
   await requireOwner(groupId);
-  const result = await saveTheme(groupId, { preset, accent });
+  const result = await saveTheme(groupId, choice);
   if (!result.ok) return { ok: false, adjusted: false };
   revalidatePath(`/g/${groupId}`, "layout");
   return { ok: true, adjusted: Boolean(result.adjusted) };
@@ -88,6 +88,10 @@ export async function stationeryAction(formData: FormData) {
   const result = await saveTheme(groupId, {
     preset: String(formData.get("preset") ?? ""),
     accent: String(formData.get("accent") ?? ""),
+    background: String(formData.get("background") ?? ""),
+    paperPack: String(formData.get("paperPack") ?? ""),
+    tapePack: String(formData.get("tapePack") ?? ""),
+    mascot: String(formData.get("mascot") ?? ""),
   });
   if (!result.ok) redirect(`/g/${groupId}/settings?error=stationery`);
 

@@ -21,7 +21,7 @@ export default function OverviewTab({ welcome, nudged }: { welcome?: string; nud
   const pool = questions.filter((question) => question.active);
   const firstRun = manages && people.length <= 1 && rounds.length === 0;
   const display = (person: { name: string | null; email: string }) => person.name ?? person.email.split("@")[0];
-  const inPeople = openProgress.map((person) => people.find((candidate) => candidate.id === person.id) ?? { ...person, photoUrl: null });
+  const inPeople = openProgress.map((person) => people.find((candidate) => candidate.id === person.id) ?? { ...person, photoUrl: null, avatarFrame: null });
   const waitingNames = listNames(openWaiting.map(display));
 
   return (
@@ -76,7 +76,7 @@ export default function OverviewTab({ welcome, nudged }: { welcome?: string; nud
                 <ul className="round-people__list">
                   {inPeople.map((person) => (
                     <li key={person.id} className="person-pill person-pill--in">
-                      <Avatar name={display(person)} photoUrl={person.photoUrl} className="album-avatar" />
+                      <Avatar name={display(person)} photoUrl={person.photoUrl} frame={person.avatarFrame} className="album-avatar" />
                       {display(person)}
                     </li>
                   ))}
@@ -91,7 +91,7 @@ export default function OverviewTab({ welcome, nudged }: { welcome?: string; nud
                 <ul className="round-people__list">
                   {openWaiting.map((person) => (
                     <li key={person.id} className="person-pill">
-                      <Avatar name={display(person)} photoUrl={person.photoUrl} className="album-avatar" />
+                      <Avatar name={display(person)} photoUrl={person.photoUrl} frame={person.avatarFrame} className="album-avatar" />
                       {display(person)}
                     </li>
                   ))}

@@ -63,6 +63,8 @@ type Props = {
   roundName: string | null;
   headerImageUrl: string | null;
   photoUrl: string | null;
+  charm: string | null;
+  frame: string | null;
   deadlineMoment: string;
   deliversAtIso: string;
   /** Set once the round has gone out: its deadline has passed, so nothing should promise one. */
@@ -110,6 +112,8 @@ export function ReplySheet({
   roundName,
   headerImageUrl,
   photoUrl,
+  charm,
+  frame,
   deadlineMoment,
   deliversAtIso,
   wentOutLabel,
@@ -119,6 +123,7 @@ export function ReplySheet({
   mutedUnsubscribeToken,
   questions,
 }: Props) {
+  const [frameNow, setFrameNow] = useState(frame);
   const [bodies, setBodies] = useState<Record<string, string>>(() =>
     Object.fromEntries(questions.map((question) => [question.id, question.body])),
   );
@@ -1196,7 +1201,7 @@ export function ReplySheet({
           {/* Who is answering is settled in one line; changing it is there for anyone who wants to. */}
           <details className="reply-identity" open={nameStatus === "error" ? true : undefined}>
             <summary>
-              <Avatar name={name.trim() || displayName} photoUrl={photoUrl} className="album-avatar" />
+              <Avatar name={name.trim() || displayName} photoUrl={photoUrl} frame={frameNow} className="album-avatar" />
               <span className="min-w-0 flex-1 wrap-any">{text(copy.reply.answeringAs, { name: name.trim() || displayName })}</span>
               <span className="reply-identity__change">{copy.reply.changeIdentity}</span>
               <span className="reply-identity__close">{copy.common.close}</span>
@@ -1236,7 +1241,14 @@ export function ReplySheet({
               </p>
               <div className="mt-3 border-t border-dashed border-line pt-3">
                 <p className="mb-2 text-[13px] font-bold text-ink-soft">{copy.identity.profile.title}</p>
-                <ProfilePhoto endpoint={`/api/reply/${token}/profile-photo`} name={name.trim() || displayName} photoUrl={photoUrl} />
+                <ProfilePhoto
+                  endpoint={`/api/reply/${token}/profile-photo`}
+                  name={name.trim() || displayName}
+                  photoUrl={photoUrl}
+                  charm={charm}
+                  frame={frame}
+                  onFrame={setFrameNow}
+                />
               </div>
             </div>
           </details>
@@ -1323,7 +1335,7 @@ export function ReplySheet({
                     : audioErrors[question.id];
 
             return (
-            <section key={question.id} className="card paper ride-in block p-5 pt-7">
+            <section key={question.id} data-paper="answer" className="card paper ride-in block p-5 pt-7">
               <Tape tone={(["dots", "stripe", "mint", "check"] as const)[index % 4]} position={index % 2 ? "right" : "left"} />
               <span className="question-status" aria-live="polite">
                 {questionStatuses[question.id] === "saving" ? <span>{copy.reply.questionStates.saving}</span> : null}
@@ -1552,7 +1564,7 @@ export function ReplySheet({
               const saveState = sectionSaveStates[section.id] ?? "idle";
               const cap = section.kind === "photo_wall" ? 6 : 1;
               return (
-                <div key={section.id} className="card paper ride-in mt-4 block p-5 pt-6">
+                <div key={section.id} data-paper="note" className="card paper ride-in mt-4 block p-5 pt-6">
                   <h3 className="font-display text-[22px] font-bold leading-tight text-ink">
                     {section.emoji ? <span className="mr-2">{section.emoji}</span> : null}
                     {section.title}

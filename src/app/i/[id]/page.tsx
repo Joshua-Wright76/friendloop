@@ -97,7 +97,7 @@ export default async function IssuePage({
   return (
     <main className="mx-auto w-full max-w-[680px] px-4 pb-16 pt-4 sm:px-6">
       <DocumentTitle value={`${issueTitle(copy.issue.round, view.issue.number, view.issue.name)} · ${view.group.name}`} />
-      <LoopTheme preset={view.group.themePreset} accent={view.group.themeAccent} />
+      <LoopTheme group={view.group} />
       <header className={`loop-head${view.group.headerImageUrl ? " has-snapshot" : ""}`}>
         <LoopSnapshot url={view.group.headerImageUrl} />
         <div className="loop-head__row">

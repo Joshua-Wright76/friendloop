@@ -25,7 +25,7 @@ import { execFileSync, spawn } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { createServer } from "node:net";
-import { constants as osConstants, homedir } from "node:os";
+import { constants as osConstants, cpus, homedir } from "node:os";
 import { join } from "node:path";
 
 const HOME = homedir();
@@ -188,6 +188,14 @@ function psql(sql) {
   return run("psql", ["-h", "127.0.0.1", "-p", PORT, "-U", USER, "-d", "postgres", "-At", "-c", sql]);
 }
 
+function tryPsql(sql) {
+  try {
+    return psql(sql);
+  } catch {
+    return "";
+  }
+}
+
 function isAlive(pid) {
   try {
     process.kill(pid, 0);
@@ -331,7 +339,12 @@ switch (command) {
     const cleanup = () => {
       if (cleanedUp) return;
       cleanedUp = true;
-      if (runDatabase) dropRunDatabase(runDatabase);
+      if (runDatabase) {
+        // The workers' databases are named after this one, and are dropped with it.
+        const workers = tryPsql(`select datname from pg_database where datname like '${runDatabase}\\_w%'`);
+        for (const name of workers.split("\n").filter(Boolean)) dropRunDatabase(name);
+        dropRunDatabase(runDatabase);
+      }
       if (lockFile) rmSync(lockFile, { force: true });
     };
     const signalExitCode = (signal) => 128 + (osConstants.signals[signal] ?? 1);
@@ -349,13 +362,23 @@ switch (command) {
         dropOrphanedRunDatabases();
         runDatabase = createRunDatabase();
         env.TEST_DATABASE_URL = databaseUrl(runDatabase);
+        // Only this run's databases: the cluster is shared with other sessions' (see relaxDurability).
+        env.E2E_RELAX_DB ??= "commit";
         console.error(`e2e database ready at ${env.TEST_DATABASE_URL}`);
       }
       // Explicit ports win, so a fixed setup (CI, a debugging session) still works.
-      const [appPort, mailPort] = await freePorts(2);
-      if (!env.E2E_PORT) env.E2E_PORT = appPort;
+      // A Playwright run gets a server per worker. Each costs a browser and a Node
+      // process, so a third of the cores leaves the machine breathing; CI's four
+      // cores hold two without tests starting to time out.
+      if (usesBuild) env.E2E_WORKERS ??= String(env.CI ? 2 : Math.min(6, Math.max(1, Math.floor(cpus().length / 3))));
+      const workers = Number(env.E2E_WORKERS ?? 1);
+      const [mailPort, ...appPorts] = await freePorts(workers + 1);
+      if (!env.E2E_PORT) {
+        env.E2E_PORT = appPorts[0];
+        env.E2E_PORTS = appPorts.join(",");
+      }
       if (!env.E2E_FAKE_MAIL_PORT) env.E2E_FAKE_MAIL_PORT = mailPort;
-      console.error(`e2e app port ${env.E2E_PORT}, mail stub port ${env.E2E_FAKE_MAIL_PORT}`);
+      console.error(`e2e workers ${workers}, app port ${env.E2E_PORTS ?? env.E2E_PORT}, mail stub port ${env.E2E_FAKE_MAIL_PORT}`);
     } catch (error) {
       cleanup();
       throw error;

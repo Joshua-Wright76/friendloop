@@ -120,39 +120,36 @@ test("WCAG AA states · pickers keep a visible focus on every option", async ({ 
   expect(problems, `\n${problems.join("\n")}\n`).toEqual([]);
 });
 
-test("WCAG AA states · every disclosure open on the management and reading pages", async ({ page }) => {
-  test.setTimeout(10 * 60_000);
-  await enterPreview(page);
-  const problems: Problems = [];
-  const pages: Array<[string, string]> = [
-    ["Questions", `/g/${P.groupId}/questions`],
-    ["Rounds", `/g/${P.groupId}/issues`],
-    ["Settings", `/g/${P.groupId}/settings`],
-    ["Members", `/g/${P.groupId}/members`],
-    ["Round", `/i/${P.deliveredIssueId}?m=${P.ownerToken}`],
-    ["Reply", `/r/${P.ownerToken}`],
-  ];
-  for (const [name, href] of pages) {
-    problems.push(
-      ...(await everywhere(page, href, async (label) => {
-        const barMenus: Problems = [];
-        // The issue bar's menus float over the page, one at a time, like a picker. Each is audited on
-        // its own, then tabbed through: focus leaving the bar has to close it, or it covers what's next.
-        for (const menu of await page.locator(".issue-bar details").all()) {
-          await menu.locator("summary").click();
-          barMenus.push(...(await axeProblems(page, `${name} bar menu ${label}`, ".issue-bar")));
-          barMenus.push(...(await keyboardProblems(page, `${name} bar menu ${label}`)));
-          await menu.evaluate((details: HTMLDetailsElement) => { details.open = false; });
-        }
-        const opened = await openAllDetails(page, ".issue-bar details");
-        const out = [...barMenus, ...(await axeProblems(page, `${name} expanded (${opened}) ${label}`)), ...(await keyboardProblems(page, `${name} expanded ${label}`))];
-        if (label.endsWith("320px")) out.push(...(await reflowProblems(page, `${name} expanded ${label}`)));
-        return out;
-      })),
-    );
-  }
-  expect(problems, `\n${problems.join("\n")}\n`).toEqual([]);
-});
+// One test per page rather than one long one: CI shards by test count, so a long test can't be spread out.
+for (const [name, href] of [
+  ["Questions", `/g/${P.groupId}/questions`],
+  ["Rounds", `/g/${P.groupId}/issues`],
+  ["Settings", `/g/${P.groupId}/settings`],
+  ["Members", `/g/${P.groupId}/members`],
+  ["Round", `/i/${P.deliveredIssueId}?m=${P.ownerToken}`],
+  ["Reply", `/r/${P.ownerToken}`],
+] as const) {
+  test(`WCAG AA states · every disclosure open · ${name}`, async ({ page }) => {
+    test.setTimeout(10 * 60_000);
+    await enterPreview(page);
+    const problems = await everywhere(page, href, async (label) => {
+      const barMenus: Problems = [];
+      // The issue bar's menus float over the page, one at a time, like a picker. Each is audited on
+      // its own, then tabbed through: focus leaving the bar has to close it, or it covers what's next.
+      for (const menu of await page.locator(".issue-bar details").all()) {
+        await menu.locator("summary").click();
+        barMenus.push(...(await axeProblems(page, `${name} bar menu ${label}`, ".issue-bar")));
+        barMenus.push(...(await keyboardProblems(page, `${name} bar menu ${label}`)));
+        await menu.evaluate((details: HTMLDetailsElement) => { details.open = false; });
+      }
+      const opened = await openAllDetails(page, ".issue-bar details");
+      const out = [...barMenus, ...(await axeProblems(page, `${name} expanded (${opened}) ${label}`)), ...(await keyboardProblems(page, `${name} expanded ${label}`))];
+      if (label.endsWith("320px")) out.push(...(await reflowProblems(page, `${name} expanded ${label}`)));
+      return out;
+    });
+    expect(problems, `\n${problems.join("\n")}\n`).toEqual([]);
+  });
+}
 
 test("WCAG AA states · the album viewer, keyboard only", async ({ page }) => {
   test.setTimeout(4 * 60_000);

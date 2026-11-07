@@ -2,6 +2,8 @@
 
 import { useRef, type CSSProperties } from "react";
 import { Avatar } from "@/components/avatar";
+import { BackgroundPicker, MascotPicker, PaperPackPicker, TapePackPicker } from "@/components/stationery-pickers";
+import { Tape } from "@/components/stationery";
 import { copy } from "@/lib/copy";
 import {
   THEME_PRESET_KEYS,
@@ -10,6 +12,10 @@ import {
   previewTheme,
   type SchemeTokens,
 } from "@/lib/theme";
+import { pageLayers, paperVars, tapeVars } from "@/lib/stationery";
+
+/** Everything besides colour, chosen together. */
+export type StationeryLooks = { background: string; paperPack: string; tapePack: string; mascot: string };
 
 type PresetKey = keyof typeof copy.stationery.presets;
 
@@ -20,18 +26,33 @@ type Props = {
   onAccent: (accent: string) => void;
   /** Called when the person is done with the colour: leaving the field, or letting go of the picker. */
   onAccentCommit?: (accent: string) => void;
+  looks: StationeryLooks;
+  onLooks: (change: Partial<StationeryLooks>) => void;
+  /** Shown in the mascot's little previews. */
+  loopName: string;
 };
 
 /** A small round of the interface in one scheme's tokens: what the owner is choosing. */
-function PreviewCard({ label, tokens }: { label: string; tokens: SchemeTokens }) {
+function PreviewCard({ label, tokens, looks }: { label: string; tokens: SchemeTokens; looks: StationeryLooks }) {
+  const page = pageLayers(looks.background, tokens);
   return (
     <div
       className="rounded-md border p-3"
-      style={{ ...(cssVars(tokens) as CSSProperties), background: tokens.page, borderColor: tokens.lineStrong, color: tokens.ink }}
+      style={{
+        ...(cssVars(tokens) as CSSProperties),
+        ...(paperVars(looks.paperPack) as CSSProperties),
+        ...(tapeVars(looks.tapePack) as CSSProperties),
+        backgroundColor: tokens.page,
+        backgroundImage: page.image,
+        backgroundSize: page.size,
+        borderColor: tokens.lineStrong,
+        color: tokens.ink,
+      }}
       data-testid={`stationery-preview-${label.toLowerCase()}`}
     >
       <p className="m-0 text-[12px] font-extrabold" style={{ color: tokens.inkMuted }}>{label}</p>
-      <div className="card mt-2 p-3">
+      <div className="card mt-3 p-3 pt-4" data-paper="answer">
+        <Tape tone="dots" position="right" />
         <p className="m-0 font-display text-[22px] font-bold leading-tight" style={{ color: tokens.ink }}>
           {copy.stationery.previewHeading}
         </p>
@@ -39,7 +60,7 @@ function PreviewCard({ label, tokens }: { label: string; tokens: SchemeTokens })
           <Avatar name={copy.stationery.previewAnswerName} className="!h-7 !w-7 !text-[12px]" />
           <p className="m-0 text-[13px] font-extrabold" style={{ color: tokens.inkSoft }}>{copy.stationery.previewAnswerName}</p>
         </div>
-        <p className="mt-1 text-[14px] leading-snug" style={{ color: tokens.ink }}>{copy.stationery.previewAnswer}</p>
+        <p className="answer-text mt-1 text-[14px] leading-snug" style={{ color: tokens.ink }}>{copy.stationery.previewAnswer}</p>
         <span className="btn btn-primary mt-3 h-9 min-h-9 text-[13px]" aria-hidden="true">{copy.stationery.previewButton}</span>
       </div>
     </div>
@@ -52,7 +73,7 @@ function PreviewCard({ label, tokens }: { label: string; tokens: SchemeTokens })
  * The parent owns the state and submits `preset` (the radios) and the
  * normalised accent (`normalizeHex(accent)`, as a hidden field).
  */
-export function PaperFields({ preset, onPreset, accent, onAccent, onAccentCommit }: Props) {
+export function PaperFields({ preset, onPreset, accent, onAccent, onAccentCommit, looks, onLooks, loopName }: Props) {
   const pickerTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hex = normalizeHex(accent);
   const accentInvalid = accent.trim() !== "" && !hex;
@@ -60,7 +81,9 @@ export function PaperFields({ preset, onPreset, accent, onAccent, onAccentCommit
 
   return (
     <>
-      <fieldset className="m-0 min-w-0 border-0 p-0">
+      <BackgroundPicker value={looks.background} onChange={(background) => onLooks({ background })} theme={theme} />
+
+      <fieldset className="m-0 mt-5 min-w-0 border-0 p-0">
         <legend className="mb-2 text-[13px] font-medium text-ink-soft">{copy.stationery.paperLegend}</legend>
         <div className="grid grid-cols-2 gap-2">
           {THEME_PRESET_KEYS.map((key) => {
@@ -138,11 +161,15 @@ export function PaperFields({ preset, onPreset, accent, onAccent, onAccentCommit
         </p>
       </fieldset>
 
-      <div className="mt-4">
+      <PaperPackPicker value={looks.paperPack} onChange={(paperPack) => onLooks({ paperPack })} />
+      <TapePackPicker value={looks.tapePack} onChange={(tapePack) => onLooks({ tapePack })} />
+      <MascotPicker value={looks.mascot} onChange={(mascot) => onLooks({ mascot })} loopName={loopName} />
+
+      <div className="mt-5">
         <p className="mb-2 text-[13px] font-medium text-ink-soft">{copy.stationery.previewTitle}</p>
         <div className="grid gap-2 sm:grid-cols-2">
-          <PreviewCard label={copy.stationery.previewLight} tokens={theme.light} />
-          <PreviewCard label={copy.stationery.previewDark} tokens={theme.dark} />
+          <PreviewCard label={copy.stationery.previewLight} tokens={theme.light} looks={looks} />
+          <PreviewCard label={copy.stationery.previewDark} tokens={theme.dark} looks={looks} />
         </div>
       </div>
     </>

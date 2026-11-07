@@ -1,12 +1,13 @@
 "use server";
 
-import { and, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { db } from "@/db";
-import { issues, reactions } from "@/db/schema";
+import { issues } from "@/db/schema";
 import { membershipForViewer } from "@/lib/issue-view";
 import { currentUser } from "@/lib/auth";
 import { copy } from "@/lib/copy";
+import { toggleReactionFor } from "@/lib/reactions";
 
 export type ActionResult = { ok: boolean; error?: string };
 
@@ -40,26 +41,14 @@ export async function toggleReaction(input: {
   const membership = await viewerFor(input.issueId, input.viewerToken);
   if (!membership) return { ok: false, error: copy.issue.errors.reactMembersOnly };
 
-  const [existing] = await db
-    .select()
-    .from(reactions)
-    .where(
-      and(
-        eq(reactions.replyId, input.replyId),
-        eq(reactions.membershipId, membership.id),
-        eq(reactions.emoji, input.emoji),
-      ),
-    )
-    .limit(1);
-
-  if (existing) {
-    await db.delete(reactions).where(eq(reactions.id, existing.id));
-  } else {
-    await db.insert(reactions).values({
-      replyId: input.replyId,
-      membershipId: membership.id,
-      emoji: input.emoji,
-    });
+  const result = await toggleReactionFor({
+    issueId: input.issueId,
+    replyId: input.replyId,
+    membershipId: membership.id,
+    emoji: input.emoji,
+  });
+  if (!result.ok) {
+    return { ok: false, error: result.reason === "limit" ? copy.issue.errors.reactLimit : copy.issue.errors.reactRefused };
   }
 
   revalidatePath(`/i/${input.issueId}`);

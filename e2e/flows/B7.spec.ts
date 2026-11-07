@@ -94,3 +94,29 @@ test("B7 · skipping the step changes nothing, and a bad accent or an oversize p
   expect(group).toEqual({ theme_preset: null, theme_accent: null, header_image_url: null });
   await expect(page.locator(".snapshot img, img.loop-banner")).toHaveCount(0);
 });
+
+test("B7 · the wizard also offers the page, paper pack, tape pack and mascot, saved with the loop", async ({ page }) => {
+  await signIn(page, uniqueEmail("owner"));
+  await toLookStep(page, "Dressed Up");
+
+  await page.getByRole("radio", { name: /^Daisies/ }).check();
+  await page.getByRole("radio", { name: /^Watercolor pad/ }).check();
+  await page.getByRole("radio", { name: /^Candy shop/ }).check();
+  await page.getByRole("radio", { name: /^Snail/ }).check();
+
+  // Tried on straight away, before the loop exists.
+  expect(await cssVar(page, "--page-image")).toContain("data:image/svg+xml");
+  expect(await cssVar(page, "--mascot-image")).toContain("/stickers/snail.svg");
+
+  // Moving on and coming back costs nothing.
+  await page.getByRole("button", { name: NEXT }).click();
+  await page.getByRole("button", { name: "Go to the previous setup step" }).click();
+  await expect(page.getByRole("radio", { name: /^Candy shop/ })).toBeChecked();
+
+  await createFromLookStep(page);
+  const [group] = await rows<Record<string, string | null>>(
+    "select theme_background, theme_paper_pack, theme_tape_pack, theme_mascot from groups where name = $1",
+    ["Dressed Up"],
+  );
+  expect(group).toEqual({ theme_background: "daisies", theme_paper_pack: "watercolor", theme_tape_pack: "candy", theme_mascot: "snail" });
+});

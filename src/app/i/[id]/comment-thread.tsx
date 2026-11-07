@@ -12,7 +12,7 @@ import {
 import type { MentionPick } from "@/lib/mentions";
 import { PHOTO_ACCEPT } from "@/lib/photo-validation";
 import { PHOTO_TARGET, prepareImage } from "@/components/prepare-image";
-import { Avatar } from "@/components/avatar";
+import { Avatar, NameCharm } from "@/components/avatar";
 import { copy, text } from "@/lib/copy";
 import { readUploadResponse } from "@/lib/upload-response";
 
@@ -87,8 +87,9 @@ function CommentItem({ comment, onReply }: { comment: IssueComment; onReply: (()
   return (
     <div className="px-1 py-3 sm:px-4">
       <div className="flex items-center gap-2">
-        <Avatar name={comment.author} photoUrl={comment.authorPhotoUrl} className="!h-6 !w-6 !text-[11px]" />
+        <Avatar name={comment.author} photoUrl={comment.authorPhotoUrl} frame={comment.authorFrame} className="!h-6 !w-6 !text-[11px]" />
         <p className="m-0 text-[13px] font-medium text-ink-soft">{comment.author}</p>
+        <NameCharm charm={comment.authorCharm} />
       </div>
       {comment.quote ? (
         <blockquote className="comment-quote mt-1.5">

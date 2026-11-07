@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Brand, Tape } from "@/components/stationery";
 import { copy } from "@/lib/copy";
-import { UI_PREVIEW } from "@/lib/ui-preview";
+import { PREVIEW_LOOKS, UI_PREVIEW, type PreviewLookKey } from "@/lib/ui-preview";
 
 export const instant = false;
 
@@ -45,6 +45,17 @@ export default async function UiScreensPage() {
         [screens.shared, `/s/${UI_PREVIEW.shareToken}`],
         [screens.sharedPrint, `/s/${UI_PREVIEW.shareToken}?print`],
       ],
+    },
+    {
+      title: copy.devUi.customizeHeading,
+      links: [
+        [screens.stationery, `/g/${UI_PREVIEW.groupId}/settings?stationery=open`],
+        [screens.charmAndFrame, `/g/${UI_PREVIEW.groupId}/members?look=open`],
+      ],
+    },
+    {
+      title: copy.devUi.looksHeading,
+      links: (Object.keys(PREVIEW_LOOKS) as PreviewLookKey[]).map((key) => [copy.devUi.looks[key], `/dev/ui/wear?look=${key}`]),
     },
     {
       title: copy.devUi.emailHeading,

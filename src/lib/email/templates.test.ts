@@ -240,3 +240,37 @@ test("a music pick in the delivery email carries its title when the provider gav
   assert.doesNotMatch(untitled.html, /<strong>/);
   assert.match(untitled.html, /Open in Spotify/);
 });
+
+test("a mascot goes out as a picture from the app's own address; the cherries stay the emoji they were", () => {
+  const send = (themeMascot: string | null) =>
+    pausedEmail({
+      groupName: "Friday Loop",
+      url: "https://friendloop.dev/loop",
+      theme: emailThemeOf({ themePreset: null, themeAccent: null, headerImageUrl: null, themeMascot }),
+    });
+  const frog = send("frog");
+  assert.match(frog.html, /<img src="http[^"]*\/stickers\/png\/frog\.png" alt="" width="24" height="24"/);
+  assert.doesNotMatch(frog.html, /🍒/);
+  assert.match(send(null).html, /🍒/);
+  assert.match(send("cherries").html, /🍒/);
+  assert.match(send("javascript:alert(1)").html, /🍒/);
+  assert.equal(frog.text, send(null).text);
+});
+
+test("a charm sits beside the name in the answers, and never in the plain text", () => {
+  const email = deliveryEmail({
+    groupName: "Friday Loop",
+    issueNumber: 2,
+    url: "https://friendloop.dev/i/123",
+    answers: [
+      { question: "How was it?", author: "Alice", authorCharm: "frog", body: "Good." },
+      { question: "How was it?", author: "Bob", authorCharm: "not-a-charm", body: "Fine." },
+      { question: "How was it?", author: "Cleo", body: "Ok." },
+    ],
+    sections: [{ title: "Listening", emoji: null, answers: [{ author: "Dee", authorCharm: "moon", body: "Records." }] }],
+  });
+  assert.match(email.html, /Alice <img src="http[^"]*\/stickers\/png\/frog\.png" alt=""/);
+  assert.match(email.html, /Dee <img src="http[^"]*\/stickers\/png\/moon\.png" alt=""/);
+  assert.doesNotMatch(email.html, /not-a-charm/);
+  assert.doesNotMatch(email.text, /frog|moon/);
+});

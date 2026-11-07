@@ -20,6 +20,7 @@ import {
   sections,
   sessions,
   users,
+  reactions,
 } from "@/db/schema";
 import { createSession } from "./auth";
 import { nextSlot } from "./schedule";
@@ -236,6 +237,40 @@ const ALICE_ANSWERS = [
   "",
 ];
 
+/** Whole outfits to try on the demo loop in one click. */
+type PreviewLook = { preset: string; background: string; paperPack: string; tapePack: string; mascot: string };
+
+export const PREVIEW_LOOKS = {
+  harbour: { preset: "bluebell", background: "stars", paperPack: "journal", tapePack: "seaside", mascot: "duck" },
+  schoolbook: { preset: "gingham", background: "hearts", paperPack: "schoolbook", tapePack: "garden", mascot: "frog" },
+  parcel: { preset: "marmalade", background: "confetti", paperPack: "recycled", tapePack: "kraft", mascot: "lemon" },
+  sketchbook: { preset: "lilac", background: "daisies", paperPack: "watercolor", tapePack: "starlight", mascot: "cat" },
+  postcard: { preset: "meadow", background: "scallops", paperPack: "airmail", tapePack: "candy", mascot: "snail" },
+  original: { preset: "gingham", background: "gingham", paperPack: "cream", tapePack: "picnic", mascot: "cherries" },
+} as const satisfies Record<string, PreviewLook>;
+
+export type PreviewLookKey = keyof typeof PREVIEW_LOOKS;
+
+function lookColumns(look: PreviewLook) {
+  const original = PREVIEW_LOOKS.original;
+  const unless = (value: string, base: string) => (value === base ? null : value);
+  return {
+    themePreset: unless(look.preset, original.preset),
+    themeAccent: null,
+    themeBackground: unless(look.background, original.background),
+    themePaperPack: unless(look.paperPack, original.paperPack),
+    themeTapePack: unless(look.tapePack, original.tapePack),
+    themeMascot: unless(look.mascot, original.mascot),
+  };
+}
+
+/** Dress the demo loop, and only the demo loop. False for a look that doesn't exist. */
+export async function wearPreviewLook(key: string | null): Promise<boolean> {
+  if (!key || !Object.hasOwn(PREVIEW_LOOKS, key)) return false;
+  await db.update(groups).set(lookColumns(PREVIEW_LOOKS[key as PreviewLookKey])).where(eq(groups.id, UI_PREVIEW.groupId));
+  return true;
+}
+
 /** The captured inbox is the one /dev page that needs the unlock. */
 export async function requireUiPreview() {
   if (isLocalUiPreview()) return;
@@ -379,13 +414,15 @@ async function seedUiPreview(now: Date, { deleteGroup, deleteUser }: { deleteGro
 
     // Identity features, applied on every run so an older preview picks them up too:
     // a non-default paper with a header picture, a named round, and profile photos.
-    await tx.update(groups).set({ themePreset: "bluebell", headerImageUrl: "/dev-preview/header.svg" })
+    await tx.update(groups).set({ ...lookColumns(PREVIEW_LOOKS.harbour), headerImageUrl: "/dev-preview/header.svg" })
       .where(eq(groups.id, UI_PREVIEW.groupId));
     await tx.update(issues).set({ name: "Camping weekend" }).where(eq(issues.id, UI_PREVIEW.deliveredIssueId));
-    await tx.update(memberships).set({ photoUrl: "/dev-preview/avatar-alice.svg" })
+    await tx.update(memberships).set({ photoUrl: "/dev-preview/avatar-alice.svg", charm: "frog", avatarFrame: "doily" })
       .where(eq(memberships.id, UI_PREVIEW.aliceMembershipId));
-    await tx.update(memberships).set({ photoUrl: "/dev-preview/avatar-owner.svg" })
+    await tx.update(memberships).set({ photoUrl: "/dev-preview/avatar-owner.svg", charm: "star", avatarFrame: "rosette" })
       .where(eq(memberships.id, UI_PREVIEW.ownerMembershipId));
+    await tx.update(memberships).set({ charm: "snail", avatarFrame: "polaroid" })
+      .where(eq(memberships.id, UI_PREVIEW.samMembershipId));
 
     await tx.insert(issueQuestions).values(QUESTION_TEXT.flatMap((text, index) => {
       const poll = {
@@ -434,6 +471,14 @@ async function seedUiPreview(now: Date, { deleteGroup, deleteUser }: { deleteGro
       submittedAt: now,
     });
     await tx.insert(replies).values(replyRows).onConflictDoNothing();
+
+    // Reactions past the three defaults, so the issue shows chips from the picker.
+    await tx.insert(reactions).values([
+      { replyId: PREVIEW_ALICE_REPLY_ID, membershipId: UI_PREVIEW.ownerMembershipId, emoji: "🪿" },
+      { replyId: PREVIEW_ALICE_REPLY_ID, membershipId: UI_PREVIEW.samMembershipId, emoji: "🪿" },
+      { replyId: PREVIEW_ALICE_REPLY_ID, membershipId: UI_PREVIEW.samMembershipId, emoji: "❤️" },
+      { replyId: PREVIEW_OWNER_REPLY_ID, membershipId: UI_PREVIEW.aliceMembershipId, emoji: "🐸" },
+    ]).onConflictDoNothing();
 
     // A thread with all the new moving parts: a mention, a quoted reply, one hanging
     // from a single answer, and one the quote of which has been removed.

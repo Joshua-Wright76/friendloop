@@ -1,10 +1,19 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { groups, issues, memberships } from "@/db/schema";
 import { copy } from "./copy.ts";
 import { cleanIssueName } from "./issue-name.ts";
 import { deleteStoredPhoto, storePhoto } from "./photo-storage.ts";
 import { MAX_AVATAR_BYTES, MAX_BANNER_BYTES, validatePhoto } from "./photo-validation.ts";
+import {
+  DEFAULT_BACKGROUND,
+  DEFAULT_PAPER_PACK,
+  DEFAULT_TAPE_PACK,
+  isBackgroundKey,
+  isPaperPackKey,
+  isTapePackKey,
+} from "./stationery.ts";
+import { DEFAULT_MASCOT, isCharmKey, isFrameKey, isMascotKey } from "./stickers.ts";
 import { DEFAULT_PRESET, isPresetKey, normalizeHex, resolveTheme } from "./theme.ts";
 import { log } from "./log";
 
@@ -47,11 +56,46 @@ async function discard(url: string | null | undefined) {
 
 /* ------------------------------ themes ------------------------------ */
 
-export type ThemeInput = { preset: string; accent: string };
+/** Left out means "leave it as it is"; the wizard and the older callers only send what they mean to change. */
+export type ThemeInput = {
+  preset: string;
+  accent: string;
+  background?: string;
+  paperPack?: string;
+  tapePack?: string;
+  mascot?: string;
+};
 
 export type ThemeResult =
   | { ok: true; adjusted: boolean }
-  | { ok: false; error: "preset" | "accent" };
+  | { ok: false; error: "preset" | "accent" | "background" | "paperPack" | "tapePack" | "mascot" };
+
+/** The stationery that isn't colour: which column, how to recognise a good key, and which key means "the original". */
+const STATIONERY_CHOICES = [
+  { input: "background", column: "themeBackground", isKey: isBackgroundKey, original: DEFAULT_BACKGROUND },
+  { input: "paperPack", column: "themePaperPack", isKey: isPaperPackKey, original: DEFAULT_PAPER_PACK },
+  { input: "tapePack", column: "themeTapePack", isKey: isTapePackKey, original: DEFAULT_TAPE_PACK },
+  { input: "mascot", column: "themeMascot", isKey: isMascotKey, original: DEFAULT_MASCOT },
+] as const;
+
+type StationeryChoice = (typeof STATIONERY_CHOICES)[number];
+
+/**
+ * Validated stationery choices as columns. The original of each is stored as nothing,
+ * so "back to the original" and "never changed it" are the same row.
+ */
+export function stationeryColumns(input: Partial<Record<StationeryChoice["input"], string>>):
+  | { ok: true; columns: Partial<Record<StationeryChoice["column"], string | null>> }
+  | { ok: false; error: StationeryChoice["input"] } {
+  const columns: Partial<Record<StationeryChoice["column"], string | null>> = {};
+  for (const choice of STATIONERY_CHOICES) {
+    const value = input[choice.input];
+    if (value === undefined) continue;
+    if (value !== "" && !choice.isKey(value)) return { ok: false, error: choice.input };
+    columns[choice.column] = value === "" || value === choice.original ? null : value;
+  }
+  return { ok: true, columns };
+}
 
 /**
  * Save the owner's stationery. Gingham with no accent is stored as nothing at
@@ -62,8 +106,11 @@ export async function saveTheme(groupId: string, input: ThemeInput): Promise<The
   const accent = input.accent.trim() === "" ? null : normalizeHex(input.accent);
   if (input.accent.trim() !== "" && !accent) return { ok: false, error: "accent" };
 
+  const chosen = stationeryColumns(input);
+  if (!chosen.ok) return chosen;
+
   const preset = !input.preset || input.preset === DEFAULT_PRESET ? null : input.preset;
-  await db.update(groups).set({ themePreset: preset, themeAccent: accent }).where(eq(groups.id, groupId));
+  await db.update(groups).set({ themePreset: preset, themeAccent: accent, ...chosen.columns }).where(eq(groups.id, groupId));
 
   return { ok: true, adjusted: resolveTheme({ preset, accent })?.adjusted ?? false };
 }
@@ -138,6 +185,33 @@ export async function setMemberPhoto(membershipId: string, image: ImageInput): P
   await db.update(memberships).set({ photoUrl: stored.url }).where(eq(memberships.id, membershipId));
   await discard(before.url);
   return stored;
+}
+
+export type LookInput = { charm?: unknown; frame?: unknown };
+export type LookResult = { ok: true; charm: string | null; frame: string | null } | { ok: false };
+
+/**
+ * A person's own charm and frame in one loop. Left out means leave it; empty means
+ * none. Anything that isn't one of ours is refused, since these end up in class
+ * names and image addresses other people load.
+ */
+export async function setMemberLook(membershipId: string, input: LookInput): Promise<LookResult> {
+  const values: { charm?: string | null; avatarFrame?: string | null } = {};
+  if (input.charm !== undefined) {
+    if (input.charm !== "" && !isCharmKey(input.charm)) return { ok: false };
+    values.charm = input.charm === "" ? null : (input.charm as string);
+  }
+  if (input.frame !== undefined) {
+    if (input.frame !== "" && !isFrameKey(input.frame)) return { ok: false };
+    values.avatarFrame = input.frame === "" ? null : (input.frame as string);
+  }
+  const [row] = await db
+    .update(memberships)
+    // Setting a column to itself keeps an empty request from being an empty UPDATE.
+    .set({ charm: sql`${memberships.charm}`, ...values })
+    .where(eq(memberships.id, membershipId))
+    .returning({ charm: memberships.charm, frame: memberships.avatarFrame });
+  return row ? { ok: true, charm: row.charm, frame: row.frame } : { ok: false };
 }
 
 export async function clearMemberPhoto(membershipId: string): Promise<void> {

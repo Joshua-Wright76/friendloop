@@ -163,6 +163,8 @@ async function contributionsOf(membership: Membership, group: Pick<Group, "id" |
       access: membership.access,
       participation: membership.participation,
       photoUrl: absolute(membership.photoUrl),
+      charm: membership.charm,
+      avatarFrame: membership.avatarFrame,
       invitedAt: membership.invitedAt,
       acceptedAt: membership.acceptedAt,
     },

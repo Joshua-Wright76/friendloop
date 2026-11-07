@@ -1,4 +1,5 @@
 import postgres from "postgres";
+import { workerDatabaseName, workerDatabaseUrl } from "./parallel.ts";
 
 /**
  * Tests own their database. `TEST_DATABASE_URL` must point at a throwaway Postgres
@@ -60,11 +61,46 @@ export async function resetSchema(): Promise<void> {
   await sql.end({ timeout: 5 });
 }
 
+/**
+ * Stop waiting on the disk for data that is thrown away. Only when asked:
+ * `TEST_DATABASE_URL` can point at a server this has no business retuning.
+ *
+ * "commit" touches only this run's own databases. The local cluster also holds other
+ * sessions' dev databases, and `fsync` can't be set per database. "server" adds it, for
+ * a Postgres nothing else uses and that is gone when the job ends: CI's.
+ */
+export async function relaxDurability(mode: string, workers: number): Promise<void> {
+  const base = testDatabaseUrl();
+  const sql = client();
+  for (let worker = 0; worker < workers; worker += 1) {
+    await sql.unsafe(`alter database "${workerDatabaseName(base, worker)}" set synchronous_commit = off`);
+  }
+  if (mode === "server") {
+    await sql.unsafe("alter system set fsync = off");
+    await sql.unsafe("alter system set full_page_writes = off");
+    await sql.unsafe("select pg_reload_conf()");
+  }
+  await sql.end({ timeout: 5 });
+}
+
+/** A fresh, migrated database for every worker after the first, which uses the one it was given. */
+export async function prepareWorkerDatabases(count: number): Promise<void> {
+  const base = testDatabaseUrl();
+  const sql = client();
+  for (let worker = 1; worker < count; worker += 1) {
+    const name = workerDatabaseName(base, worker);
+    await sql.unsafe(`drop database if exists "${name}" with (force)`);
+    await sql.unsafe(`create database "${name}"`);
+  }
+  await sql.end({ timeout: 5 });
+  await Promise.all(Array.from({ length: count - 1 }, (_, index) => migrate(workerDatabaseUrl(base, index + 1))));
+}
+
 /** Apply the drizzle migrations to a fresh database. */
-export async function migrate(): Promise<void> {
+export async function migrate(url = testDatabaseUrl()): Promise<void> {
   const { drizzle } = await import("drizzle-orm/postgres-js");
   const { migrate: runMigrations } = await import("drizzle-orm/postgres-js/migrator");
-  const client = postgres(testDatabaseUrl(), { prepare: false, max: 1 });
+  const client = postgres(url, { prepare: false, max: 1 });
   const database = drizzle(client);
   await runMigrations(database, { migrationsFolder: "drizzle" });
   await client.end({ timeout: 5 });

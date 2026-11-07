@@ -21,7 +21,7 @@ export const metadata: Metadata = {
   referrer: "no-referrer",
 };
 
-type Person = { token: string; name: string; photoUrl: string | null };
+type Person = { token: string; name: string; photoUrl: string | null; charm: string | null; frame: string | null };
 
 function Closed({ title, body, next, person, leaveHref, children }: { title: string; body: string; next?: string; person?: Person; leaveHref?: string; children?: React.ReactNode }) {
   return (
@@ -39,7 +39,7 @@ function Closed({ title, body, next, person, leaveHref, children }: { title: str
           // as a reader). Their photo is still theirs to set, so it is offered here.
           <div className="mt-4 border-t border-dashed border-line pt-4">
             <p className="mb-2 text-[13px] font-medium text-ink-soft">{copy.identity.profile.title}</p>
-            <ProfilePhoto endpoint={`/api/reply/${person.token}/profile-photo`} name={person.name} photoUrl={person.photoUrl} />
+            <ProfilePhoto endpoint={`/api/reply/${person.token}/profile-photo`} name={person.name} photoUrl={person.photoUrl} charm={person.charm} frame={person.frame} />
           </div>
         ) : null}
       </div>
@@ -55,8 +55,8 @@ function Closed({ title, body, next, person, leaveHref, children }: { title: str
   );
 }
 
-function personOf(token: string, membership: { name: string | null; email: string; photoUrl: string | null }): Person {
-  return { token, name: membership.name ?? membership.email.split("@")[0], photoUrl: membership.photoUrl };
+function personOf(token: string, membership: { name: string | null; email: string; photoUrl: string | null; charm: string | null; avatarFrame: string | null }): Person {
+  return { token, name: membership.name ?? membership.email.split("@")[0], photoUrl: membership.photoUrl, charm: membership.charm, frame: membership.avatarFrame };
 }
 
 export default async function ReplyPage({ params }: { params: Promise<{ token: string }> }) {
@@ -85,7 +85,7 @@ export default async function ReplyPage({ params }: { params: Promise<{ token: s
   if (context.state === "reader") {
     return (
       <>
-        <LoopTheme preset={context.group.themePreset} accent={context.group.themeAccent} />
+        <LoopTheme group={context.group} />
         <Closed
           title={text(copy.reply.readerTitle, { groupName: context.groupName })}
           body={copy.reply.readerBody}
@@ -100,7 +100,7 @@ export default async function ReplyPage({ params }: { params: Promise<{ token: s
   if (!sheet || !sheet.context.issue) {
     return (
       <>
-        <LoopTheme preset={context.group.themePreset} accent={context.group.themeAccent} />
+        <LoopTheme group={context.group} />
         <Closed
           title={copy.reply.nothingOpenTitle}
           body={text(copy.reply.nothingOpenBody, { groupName: context.group.name })}
@@ -120,7 +120,7 @@ export default async function ReplyPage({ params }: { params: Promise<{ token: s
 
   return (
     <>
-    <LoopTheme preset={context.group.themePreset} accent={context.group.themeAccent} />
+    <LoopTheme group={context.group} />
     <ReplySheet
       token={token}
       canSuggest={context.group.mode !== "from_you"}
@@ -130,6 +130,8 @@ export default async function ReplyPage({ params }: { params: Promise<{ token: s
       roundName={issue.name}
       headerImageUrl={context.group.headerImageUrl}
       photoUrl={context.membership.photoUrl}
+      charm={context.membership.charm}
+      frame={context.membership.avatarFrame}
       deadlineMoment={formatMoment(issue.deliversAt, context.group.timezone)}
       deliversAtIso={issue.deliversAt.toISOString()}
       wentOutLabel={issue.status === "open" ? null : formatDate(issue.deliveredAt ?? issue.deliversAt, context.group.timezone)}

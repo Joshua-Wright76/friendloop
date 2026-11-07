@@ -4,6 +4,8 @@ import { appUrl, issueUrl, replyUrl, shareUrl, signInUrl, url } from "./urls.ts"
 
 const VERCEL_KEYS = [
   "NEXT_PUBLIC_APP_URL",
+  "E2E",
+  "E2E_APP_URL",
   "VERCEL_ENV",
   "VERCEL_URL",
   "VERCEL_PROJECT_PRODUCTION_URL",
@@ -78,4 +80,14 @@ test("the path helpers build the urls the emails carry", (t) => {
     signInUrl("a b&c"),
     "https://friendloop.dev/signin/confirm?token=a%20b%26c",
   );
+});
+
+test("the suite's per-server address wins, but only in the suite", (t) => {
+  t.after(restore);
+  delete process.env.E2E;
+  process.env.NEXT_PUBLIC_APP_URL = "https://friendloop.dev";
+  process.env.E2E_APP_URL = "http://localhost:4001";
+  assert.equal(appUrl(), "https://friendloop.dev");
+  process.env.E2E = "1";
+  assert.equal(appUrl(), "http://localhost:4001");
 });

@@ -109,6 +109,14 @@ export const groups = pgTable("groups", {
   themePreset: text("theme_preset"),
   /** Owner's accent override as #rrggbb; null keeps the preset's own. */
   themeAccent: text("theme_accent"),
+  /** The pattern behind every page; null is gingham. */
+  themeBackground: text("theme_background"),
+  /** The pack of paper textures for answers, polls, playlists and notes; null is plain cream. */
+  themePaperPack: text("theme_paper_pack"),
+  /** The pack of washi tape; null is the original picnic set. */
+  themeTapePack: text("theme_tape_pack"),
+  /** The drawing that stands in for the cherries on this loop's pages and emails; null is the cherries. */
+  themeMascot: text("theme_mascot"),
   /** Owner's header picture, shown above the loop's own surfaces and emails. */
   headerImageUrl: text("header_image_url"),
   /** The owner's switch: off hides every comment surface and refuses writes; nothing is deleted. */
@@ -133,6 +141,10 @@ export const memberships = pgTable(
     name: text("name"),
     /** A profile photo for this loop only; null falls back to the initial. */
     photoUrl: text("photo_url"),
+    /** A sticker beside their name in this loop; null is none. */
+    charm: text("charm"),
+    /** What goes around their picture in this loop; null is none. */
+    avatarFrame: text("avatar_frame"),
     access: accessEnum("access").default("member").notNull(),
     participation: participationEnum("participation").default("contributor").notNull(),
     reminderPreference: reminderPreferenceEnum("reminder_preference").default("all").notNull(),

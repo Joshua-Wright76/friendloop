@@ -28,8 +28,8 @@ test("N4 · the owner names a round and the name shows on the dashboard, the web
   await expect(page.getByText("Spring cleaning is open now.")).toBeVisible();
   await nameRound(1, "  Camping   weekend ");
 
-  const names = await rows<{ number: number; name: string | null }>("select number, name from issues order by number");
-  expect(names).toEqual([
+  // "Round named." may still be up from the round before, so wait for the write itself.
+  await expect.poll(() => rows<{ number: number; name: string | null }>("select number, name from issues order by number").then((found) => [...found])).toEqual([
     { number: 1, name: "Camping weekend" },
     { number: 2, name: "Spring cleaning" },
   ]);

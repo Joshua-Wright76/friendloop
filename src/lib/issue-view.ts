@@ -1,3 +1,4 @@
+import { DEFAULT_REACTIONS, tallyReactions } from "./reaction-emoji.ts";
 import { and, asc, eq, inArray, isNull } from "drizzle-orm";
 import { db } from "@/db";
 import {
@@ -21,6 +22,8 @@ export type IssueAnswer = {
   authorName: string;
   author: string;
   authorPhotoUrl: string | null;
+  authorCharm: string | null;
+  authorFrame: string | null;
   isYou: boolean;
   body: string;
   photoUrl: string | null;
@@ -40,6 +43,8 @@ export type IssueSectionReplyBlock = {
   authorName: string;
   author: string;
   authorPhotoUrl: string | null;
+  authorCharm: string | null;
+  authorFrame: string | null;
   isYou: boolean;
   body: string;
   linkUrl: string | null;
@@ -91,10 +96,8 @@ export type IssueView = {
   answerCount: number;
 };
 
-const REACTIONS = ["❤️", "😄", "👏"];
-
-export function reactionChoices(): string[] {
-  return REACTIONS;
+export function reactionChoices(): readonly string[] {
+  return DEFAULT_REACTIONS;
 }
 
 /** Everything `/i/<id>` and `/s/<token>` render, in one read. */
@@ -152,6 +155,8 @@ export async function loadIssue(input: {
       name: memberships.name,
       email: memberships.email,
       authorPhotoUrl: memberships.photoUrl,
+      authorCharm: memberships.charm,
+      authorFrame: memberships.avatarFrame,
     })
     .from(replies)
     .innerJoin(memberships, eq(memberships.id, replies.membershipId))
@@ -207,6 +212,8 @@ export async function loadIssue(input: {
           authorName: row.name ?? row.email.split("@")[0],
           author: mine ? copy.issue.you : (row.name ?? row.email.split("@")[0]),
           authorPhotoUrl: row.authorPhotoUrl,
+          authorCharm: row.authorCharm,
+          authorFrame: row.authorFrame,
           isYou: mine,
           body: row.body,
           photoUrl: row.photoUrl,
@@ -215,13 +222,7 @@ export async function loadIssue(input: {
           choices: row.pollChoices.flatMap((index) => question.pollOptions?.[index] ?? []),
           addedLater: row.addedAfterDelivery,
           comments: threads.byReply.get(row.replyId) ?? [],
-          reactions: REACTIONS.map((emoji) => ({
-            emoji,
-            count: forReply.filter((reaction) => reaction.emoji === emoji).length,
-            mine: forReply.some(
-              (reaction) => reaction.emoji === emoji && reaction.membershipId === viewerMembershipId,
-            ),
-          })).filter((reaction) => reaction.count > 0 || viewerMembershipId !== null),
+          reactions: tallyReactions(forReply, viewerMembershipId),
         };
       }),
   }));
@@ -247,6 +248,8 @@ export async function loadIssue(input: {
           name: memberships.name,
           email: memberships.email,
           authorPhotoUrl: memberships.photoUrl,
+          authorCharm: memberships.charm,
+          authorFrame: memberships.avatarFrame,
         })
         .from(sectionReplies)
         .innerJoin(memberships, eq(memberships.id, sectionReplies.membershipId))
@@ -286,6 +289,8 @@ export async function loadIssue(input: {
           authorName: row.name ?? row.email.split("@")[0],
           author: mine ? copy.issue.you : (row.name ?? row.email.split("@")[0]),
           authorPhotoUrl: row.authorPhotoUrl,
+          authorCharm: row.authorCharm,
+          authorFrame: row.authorFrame,
           isYou: mine,
           body: row.body,
           linkUrl: row.linkUrl,

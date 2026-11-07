@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { currentUser } from "@/lib/auth";
 import { getNow } from "@/lib/clock";
-import { setHeaderImage } from "@/lib/identity";
+import { setHeaderImage, stationeryColumns } from "@/lib/identity";
 import { createLoop, inviteMembers } from "@/lib/manage";
 import { MAX_BANNER_BYTES, validatePhoto } from "@/lib/photo-validation";
 import { DEFAULT_PRESET, isPresetKey, normalizeHex } from "@/lib/theme";
@@ -58,6 +58,13 @@ export async function createLoopAction(
   const accent = String(formData.get("accent") ?? "");
   if (preset !== "" && !isPresetKey(preset)) return { error: copy.newLoop.errors.theme };
   if (accent.trim() !== "" && !normalizeHex(accent)) return { error: copy.newLoop.errors.theme };
+  const looks = stationeryColumns({
+    background: String(formData.get("background") ?? ""),
+    paperPack: String(formData.get("paperPack") ?? ""),
+    tapePack: String(formData.get("tapePack") ?? ""),
+    mascot: String(formData.get("mascot") ?? ""),
+  });
+  if (!looks.ok) return { error: copy.newLoop.errors.theme };
 
   const picture = formData.get("headerImage");
   let header: { bytes: Uint8Array; type: string } | null = null;
@@ -84,6 +91,7 @@ export async function createLoopAction(
     // Gingham with no accent is stored as nothing, exactly as the settings do.
     themePreset: preset && preset !== DEFAULT_PRESET ? preset : null,
     themeAccent: normalizeHex(accent),
+    ...looks.columns,
   });
 
   // Validated above, so a failure here is the store or the database; the loop is

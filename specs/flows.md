@@ -72,7 +72,7 @@ Status: `todo` (not built) · `done` (built and covered).
 | E1 | Read a delivered issue | A member opening `/i/<n>` sees every question with each contributor's answer, their own marked, and the issue's date. | done |
 | E2 | Read by share link | With sharing enabled, an anonymous visitor at the share URL reads the same issue and sees no other loop data or navigation. | done |
 | E3 | Comment on an issue | A member posts a comment, it appears for other members immediately in their own session, an empty comment is rejected, and the author is marked "You" rather than by name. | done |
-| E4 | React to an answer | A member adds a reaction to someone's answer, the count updates for the person whose answer it is in a second session, and toggling removes it. | done |
+| E4 | React to an answer | A member adds a reaction to someone's answer, the count updates for the person whose answer it is in a second session, and toggling removes it. Beside the three defaults, a plus button opens a searchable picker of any emoji, with no approval from anyone; it works by touch and by keyboard, returns focus when it closes, and the emoji appears as its own chip for everyone. | done |
 | E5 | Browse the archive | The archive lists delivered issues newest-first; opening an older one renders without needing the current issue to exist. | done |
 
 ## F · Loop settings
@@ -160,6 +160,8 @@ Status: `todo` (not built) · `done` (built and covered).
 | N3 | Transfer ownership | The owner hands the loop to an admin who has joined, through a confirmation that names the new owner and what they give up; the founder becomes an admin, owner-only actions move, sessions and reply tokens are untouched, and the old owner cannot hand it back without the new owner. The role menu no longer offers "Owner", and a handover that has gone stale changes nothing. (Supersedes G5.) | done |
 | N4 | Rename an issue | The owner names a round (before or after delivery); the name shows in the rounds list, the dashboard, the reply sheet, the web issue and share view, and the delivery email's subject and heading; clearing it brings "Round N" back; only the owner is offered the control. (Ticket 3's R1 is this flow.) | done |
 | N5 | Profile photos | A member sets and removes their own photo — straight from their invitation link (on the reply sheet, or on the quiet page a reader or a not-yet-open loop lands on), or on the people page when signed in; it renders in the member list, on their answers and in comments, falling back to the initial; it belongs to that loop's membership only, and the photo routes answer only the person they belong to. | done |
+| N6 | Dress the loop | The owner picks a page background, a pack of paper textures, a separate pack of washi tape and a mascot in settings, each saved as it's chosen and previewed in place. They reach the dashboard, reply sheet, web issue and share view in light and dark and pass the accessibility audit; the mascot also reaches every email header as an image. The originals are stored as nothing and add no CSS, and only the owner can change any of it. | done |
+| N7 | Charm and frame | A member picks a sticker for beside their name and a frame for their picture, on their reply link or on the people page; both save as they're tapped and follow their answers and comments, the charm into issue emails too (the name stands alone with images off). They belong to that loop's membership only, the routes accept only our own stickers and frames, and only from the person they belong to. | done |
 
 ## O · Events and birthdays
 

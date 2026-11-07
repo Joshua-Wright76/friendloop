@@ -63,6 +63,8 @@ async function LoadedGroupLayout({ children, params }: Props) {
         email: memberships.email,
         name: memberships.name,
         photoUrl: memberships.photoUrl,
+        charm: memberships.charm,
+        avatarFrame: memberships.avatarFrame,
         access: memberships.access,
         participation: memberships.participation,
         invitedAt: memberships.invitedAt,
@@ -206,7 +208,7 @@ async function LoadedGroupLayout({ children, params }: Props) {
   return (
     <LoopDataProvider data={data}>
       <TimezoneSync stored={user.timezone} />
-      <LoopTheme preset={group.themePreset} accent={group.themeAccent} />
+      <LoopTheme group={group} />
       {children}
     </LoopDataProvider>
   );

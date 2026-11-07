@@ -7,7 +7,9 @@ import { e2eSeamsAllowed } from "../../src/lib/e2e.ts";
 import { emailPreviews } from "../../src/lib/email/previews.ts";
 import { deleteStoredPhoto, isManagedBlobPhotoUrl, storePhoto } from "../../src/lib/photo-storage.ts";
 import {
+  PREVIEW_LOOKS,
   enableUiPreview,
+  wearPreviewLook,
   isConstraintViolation,
   isLocalUiPreview,
   previewCookieMatches,
@@ -323,6 +325,7 @@ test("the preview rebuilds itself when an older seed left rows it cannot top up"
   // Older seeds gave replies generated ids. replies_unique_idx then swallows the
   // current seed's insert, and the comments that hang from its fixed id have no parent.
   await rows("delete from comments");
+  await rows("delete from reactions");
   await rows("update replies set id = gen_random_uuid()");
 
   await enableUiPreview();
@@ -340,6 +343,7 @@ test("rebuilding the preview leaves other loops and the demo user's place in the
   await enableUiPreview();
   await rows("update memberships set user_id = $1 where group_id = $2 and access = 'owner'", [UI_PREVIEW.userId, other.groupId]);
   await rows("delete from comments");
+  await rows("delete from reactions");
   await rows("update replies set id = gen_random_uuid()");
 
   await enableUiPreview();
@@ -385,4 +389,29 @@ test("an unparseable app url makes photo deletion a no-op, not a crash", async (
   process.env.NEXT_PUBLIC_APP_URL = "http://";
   await deleteStoredPhoto("http://localhost:3100/uploads/" + "e".repeat(64) + ".jpg");
   assert.deepEqual(blobCalls.del, []);
+});
+
+test("the demo loop shows the new looks, and can try on any outfit without touching another loop", async () => {
+  const other = await seedLoop({ name: "Someone else's loop" });
+  await enableUiPreview();
+  const columns = "theme_preset, theme_background, theme_paper_pack, theme_tape_pack, theme_mascot";
+  const demo = async () => (await rows<Record<string, string | null>>(`select ${columns} from groups where id = $1`, [UI_PREVIEW.groupId]))[0];
+
+  assert.deepEqual(await demo(), { theme_preset: "bluebell", theme_background: "stars", theme_paper_pack: "journal", theme_tape_pack: "seaside", theme_mascot: "duck" });
+  const people = await rows<{ charm: string | null; avatar_frame: string | null }>("select charm, avatar_frame from memberships where group_id = $1 and charm is not null", [UI_PREVIEW.groupId]);
+  assert.equal(people.length, 3);
+  const chips = await rows<{ emoji: string }>("select distinct emoji from reactions");
+  assert.ok(chips.some((chip) => chip.emoji === "🪿"), "a reaction past the three defaults");
+
+  assert.equal(await wearPreviewLook("schoolbook"), true);
+  assert.deepEqual(await demo(), { theme_preset: null, theme_background: "hearts", theme_paper_pack: "schoolbook", theme_tape_pack: "garden", theme_mascot: "frog" });
+
+  assert.equal(await wearPreviewLook("original"), true);
+  assert.deepEqual(await demo(), { theme_preset: null, theme_background: null, theme_paper_pack: null, theme_tape_pack: null, theme_mascot: null });
+
+  for (const key of Object.keys(PREVIEW_LOOKS)) assert.equal(await wearPreviewLook(key), true, key);
+  for (const bad of [null, "", "nope", "constructor", "__proto__"]) assert.equal(await wearPreviewLook(bad), false, String(bad));
+
+  const [untouched] = await rows<Record<string, string | null>>(`select ${columns} from groups where id = $1`, [other.groupId]);
+  assert.ok(Object.values(untouched).every((value) => value === null));
 });

@@ -26,7 +26,7 @@ export default async function UnsubscribePage({ params }: { params: Promise<{ to
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-[560px] flex-col justify-center px-4 py-10">
       {context.state === "ok" ? (
-        <LoopTheme preset={context.group.themePreset} accent={context.group.themeAccent} />
+        <LoopTheme group={context.group} />
       ) : null}
       <div className="card p-6">
         {context.state === "invalid" ? (
