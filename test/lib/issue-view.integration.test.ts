@@ -2,7 +2,7 @@ import { test, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import { db } from "@/db";
 import { sections } from "@/db/schema";
-import { loadIssue } from "../../src/lib/issue-view.ts";
+import { issueGroupId, loadIssue } from "../../src/lib/issue-view.ts";
 import { saveSectionMusicFor, saveSectionPhotoFor, saveSectionTextFor, snapshotSectionsForIssue } from "../../src/lib/sections.ts";
 import { submitFor } from "../../src/lib/reply.ts";
 import { groupOf, resetDatabase, rows, seedDeliveredIssue, seedLoop, setupDatabase } from "../support/app.ts";
@@ -126,4 +126,11 @@ test("issues and share links without visible sections read plainly", async () =>
   const shared = await loadIssue({ shareToken: "share-token" });
   assert.equal(shared!.issue.id, hidden.issueId);
   assert.equal(shared!.sections.length, 0);
+});
+
+test("an issue's loop is found without loading the issue, and a stranger id finds none", async () => {
+  const setup = await deliveredSectionLoop({ kind: "standard" });
+  assert.equal(await issueGroupId(setup.issueId), setup.groupId);
+  assert.equal(await issueGroupId("00000000-0000-4000-8000-000000000000"), null);
+  assert.equal(await issueGroupId(""), null);
 });

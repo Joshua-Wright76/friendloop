@@ -2,6 +2,7 @@
 
 import { SafeForm } from "@/components/safe-form";
 import Link from "next/link";
+import Form from "next/form";
 import { LoopNav } from "@/components/loop-nav";
 import { AutoPicker } from "@/components/auto-picker";
 import { CopyLink } from "@/components/copy-link";
@@ -48,7 +49,8 @@ export default function IssuesTab({
       {contributors.length > 1 && allRounds.some((round) => round.status === "delivered") ? (
           <details className="filter-fold mt-1 border-t border-dashed border-line" open={focus ? true : undefined}>
           <summary><span className="link">{copy.rounds.filter.summary}</span>{focus ? <span className="font-bold">{focus.name}</span> : null}</summary>
-          <form method="get" className="pb-1">
+          {/* A client navigation, not a document load; without script it is a plain GET. */}
+          <Form action={`/g/${id}/issues`} className="pb-1">
             <div className="filter-line">
               <span className="text-[14px] font-bold text-ink-soft">{copy.rounds.filter.label}</span>
               <AutoPicker
@@ -65,7 +67,7 @@ export default function IssuesTab({
                 <Link href={`/g/${id}/issues`} className="link link--inline">{copy.rounds.filter.clear}</Link>
               </p>
             ) : null}
-          </form>
+          </Form>
         </details>
         ) : null}
       </LoopNav>

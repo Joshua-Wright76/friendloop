@@ -22,6 +22,8 @@ const nextConfig: NextConfig = {
   },
   // The create-a-loop wizard sends the header picture (up to 4 MB) with the form.
   // Vercel caps a request at 4.5 MB, so there is no point allowing more.
+  // Not `inlineCss`: it was tried, and it repeats the stylesheet in every streamed
+  // segment and the RSC payload, so a loop page's HTML went from 21 KB to 106 KB.
   experimental: { serverActions: { bodySizeLimit: "4.5mb" } },
   // The browser bundle cannot read VERCEL_ENV; bake it in so client errors are
   // tagged production / preview / development like the server's.

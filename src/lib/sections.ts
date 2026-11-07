@@ -76,9 +76,37 @@ export function checkMusicLink(raw: string): MusicLinkCheck {
 const MUSIC_FETCH_TIMEOUT_MS = 4_000;
 
 /** Read-through cache for music card metadata; misses degrade to a plain card. */
+/**
+ * Cards for many links in one query. Only a link with no card, or a stale one,
+ * goes on to `musicCardFor` and the network; on a delivered round that is none.
+ */
+export async function musicCardsFor(links: Array<{ provider: MusicProvider; url: string }>): Promise<Map<string, MusicCard>> {
+  const cards = new Map<string, MusicCard>();
+  const urls = [...new Set(links.map((link) => link.url))];
+  if (urls.length === 0) return cards;
+  const rows = await db.select().from(musicLinks).where(inArray(musicLinks.url, urls));
+  const now = Date.now();
+  for (const row of rows) {
+    if (now - row.fetchedAt.getTime() < MUSIC_CARD_FRESH_MS) {
+      cards.set(row.url, {
+        title: row.title ?? fallbackTitle(row.url),
+        artworkUrl: row.artworkUrl,
+        tracks: row.tracks ?? [],
+        trackCount: row.trackCount ?? 0,
+      });
+    }
+  }
+  const missing = links.filter((link, index) => !cards.has(link.url) && links.findIndex((other) => other.url === link.url) === index);
+  const fetched = await Promise.all(missing.map((link) => musicCardFor(link.provider, link.url)));
+  missing.forEach((link, index) => cards.set(link.url, fetched[index]));
+  return cards;
+}
+
+const MUSIC_CARD_FRESH_MS = 30 * 24 * 60 * 60 * 1000;
+
 export async function musicCardFor(provider: MusicProvider, url: string): Promise<MusicCard> {
   const [cached] = await db.select().from(musicLinks).where(eq(musicLinks.url, url)).limit(1);
-  const fresh = cached && Date.now() - cached.fetchedAt.getTime() < 30 * 24 * 60 * 60 * 1000;
+  const fresh = cached && Date.now() - cached.fetchedAt.getTime() < MUSIC_CARD_FRESH_MS;
   if (cached && fresh) {
     return {
       title: cached.title ?? fallbackTitle(url),

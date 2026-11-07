@@ -220,7 +220,7 @@ function PhotoWall({ section }: { section: IssueSectionBlock }) {
               onClick={(event) => lightbox.open(index, event.currentTarget)}
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={item.url} alt="" className="w-full rounded-lg border border-line object-cover" />
+              <img src={item.url} alt="" loading="lazy" decoding="async" className="w-full rounded-lg border border-line object-cover" />
             </button>
             <figcaption className="mt-1 text-[12.5px] leading-snug text-ink-soft">
               <span className="font-bold">{reply.author}</span>
@@ -263,7 +263,7 @@ function SectionReplyCard({ reply, label }: { reply: IssueSectionReplyBlock; lab
       {reply.media.map((item) => (
         <figure key={item.url} className="m-0 mt-3">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={item.url} alt={item.caption || text(copy.issue.photoAlt, { author: reply.author })} className="w-full rounded-lg border border-line object-cover" />
+          <img src={item.url} alt={item.caption || text(copy.issue.photoAlt, { author: reply.author })} loading="lazy" decoding="async" className="w-full rounded-lg border border-line object-cover" />
           {item.caption && label ? (
             <figcaption className="mt-1 text-[12.5px] leading-snug text-ink-soft">{item.caption}</figcaption>
           ) : null}
@@ -411,6 +411,9 @@ function AnswerCard({
         <img
           src={answer.photoUrl}
           alt={text(copy.issue.photoAlt, { author: answer.author })}
+          // Below the fold on all but the first answer, and photos are camera-sized.
+          loading="lazy"
+          decoding="async"
           className="mt-3 w-full rounded-lg border border-line object-cover"
         />
       ) : null}

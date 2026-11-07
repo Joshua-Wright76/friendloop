@@ -595,11 +595,19 @@ export async function backfillShareTokens(groupId: string): Promise<number> {
     .select({ id: issues.id })
     .from(issues)
     .where(and(eq(issues.groupId, groupId), eq(issues.status, "delivered"), isNull(issues.shareToken)));
-
-  for (const issue of missing) {
-    await db.update(issues).set({ shareToken: newToken() }).where(eq(issues.id, issue.id));
-  }
+  await setShareTokens(missing.map((issue) => issue.id));
   return missing.length;
+}
+
+/** A fresh token for each round, in one statement: one round trip however many rounds. */
+async function setShareTokens(issueIds: string[]): Promise<void> {
+  if (issueIds.length === 0) return;
+  const rows = issueIds.map((id) => sql`(${id}::uuid, ${newToken()})`);
+  await db.execute(sql`
+    update ${issues} set share_token = fresh.token
+    from (values ${sql.join(rows, sql`, `)}) as fresh(id, token)
+    where ${issues.id} = fresh.id
+  `);
 }
 
 /** New links for every delivered round; anything already handed out stops working. */
@@ -608,10 +616,7 @@ export async function rotateShareLinks(groupId: string): Promise<number> {
     .select({ id: issues.id })
     .from(issues)
     .where(and(eq(issues.groupId, groupId), eq(issues.status, "delivered")));
-
-  for (const issue of rounds) {
-    await db.update(issues).set({ shareToken: newToken() }).where(eq(issues.id, issue.id));
-  }
+  await setShareTokens(rounds.map((issue) => issue.id));
   return rounds.length;
 }
 

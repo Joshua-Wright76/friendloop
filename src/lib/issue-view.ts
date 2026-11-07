@@ -1,5 +1,5 @@
 import { DEFAULT_REACTIONS, tallyReactions } from "./reaction-emoji.ts";
-import { and, asc, eq, inArray, isNull } from "drizzle-orm";
+import { and, asc, eq, isNull } from "drizzle-orm";
 import { db } from "@/db";
 import {
   groups,
@@ -12,7 +12,7 @@ import {
 import { copy } from "./copy.ts";
 import { loadComments, type IssueComment } from "./comment-view.ts";
 import { tallyPoll, type PollTallyRow } from "./poll.ts";
-import { musicCardFor, type MusicCard, type MusicProvider, type MusicTrack } from "./sections";
+import { musicCardsFor, type MusicProvider, type MusicTrack } from "./sections";
 import { issueSections, sectionMedia, sectionReplies } from "@/db/schema";
 
 export type IssueAnswer = {
@@ -135,32 +135,78 @@ export async function loadIssue(input: {
   if (!row) return null;
   const { issue, group } = row;
 
-  const questions = await db
-    .select()
-    .from(issueQuestions)
-    .where(eq(issueQuestions.issueId, issue.id))
-    .orderBy(asc(issueQuestions.position));
+  // Comments are a member surface: a share link never shows them, and the owner
+  // can switch them off for everyone. Off hides; it never deletes.
+  const showComments = group.commentsEnabled && !input.shareToken;
 
-  const allRows = await db
-    .select({
-      replyId: replies.id,
-      issueQuestionId: replies.issueQuestionId,
-      body: replies.body,
-      photoUrl: replies.photoUrl,
-      audioUrl: replies.audioUrl,
-      audioDurationMs: replies.audioDurationMs,
-      pollChoices: replies.pollChoices,
-      addedAfterDelivery: replies.addedAfterDelivery,
-      membershipId: replies.membershipId,
-      name: memberships.name,
-      email: memberships.email,
-      authorPhotoUrl: memberships.photoUrl,
-      authorCharm: memberships.charm,
-      authorFrame: memberships.avatarFrame,
-    })
-    .from(replies)
-    .innerJoin(memberships, eq(memberships.id, replies.membershipId))
-    .where(and(eq(replies.issueId, issue.id), eq(replies.status, "submitted")));
+  // Everything below hangs off the issue alone, so it is asked for at once: one
+  // round trip to the database instead of one per table.
+  const [questions, allRows, threads, reactionRows, sectionRows, allSectionReplyRows, allSectionMediaRows] = await Promise.all([
+    db
+      .select()
+      .from(issueQuestions)
+      .where(eq(issueQuestions.issueId, issue.id))
+      .orderBy(asc(issueQuestions.position)),
+    db
+      .select({
+        replyId: replies.id,
+        issueQuestionId: replies.issueQuestionId,
+        body: replies.body,
+        photoUrl: replies.photoUrl,
+        audioUrl: replies.audioUrl,
+        audioDurationMs: replies.audioDurationMs,
+        pollChoices: replies.pollChoices,
+        addedAfterDelivery: replies.addedAfterDelivery,
+        membershipId: replies.membershipId,
+        name: memberships.name,
+        email: memberships.email,
+        authorPhotoUrl: memberships.photoUrl,
+        authorCharm: memberships.charm,
+        authorFrame: memberships.avatarFrame,
+      })
+      .from(replies)
+      .innerJoin(memberships, eq(memberships.id, replies.membershipId))
+      .where(and(eq(replies.issueId, issue.id), eq(replies.status, "submitted"))),
+    showComments
+      ? loadComments({ issueId: issue.id, groupId: group.id, viewerMembershipId })
+      : Promise.resolve({ top: [], byReply: new Map<string, IssueComment[]>(), mentionables: [] }),
+    // Every reaction on this issue's answers; the ones on answers this viewer may
+    // not see are simply never looked up below.
+    db
+      .select({ replyId: reactions.replyId, membershipId: reactions.membershipId, emoji: reactions.emoji, createdAt: reactions.createdAt })
+      .from(reactions)
+      .innerJoin(replies, eq(replies.id, reactions.replyId))
+      .where(eq(replies.issueId, issue.id)),
+    db
+      .select()
+      .from(issueSections)
+      .where(eq(issueSections.issueId, issue.id))
+      .orderBy(asc(issueSections.position)),
+    db
+      .select({
+        replyId: sectionReplies.id,
+        issueSectionId: sectionReplies.issueSectionId,
+        body: sectionReplies.body,
+        linkUrl: sectionReplies.linkUrl,
+        linkProvider: sectionReplies.linkProvider,
+        addedAfterDelivery: sectionReplies.addedAfterDelivery,
+        membershipId: sectionReplies.membershipId,
+        name: memberships.name,
+        email: memberships.email,
+        authorPhotoUrl: memberships.photoUrl,
+        authorCharm: memberships.charm,
+        authorFrame: memberships.avatarFrame,
+      })
+      .from(sectionReplies)
+      .innerJoin(memberships, eq(memberships.id, sectionReplies.membershipId))
+      .where(and(eq(sectionReplies.issueId, issue.id), eq(sectionReplies.status, "submitted"))),
+    db
+      .select({ sectionReplyId: sectionMedia.sectionReplyId, url: sectionMedia.url, caption: sectionMedia.caption })
+      .from(sectionMedia)
+      .innerJoin(sectionReplies, eq(sectionReplies.id, sectionMedia.sectionReplyId))
+      .where(and(eq(sectionReplies.issueId, issue.id), eq(sectionReplies.status, "submitted")))
+      .orderBy(asc(sectionMedia.position)),
+  ]);
 
   // Polls keep their results back until the issue goes out: before then, the only
   // pick anyone can see is their own. A pick cleared after sending is not an answer.
@@ -172,17 +218,10 @@ export async function loadIssue(input: {
     return delivered || row.membershipId === viewerMembershipId;
   });
 
-  // Comments are a member surface: a share link never shows them, and the owner
-  // can switch them off for everyone. Off hides; it never deletes.
-  const showComments = group.commentsEnabled && !input.shareToken;
-  const threads = showComments
-    ? await loadComments({ issueId: issue.id, groupId: group.id, viewerMembershipId })
-    : { top: [], byReply: new Map<string, IssueComment[]>(), mentionables: [] };
-
-  const replyIds = rows.map((row) => row.replyId);
-  const reactionRows = replyIds.length
-    ? await db.select().from(reactions).where(inArray(reactions.replyId, replyIds))
-    : [];
+  const reactionsByReply = new Map<string, typeof reactionRows>();
+  for (const reaction of reactionRows) {
+    reactionsByReply.set(reaction.replyId, [...(reactionsByReply.get(reaction.replyId) ?? []), reaction]);
+  }
 
   const blocks: IssueBlock[] = questions.map((question) => ({
     questionId: question.id,
@@ -205,7 +244,7 @@ export async function loadIssue(input: {
       .filter((row) => row.issueQuestionId === question.id)
       .map((row) => {
         const mine = viewerMembershipId === row.membershipId;
-        const forReply = reactionRows.filter((reaction) => reaction.replyId === row.replyId);
+        const forReply = reactionsByReply.get(row.replyId) ?? [];
         return {
           replyId: row.replyId,
           authorId: row.membershipId,
@@ -227,50 +266,14 @@ export async function loadIssue(input: {
       }),
   }));
 
-  const sectionRows = await db
-    .select()
-    .from(issueSections)
-    .where(eq(issueSections.issueId, issue.id))
-    .orderBy(asc(issueSections.position));
-
   const visibleSections = sectionRows.filter((section) => !section.adminOnly || input.viewerIsAdmin);
+  const visibleIds = new Set(visibleSections.map((section) => section.id));
+  const sectionReplyRows = allSectionReplyRows.filter((row) => visibleIds.has(row.issueSectionId));
+  const shownReplies = new Set(sectionReplyRows.map((row) => row.replyId));
+  const sectionMediaRows = allSectionMediaRows.filter((row) => shownReplies.has(row.sectionReplyId));
 
-  const sectionReplyRows = visibleSections.length
-    ? await db
-        .select({
-          replyId: sectionReplies.id,
-          issueSectionId: sectionReplies.issueSectionId,
-          body: sectionReplies.body,
-          linkUrl: sectionReplies.linkUrl,
-          linkProvider: sectionReplies.linkProvider,
-          addedAfterDelivery: sectionReplies.addedAfterDelivery,
-          membershipId: sectionReplies.membershipId,
-          name: memberships.name,
-          email: memberships.email,
-          authorPhotoUrl: memberships.photoUrl,
-          authorCharm: memberships.charm,
-          authorFrame: memberships.avatarFrame,
-        })
-        .from(sectionReplies)
-        .innerJoin(memberships, eq(memberships.id, sectionReplies.membershipId))
-        .where(and(eq(sectionReplies.issueId, issue.id), eq(sectionReplies.status, "submitted")))
-    : [];
-
-  const sectionMediaRows = sectionReplyRows.length
-    ? await db
-        .select()
-        .from(sectionMedia)
-        .where(inArray(sectionMedia.sectionReplyId, sectionReplyRows.map((row) => row.replyId)))
-        .orderBy(asc(sectionMedia.position))
-    : [];
-
-  const musicCards = new Map<string, MusicCard>();
-  for (const row of sectionReplyRows) {
-    if (row.linkUrl && row.linkProvider) {
-      const provider = row.linkProvider as MusicProvider;
-      musicCards.set(row.linkUrl, await musicCardFor(provider, row.linkUrl));
-    }
-  }
+  const musicCards = await musicCardsFor(sectionReplyRows.flatMap((row) =>
+    row.linkUrl && row.linkProvider ? [{ provider: row.linkProvider as MusicProvider, url: row.linkUrl }] : []));
 
   const sections: IssueSectionBlock[] = visibleSections.map((section) => ({
     id: section.id,
@@ -318,6 +321,13 @@ export async function loadIssue(input: {
     commentsEnabled: group.commentsEnabled,
     mentionables: threads.mentionables,
   };
+}
+
+/** The loop an issue belongs to, or null: all a page needs before it knows who is reading. */
+export async function issueGroupId(issueId: string): Promise<string | null> {
+  if (!issueId) return null;
+  const [row] = await db.select({ groupId: issues.groupId }).from(issues).where(eq(issues.id, issueId)).limit(1);
+  return row?.groupId ?? null;
 }
 
 /** Who is looking: a signed-in member, or the token in the delivery link. */

@@ -1003,31 +1003,30 @@ export function ReplySheet({
     setError(null);
     setAnnouncement("");
 
-    // A name is a nicety; never let it block the answers themselves.
+    // A name is a nicety; never let it block the answers themselves. It saves
+    // alongside them rather than first: on a phone every round trip is felt.
     const trimmedName = name.trim().slice(0, MAX_DISPLAY_NAME).trim();
-    if (trimmedName && trimmedName !== savedName.current) {
-      const nameResult = await saveReplyName(token, trimmedName, copy.reply.nameError);
-      if (nameResult.ok) {
-        savedName.current = trimmedName;
-        setNameStatus("saved");
-      }
-    }
+    const naming = trimmedName && trimmedName !== savedName.current
+      ? saveReplyName(token, trimmedName, copy.reply.nameError).then((nameResult) => {
+          if (nameResult.ok) {
+            savedName.current = trimmedName;
+            setNameStatus("saved");
+          }
+        })
+      : Promise.resolve();
 
     try {
+      // Every unsaved answer goes at once; each is its own row, so order between them
+      // never mattered. Results are then read in the sheet's order, so the first
+      // failure is the one that gets the focus and the message, as before.
+      type Saved = { question: (typeof questions)[number]; result: Awaited<ReturnType<typeof writeDraft>>; revision?: number; picks?: number[]; body?: string };
+      const saves: Array<Promise<Saved>> = [];
       for (const question of questions) {
         // Poll picks save the moment they are tapped; there is no draft text to flush.
         if (question.kind === "poll") {
           if (pollStatuses[question.id] !== "error") continue;
           const picks = pollPicks[question.id] ?? [];
-          const saved = await writePoll(question.id, JSON.stringify(picks));
-          if (!saved.ok) {
-            // "Sent" must never hide a vote that's gone.
-            setSubmitFailed(true);
-            setError(saved.error);
-            return;
-          }
-          letGo(pollKey(token, question.id));
-          setPollStatuses((current) => ({ ...current, [question.id]: picks.length > 0 ? "saved" : "cleared" }));
+          saves.push(writePoll(question.id, JSON.stringify(picks)).then((result) => ({ question, result, picks })));
           continue;
         }
         // Already safe on the server: a failure below must not paint this one as unsaved.
@@ -1036,19 +1035,39 @@ export function ReplySheet({
         const revision = (revisions.current.get(question.id) ?? 0) + 1;
         revisions.current.set(question.id, revision);
         setQuestionStatuses((current) => ({ ...current, [question.id]: "saving" }));
-        const result = await writeDraft(question.id, body);
-        if (!result.ok) {
-          if ((revisions.current.get(question.id) ?? 0) === revision) {
-            setQuestionStatuses((current) => ({ ...current, [question.id]: "error" }));
+        saves.push(writeDraft(question.id, body).then((result) => ({ question, result, revision, body })));
+      }
+      const [results] = await Promise.all([Promise.all(saves), naming]);
+
+      let firstFailure: Saved | null = null;
+      for (const saved of results) {
+        const { question, result } = saved;
+        if (question.kind === "poll") {
+          if (!result.ok) {
+            firstFailure ??= saved;
+            continue;
           }
-          setSubmitFailed(true);
-          setError(result.error);
-          fields.current.get(question.id)?.focus();
-          return;
+          letGo(pollKey(token, question.id));
+          const picks = saved.picks ?? [];
+          setPollStatuses((current) => ({ ...current, [question.id]: picks.length > 0 ? "saved" : "cleared" }));
+          continue;
         }
-        if ((revisions.current.get(question.id) ?? 0) === revision) {
-          setQuestionStatuses((current) => ({ ...current, [question.id]: body.trim() ? "saved" : "empty" }));
+        const current = (revisions.current.get(question.id) ?? 0) === saved.revision;
+        if (!result.ok) {
+          if (current) setQuestionStatuses((statuses) => ({ ...statuses, [question.id]: "error" }));
+          firstFailure ??= saved;
+          continue;
         }
+        if (current) {
+          setQuestionStatuses((statuses) => ({ ...statuses, [question.id]: (saved.body ?? "").trim() ? "saved" : "empty" }));
+        }
+      }
+      if (firstFailure && !firstFailure.result.ok) {
+        // "Sent" must never hide an answer or a vote that's gone.
+        setSubmitFailed(true);
+        setError(firstFailure.result.error);
+        if (firstFailure.question.kind !== "poll") fields.current.get(firstFailure.question.id)?.focus();
+        return;
       }
 
       await Promise.allSettled([...sectionSaves.current]);
@@ -1671,7 +1690,7 @@ export function ReplySheet({
                     <div className="mt-3">
                       {media.map((item, index) => (
                         <div key={item.id} className="mt-2 flex items-start gap-3">
-                          <img src={item.url} alt={item.caption || copy.reply.photoPreview} className="h-16 w-16 flex-none rounded-md border border-line object-cover" />
+                          <img src={item.url} alt={item.caption || copy.reply.photoPreview} loading="lazy" decoding="async" className="h-16 w-16 flex-none rounded-md border border-line object-cover" />
                           <div className="min-w-0 flex-1">
                             {item.caption ? (
                               <p className="wrap-any text-[13px] text-ink">{item.caption}</p>

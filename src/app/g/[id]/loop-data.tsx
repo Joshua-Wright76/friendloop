@@ -68,6 +68,8 @@ export type LoopData = {
   nextWhenThisCloses: boolean;
   lastNudge: string | null;
   weekdayLabel: string;
+  /** Membership id to the ids of the delivered rounds they answered in. */
+  roundsAnsweredBy: Record<string, string[]>;
 };
 
 const LoopDataContext = createContext<LoopData | null>(null);

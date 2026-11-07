@@ -11,6 +11,7 @@ import {
   createSection,
   moveSection,
   musicCardFor,
+  musicCardsFor,
   PHOTO_WALL_MAX,
   removeSectionMediaFor,
   saveSectionMusicFor,
@@ -524,4 +525,33 @@ test("a hanging provider answers as a miss through the abort clock", async (t) =
   const card = await musicCardFor("qobuz", "https://play.qobuz.com/album/hungry-pick");
   assert.equal(card.title, "hungry pick");
   assert.equal(card.artworkUrl, null);
+});
+
+test("many music cards come from one cache read, and only a missing one is fetched", async (t) => {
+  assert.equal((await musicCardsFor([])).size, 0);
+
+  const cached = "https://vina.bandcamp.com/album/batch-cached";
+  const missing = "https://open.spotify.com/album/batchmissing";
+  await rows(
+    "insert into music_links (url, provider, title, artwork_url, fetched_at) values ($1, 'bandcamp', 'Cached Album', null, $2)",
+    [cached, new Date().toISOString()],
+  );
+
+  const originalFetch = globalThis.fetch;
+  t.after(() => { globalThis.fetch = originalFetch; });
+  const asked: string[] = [];
+  globalThis.fetch = (async (input: string | URL | Request) => {
+    asked.push(String(input));
+    return new Response("not a page with metadata", { status: 200 });
+  }) as typeof fetch;
+
+  const cards = await musicCardsFor([
+    { provider: "bandcamp", url: cached },
+    { provider: "spotify", url: missing },
+    // The same link twice is fetched once.
+    { provider: "spotify", url: missing },
+  ]);
+  assert.equal(cards.get(cached)?.title, "Cached Album");
+  assert.equal(cards.get(missing)?.title, "batchmissing");
+  assert.deepEqual(asked, ["https://open.spotify.com/embed/album/batchmissing"]);
 });

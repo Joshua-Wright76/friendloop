@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Form from "next/form";
 import { AlbumGallery } from "@/components/album-gallery";
 import { AutoPicker } from "@/components/auto-picker";
 import { albumHref, type AlbumFilters } from "@/lib/album-query";
@@ -51,7 +52,8 @@ export function AlbumBody({
           </span>
           <span className="link">{copy.album.filterSummary}</span>
         </summary>
-      <form key={`${filters.member ?? ""}|${filters.q}`} method="get" action={base} role="search" aria-label={copy.album.filtersLabel} className="pb-3">
+      {/* A client navigation, not a document load; without script it is a plain GET. */}
+      <Form key={`${filters.member ?? ""}|${filters.q}`} action={base} role="search" aria-label={copy.album.filtersLabel} className="pb-3">
         {token ? <input type="hidden" name="m" value={token} /> : null}
         <div className="album-filters">
           <label className="block min-w-0 text-[13px] font-bold text-ink-soft">
@@ -79,7 +81,7 @@ export function AlbumBody({
           </div>
         </div>
         {filtered ? <p className="m-0 mt-1"><Link href={albumHref({ base, token })} className="link link--quiet">{copy.album.clear}</Link></p> : null}
-      </form>
+      </Form>
       </details>
 
       {view.total === 0 ? (

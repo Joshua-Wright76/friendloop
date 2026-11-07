@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
-import { Gaegu, Nunito } from "next/font/google";
+import { Nunito } from "next/font/google";
+import localFont from "next/font/local";
 import { FeedbackButton } from "@/components/feedback-button";
 import { ThemeSwitch } from "@/components/theme-switch";
 import { copy } from "@/lib/copy";
@@ -7,15 +8,27 @@ import { THEME_COLORS } from "@/lib/theme";
 import { appUrl } from "@/lib/urls";
 import "./globals.css";
 
+// Not preloaded: a preload races the page's own HTML and code for a phone's
+// bandwidth, and text paints in the size-matched fallback until the font arrives.
 const nunito = Nunito({
   variable: "--font-nunito",
   subsets: ["latin"],
+  preload: false,
 });
 
-const gaegu = Gaegu({
+// Gaegu from Google is mostly Korean: 179 faces, several of whose ranges also claim
+// plain ASCII, so English text pulled in dozens of Korean files (about 700 KB) and
+// their rules filled the render-blocking stylesheet. Only its Latin files ship now.
+// Text it lacks (Hangul, say) falls to the next font in --font-display.
+const gaegu = localFont({
   variable: "--font-gaegu",
-  weight: ["400", "700"],
-  subsets: ["latin"],
+  src: [
+    { path: "../assets/fonts/gaegu-latin-400.woff2", weight: "400", style: "normal" },
+    { path: "../assets/fonts/gaegu-latin-700.woff2", weight: "700", style: "normal" },
+  ],
+  display: "swap",
+  preload: false,
+  fallback: ["Comic Sans MS", "cursive"],
 });
 
 export const metadata: Metadata = {

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import * as Sentry from "@sentry/nextjs";
+import { reportError } from "@/components/sentry-client";
 import Link from "next/link";
 
 /**
@@ -20,7 +20,7 @@ export default function GlobalError({
     // A no-op without NEXT_PUBLIC_SENTRY_DSN. Server-rendered errors arrive
     // here with only a digest; the server side reported them via onRequestError.
     console.error(error);
-    Sentry.captureException(error);
+    reportError(error);
   }, [error]);
 
   return (
