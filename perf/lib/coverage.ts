@@ -28,6 +28,7 @@ export const EXEMPT: Record<string, string> = {
   "/dev/emails": "Developer preview, not linked from the site.",
   "/dev/feedback": "Key-locked notes reader for the people who build Friendloop.",
   "/dev/outbox": "Developer preview, not linked from the site.",
+  "/dev/stats": "Key-locked usage numbers for the people who build Friendloop.",
   "/dev/screens": "Developer preview, not linked from the site.",
   "/dev/ui": "Developer preview unlock, not linked from the site.",
   "/dev/ui/signout": "Developer preview, not linked from the site.",

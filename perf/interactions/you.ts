@@ -47,6 +47,15 @@ export const youInteractions: Interaction[] = [
     done: () => ({ selector: "#wizard-step-heading", path: "^/g/new$" }),
   },
   {
+    id: "you.email.confirm.load",
+    label: "Open an email-change link that no longer works",
+    surface: "your loops", kind: "page-load", viewer: "owner", cache: "empty",
+    flows: [], routes: ["/you/email/confirm"],
+    // An unknown token: the page and its lookup run, and nobody's address changes.
+    act: (c) => c.visit(`/you/email/confirm?token=perf-${c.unique}`),
+    done: () => ({ selector: "h1", text: "This link doesn't work" }),
+  },
+  {
     id: "you.delete.load",
     label: "Open the delete-account page",
     surface: "your loops", kind: "page-load", viewer: "owner", cache: "empty",
