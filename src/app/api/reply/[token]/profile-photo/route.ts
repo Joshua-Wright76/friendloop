@@ -1,3 +1,4 @@
+import { uploadRefused } from "@/lib/upload-limit";
 import { NextResponse } from "next/server";
 import { copy } from "@/lib/copy";
 import { clearMemberPhoto, setMemberLook, setMemberPhoto } from "@/lib/identity";
@@ -18,6 +19,8 @@ async function contributorFor(token: string) {
 
 export async function POST(request: Request, { params }: RouteContext) {
   const { token } = await params;
+  const refused = await uploadRefused(token, copy.reply.errors.tooManyUploads);
+  if (refused) return refused;
   const membership = await contributorFor(token);
   if (!membership) return NextResponse.json({ error: copy.reply.errors.invalidLink }, { status: 403 });
 

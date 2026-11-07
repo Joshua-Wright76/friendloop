@@ -1,10 +1,11 @@
 import { Resend } from "resend";
-import { and, asc, eq, inArray, lt, sql } from "drizzle-orm";
+import { and, asc, eq, gt, inArray, lt, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { emailSuppressions, memberships, outbox } from "@/db/schema";
 import type { RenderedEmail } from "./templates";
 import { copy } from "../copy.ts";
 import { e2eSeamsAllowed } from "../e2e.ts";
+import { log } from "../log.ts";
 import { oneClickUnsubscribeUrl } from "../urls.ts";
 
 export type EmailKind = (typeof outbox.$inferInsert)["kind"];
@@ -27,9 +28,48 @@ export type QueueInput = RenderedEmail & {
 };
 
 /** Kinds that are never held back: someone asked for this exact email just now. */
-const TRANSACTIONAL: ReadonlySet<EmailKind> = new Set(["signin"]);
+const TRANSACTIONAL: ReadonlySet<EmailKind> = new Set(["signin", "email_change"]);
 
 export type SuppressedReason = "muted" | "bounce" | "complaint";
+
+/** Resend's free tier. Set `EMAIL_DAILY_BUDGET` to match a bigger plan. */
+const DEFAULT_DAILY_BUDGET = 100;
+/** Kept back for sign-in links, which are useless if they arrive late. */
+const SIGN_IN_RESERVE = 20;
+
+export function dailySendBudget(): number {
+  const configured = Number(process.env.EMAIL_DAILY_BUDGET);
+  return Number.isInteger(configured) && configured > 0 ? configured : DEFAULT_DAILY_BUDGET;
+}
+
+export async function sentInLastDay(): Promise<number> {
+  const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
+  const [{ count }] = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(outbox)
+    .where(and(eq(outbox.status, "sent"), gt(outbox.sentAt, since)));
+  return count;
+}
+
+/**
+ * Whether this email has to wait for tomorrow's quota. Loop mail stops short of
+ * the provider's limit so a sign-in link can still go out. A held row stays
+ * `pending` with no attempt counted, and the sweep sends it once there is room.
+ */
+async function overBudget(kind: EmailKind): Promise<boolean> {
+  if (TRANSACTIONAL.has(kind)) return false;
+  return (await sentInLastDay()) >= Math.max(0, dailySendBudget() - SIGN_IN_RESERVE);
+}
+
+/** The loop owner's address, for the replies people will send anyway. */
+async function ownerAddress(groupId: string): Promise<string | null> {
+  const [owner] = await db
+    .select({ email: memberships.email })
+    .from(memberships)
+    .where(and(eq(memberships.groupId, groupId), eq(memberships.access, "owner")))
+    .limit(1);
+  return owner?.email ?? null;
+}
 
 /** RFC 2369 + RFC 8058 headers for one membership's unsubscribe token. */
 export function listUnsubscribeHeaders(token: string): Record<string, string> {
@@ -133,6 +173,7 @@ export async function queueEmail(
   input: QueueInput,
 ): Promise<{ id: string | null; deduped: boolean; suppressed: SuppressedReason | null }> {
   const suppressed = await suppressionFor(input);
+  const replyTo = input.groupId ? await ownerAddress(input.groupId) : null;
   const inserted = await db
     .insert(outbox)
     .values({
@@ -146,6 +187,8 @@ export async function queueEmail(
       issueId: input.issueId ?? null,
       membershipId: input.membershipId ?? null,
       headers: input.unsubscribeToken ? listUnsubscribeHeaders(input.unsubscribeToken) : null,
+      fromName: input.fromName ?? null,
+      replyTo,
       ...(suppressed ? { status: "suppressed" as const, suppressedReason: suppressed } : {}),
     })
     .onConflictDoNothing({ target: outbox.dedupeKey })
@@ -167,16 +210,20 @@ async function dispatch(row: {
   subject: string;
   html: string;
   text: string;
+  kind: EmailKind;
   fromName?: string | null;
+  replyTo?: string | null;
   headers?: Record<string, string> | null;
-}): Promise<void> {
+}): Promise<"sent" | "failed" | "held"> {
   if ((await transport()) === "outbox") {
     await db
       .update(outbox)
       .set({ status: "sent", sentAt: new Date(), providerId: `outbox_${row.id}` })
       .where(eq(outbox.id, row.id));
-    return;
+    return "sent";
   }
+
+  if (await overBudget(row.kind)) return "held";
 
   try {
     const { data, error } = await resend().emails.send({
@@ -185,6 +232,7 @@ async function dispatch(row: {
       subject: row.subject,
       html: row.html,
       text: row.text,
+      ...(row.replyTo ? { replyTo: row.replyTo } : {}),
       ...(row.headers ? { headers: row.headers } : {}),
     });
     if (error) throw new Error(error.message ?? "resend rejected the message");
@@ -192,12 +240,14 @@ async function dispatch(row: {
       .update(outbox)
       .set({ status: "sent", sentAt: new Date(), providerId: data?.id ?? null, error: null })
       .where(eq(outbox.id, row.id));
+    return "sent";
   } catch (cause) {
     const message = cause instanceof Error ? cause.message : String(cause);
     await db
       .update(outbox)
       .set({ status: "failed", error: message, attempts: sql`${outbox.attempts} + 1` })
       .where(eq(outbox.id, row.id));
+    return "failed";
   }
 }
 
@@ -208,10 +258,12 @@ async function dispatch(row: {
 export async function sendEmail(input: QueueInput): Promise<{ queued: boolean; emailId: string | null }> {
   const { id, deduped, suppressed } = await queueEmail(input);
   if (deduped || !id || suppressed) return { queued: false, emailId: id };
+  const [stored] = await db.select({ replyTo: outbox.replyTo }).from(outbox).where(eq(outbox.id, id)).limit(1);
   await dispatch({
     ...input,
     id,
     fromName: input.fromName,
+    replyTo: stored?.replyTo ?? null,
     headers: input.unsubscribeToken ? listUnsubscribeHeaders(input.unsubscribeToken) : null,
   });
   return { queued: true, emailId: id };
@@ -233,6 +285,8 @@ export async function flushOutbox(limit = 25): Promise<number> {
       html: outbox.html,
       text: outbox.text,
       headers: outbox.headers,
+      fromName: outbox.fromName,
+      replyTo: outbox.replyTo,
       kind: outbox.kind,
       membershipId: outbox.membershipId,
     })
@@ -242,6 +296,7 @@ export async function flushOutbox(limit = 25): Promise<number> {
     .orderBy(asc(outbox.attempts), asc(outbox.createdAt))
     .limit(limit);
 
+  let held = 0;
   for (const row of pending) {
     // A retry asks again: the member may have muted, or the address bounced,
     // since the first attempt failed.
@@ -253,8 +308,10 @@ export async function flushOutbox(limit = 25): Promise<number> {
         .where(eq(outbox.id, row.id));
       continue;
     }
-    await dispatch(row);
+    if ((await dispatch(row)) === "held") held += 1;
   }
+  // Once per sweep rather than once per email: this is worth a look, not a flood.
+  if (held > 0) log.error("Daily email budget reached, so loop mail is waiting", undefined, { held, budget: dailySendBudget() });
   return pending.length;
 }
 

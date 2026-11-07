@@ -4,7 +4,8 @@ import { redirect } from "next/navigation";
 import { currentUser } from "@/lib/auth";
 import { getNow } from "@/lib/clock";
 import { setHeaderImage, stationeryColumns } from "@/lib/identity";
-import { createLoop, inviteMembers } from "@/lib/manage";
+import { createLoop, inviteMembers, ownedLoopCount } from "@/lib/manage";
+import { MAX_LOOPS_PER_OWNER, MAX_MEMBERS_PER_LOOP } from "@/lib/rate-limit";
 import { MAX_BANNER_BYTES, validatePhoto } from "@/lib/photo-validation";
 import { DEFAULT_PRESET, isPresetKey, normalizeHex } from "@/lib/theme";
 import { copy } from "@/lib/copy";
@@ -50,6 +51,8 @@ export async function createLoopAction(
     return { error: copy.newLoop.wizard.readers.invalidEmail };
   }
   const emails = [...new Set(rawEmails)];
+  if (emails.length >= MAX_MEMBERS_PER_LOOP) return { error: copy.newLoop.errors.tooManyPeople };
+  if ((await ownedLoopCount(user.id)) >= MAX_LOOPS_PER_OWNER) return { error: copy.newLoop.errors.tooManyLoops };
   const personalNote = String(formData.get("personalNote") ?? "").trim().slice(0, 1000);
 
   // The look is optional, but a bad one is refused before anything exists, so a
@@ -107,14 +110,17 @@ export async function createLoopAction(
   }
 
   if (emails.length > 0) {
-    await inviteMembers({
+    const invited = await inviteMembers({
       groupId,
       emails,
       participation,
       actorName: user.name ?? user.email.split("@")[0],
+      actorUserId: user.id,
       at,
       personalNote: personalNote || undefined,
     });
+    // Nobody should think an invitation went when it didn't: the people tab says so.
+    if (invited.limited > 0) redirect(`/g/${groupId}/members?limited=1`);
   }
 
   redirect(`/g/${groupId}?welcome=${pictureSaved ? "1" : "no-picture"}&day=${WEEKDAYS[promptWeekday] ?? WEEKDAYS[5]}`);

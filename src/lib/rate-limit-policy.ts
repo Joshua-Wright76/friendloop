@@ -1,6 +1,7 @@
 /** No imports on purpose: the Playwright suite reads these numbers too. */
 const MINUTE = 60 * 1000;
 const HOUR = 60 * MINUTE;
+const DAY = 24 * HOUR;
 
 export type Limit = { max: number; windowMs: number };
 
@@ -20,7 +21,21 @@ export const LIMITS = {
   feedback: { max: 10, windowMs: HOUR },
   /** Notes from a stranger, per network: wider, since a NAT can hide several people. */
   feedbackAnonymous: { max: 30, windowMs: HOUR },
+  /** Invitations one person sends, across all their loops. Every one is an email to a stranger. */
+  invite: { max: 50, windowMs: DAY },
+  /** Hand-sent reminders for one loop. Each goes to everyone who hasn't answered. */
+  nudge: { max: 5, windowMs: DAY },
+  /** Files through one link or loop. A full reply with a photo wall is a dozen at most. */
+  upload: { max: 60, windowMs: HOUR },
+  /** Links to a new address: enough for a typo and a retry. */
+  emailChange: { max: 3, windowMs: HOUR },
+  /** Feedback emails to whoever runs this, however many notes arrive. The rest still store. */
+  feedbackNotify: { max: 10, windowMs: HOUR },
 } as const satisfies Record<string, Limit>;
+
+/** Sizes, not rates. A friend group is well under both. */
+export const MAX_LOOPS_PER_OWNER = 5;
+export const MAX_MEMBERS_PER_LOOP = 50;
 
 /**
  * The counter keys. Built here so erasure can find a person's own counters
@@ -34,4 +49,9 @@ export const limitKey = {
   feedbackMember: (membershipId: string) => `feedback:member:${membershipId}`,
   feedbackUser: (userId: string) => `feedback:user:${userId}`,
   feedbackIp: (ip: string) => `feedback:ip:${ip}`,
+  invite: (userId: string) => `invite:user:${userId}`,
+  nudge: (groupId: string) => `nudge:group:${groupId}`,
+  upload: (subject: string) => `upload:${subject}`,
+  emailChange: (userId: string) => `email-change:user:${userId}`,
+  feedbackNotify: () => "feedback:notify",
 };

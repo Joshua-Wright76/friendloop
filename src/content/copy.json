@@ -178,7 +178,15 @@
     "dataBody": "Download everything you have written, in every loop, or delete your account and all of it.",
     "download": "Download my data",
     "deleteAccount": "Delete my account",
-    "privacyLink": "How we handle your data"
+    "privacyLink": "How we handle your data",
+    "emailChangeTitle": "Change your email address",
+    "emailChangeBody": "We'll send a link to the new address. Nothing changes until you open it.",
+    "emailChangeLabel": "New email address",
+    "emailChangeSubmit": "Send the link",
+    "emailChangeSent": "Check {email} for the link. It expires in an hour.",
+    "emailChangeSame": "That's already your address.",
+    "emailChangeInvalid": "Enter a full email address.",
+    "emailChangeBusy": "That's a few tries already. Please wait a while and try again."
   },
   "newLoop": {
     "pageTitle": "New loop",
@@ -208,7 +216,9 @@
       "theme": "That paper or accent color wasn't recognized. Pick one again and create your loop.",
       "email": "Check the email address and try again.",
       "section": "Add a title and a prompt for this section.",
-      "createFailed": "Your loop didn't get created. Check your connection and try again. Everything you chose is still here."
+      "createFailed": "Your loop didn't get created. Check your connection and try again. Everything you chose is still here.",
+      "tooManyLoops": "You already run 5 loops, which is the most for now. Delete one to start another.",
+      "tooManyPeople": "A loop can have up to 50 people for now. Remove a few addresses and try again."
     },
     "cadences": [
       {
@@ -619,7 +629,8 @@
     "closesYourTime": "Closes {deadline} your time",
     "nextRoundLoopTime": "{when} your time",
     "nextRoundTitle": "Next round",
-    "sendNowBodyAlone": "You're the only one in the loop so far, so this round would go just to you. Answers close in a week."
+    "sendNowBodyAlone": "You're the only one in the loop so far, so this round would go just to you. Answers close in a week.",
+    "nudgeLimited": "That's a lot of nudges for one day, so that one didn't go. Try again tomorrow."
   },
   "members": {
     "title": "People",
@@ -675,7 +686,21 @@
     "invalidEmailNamed": "{emails} doesn't look like a full email address. Fix it and press Enter.",
     "accessLabel": "Role",
     "participationLabel": "Takes part",
-    "inviteInlineLabel": "Invite people by email"
+    "inviteInlineLabel": "Invite people by email",
+    "limitedNotice": "You've sent a lot of invitations today, so that one didn't go. Try again tomorrow.",
+    "fullNotice": "This loop is full, at 50 people.",
+    "inviteLimited": "{invited} sent. The rest didn't go: this loop is full, or you've reached today's limit of 50 invitations.",
+    "changeEmail": {
+      "action": "Fix address",
+      "ariaLabel": "Fix address for {name}",
+      "label": "New email address",
+      "save": "Send invite there",
+      "cancel": "Never mind",
+      "invalid": "Enter a full email address.",
+      "taken": "Someone in this loop already uses that address.",
+      "failed": "That didn't go through. Please try again.",
+      "notice": "Address changed, and a new invitation is on its way. The old link no longer works."
+    }
   },
   "questions": {
     "title": "Questions",
@@ -945,7 +970,8 @@
       "sectionSaveFailed": "That isn't saved yet. It's safe on this device, and we'll try again when you're back online.",
       "sectionPhotoCap": "A photo wall holds six photos, and this one is full.",
       "sectionPhotoStandardCap": "Standard sections carry one photo.",
-      "changedElsewhere": "This answer changed on another device, so we didn't overwrite it. Try again to replace it with what's here."
+      "changedElsewhere": "This answer changed on another device, so we didn't overwrite it. Try again to replace it with what's here.",
+      "tooManyUploads": "That's a lot of files for one hour. Please try again a little later."
     },
     "suggestLink": "Have a question for the group? Suggest one",
     "reminders": {
@@ -1253,7 +1279,27 @@
     "roundHeading": "Round {number}",
     "promptQuestionsLabel": "This round asks",
     "issueRef": "issue {number}",
-    "issueHeading": "Issue {number}"
+    "issueHeading": "Issue {number}",
+    "replyHint": "Replies to this email go to the person who runs this loop, not into the round. To answer, use the button.",
+    "emailChange": {
+      "subject": "Confirm your new Friendloop address",
+      "preheader": "This link works once and expires in an hour.",
+      "heading": "Is this your new address?",
+      "body": "Someone signed in to Friendloop asked to move their account to this address. The link works once and expires in an hour. If it wasn't you, ignore this and nothing changes.",
+      "cta": "Yes, use this address",
+      "text": "Confirm your new Friendloop address\n\n{body}\n\n{url}"
+    },
+    "emailChanged": {
+      "subject": "Your Friendloop address changed",
+      "preheader": "Your account moved to a new address.",
+      "heading": "Your address changed",
+      "body": "Your Friendloop account now uses {newEmail}, and loop emails go there. If this wasn't you, write to {contact}."
+    },
+    "feedback": {
+      "subject": "Friendloop feedback from {from}",
+      "heading": "A note from the feedback button",
+      "meta": "From {from}, on {path}"
+    }
   },
   "devUi": {
     "title": "UI preview",
@@ -1337,7 +1383,9 @@
       "reminder": "reminder",
       "delivery": "issue",
       "nudge": "reminder",
-      "mention": "mention"
+      "mention": "mention",
+      "feedback": "feedback",
+      "email_change": "new address"
     }
   },
   "suggest": {
@@ -1428,7 +1476,8 @@
       "avatarFailed": "That photo didn't save. Try again in a moment.",
       "bannerTooLarge": "That picture is over 4 MB. Try a smaller one.",
       "bannerFailed": "That picture didn't save. Try again in a moment.",
-      "notAllowed": "Only the owner can change that."
+      "notAllowed": "Only the owner can change that.",
+      "tooManyUploads": "That's a lot of pictures for one hour. Please try again a little later."
     },
     "profile": {
       "title": "Your photo",
@@ -1758,7 +1807,8 @@
     "round": "An issue",
     "shared": "A shared issue",
     "notFound": "Page not found",
-    "somethingWrong": "Something went wrong"
+    "somethingWrong": "Something went wrong",
+    "confirmEmail": "Confirm your new address"
   },
   "unsubscribe": {
     "metaTitle": "Emails from your loop",
@@ -1831,7 +1881,7 @@
     "privacyLink": "Privacy",
     "termsLink": "Terms",
     "lastUpdated": "Last updated {date}.",
-    "updatedOn": "November 4, 2026",
+    "updatedOn": "November 7, 2026",
     "contactHeading": "Questions",
     "contactBody": "Write to",
     "export": {
@@ -1860,6 +1910,7 @@
           "heading": "Who can see it",
           "paragraphs": [
             "The people in your loop see the answers you send, your name and photo, your comments and reactions, once the round is delivered. The owner and admins also see members' email addresses and who has answered so far. Drafts are visible to nobody but you.",
+            "If you reply to a loop's email, your reply goes straight to the loop's owner, since their address is set as the reply-to. So members can see the owner's address when they reply.",
             "If the loop's owner turns on share links, anyone holding a round's share link can read that round. They are off unless the owner turns them on, and the owner can replace them at any time.",
             "Photos and voice notes are stored at long, unguessable web addresses. Anyone given one of those addresses can open that file."
           ]
@@ -1996,5 +2047,74 @@
       "symbols": "Symbols",
       "flags": "Flags"
     }
+  },
+  "emailChangeConfirm": {
+    "title": "Use this address?",
+    "moving": "Your account and all your loops will move to",
+    "submit": "Yes, use this address",
+    "doneTitle": "You're all set",
+    "doneBody": "Your account and your loop emails now use your new address.",
+    "back": "Back to your loops",
+    "problems": {
+      "expired": {
+        "title": "This link has expired",
+        "body": "Links to change your address last an hour. Ask for a new one from your account page."
+      },
+      "used": {
+        "title": "This link has been used",
+        "body": "Each link works once. If your address hasn't changed, ask for a new one from your account page."
+      },
+      "unknown": {
+        "title": "This link doesn't work",
+        "body": "It may have been copied incompletely. Ask for a new one from your account page."
+      },
+      "taken": {
+        "title": "That address is already in use",
+        "body": "Another account or someone in one of your loops already uses it, so nothing changed."
+      }
+    }
+  },
+  "devStats": {
+    "title": "Stats",
+    "description": "How the beta is going, counting every loop except the demo.",
+    "warning": "This page names people and loops. Keep it to yourself.",
+    "feedbackLink": "Read the feedback",
+    "totals": {
+      "people": "People with accounts",
+      "activeLoops": "Running loops",
+      "pausedLoops": "Paused loops",
+      "delivered": "Rounds delivered",
+      "open": "Rounds open",
+      "unsent": "Emails waiting or failed",
+      "bounced": "Addresses bouncing",
+      "complaints": "Spam complaints",
+      "feedback": "Feedback notes"
+    },
+    "sent": "{sent} of {budget} emails sent in the last 24 hours.",
+    "sweep": "Last sweep {when}.",
+    "sweepNever": "The sweep has not run yet.",
+    "loopsHeading": "Loops",
+    "loopColumns": {
+      "name": "Loop",
+      "owner": "Owner",
+      "people": "People",
+      "rounds": "Rounds",
+      "latest": "Latest round answered",
+      "state": "State"
+    },
+    "running": "Running",
+    "paused": "Paused",
+    "noLatest": "None yet",
+    "latest": "{answered} of {writers}",
+    "empty": "No loops yet.",
+    "blockHeading": "Block an account",
+    "blockBody": "A blocked person can't sign in. Their sessions end, the loops they own pause, and those loops' unsent mail is dropped. Unblocking lets them sign in again, and they resume their own loops.",
+    "blockLabel": "Email address",
+    "block": "Block",
+    "unblock": "Unblock",
+    "blocked": "{email} is blocked. {count} loops paused.",
+    "unblocked": "{email} can sign in again.",
+    "notFound": "No account uses {email}.",
+    "blockedHeading": "Blocked accounts"
   }
 }

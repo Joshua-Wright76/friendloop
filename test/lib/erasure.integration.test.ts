@@ -75,6 +75,10 @@ async function seedWorld() {
   );
   await rows("insert into sessions (user_id, token_hash, expires_at) values ($1, 'wren-session', now() + interval '1 day')", [user.id]);
   await rows("insert into magic_links (email, token_hash, expires_at) values ($1, 'wren-link', now())", [WREN.email]);
+  await rows(
+    "insert into email_changes (user_id, old_email, new_email, token_hash, expires_at) values ($1, $2, 'wren-old@friendloop.test', 'wren-change', now())",
+    [user.id, WREN.email],
+  );
 
   // Loop A: Sam's, with Wren and Alice in it.
   const loop = await seedLoop({ members: [{ email: "alice@friendloop.test", name: "Alice" }] });

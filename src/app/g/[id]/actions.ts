@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { getNow } from "@/lib/clock";
 import { openIssueNow, setPaused } from "@/lib/manage";
 import { nudgeStragglers } from "@/lib/notify";
+import { consume, LIMITS, limitKey } from "@/lib/rate-limit";
 import { viewerFor } from "@/lib/permissions";
 
 export async function sendNowAction(formData: FormData) {
@@ -26,6 +27,9 @@ export async function nudgeAction(formData: FormData) {
   const viewer = await viewerFor(groupId);
   if (!viewer || viewer.membership.access === "member") redirect(`/g/${groupId}`);
 
+  if (!(await consume(limitKey.nudge(groupId), LIMITS.nudge, await getNow())).allowed) {
+    redirect(`/g/${groupId}?nudged=limited`);
+  }
   const sent = await nudgeStragglers(groupId);
   revalidatePath(`/g/${groupId}`, "layout");
   redirect(`/g/${groupId}?nudged=${sent}`);

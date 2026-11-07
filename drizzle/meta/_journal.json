@@ -127,6 +127,13 @@
       "when": 1794009245506,
       "tag": "0017_stationery_and_looks",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1794033676541,
+      "tag": "0018_beta_safeguards",
+      "breakpoints": true
     }
   ]
 }

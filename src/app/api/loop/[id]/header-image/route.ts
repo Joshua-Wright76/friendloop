@@ -1,3 +1,4 @@
+import { uploadRefused } from "@/lib/upload-limit";
 import { NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { copy } from "@/lib/copy";
@@ -16,6 +17,9 @@ async function ownerOf(groupId: string) {
 export async function POST(request: Request, { params }: RouteContext) {
   const { id } = await params;
   if (!(await ownerOf(id))) return NextResponse.json({ error: copy.identity.errors.notAllowed }, { status: 403 });
+
+  const refused = await uploadRefused(`loop:${id}`, copy.identity.errors.tooManyUploads);
+  if (refused) return refused;
 
   const image = await imageFromRequest(request);
   if (!image) return NextResponse.json({ error: copy.identity.errors.invalidImage }, { status: 400 });

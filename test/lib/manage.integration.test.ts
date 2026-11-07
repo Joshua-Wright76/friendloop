@@ -125,11 +125,12 @@ test("inviting adds pending members, each with a token and an email", async () =
     emails: ["new1@friendloop.test, new2@friendloop.test"],
     participation: "contributor",
     actorName: "Sam",
+    actorUserId: "00000000-0000-4000-8000-000000000001",
     at: E2E_NOW,
     personalNote: "Bring stories.",
   });
 
-  assert.deepEqual(result, { invited: 2, skipped: 0 });
+  assert.deepEqual(result, { invited: 2, skipped: 0, limited: 0 });
 
   const invited = await rows<{ email: string; accepted_at: Date | null; reply_token: string }>(
     "select email, accepted_at, reply_token from memberships where email like 'new%' order by email",
@@ -153,9 +154,10 @@ test("inviting somebody already in the loop skips them", async () => {
     emails: ["alice@friendloop.test", "brand@new.test"],
     participation: "reader",
     actorName: "Sam",
+    actorUserId: "00000000-0000-4000-8000-000000000001",
     at: E2E_NOW,
   });
-  assert.deepEqual(result, { invited: 1, skipped: 1 });
+  assert.deepEqual(result, { invited: 1, skipped: 1, limited: 0 });
 
   const [added] = await rows<{ participation: string }>(
     "select participation from memberships where email = 'brand@new.test'",
@@ -173,9 +175,10 @@ test("re-inviting a removed address revives it with a fresh token", async () => 
     emails: ["bob@friendloop.test"],
     participation: "contributor",
     actorName: "Sam",
+    actorUserId: "00000000-0000-4000-8000-000000000001",
     at: E2E_NOW,
   });
-  assert.deepEqual(result, { invited: 1, skipped: 0 });
+  assert.deepEqual(result, { invited: 1, skipped: 0, limited: 0 });
 
   const [revived] = await rows<{ revoked_at: Date | null; reply_token: string; accepted_at: Date | null }>(
     "select revoked_at, reply_token, accepted_at from memberships where id = $1",
@@ -193,6 +196,7 @@ test("a from_you loop invites everybody as a reader", async () => {
     emails: ["reader@friendloop.test"],
     participation: "contributor",
     actorName: "Sam",
+    actorUserId: "00000000-0000-4000-8000-000000000001",
     at: E2E_NOW,
   });
 
@@ -209,6 +213,7 @@ test("inviting to a loop that no longer exists throws", async () => {
       emails: ["x@y.test"],
       participation: "contributor",
       actorName: "Sam",
+      actorUserId: "00000000-0000-4000-8000-000000000001",
       at: E2E_NOW,
     }),
     /not-found/,

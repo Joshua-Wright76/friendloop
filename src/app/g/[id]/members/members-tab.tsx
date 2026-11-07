@@ -8,6 +8,7 @@ import { TransferControl } from "./transfer-control";
 import { Avatar, NameCharm } from "@/components/avatar";
 import { ProfilePhoto } from "@/components/profile-photo";
 import { InviteForm } from "./invite-form";
+import { ChangeMemberEmail } from "./change-member-email";
 import { LoopNav } from "@/components/loop-nav";
 import { NoticeFocus } from "@/components/notice-focus";
 import { copy, text } from "@/lib/copy";
@@ -15,7 +16,7 @@ import { useLoopData } from "../loop-data";
 import { SubmitButton } from "@/components/submit-button";
 
 export default function MembersTab({ notices }: {
-  notices: { invited?: string; resent?: string; removed?: string; transferred?: string; transferError?: string };
+  notices: { invited?: string; resent?: string; removed?: string; transferred?: string; transferError?: string; limited?: string; addressChanged?: string };
 }) {
   const { group, membership, people } = useLoopData();
   const id = group.id;
@@ -34,6 +35,8 @@ export default function MembersTab({ notices }: {
       {notices.invited ? <NoticeFocus>{copy.members.invitedNotice}</NoticeFocus> : null}
       {notices.resent ? <NoticeFocus>{copy.members.resentNotice}</NoticeFocus> : null}
       {notices.removed ? <NoticeFocus>{copy.members.removedNotice}</NoticeFocus> : null}
+      {notices.addressChanged ? <NoticeFocus>{copy.members.changeEmail.notice}</NoticeFocus> : null}
+      {notices.limited ? <NoticeFocus tone="danger">{copy.members.limitedNotice}</NoticeFocus> : null}
       {notices.transferred ? <NoticeFocus>{copy.members.transferredNotice}</NoticeFocus> : null}
       {notices.transferError ? <NoticeFocus tone="danger">{copy.members.transferError}</NoticeFocus> : null}
 
@@ -135,6 +138,10 @@ export default function MembersTab({ notices }: {
                     name={person.name ?? person.email.split("@")[0]}
                   />
                 </div>
+              ) : null}
+
+              {manages && person.access !== "owner" && !person.userId ? (
+                <ChangeMemberEmail groupId={id} membershipId={person.id} name={person.name ?? person.email} />
               ) : null}
 
               {!person.acceptedAt ? (

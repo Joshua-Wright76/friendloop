@@ -20,6 +20,7 @@ function client() {
 }
 
 const TABLES = [
+  "email_changes",
   "rate_limits",
   "heartbeats",
   "feedback",

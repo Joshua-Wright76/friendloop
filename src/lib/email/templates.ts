@@ -17,6 +17,8 @@ type LayoutInput = {
   body: string[];
   cta?: { label: string; url: string };
   footer?: string;
+  /** For the emails that ask for an answer, where a reply is the natural mistake. */
+  replyHint?: boolean;
   answers?: AnswerBlock[];
   sections?: SectionEmailBlock[];
   /** Where "listen on the web issue" points for voice notes. */
@@ -231,7 +233,7 @@ function questionList(questions: LayoutInput["questions"], c: EmailPalette): str
   return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 20px"><tr><td style="padding:0 0 8px;font:800 14px/1.4 ${BODY_FONT};color:${c.soft}">${escapeHtml(questions.label)}</td></tr>${rows}</table>`;
 }
 
-export function layout({ preheader, heading, body, cta, footer, answers, sections, answersUrl, theme, unsubscribeUrl, sender, questions }: LayoutInput): string {
+export function layout({ preheader, heading, body, cta, footer, answers, sections, answersUrl, theme, unsubscribeUrl, sender, questions, replyHint }: LayoutInput): string {
   const c = theme?.palette ?? GINGHAM_EMAIL;
   const GINGHAM = gingham(c);
   const ctaHtml = cta
@@ -253,7 +255,7 @@ ${headerImage(theme?.headerImageUrl, c)}<tr><td style="padding:0 8px 20px;font:7
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${c.card};border:1px solid ${c.line};border-radius:6px;box-shadow:${c.shadow}"><tr><td style="padding:0 30px 30px">
 <table role="presentation" cellpadding="0" cellspacing="0" style="margin:-11px 0 20px;position:relative;z-index:2;transform:rotate(-2deg);opacity:.92;clip-path:polygon(0 0,100% 0,97% 25%,100% 50%,97% 75%,100% 100%,0 100%,3% 75%,0 50%,3% 25%)"><tr><td width="88" height="22" style="width:88px;height:22px;background-color:${c.tape};background-image:radial-gradient(circle,rgba(255,255,255,.85) 1.8px,transparent 2.3px);background-size:9px 9px"></td></tr></table>
 <h1 style="margin:0 0 14px;padding:0 0 12px;border-bottom:2px dashed ${c.lineStrong};font:700 32px/1.15 ${DISPLAY_FONT};color:${c.ink}">${escapeHtml(heading)}</h1>
-${paragraphs(body, c)}${questionList(questions, c)}${ctaHtml}
+${paragraphs(body, c)}${questionList(questions, c)}${ctaHtml}${replyHint ? `<p style="margin:14px 0 0;font:400 13px/1.6 ${BODY_FONT};color:${c.muted}">${escapeHtml(copy.emails.replyHint)}</p>` : ""}
 </td></tr></table>
 </td></tr>
 ${answers ? `<tr><td style="padding-top:20px">${answersHtml(answers, answersUrl ?? "#", c)}</td></tr>` : ""}
@@ -318,12 +320,13 @@ export function inviteEmail(input: {
       heading: text(content.heading, values),
       body: [text(content.body, values), isReader ? content.readerBody : content.contributorBody, ...(note ? [note] : [])],
       cta: { label: isReader ? content.readerCta : content.contributorCta, url },
+      replyHint: !isReader,
       footer: text(content.footer, values),
       sender: groupName,
       theme,
       unsubscribeUrl,
     }),
-    text: withStopLine(`${text(content.text, values)}${note ? `\n\n${note}` : ""}`, unsubscribeUrl),
+    text: withStopLine(`${text(content.text, values)}${note ? `\n\n${note}` : ""}${isReader ? "" : `\n\n${copy.emails.replyHint}`}`, unsubscribeUrl),
   };
 }
 
@@ -356,13 +359,14 @@ export function promptEmail(input: {
       body: [text(content.body, values), content.writingNote],
       questions: questions?.length ? { label: copy.emails.promptQuestionsLabel, items: questions } : undefined,
       cta: { label: text(content.cta, values), url },
+      replyHint: true,
       footer: text(content.footer, values),
       sender: groupName,
       theme,
       unsubscribeUrl,
     }),
     text: withStopLine(
-      `${text(content.text, values)}${questions?.length ? `\n\n${copy.emails.promptQuestionsLabel}:\n${questions.map((question) => `- ${question}`).join("\n")}` : ""}`,
+      `${text(content.text, values)}${questions?.length ? `\n\n${copy.emails.promptQuestionsLabel}:\n${questions.map((question) => `- ${question}`).join("\n")}` : ""}\n\n${copy.emails.replyHint}`,
       unsubscribeUrl,
     ),
   };
@@ -387,12 +391,13 @@ export function reminderEmail(input: {
       heading: text(content.heading, values),
       body: [text(remaining === 1 ? content.bodySingular : content.bodyPlural, values), content.writingNote, content.prefNote],
       cta: { label: content.cta, url },
+      replyHint: true,
       footer: text(content.footer, values),
       sender: groupName,
       theme,
       unsubscribeUrl,
     }),
-    text: withStopLine(text(content.text, values), unsubscribeUrl),
+    text: withStopLine(`${text(content.text, values)}\n\n${copy.emails.replyHint}`, unsubscribeUrl),
   };
 }
 
@@ -494,5 +499,37 @@ export function pausedEmail(input: { groupName: string; url: string; theme?: Ema
       unsubscribeUrl,
     }),
     text: withStopLine(text(content.text, values), unsubscribeUrl),
+  };
+}
+
+/** The link that moves an account to a new address. Only that inbox can use it. */
+export function emailChangeEmail(url: string): RenderedEmail {
+  const content = copy.emails.emailChange;
+  return {
+    subject: content.subject,
+    html: layout({ preheader: content.preheader, heading: content.heading, body: [content.body], cta: { label: content.cta, url }, footer: copy.emails.signIn.footer }),
+    text: withStopLine(text(content.text, { body: content.body, url }), undefined),
+  };
+}
+
+/** Told to the old address, so a change nobody asked for doesn't go unnoticed. */
+export function emailChangedEmail(input: { newEmail: string }): RenderedEmail {
+  const content = copy.emails.emailChanged;
+  const body = text(content.body, { newEmail: input.newEmail, contact: copy.legal.contactEmail });
+  return {
+    subject: content.subject,
+    html: layout({ preheader: content.preheader, heading: content.heading, body: [body], footer: copy.emails.signIn.footer }),
+    text: withStopLine(`${content.heading}\n\n${body}`, undefined),
+  };
+}
+
+/** A note from the corner button, for whoever runs this instance. */
+export function feedbackEmail(input: { message: string; from: string; path: string | null }): RenderedEmail {
+  const content = copy.emails.feedback;
+  const values = { from: input.from, path: input.path ?? "?" };
+  return {
+    subject: text(content.subject, values),
+    html: layout({ preheader: input.message.slice(0, 90), heading: content.heading, body: [text(content.meta, values), input.message], footer: copy.emails.signIn.footer }),
+    text: withStopLine(`${text(content.meta, values)}\n\n${input.message}`, undefined),
   };
 }

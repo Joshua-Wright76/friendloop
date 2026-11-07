@@ -1,6 +1,7 @@
 import { and, eq, inArray, isNull, ne, or, sql, type SQL } from "drizzle-orm";
 import { db } from "@/db";
 import {
+  emailChanges,
   comments,
   emailEvents,
   emailSuppressions,
@@ -300,12 +301,18 @@ export async function eraseAccount(userId: string): Promise<EraseAccountResult> 
       files.push(...(await eraseMemberships(tx, mine.map((row) => row.id), user.name ? [user.name] : [])));
 
       await tx.delete(feedback).where(or(eq(feedback.userId, user.id), eq(feedback.senderEmail, user.email)));
-      await deleteEmailEvents(tx, eq(outbox.to, user.email));
-      await tx.delete(outbox).where(eq(outbox.to, user.email));
+      // A notice sent to an address they have since moved away from still names them.
+      const movedFrom = await tx
+        .select({ email: emailChanges.oldEmail })
+        .from(emailChanges)
+        .where(eq(emailChanges.userId, user.id));
+      const addresses = [user.email, ...movedFrom.map((row) => row.email)];
+      await deleteEmailEvents(tx, inArray(outbox.to, addresses));
+      await tx.delete(outbox).where(inArray(outbox.to, addresses));
       await tx.delete(magicLinks).where(eq(magicLinks.email, user.email));
       await forgetSuppressions(tx, [user.email]);
       // The sign-in counter is keyed by the address itself.
-      await tx.delete(rateLimits).where(inArray(rateLimits.key, [limitKey.signInEmail(user.email), limitKey.feedbackUser(user.id)]));
+      await tx.delete(rateLimits).where(inArray(rateLimits.key, [limitKey.invite(user.id), limitKey.emailChange(user.id), limitKey.signInEmail(user.email), limitKey.feedbackUser(user.id)]));
       // Sessions cascade from the user.
       await tx.delete(users).where(eq(users.id, user.id));
 

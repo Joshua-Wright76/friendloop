@@ -45,6 +45,8 @@ export const emailKindEnum = pgEnum("email_kind", [
   "delivery",
   "nudge",
   "mention",
+  "feedback",
+  "email_change",
 ]);
 
 export const users = pgTable("users", {
@@ -54,8 +56,32 @@ export const users = pgTable("users", {
   /** IANA zone captured from the browser, used to render local deadlines. */
   timezone: text("timezone").default("UTC").notNull(),
   isSynthetic: boolean("is_synthetic").default(false).notNull(),
+  /** Set by whoever runs the instance (/dev/stats). A blocked person can't sign in. */
+  blockedAt: timestamp("blocked_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
+
+/**
+ * A signed-in person asking to move their account to a new address. Nothing
+ * changes until the link sent to that address is used. Only the hash is stored.
+ */
+export const emailChanges = pgTable(
+  "email_changes",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: uuid("user_id")
+      .references(() => users.id, { onDelete: "cascade" })
+      .notNull(),
+    /** Kept so erasure can find the notice sent to the address they moved away from. */
+    oldEmail: text("old_email").notNull(),
+    newEmail: text("new_email").notNull(),
+    tokenHash: text("token_hash").notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    usedAt: timestamp("used_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [uniqueIndex("email_changes_token_hash_idx").on(t.tokenHash), index("email_changes_user_idx").on(t.userId)],
+);
 
 /** Magic-link sign-in for owners and admins. Only the hash is stored. */
 export const magicLinks = pgTable(
@@ -504,6 +530,10 @@ export const outbox = pgTable(
     providerId: text("provider_id"),
     /** Extra mail headers (List-Unsubscribe), kept so a retry sends the same message. */
     headers: jsonb("headers").$type<Record<string, string>>(),
+    /** The loop's name as sender, kept so a retry doesn't fall back to the brand. */
+    fromName: text("from_name"),
+    /** The loop owner's address. A reply reaches a person rather than an unread mailbox. */
+    replyTo: text("reply_to"),
     /** Why a `suppressed` row was held back: `muted`, `bounce` or `complaint`. */
     suppressedReason: text("suppressed_reason"),
     error: text("error"),
