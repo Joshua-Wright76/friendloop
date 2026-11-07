@@ -104,9 +104,18 @@ test("B7 · the wizard also offers the page, paper pack, tape pack and mascot, s
   await page.getByRole("radio", { name: /^Candy shop/ }).check();
   await page.getByRole("radio", { name: /^Snail/ }).check();
 
-  // Tried on straight away, before the loop exists.
-  expect(await cssVar(page, "--page-image")).toContain("data:image/svg+xml");
+  // Tried on straight away, before the loop exists: the page behind, and the sheet itself.
+  const backgroundOf = (selector: string) => page.locator(selector).first().evaluate((el) => getComputedStyle(el).backgroundImage);
+  expect(await backgroundOf("html")).toContain("data:image/svg+xml");
+  expect(await backgroundOf(".wizard-sheet")).toContain("data:image/svg+xml");
   expect(await cssVar(page, "--mascot-image")).toContain("/stickers/snail.svg");
+  // School notebook rules the words rather than the card, and still changes the sheet.
+  await page.getByRole("radio", { name: /^School notebook/ }).check();
+  expect(await backgroundOf(".wizard-sheet")).toContain("radial-gradient");
+  // Plain cream takes it all off again.
+  await page.getByRole("radio", { name: /^Plain cream/ }).check();
+  expect(await backgroundOf(".wizard-sheet")).toBe("none");
+  await page.getByRole("radio", { name: /^Watercolor pad/ }).check();
 
   // Moving on and coming back costs nothing.
   await page.getByRole("button", { name: NEXT }).click();

@@ -67,7 +67,7 @@ async function measureOverPatterns(page: Page) {
   return page.addStyleTag({
     content: `
       html, body::before { background-image: none !important; background-color: ${busiestPage(paper, check)} !important; transition: none !important; }
-      .card[data-paper], .music-card, .answer-text, .bg-tile__swatch, [data-testid^="stationery-preview"] { background-image: none !important; }
+      .card[data-paper], .wizard-sheet, .music-card, .answer-text, .bg-tile__swatch, [data-testid^="stationery-preview"] { background-image: none !important; }
     `,
   });
 }

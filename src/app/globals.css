@@ -835,6 +835,8 @@ html[data-theme="dark"] .snapshot img { filter: brightness(.78) saturate(.9); }
 .card[data-paper="answer"] { background: var(--paper-answer,) var(--card); }
 .card[data-paper="poll"] { background: var(--paper-poll,) var(--card); }
 .card[data-paper="note"] { background: var(--paper-note,) var(--card); }
+/* The wizard's sheet tries the paper on while it's chosen. A pack that rules the words instead of the card (School notebook) shows its notes paper here. */
+.wizard-sheet { background: var(--paper-answer, var(--paper-note,)) var(--card); }
 .answer-text { background-image: var(--answer-lines, none); }
 
 /* A sticker beside a name: die-cut, with a white edge that reads on any paper. */
