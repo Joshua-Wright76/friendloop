@@ -344,7 +344,7 @@ export type SectionMediaWriteResult =
   | { ok: true; savedAt: string; mediaId: string; url: string }
   | { ok: false; status: 400 | 403 | 404 | 409 | 413 | 415 | 500; error: string };
 
-/** Attach one photo to a section answer; photo walls allow up to six with captions. */
+/** Attach one photo to a section answer; photo walls allow up to six, each with an optional caption. */
 export async function saveSectionPhotoFor(input: {
   token: string;
   issueSectionId: string;
@@ -367,9 +367,6 @@ export async function saveSectionPhotoFor(input: {
       status: tooLarge ? 413 : 415,
       error: tooLarge ? copy.reply.errors.photoTooLarge : copy.reply.errors.invalidPhoto,
     };
-  }
-  if (gate.issueSection.kind === "photo_wall" && !input.caption.trim()) {
-    return { ok: false, status: 400, error: copy.reply.errors.sectionPhotoCaption };
   }
 
   const [existingReply] = await db

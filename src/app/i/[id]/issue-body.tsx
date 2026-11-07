@@ -222,11 +222,10 @@ function PhotoWall({ section }: { section: IssueSectionBlock }) {
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={item.url} alt="" className="w-full rounded-lg border border-line object-cover" />
             </button>
-            {item.caption ? (
-              <figcaption className="mt-1 text-[12.5px] leading-snug text-ink-soft">
-                <span className="font-bold">{reply.author}</span>, {item.caption}
-              </figcaption>
-            ) : null}
+            <figcaption className="mt-1 text-[12.5px] leading-snug text-ink-soft">
+              <span className="font-bold">{reply.author}</span>
+              {item.caption ? `, ${item.caption}` : null}
+            </figcaption>
           </figure>
         ))}
       </div>

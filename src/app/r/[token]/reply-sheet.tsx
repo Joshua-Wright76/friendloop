@@ -828,7 +828,7 @@ export function ReplySheet({
         ...current,
         [issueSectionId]: [
           ...(current[issueSectionId] ?? []),
-          { id: result.mediaId, url: result.url, caption: kind === "photo_wall" ? caption || null : null },
+          { id: result.mediaId, url: result.url, caption: kind === "photo_wall" ? caption.trim() || null : null },
         ],
       }));
       setSectionSaveStates((current) => ({ ...current, [issueSectionId]: "saved" }));
@@ -1844,7 +1844,7 @@ function LiveMessage({ id, message, isError }: { id: string; message: string | n
   );
 }
 
-/** One photo slot on a standard section or photo wall. Photo walls require a caption. */
+/** One photo slot on a standard section or photo wall. Photo walls offer a caption. */
 function PhotoSlot({
   sectionId,
   kind,
@@ -1868,7 +1868,6 @@ function PhotoSlot({
           onChange={(event) => setCaption(event.target.value)}
           placeholder={copy.reply.sectionPhotoCaptionPlaceholder}
           aria-label={copy.reply.sectionCaptionLabel}
-          aria-required="true"
           maxLength={200}
           disabled={disabled}
           className="field h-[46px] min-w-44 flex-1 py-0"

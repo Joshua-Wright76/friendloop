@@ -123,11 +123,10 @@ export function IssuePrint({
                       <figure key={item.url} className="print-figure">
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img src={item.url} alt={item.caption ? "" : text(copy.issue.photoAlt, { author: reply.author })} />
-                        {item.caption ? (
-                          <figcaption>
-                            <strong>{reply.author}</strong>, {item.caption}
-                          </figcaption>
-                        ) : null}
+                        <figcaption>
+                          <strong>{reply.author}</strong>
+                          {item.caption ? `, ${item.caption}` : null}
+                        </figcaption>
                       </figure>
                     )),
                   )}

@@ -207,7 +207,7 @@ test("standard sections take one photo; walls take one caption per photo up to s
   assert.equal((await rows("select 1 from section_media")).length, 0);
   assert.equal(existsSync(path.join(process.cwd(), "public", "uploads", media.url.split("/").at(-1)!)), false);
 
-  // A six-photo wall caps the seventh, and a caption-less wall photo never lands.
+  // A six-photo wall caps the seventh.
   const capless = await openSection({ kind: "photo_wall" });
   for (let index = 0; index < PHOTO_WALL_MAX; index += 1) {
     assert.equal(
@@ -224,10 +224,6 @@ test("standard sections take one photo; walls take one caption per photo up to s
   }
   const capped = await saveSectionPhotoFor({ token: capless.token, issueSectionId: capless.issueSectionId, bytes: png(), contentType: "image/png", caption: "Seventh", position: 6 });
   assert.equal(capped.ok === false && capped.status === 409, true);
-
-  // A caption-less wall photo never lands.
-  const captionless = await saveSectionPhotoFor({ token: capless.token, issueSectionId: capless.issueSectionId, bytes: png(), contentType: "image/png", caption: "  ", position: 1 });
-  assert.equal(captionless.ok === false && captionless.status === 400, true);
 
   // The sheet restates the wall, captions included.
   const wallSheet = await sectionsForSheet(capless.token, capless.issueId);
@@ -415,6 +411,19 @@ test("submitSectionsFor flips just one member's drafts; positions clamp", async 
     states.map((row) => row.event),
     ["mine-submitted", "theirs-draft"],
   );
+});
+
+test("a wall photo needs no caption, and a blank one is stored as none", async () => {
+  const wall = await openSection({ kind: "photo_wall" });
+  const png = () => new Uint8Array(makePng());
+
+  for (const [position, caption] of ["", "   "].entries()) {
+    const saved = await saveSectionPhotoFor({ token: wall.token, issueSectionId: wall.issueSectionId, bytes: png(), contentType: "image/png", caption, position });
+    assert.equal(saved.ok, true);
+  }
+
+  const sheet = await sectionsForSheet(wall.token, wall.issueId);
+  assert.deepEqual(sheet[0].media.map((item) => item.caption), [null, null]);
 });
 
 test("wall photo positions clamp to sane slots", async () => {

@@ -400,7 +400,7 @@ export const flows = {
       await t.see("Photo added.");
       await t.say("Puts captioned photos on the wall");
       for (const [line, file] of [["The whole table", "photo5.jpg"], ["The leftovers", "photo6.jpg"]]) {
-        const caption = await find(t, `${EXTRA} > *`, "The wall", `input[placeholder="What's in this photo?"]`);
+        const caption = await find(t, `${EXTRA} > *`, "The wall", `input[placeholder="Caption (optional)"]`);
         await retype(t, caption, line);
         await t.upload(await find(t, `${EXTRA} > *`, "The wall", "input[type=file]"), file);
         await t.see(line, { hold: 200, timeout: 20_000 });

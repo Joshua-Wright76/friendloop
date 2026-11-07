@@ -89,8 +89,8 @@ section selection can come later if a loop outgrows "all of them".
 
 - **Standard** — title, emoji, description; contributors reply with text + one
   photo, same rules as a question answer.
-- **Photo Wall** — contributors add several photos (cap 6), each with a
-  required one-line caption; the issue lays them out edge-to-edge.
+- **Photo Wall** — contributors add several photos (cap 6), each with an
+  optional one-line caption; the issue lays them out edge-to-edge.
 - **Music** — contributors paste a link from Spotify, Bandcamp, or Qobuz, with
   an optional caption.
 
@@ -108,7 +108,7 @@ delivery/render time and cached, degrading to a plain card without artwork).
 | K1 | Manage sections | Owner creates, edits, reorders, and archives sections; archived sections leave future issues while past issues keep their snapshot. | todo |
 | K2 | Sections reach an issue | The sweep snapshots active sections into the new issue alongside questions; the reply sheet shows them in position; readers see them in the delivered issue but are never asked to reply. | todo |
 | K3 | Standard section reply | Contributors answer a Standard section with text + one photo, under the same media rules and caps as question answers. | todo |
-| K4 | Photo wall reply | Contributors add up to six photos to a Photo Wall section, each with a one-line caption; the delivered issue lays them edge-to-edge with their captions. | todo |
+| K4 | Photo wall reply | Contributors add up to six photos to a Photo Wall section, each with an optional one-line caption; the delivered issue lays them edge-to-edge, each with its author and any caption. | todo |
 | K5 | Paste a music link | A music section accepts a Spotify, Bandcamp, or Qobuz link, with an optional caption; a non-music URL gets the plain-language error and nothing is saved until it is fixed or cleared. | todo |
 | K6 | Music renders | The delivered web issue renders every music pick as a card (artwork when the metadata provides it, title, provider badge) that opens the provider page; the delivery email renders title + link. Playable Spotify/Bandcamp embeds are stretch. | todo |
 | K7 | Admin-only sections | A section can be restricted to owner/admin contributors; other members don't see it on the sheet, in prompts, or in the delivered issue. | todo |
@@ -153,7 +153,7 @@ Three stacked PRs, each green on `npm run verify` and independently mergeable:
 - Voice sits alongside the photo slot (text + photo + voice in one answer);
   2-minute target cap, 3-minute hard stop; transcripts deferred to the archive
   ticket.
-- Photo Wall is in scope for this ticket, capped at six photos with required
+- Photo Wall is in scope for this ticket, capped at six photos with optional
   one-line captions.
 - All active sections snapshot into every new issue; per-issue selection is a
   later option, not now.

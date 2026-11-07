@@ -170,18 +170,18 @@ export const flows = {
     run: async (t, { alice }) => {
       await t.clock(AFTER_FIRST_SLOT);
       await t.open(`/r/${alice.token}`);
-      await t.say("A photo wall. A photo with no caption is sent back");
+      await t.say("A photo wall. A photo joins it with no caption at all");
       const file = `${EXTRA} input[type=file]`;
-      const caption = `${EXTRA} input[placeholder="What's in this photo?"]`;
+      const caption = `${EXTRA} input[placeholder="Caption (optional)"]`;
       await t.upload(file, "photo1.jpg");
-      await t.see("Give each photo on the wall a one-line caption.");
-      const [{ count: none }] = await t.sql("select count(*)::int as count from section_media");
-      t.check_(none === 0, "A photo with no caption should not be stored");
-      await t.say("With captions they join the wall, up to six");
-      const captions = ["The whole table", "The leftovers", "Dessert first", "Grandma's chair", "The long walk", "Everyone asleep"];
+      await t.see("Photo added.");
+      const [{ count: one }] = await t.sql("select count(*)::int as count from section_media");
+      t.check_(one === 1, "A photo with no caption should be stored");
+      await t.say("Or with a caption, up to six");
+      const captions = ["The leftovers", "Dessert first", "Grandma's chair", "The long walk", "Everyone asleep"];
       for (const [index, line] of captions.entries()) {
         await retype(t, caption, line);
-        await t.upload(file, `photo${index + 1}.jpg`);
+        await t.upload(file, `photo${index + 2}.jpg`);
         await t.see(line, { hold: 150 });
       }
       await until(t, `!document.querySelector('${file}')`, "The add-photo slot should go away at six");
@@ -189,16 +189,15 @@ export const flows = {
       await t.pause(600);
       await t.button("Send answers");
       await t.see("Sent");
-      await t.say("Delivered: edge to edge, each with its caption");
+      await t.say("Delivered: edge to edge, each with its author and any caption");
       await t.sweep(DELIVER, { show: false });
       await t.clock(new Date("2026-01-09T09:05:00Z"));
       await t.open(`/i/${await firstIssue(t)}?m=${alice.token}`);
-      await t.see("The whole table");
+      await t.see("The leftovers");
       await t.see("Everyone asleep");
       await t.say("Tapping one opens the same viewer as the Album");
-      await t.button("The whole table");
+      await t.button("The wall");
       await t.see("Photo 1 of 6");
-      await t.see("The whole table");
       const download = await t.eval(`document.querySelector('dialog[open] a[download]')?.getAttribute("download")`);
       t.check_(/^friendloop-.+-1\.jpe?g$/.test(download ?? ""), `Download attribute was ${download}`);
       await t.see("Download");
@@ -209,7 +208,7 @@ export const flows = {
       await t.say("Escape closes it and returns focus to the photo");
       await t.press("Escape");
       await until(t, `!document.querySelector('dialog[open]')`, "The viewer should close");
-      await until(t, `(document.activeElement?.getAttribute("aria-label") ?? "").includes("The whole table")`, "Focus should return to the photo that opened the viewer");
+      await until(t, `(document.activeElement?.getAttribute("aria-label") ?? "").includes("The wall")`, "Focus should return to the photo that opened the viewer");
       await t.pause(800);
     } },
 
