@@ -14,7 +14,7 @@ test("F7 · fixing a typo in someone's address invites the right one and retires
 
   await page.goto(`/g/${loop.groupId}/members`);
   const card = page.locator(".card").filter({ hasText: bob.email });
-  await card.getByRole("button", { name: /^Fix the email address for/ }).click();
+  await card.getByRole("button", { name: /^Fix address for/ }).click();
   await card.getByLabel("New email address").fill("robert@friendloop.test");
   await card.getByRole("button", { name: "Send invite there" }).click();
   await expect(page.getByText("Address changed, and a new invitation is on its way.")).toBeVisible();

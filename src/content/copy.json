@@ -692,7 +692,7 @@
     "inviteLimited": "{invited} sent. The rest didn't go: this loop is full, or you've reached today's limit of 50 invitations.",
     "changeEmail": {
       "action": "Fix address",
-      "ariaLabel": "Fix the email address for {name}",
+      "ariaLabel": "Fix address for {name}",
       "label": "New email address",
       "save": "Send invite there",
       "cancel": "Never mind",

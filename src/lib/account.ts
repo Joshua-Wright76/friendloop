@@ -76,8 +76,7 @@ export async function confirmEmailChange(token: string): Promise<EmailChangeResu
   const at = await getNow();
   const [link] = await db.select().from(emailChanges).where(eq(emailChanges.tokenHash, hashToken(token))).limit(1);
   if (!link) return "unknown";
-  if (link.usedAt) return "used";
-  if (link.expiresAt.getTime() <= at.getTime()) return "expired";
+  if (!link.usedAt && link.expiresAt.getTime() <= at.getTime()) return "expired";
 
   const [user] = await db.select().from(users).where(eq(users.id, link.userId)).limit(1);
   if (!user || user.blockedAt) return "unknown";

@@ -12,7 +12,9 @@ import { dailySendBudget, flushOutbox, sendEmail, TRANSPORT_HEADER } from "../..
 import { eraseAccount } from "../../src/lib/erasure.ts";
 import { submitFeedback } from "../../src/lib/feedback.ts";
 import { changeMemberEmail, inviteMembers, ownedLoopCount } from "../../src/lib/manage.ts";
-import { LIMITS, MAX_MEMBERS_PER_LOOP } from "../../src/lib/rate-limit-policy.ts";
+import { LIMITS, MAX_MEMBERS_PER_LOOP, limitKey } from "../../src/lib/rate-limit-policy.ts";
+import { consume } from "../../src/lib/rate-limit.ts";
+import { uploadRefused } from "../../src/lib/upload-limit.ts";
 import { readStats } from "../../src/lib/stats.ts";
 import { hashToken } from "../../src/lib/tokens.ts";
 import { linkFrom, rows, seedLoop, setEnv, setupDatabase } from "../support/app.ts";
@@ -312,4 +314,44 @@ test("the owned-loop count follows ownership only", async () => {
   assert.equal(await ownedLoopCount(id), 1);
   const bobId = await ownerUserId("bob@friendloop.test");
   assert.equal(await ownedLoopCount(bobId), 0);
+});
+
+test("one link or loop can only upload so many files an hour, and another is unaffected", async () => {
+  for (let i = 0; i < LIMITS.upload.max; i++) assert.equal(await uploadRefused("token-a", "too many"), null);
+  const refused = await uploadRefused("token-a", "too many");
+  assert.equal(refused?.status, 429);
+  assert.deepEqual(await refused?.json(), { error: "too many" });
+  assert.equal(await uploadRefused("token-b", "too many"), null);
+});
+
+test("a loop can only be nudged by hand a few times a day", async () => {
+  const key = limitKey.nudge("loop-a");
+  for (let i = 0; i < LIMITS.nudge.max; i++) assert.equal((await consume(key, LIMITS.nudge, AFTER_FIRST_SLOT)).allowed, true);
+  assert.equal((await consume(key, LIMITS.nudge, AFTER_FIRST_SLOT)).allowed, false);
+});
+
+test("a note is still kept when emailing it fails", async () => {
+  setEnv("FEEDBACK_NOTIFY_EMAIL", "me@friendloop.test");
+  await rows("alter table outbox rename to outbox_away");
+  try {
+    const result = await submitFeedback({ message: "Still here", path: "/", userAgent: "T", viewport: "1×1", ip: "198.51.100.200" }, null);
+    assert.deepEqual(result, { ok: true });
+  } finally {
+    await rows("alter table outbox_away rename to outbox");
+  }
+  assert.equal((await rows("select id from feedback where message = 'Still here'")).length, 1);
+});
+
+test("a failure while moving an account isn't mistaken for an address in use", async () => {
+  const id = await ownerUserId("stuck@friendloop.test");
+  await requestEmailChange({ id, email: "stuck@friendloop.test" }, "free@friendloop.test");
+  const token = await changeLink("free@friendloop.test");
+  await rows("alter table magic_links rename to magic_links_away");
+  try {
+    await assert.rejects(confirmEmailChange(token));
+  } finally {
+    await rows("alter table magic_links_away rename to magic_links");
+  }
+  const [row] = await rows<{ email: string }>("select email from users where id = $1", [id]);
+  assert.equal(row.email, "stuck@friendloop.test");
 });
