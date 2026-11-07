@@ -35,6 +35,7 @@ Status: `todo` (not built) · `done` (built and covered).
 | B4 | Accept an invitation | A contributor opening their invite link lands on the reply form for the current issue with their name shown, without signing in. | done |
 | B5 | Resend an invitation | Resending re-sends to a pending member, does not rotate the token, and does not create a duplicate membership. | done |
 | B6 | Expired invitation | An invite older than its TTL renders an "ask the owner for a new link" screen and creates no session. | done |
+| B8 | Invitation limits | One person sends at most 50 invitations a day and a loop holds at most 50 people. Past either, the form says so plainly and nothing else is sent. | done |
 | B7 | Choose a look while creating | The wizard's optional "paper and picture" step offers the same papers, accent and live light-and-dark preview as the settings, plus a header picture; the choices survive moving between steps and are saved with the loop, so its first page already wears them. A made-up accent holds the step with a plain message, a picture over the cap is refused before anything is sent, and skipping the step stores nothing (Gingham, no picture). | done |
 
 ## C · Questions
@@ -85,6 +86,7 @@ Status: `todo` (not built) · `done` (built and covered).
 | F4 | Delete a loop | The owner confirms by typing the loop name; the loop, its issues, replies and outbox rows disappear and `/g/<id>` 404s. | done |
 | F5 | Non-owner is refused | A plain member visiting an owner route gets a 404/403 page, and the same request as a POST is rejected server-side. | done |
 | F6 | Reset share links | Resetting gives every delivered round a new share URL; a URL handed out before the reset 404s, and turning sharing off disables every existing link. | done |
+| F7 | Fix a member's address | An owner or admin corrects the address of someone with no account yet. The membership and its answers stay, the old link stops working, and the new address gets an invitation. Someone who has signed in moves their own address instead. | done |
 
 ## G · Roles and permissions
 
@@ -201,6 +203,7 @@ Round names (Ticket 3's R1) ship as N4; R4 (one-by-one delivery) is a documented
 | ID | Flow | Acceptance criteria | Status |
 | --- | --- | --- | --- |
 | S1 | Send feedback | A button in the corner of every page opens a one-box form; anyone, signed in or not, sends a note with one tap, and the page, screen size and browser travel with it. A signed-in person or a reply link is named from the request itself, never asked; reply and share tokens are stripped from the stored page. A blank note cannot be sent, a failed send keeps the words, an hour's flood is refused, and the notes are read in the key-locked `/dev/feedback`. | done |
+| S2 | Stats and blocking | `/dev/stats`, behind the key, shows people, loops, rounds, bounces and the day's email count, with one row per loop. Blocking an address stops sign-in, ends sessions, pauses the loops it owns and drops their unsent mail; unblocking restores sign-in. | done |
 
 ## V · Your data
 
@@ -210,13 +213,14 @@ Round names (Ticket 3's R1) ship as N4; R4 (one-by-one delivery) is a documented
 | V2 | Delete my account | From `/you`, a signed-in person confirms by typing their email address; a mismatch deletes nothing. Their user, sessions, memberships (signed in or only invited by that address), answers, photos, voice notes, comments, reactions, suggestions, birthdays, feedback, email trail and abuse counters go in every loop, the stored files are removed (retried by the sweep if storage refuses), they land signed out on `/goodbye`, and delivered rounds show nothing from them. A loop they own alone goes too; one with anyone else in it refuses the deletion and offers "Hand it on" and "Delete the loop" instead. | done |
 | V3 | Leave through the reply link | The answer page (and the reader and nothing-open pages) offers "Leave this loop and delete my answers"; the leave page is a GET that changes nothing, and a ticked confirmation POST removes the membership and everything written in that loop only, including files; the link then stops working and the round reads on without them. The owner's link explains how to hand the loop on or delete it instead. | done |
 | V4 | Export | "Download my data" on `/you` streams a JSON file of the person's own words in every loop (drafts included, links to their photos and voice notes); the leave page offers the same for one loop by reply link; the owner's settings offer the whole loop archive (every round, question, sent answer, section, comment and reaction, no drafts). The archive answers 404 to members and strangers, and the personal export sends a signed-out visitor to sign in. | done |
+| V5 | Change my address | From `/you` a signed-in person asks to move to a new address. Nothing changes until they press the button on the page linked from that inbox, within an hour. Then the account and every loop move, and the old address is told. An address already in use changes nothing. | done |
 
 IDs are stable handles, not positions: a retired flow leaves its number out
 rather than renumbering the rest.
 
 ---
 
-**98 flows.** A flow is only `done` when its spec passes locally and in CI.
+**104 flows.** A flow is only `done` when its spec passes locally and in CI.
 
 ## T · Photos
 

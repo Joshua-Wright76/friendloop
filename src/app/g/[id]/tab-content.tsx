@@ -30,7 +30,7 @@ export function LoopTabContent(props: Props) {
       return <OverviewTab welcome={welcome} nudged={nudged} />;
     }
     case "members":
-      return <MembersTab notices={read("invited", "resent", "removed", "transferred", "transferError")} />;
+      return <MembersTab notices={read("limited", "addressChanged", "invited", "resent", "removed", "transferred", "transferError")} />;
     case "questions":
       return <QuestionsTab notices={read("added", "archived", "skip", "rotation", "fromPacks", "suggestion", "section", "poll", "event")} />;
     case "issues":

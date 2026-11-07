@@ -12,6 +12,7 @@ import { Brand, Cherries, Tape } from "@/components/stationery";
 import { NoticeFocus } from "@/components/notice-focus";
 import { copy, text } from "@/lib/copy";
 import { signOutAction } from "./actions";
+import { ChangeEmail } from "./change-email";
 import { TimezoneSync } from "./timezone-sync";
 import { SubmitButton } from "@/components/submit-button";
 
@@ -89,7 +90,13 @@ export default async function YouPage({ searchParams }: {
         </ul>
       )}
 
-      <section aria-labelledby="your-data" className="card mt-10 p-5">
+      <section aria-labelledby="your-address" className="card mt-10 p-5">
+        <h2 id="your-address" className="text-[22px] text-ink">{copy.you.emailChangeTitle}</h2>
+        <p className="mt-1 text-[14px] leading-relaxed text-ink-soft">{copy.you.emailChangeBody}</p>
+        <ChangeEmail />
+      </section>
+
+      <section aria-labelledby="your-data" className="card mt-5 p-5">
         <h2 id="your-data" className="text-[22px] text-ink">{copy.you.dataTitle}</h2>
         <p className="mt-1 text-[14px] leading-relaxed text-ink-soft">{copy.you.dataBody}</p>
         <div className="mt-4 flex flex-wrap justify-between gap-3">

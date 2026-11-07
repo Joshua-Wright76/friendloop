@@ -1,0 +1,114 @@
+name: Backup
+
+# Keeps two weeks of encrypted backups of the production database and every photo
+# and voice note, as workflow artifacts. A backup only counts once it has been
+# restored, so each database dump is loaded into a scratch Postgres first, and a
+# failure here fails the run, which GitHub emails to whoever last edited this file.
+#
+# THIS REPOSITORY IS PUBLIC, so anyone signed in to GitHub can download these
+# artifacts. They are safe only because they are encrypted before upload, with the
+# public key in .github/backup-recipient.txt. Never upload anything unencrypted
+# here. The private key is not in GitHub; without it these files are useless, to
+# us as well. Restoring is described in README.md.
+#
+# GitHub drops most runs of a schedule, so this asks six times a day to get one or
+# two. Each day keeps only its newest backup.
+
+on:
+  schedule:
+    - cron: "41 */4 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backup
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    name: Back up production
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    services:
+      # The same major version as Neon, or pg_dump refuses to run.
+      scratch:
+        image: postgres:18
+        env:
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+      - name: Install tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq age
+          npm ci --omit=dev --ignore-scripts --no-audit --no-fund
+
+      - name: Dump the database
+        env:
+          BACKUP_DATABASE_URL: ${{ secrets.BACKUP_DATABASE_URL }}
+        run: |
+          if [ -z "$BACKUP_DATABASE_URL" ]; then
+            echo "::error::The BACKUP_DATABASE_URL repository secret is not set."
+            exit 1
+          fi
+          mkdir -p plain encrypted
+          # The address goes through the environment, so it stays out of the process list and logs.
+          docker run --rm --network host -e BACKUP_DATABASE_URL -v "$PWD/plain:/out" postgres:18 \
+            sh -c 'exec pg_dump --format=custom --no-owner --no-privileges --file=/out/database.dump "$BACKUP_DATABASE_URL"'
+
+      - name: Restore it into a scratch database, and check it holds real data
+        run: |
+          docker run --rm --network host -v "$PWD/plain:/out" postgres:18 \
+            pg_restore --host=127.0.0.1 --username=postgres --dbname=postgres --no-owner --no-privileges --exit-on-error /out/database.dump
+          docker run --rm --network host postgres:18 psql --host=127.0.0.1 --username=postgres --dbname=postgres --tuples-only --no-align --command="
+            select 'tables ' || count(*) from information_schema.tables where table_schema = 'public';
+            select 'users ' || count(*) from users;
+            select 'loops ' || count(*) from groups;
+            select 'replies ' || count(*) from replies;
+          " | tee counts.txt
+          grep -q '^tables [1-9]' counts.txt
+          grep -q '^users [1-9]' counts.txt
+
+      - name: Download photos and voice notes
+        env:
+          BLOB_READ_WRITE_TOKEN: ${{ secrets.BACKUP_BLOB_TOKEN }}
+        run: |
+          if [ -z "$BLOB_READ_WRITE_TOKEN" ]; then
+            echo "::error::The BACKUP_BLOB_TOKEN repository secret is not set."
+            exit 1
+          fi
+          mkdir -p plain/media
+          node scripts/backup-media.mjs plain/media
+
+      - name: Encrypt, and delete the plain copies
+        run: |
+          recipient=$(cat .github/backup-recipient.txt)
+          tar -C plain -cf - database.dump media | age --recipient "$recipient" --output encrypted/friendloop-backup.tar.age
+          rm -rf plain
+          # Refuse to upload anything that isn't age's own format.
+          head -c 21 encrypted/friendloop-backup.tar.age | grep -q 'age-encryption.org/v1'
+          ls -la encrypted
+
+      - name: Name today's backup
+        id: name
+        run: echo "day=$(date -u +%F)" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: friendloop-backup-${{ steps.name.outputs.day }}
+          path: encrypted/friendloop-backup.tar.age
+          if-no-files-found: error
+          retention-days: 14
+          overwrite: true

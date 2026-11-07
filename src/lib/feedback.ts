@@ -3,7 +3,10 @@ import { feedback } from "@/db/schema";
 import { membershipFromReplyToken } from "./auth";
 import { getNow } from "./clock";
 import { copy } from "./copy.ts";
+import { feedbackEmail } from "./email/templates.ts";
+import { sendEmail } from "./email/send.ts";
 import { redactPath } from "./feedback-path";
+import { log } from "./log.ts";
 import { consume, LIMITS, limitKey } from "./rate-limit";
 
 export const FEEDBACK_MAX_LENGTH = 2000;
@@ -34,6 +37,27 @@ const REPLY_PATH = /^\/r\/([^/]+)/;
 function clip(value: string, max: number): string | null {
   const trimmed = value.trim().slice(0, max);
   return trimmed || null;
+}
+
+/**
+ * Email the note to whoever runs this instance (`FEEDBACK_NOTIFY_EMAIL`), since
+ * nobody opens /dev/feedback on a hunch. The note is already stored, so nothing
+ * here may fail the request, and a flood costs at most a few emails an hour.
+ */
+async function notifyOfFeedback(note: { id: string; message: string; path: string | null; from: string }, at: Date): Promise<void> {
+  const to = process.env.FEEDBACK_NOTIFY_EMAIL?.trim();
+  if (!to) return;
+  try {
+    if (!(await consume(limitKey.feedbackNotify(), LIMITS.feedbackNotify, at)).allowed) return;
+    await sendEmail({
+      ...feedbackEmail({ message: note.message, from: note.from, path: note.path }),
+      to,
+      kind: "feedback",
+      dedupeKey: `feedback:${note.id}`,
+    });
+  } catch (error) {
+    log.error("Unable to email a feedback note", error);
+  }
 }
 
 /**
@@ -68,7 +92,7 @@ export async function submitFeedback(
     return { ok: false, status: 429, error: copy.feedback.errors.tooMany };
   }
 
-  await db.insert(feedback).values({
+  const [stored] = await db.insert(feedback).values({
     message,
     path: redactPath(input.path),
     userId: sender?.userId ?? null,
@@ -78,6 +102,8 @@ export async function submitFeedback(
     userAgent: clip(input.userAgent, 300),
     viewport: clip(input.viewport, 40),
     createdAt: at,
-  });
+  }).returning({ id: feedback.id, path: feedback.path });
+
+  await notifyOfFeedback({ id: stored.id, message, path: stored.path, from: sender?.name ?? sender?.email ?? copy.devFeedback.anonymous }, at);
   return { ok: true };
 }

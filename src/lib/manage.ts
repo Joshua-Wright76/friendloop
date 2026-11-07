@@ -9,6 +9,7 @@ import {
   questions,
   users,
 } from "@/db/schema";
+import { consume, LIMITS, MAX_MEMBERS_PER_LOOP, limitKey } from "./rate-limit";
 import { newToken } from "./tokens";
 import { emailThemeOf, inviteEmail } from "./email/templates";
 import { sendEmail } from "./email/send";
@@ -101,15 +102,24 @@ export async function inviteMembers(input: {
   emails: string[];
   participation: "contributor" | "reader";
   actorName: string;
+  /** Who is sending. Their daily allowance is what stops a spam run through a loop. */
+  actorUserId: string;
   at: Date;
   personalNote?: string;
-}): Promise<{ invited: number; skipped: number }> {
+}): Promise<{ invited: number; skipped: number; limited: number }> {
   const [group] = await db.select().from(groups).where(eq(groups.id, input.groupId)).limit(1);
   if (!group) throw new Error("not-found");
 
   const participation = group.mode === "from_you" ? "reader" : input.participation;
   let invited = 0;
   let skipped = 0;
+  let limited = 0;
+
+  const [{ current }] = await db
+    .select({ current: count() })
+    .from(memberships)
+    .where(and(eq(memberships.groupId, group.id), isNull(memberships.revokedAt)));
+  let room = MAX_MEMBERS_PER_LOOP - Number(current);
 
   for (const email of parseEmails(input.emails.join(" "))) {
     const [existing] = await db
@@ -122,6 +132,12 @@ export async function inviteMembers(input: {
       skipped += 1;
       continue;
     }
+
+    if (room <= 0 || !(await consume(limitKey.invite(input.actorUserId), LIMITS.invite, input.at)).allowed) {
+      limited += 1;
+      continue;
+    }
+    room -= 1;
 
     const token = newToken();
     let membershipId: string;
@@ -167,7 +183,76 @@ export async function inviteMembers(input: {
     invited += 1;
   }
 
-  return { invited, skipped };
+  return { invited, skipped, limited };
+}
+
+/** How many loops this person runs now. Someone can start another while under the cap. */
+export async function ownedLoopCount(userId: string): Promise<number> {
+  const [{ total }] = await db
+    .select({ total: count() })
+    .from(memberships)
+    .where(and(eq(memberships.userId, userId), eq(memberships.access, "owner"), isNull(memberships.revokedAt)));
+  return Number(total);
+}
+
+export type MemberEmailResult = "changed" | "invalid" | "taken" | "limited" | "refused";
+
+/**
+ * Fix the address of someone with no account yet, a typo in the invitation being
+ * the usual reason. Their answers stay theirs, since they hang off the membership.
+ * The old link stops working, because whoever got it may be the wrong person. Someone
+ * who has signed in moves their own address instead (`requestEmailChange`).
+ */
+export async function changeMemberEmail(input: {
+  groupId: string;
+  membershipId: string;
+  newEmail: string;
+  actorName: string;
+  actorUserId: string;
+  at: Date;
+}): Promise<MemberEmailResult> {
+  const email = normalizeEmail(input.newEmail);
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return "invalid";
+
+  const [group] = await db.select().from(groups).where(eq(groups.id, input.groupId)).limit(1);
+  const [membership] = await db
+    .select()
+    .from(memberships)
+    .where(and(eq(memberships.id, input.membershipId), eq(memberships.groupId, input.groupId), isNull(memberships.revokedAt)))
+    .limit(1);
+  if (!group || !membership || membership.access === "owner" || membership.userId) return "refused";
+  if (membership.email === email) return "taken";
+
+  const [clash] = await db
+    .select({ id: memberships.id })
+    .from(memberships)
+    .where(and(eq(memberships.groupId, group.id), eq(memberships.email, email)))
+    .limit(1);
+  if (clash) return "taken";
+
+  if (!(await consume(limitKey.invite(input.actorUserId), LIMITS.invite, input.at)).allowed) return "limited";
+
+  const token = newToken();
+  // The unsent mail still holds the old link and address, so it goes rather than following them.
+  await db
+    .delete(outbox)
+    .where(and(eq(outbox.membershipId, membership.id), inArray(outbox.status, ["pending", "failed"])));
+  await db
+    .update(memberships)
+    .set({ email, replyToken: token, invitedAt: input.at, acceptedAt: null, mutedAt: null })
+    .where(eq(memberships.id, membership.id));
+
+  await sendInvite({
+    membershipId: membership.id,
+    email,
+    token,
+    groupId: group.id,
+    groupName: group.name,
+    group,
+    inviterName: input.actorName,
+    participation: membership.participation,
+  });
+  return "changed";
 }
 
 export async function resendInvite(input: {

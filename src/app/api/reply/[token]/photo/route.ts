@@ -1,3 +1,4 @@
+import { uploadRefused } from "@/lib/upload-limit";
 import { NextResponse } from "next/server";
 import {
   authorizeQuestionForReply,
@@ -25,6 +26,8 @@ async function cleanupPhoto(photoUrl: string) {
  */
 export async function POST(request: Request, { params }: RouteContext) {
   const { token } = await params;
+  const refused = await uploadRefused(token, copy.reply.errors.tooManyUploads);
+  if (refused) return refused;
 
   let form: FormData;
   try {

@@ -19,7 +19,7 @@ export const FAKE_MAIL_URL = process.env.TEST_PARALLEL_INDEX === undefined
   ? STUB_URL
   : `${STUB_URL}/w${process.env.TEST_PARALLEL_INDEX}`;
 
-type Sent = { to: string; subject: string; headers?: Record<string, string> };
+type Sent = { to: string; subject: string; from?: string; reply_to?: string | string[]; headers?: Record<string, string> };
 type State = { failNext: number; failStatus: number; sent: Sent[] };
 
 const mailboxes = new Map<string, State>();
@@ -76,10 +76,18 @@ async function handle(
     const payload = JSON.parse((await readBody(request)) || "{}") as {
       to?: string | string[];
       subject?: string;
+      from?: string;
+      reply_to?: string | string[];
       headers?: Record<string, string>;
     };
     const to = Array.isArray(payload.to) ? (payload.to[0] ?? "") : (payload.to ?? "");
-    state.sent.push({ to, subject: payload.subject ?? "", ...(payload.headers ? { headers: payload.headers } : {}) });
+    state.sent.push({
+      to,
+      subject: payload.subject ?? "",
+      from: payload.from,
+      reply_to: payload.reply_to,
+      ...(payload.headers ? { headers: payload.headers } : {}),
+    });
 
     if (THROTTLED.test(to)) {
       return json(response, 429, {

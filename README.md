@@ -66,6 +66,8 @@ Vercel → Project → Settings → Environment Variables.
 | `SENTRY_DSN` | Optional server/edge override. The Marketplace integration does not set it; the server falls back to `NEXT_PUBLIC_SENTRY_DSN` |
 | `SENTRY_AUTH_TOKEN` | Optional, build-time only; set by the Marketplace integration. Uploads source maps; without it the upload is skipped, never failed |
 | `SENTRY_ORG` / `SENTRY_PROJECT` | Set by the Marketplace integration. Org and project slugs, used with `SENTRY_AUTH_TOKEN` for the source map upload |
+| `EMAIL_DAILY_BUDGET` | Optional: emails per 24 hours, default 100 (Resend's free tier). Loop mail stops 20 short and waits for the sweep |
+| `FEEDBACK_NOTIFY_EMAIL` | Optional: where notes from the feedback button are emailed |
 | `TEST_DATABASE_URL` | Optional: your own throwaway Postgres for e2e and the integration tests (a Neon branch). If unset, both start a local one. |
 
 ## Environments
@@ -154,8 +156,30 @@ browser history and in access logs, so rotate the secret when the group of peopl
 holding it changes; rotating locks everyone out immediately.
 
 Production never seeds the demo, even with the key: its tokens are in this public
-repository. There the key opens only the inboxes and goes straight to
-`/dev/feedback`.
+repository. There the key opens only the stats and the inboxes, and goes straight
+to `/dev/stats`.
+
+## Backups
+
+`.github/workflows/backup.yml` runs a few times a day and keeps 14 days of backups
+as artifacts on the **Backup** workflow's runs. Each holds the database and every
+photo and voice note, encrypted to the public key in `.github/backup-recipient.txt`.
+The job restores each database dump into a scratch Postgres before keeping it.
+
+The repository is public, so those files can be downloaded by anyone. Only the
+private key makes them readable, and it is not in GitHub. **Keep a copy of it in a
+password manager; a backup without the key is lost.**
+
+To restore (needs `age`, and Postgres client tools of the same major version as the database):
+
+```sh
+gh run download <run-id> --name friendloop-backup-YYYY-MM-DD
+age --decrypt --identity <private-key-file> friendloop-backup.tar.age | tar -xf -
+pg_restore --no-owner --no-privileges --dbname "<empty database url>" database.dump
+```
+
+`media/` keeps each file's path in the Blob store. The database stores full URLs, so
+uploading them back to a new store also means updating those URLs.
 
 ## Site and email copy
 

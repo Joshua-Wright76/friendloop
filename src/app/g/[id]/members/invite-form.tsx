@@ -77,7 +77,9 @@ export function InviteForm({ groupId }: { groupId: string }) {
         setEmails([]);
         setError("");
         setStatus(
-          result.invited > 0 && result.skipped > 0
+          result.limited > 0
+            ? text(copy.members.inviteLimited, { invited: result.invited })
+          : result.invited > 0 && result.skipped > 0
             ? text(copy.members.invitePartial, { invited: result.invited, skipped: result.skipped })
             : result.skipped > 0
               ? text(copy.members.inviteSkipped, { count: result.skipped })

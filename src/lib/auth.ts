@@ -42,6 +42,15 @@ export type MagicLinkOutcome = "sent" | "quiet" | "busy";
  * but the caller is shown the same "check your inbox" as always, so throttling
  * cannot be used to probe who is signing in.
  */
+async function isBlocked(email: string): Promise<boolean> {
+  const [row] = await db
+    .select({ blockedAt: users.blockedAt })
+    .from(users)
+    .where(eq(users.email, email))
+    .limit(1);
+  return Boolean(row?.blockedAt);
+}
+
 export async function requestMagicLink(
   rawEmail: string,
   options: { ip?: string } = {},
@@ -51,6 +60,7 @@ export async function requestMagicLink(
 
   if (!(await consume(limitKey.signInIp(options.ip ?? "unknown"), LIMITS.signInIp, at)).allowed) return "busy";
   if (!(await consume(limitKey.signInEmail(email), LIMITS.signInEmail, at)).allowed) return "quiet";
+  if (await isBlocked(email)) return "quiet";
 
   const token = newToken();
   await db.insert(magicLinks).values({
@@ -100,6 +110,7 @@ export async function confirmMagicLink(
   if (!link) return { ok: false, reason: "unknown" };
   if (link.usedAt) return { ok: false, reason: "used" };
   if (link.expiresAt.getTime() <= at.getTime()) return { ok: false, reason: "expired" };
+  if (await isBlocked(link.email)) return { ok: false, reason: "unknown" };
 
   const claimed = await db
     .update(magicLinks)

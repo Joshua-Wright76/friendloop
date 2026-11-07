@@ -37,7 +37,9 @@ export default function OverviewTab({ welcome, nudged }: { welcome?: string; nud
 
       {nudged ? (
         <NoticeFocus spacing="mt-4">
-          {nudged === "0"
+          {nudged === "limited"
+            ? copy.loop.nudgeLimited
+            : nudged === "0"
             ? copy.loop.everyoneIn
             : nudged === "1"
               ? copy.loop.nudgedOne

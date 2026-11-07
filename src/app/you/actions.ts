@@ -6,6 +6,7 @@ import { eq } from "drizzle-orm";
 import { updateTag } from "next/cache";
 import { db } from "@/db";
 import { users } from "@/db/schema";
+import { requestEmailChange, type EmailChangeRequest } from "@/lib/account";
 import { SESSION_COOKIE, currentUser, signOut } from "@/lib/auth";
 import { isValidTimezone } from "@/lib/timezone";
 
@@ -26,4 +27,14 @@ export async function syncTimezoneAction(timezone: string): Promise<void> {
   // `currentUser` is cached per session; drop it so the new zone is used at once.
   const token = (await cookies()).get(SESSION_COOKIE)?.value;
   if (token) updateTag(`session:${token}`);
+}
+
+export type EmailChangeState = { outcome: EmailChangeRequest; email: string } | null;
+
+/** Ask to move the account. The signed-in person is read from the session, never the form. */
+export async function requestEmailChangeAction(_previous: EmailChangeState, formData: FormData): Promise<EmailChangeState> {
+  const user = await currentUser();
+  if (!user) redirect("/signin");
+  const email = String(formData.get("email") ?? "").trim();
+  return { outcome: await requestEmailChange(user, email), email };
 }
