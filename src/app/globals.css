@@ -126,9 +126,9 @@ body::after {
   inset: 0;
   pointer-events: none;
   background: url("/textures/grain.png") 0 0/64px 64px;
-  opacity: var(--grain, .045);
+  opacity: var(--grain, .028);
 }
-html[data-theme="dark"] { --grain: .035; }
+html[data-theme="dark"] { --grain: .022; }
 @media print, (prefers-contrast: more) { body::after { display: none; } }
 ::selection { background: color-mix(in oklab, var(--accent) 22%, transparent); }
 /* One focus ring everywhere: opaque --accent-ink, which every theme derives to clear 4.5:1 on the page, the card and the soft accent fill (a translucent ring fell under 3:1 on some papers). */
