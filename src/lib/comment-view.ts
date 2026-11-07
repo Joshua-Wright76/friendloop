@@ -8,6 +8,8 @@ export type IssueComment = {
   id: string;
   author: string;
   authorPhotoUrl: string | null;
+  authorCharm: string | null;
+  authorFrame: string | null;
   isYou: boolean;
   parts: BodyPart[];
   photoUrl: string | null;
@@ -46,12 +48,15 @@ export async function loadComments(input: {
       name: memberships.name,
       email: memberships.email,
       photoUrl: memberships.photoUrl,
+      charm: memberships.charm,
+      avatarFrame: memberships.avatarFrame,
       revokedAt: memberships.revokedAt,
     })
     .from(memberships)
     .where(eq(memberships.groupId, groupId));
   const names = new Map(people.map((person) => [person.id, displayName(person)]));
   const photos = new Map(people.map((person) => [person.id, person.photoUrl]));
+  const looks = new Map(people.map((person) => [person.id, person]));
 
   const rows = await db
     .select()
@@ -74,6 +79,8 @@ export async function loadComments(input: {
       id: row.id,
       author: row.membershipId === viewerMembershipId ? copy.issue.you : (names.get(row.membershipId) ?? ""),
       authorPhotoUrl: photos.get(row.membershipId) ?? null,
+      authorCharm: looks.get(row.membershipId)?.charm ?? null,
+      authorFrame: looks.get(row.membershipId)?.avatarFrame ?? null,
       isYou: row.membershipId === viewerMembershipId,
       parts: bodyParts(row.body, names, copy.issue.unknownMention),
       photoUrl: row.photoUrl,

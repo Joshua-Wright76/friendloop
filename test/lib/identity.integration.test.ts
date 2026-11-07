@@ -8,7 +8,9 @@ import {
   renameIssue,
   saveTheme,
   setHeaderImage,
+  setMemberLook,
   setMemberPhoto,
+  stationeryColumns,
 } from "../../src/lib/identity.ts";
 import { transferOwnership } from "../../src/lib/manage.ts";
 import { sweep } from "../../src/lib/sweep.ts";
@@ -382,4 +384,62 @@ test("in a from_you loop the founder stops writing when the loop moves on", asyn
   const access = await accessOf(loop.groupId);
   assert.equal(access.heir, "owner/contributor");
   assert.equal(access.owner, "admin/reader");
+});
+
+/* ---------------------------- more stationery --------------------------- */
+
+test("the page, paper, tape and mascot save together or one at a time, and originals are stored as nothing", async () => {
+  const loop = await seedLoop();
+  const looks = { background: "hearts", paperPack: "airmail", tapePack: "seaside", mascot: "frog" };
+  assert.deepEqual(await saveTheme(loop.groupId, { preset: "meadow", accent: "", ...looks }), { ok: true, adjusted: false });
+  let group = await groupOf(loop.groupId);
+  assert.deepEqual(
+    [group.themeBackground, group.themePaperPack, group.themeTapePack, group.themeMascot],
+    ["hearts", "airmail", "seaside", "frog"],
+  );
+
+  // Left out means left alone.
+  await saveTheme(loop.groupId, { preset: "lilac", accent: "" });
+  group = await groupOf(loop.groupId);
+  assert.equal(group.themePreset, "lilac");
+  assert.equal(group.themeMascot, "frog");
+
+  await saveTheme(loop.groupId, { preset: "lilac", accent: "", background: "gingham", paperPack: "cream", tapePack: "picnic", mascot: "cherries" });
+  group = await groupOf(loop.groupId);
+  assert.deepEqual([group.themeBackground, group.themePaperPack, group.themeTapePack, group.themeMascot], [null, null, null, null]);
+});
+
+test("a key that isn't one of ours is refused, names what was wrong, and changes nothing", async () => {
+  const loop = await seedLoop();
+  await saveTheme(loop.groupId, { preset: "meadow", accent: "", background: "dots" });
+  for (const input of ["background", "paperPack", "tapePack", "mascot"] as const) {
+    assert.deepEqual(await saveTheme(loop.groupId, { preset: "lilac", accent: "", [input]: "</style>" }), { ok: false, error: input });
+  }
+  const group = await groupOf(loop.groupId);
+  assert.equal(group.themePreset, "meadow");
+  assert.equal(group.themeBackground, "dots");
+});
+
+test("empty is the original, and leaving a choice out adds no column", () => {
+  assert.deepEqual(stationeryColumns({ background: "", mascot: "bee" }), { ok: true, columns: { themeBackground: null, themeMascot: "bee" } });
+  assert.deepEqual(stationeryColumns({}), { ok: true, columns: {} });
+});
+
+test("a person's charm and frame are theirs, in this loop only, and only ours are accepted", async () => {
+  const loop = await seedLoop();
+  const alice = loop.members.find((member) => member.email.startsWith("alice"))!;
+  const bob = loop.members.find((member) => member.email.startsWith("bob"))!;
+
+  assert.deepEqual(await setMemberLook(alice.id, { charm: "frog" }), { ok: true, charm: "frog", frame: null });
+  assert.deepEqual(await setMemberLook(alice.id, { frame: "doily" }), { ok: true, charm: "frog", frame: "doily" });
+  assert.deepEqual(await setMemberLook(alice.id, {}), { ok: true, charm: "frog", frame: "doily" });
+
+  assert.deepEqual(await setMemberLook(alice.id, { charm: "../../x" }), { ok: false });
+  assert.deepEqual(await setMemberLook(alice.id, { frame: 7 }), { ok: false });
+  assert.deepEqual(await setMemberLook("00000000-0000-4000-8000-000000000000", { charm: "frog" }), { ok: false });
+
+  const [bobRow] = await rows<{ charm: string | null }>("select charm from memberships where id = $1", [bob.id]);
+  assert.equal(bobRow.charm, null);
+
+  assert.deepEqual(await setMemberLook(alice.id, { charm: "", frame: "" }), { ok: true, charm: null, frame: null });
 });

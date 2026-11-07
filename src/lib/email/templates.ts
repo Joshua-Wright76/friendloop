@@ -7,7 +7,9 @@ import { copy, text } from "../copy.ts";
 import { url as appLink } from "../urls.ts";
 import { formatAudioDuration } from "../audio-validation.ts";
 import { issueHeading, issueRef } from "../issue-name.ts";
+import { DEFAULT_MASCOT, isCharmKey, isMascotKey, stickerPng } from "../stickers.ts";
 import { emailPalette, GINGHAM_EMAIL, type EmailPalette } from "../theme.ts";
+import { appUrl } from "../urls.ts";
 
 type LayoutInput = {
   preheader: string;
@@ -29,17 +31,19 @@ type LayoutInput = {
   questions?: { label: string; items: string[] };
 };
 
-export type EmailTheme = { palette: EmailPalette; headerImageUrl?: string | null };
+export type EmailTheme = { palette: EmailPalette; headerImageUrl?: string | null; mascot?: string | null };
 
 /** What an email needs from a loop to wear its stationery. */
 export function emailThemeOf(group: {
   themePreset: string | null;
   themeAccent: string | null;
   headerImageUrl: string | null;
+  themeMascot?: string | null;
 }): EmailTheme {
   return {
     palette: emailPalette({ preset: group.themePreset, accent: group.themeAccent }),
     headerImageUrl: group.headerImageUrl,
+    mascot: group.themeMascot,
   };
 }
 
@@ -48,6 +52,7 @@ export type SectionEmailBlock = {
   emoji: string | null;
   answers: Array<{
     author: string;
+    authorCharm?: string | null;
     body: string;
     linkUrl?: string | null;
     /** The pick's name when the provider told us; the link alone otherwise. */
@@ -60,6 +65,8 @@ export type SectionEmailBlock = {
 export type AnswerBlock = {
   question: string;
   author: string;
+  /** A sticker beside their name. With images off, the name simply stands alone. */
+  authorCharm?: string | null;
   body: string;
   photoUrl?: string | null;
   audioUrl?: string | null;
@@ -149,7 +156,7 @@ function sectionsHtml(sections: SectionEmailBlock[], c: EmailPalette): string {
             answer.photoCount && answer.photoCount > 0
               ? ` <span style="color:${c.muted}">${escapeHtml(copy.emails.photosAdded.replace("{count}", String(answer.photoCount)))}</span>`
               : "";
-          return `<div style="margin:10px 0 0;font:400 15px/1.6 ${BODY_FONT};color:${c.ink}"><span style="font:800 13px/1.5 ${BODY_FONT};color:${c.soft}">${escapeHtml(answer.author)}</span> ${escapeHtml(answer.body)}${link}${photos}</div>`;
+          return `<div style="margin:10px 0 0;font:400 15px/1.6 ${BODY_FONT};color:${c.ink}"><span style="font:800 13px/1.5 ${BODY_FONT};color:${c.soft}">${escapeHtml(answer.author)}${charmImage(answer.authorCharm)}</span> ${escapeHtml(answer.body)}${link}${photos}</div>`;
         })
         .join("");
       return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 18px;background:${c.card};border:1px dashed ${c.lineStrong};border-radius:6px"><tr><td style="padding:20px 22px">
@@ -158,6 +165,21 @@ function sectionsHtml(sections: SectionEmailBlock[], c: EmailPalette): string {
 </td></tr></table>`;
     })
     .join("");
+}
+
+/** Email can't be trusted with SVG, so the drawings go out as PNGs from the app's own address. */
+function stickerImage(key: string, size: number, align: string): string {
+  return `<img src="${escapeHtml(`${appUrl()}${stickerPng(key)}`)}" alt="" width="${size}" height="${size}" style="width:${size}px;height:${size}px;border:0;vertical-align:${align}" />`;
+}
+
+function charmImage(charm: string | null | undefined): string {
+  return isCharmKey(charm) ? ` ${stickerImage(charm, 18, "-3px")}` : "";
+}
+
+/** The cherries stay the emoji they've always been, which show even with images off. */
+function mascotMark(mascot: string | null | undefined): string {
+  if (isMascotKey(mascot) && mascot !== DEFAULT_MASCOT) return stickerImage(mascot, 24, "-5px");
+  return `<span style="font-size:22px;vertical-align:-1px">${copy.common.cherry}</span>`;
 }
 
 function answersHtml(answers: AnswerBlock[], url: string, c: EmailPalette): string {
@@ -180,7 +202,7 @@ function answersHtml(answers: AnswerBlock[], url: string, c: EmailPalette): stri
             : "";
           const divider = index > 0 ? `border-top:1px dashed ${c.line};padding-top:14px;` : "";
           return `<div style="${divider}margin:16px 0 0">
-  <div style="font:800 14px/1.5 ${BODY_FONT};color:${c.soft};margin:0 0 4px">${escapeHtml(answer.author)}</div>
+  <div style="font:800 14px/1.5 ${BODY_FONT};color:${c.soft};margin:0 0 4px">${escapeHtml(answer.author)}${charmImage(answer.authorCharm)}</div>
   <div style="font:400 16px/1.65 ${BODY_FONT};color:${c.ink};white-space:pre-wrap">${escapeHtml(answer.body)}</div>
   ${photo}${voice}${note}
 </div>`;
@@ -226,7 +248,7 @@ export function layout({ preheader, heading, body, cta, footer, answers, section
 <div style="display:none;max-height:0;overflow:hidden;opacity:0">${escapeHtml(preheader)}</div>
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="${GINGHAM}"><tr><td align="center" style="padding:36px 14px 40px">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px">
-${headerImage(theme?.headerImageUrl, c)}<tr><td style="padding:0 8px 20px;font:700 22px/1.2 ${DISPLAY_FONT};color:${c.ink}"><span style="font-size:22px;vertical-align:-1px">${copy.common.cherry}</span> ${escapeHtml(sender ?? copy.common.brand)}</td></tr>
+${headerImage(theme?.headerImageUrl, c)}<tr><td style="padding:0 8px 20px;font:700 22px/1.2 ${DISPLAY_FONT};color:${c.ink}">${mascotMark(theme?.mascot)} ${escapeHtml(sender ?? copy.common.brand)}</td></tr>
 <tr><td>
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${c.card};border:1px solid ${c.line};border-radius:6px;box-shadow:${c.shadow}"><tr><td style="padding:0 30px 30px">
 <table role="presentation" cellpadding="0" cellspacing="0" style="margin:-11px 0 20px;position:relative;z-index:2;transform:rotate(-2deg);opacity:.92;clip-path:polygon(0 0,100% 0,97% 25%,100% 50%,97% 75%,100% 100%,0 100%,3% 75%,0 50%,3% 25%)"><tr><td width="88" height="22" style="width:88px;height:22px;background-color:${c.tape};background-image:radial-gradient(circle,rgba(255,255,255,.85) 1.8px,transparent 2.3px);background-size:9px 9px"></td></tr></table>

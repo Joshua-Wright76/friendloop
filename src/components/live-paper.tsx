@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { resolveTheme, themeCss } from "@/lib/theme";
+import { stationeryCss, type StationerySettings } from "@/lib/stationery";
 
 /**
  * A paper tried on for the page you're on. It goes in through an effect, not a
@@ -9,8 +9,8 @@ import { resolveTheme, themeCss } from "@/lib/theme";
  * a hidden page still applies, which would dress other pages in a paper never saved.
  * Effects are cleaned up when a page is hidden, so this leaves with the page.
  */
-export function LivePaper({ preset, accent }: { preset: string | null; accent: string | null }) {
-  const css = themeCss(resolveTheme({ preset, accent }));
+export function LivePaper({ settings }: { settings: StationerySettings }) {
+  const css = stationeryCss(settings);
   useEffect(() => {
     if (!css) return;
     const style = document.createElement("style");

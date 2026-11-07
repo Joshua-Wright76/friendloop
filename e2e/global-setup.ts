@@ -1,5 +1,6 @@
-import { resetSchema, migrate } from "./support/db";
+import { relaxDurability, resetSchema, migrate, prepareWorkerDatabases } from "./support/db";
 import { startFakeResend } from "./support/fake-resend";
+import { WORKERS } from "./support/parallel";
 
 /**
  * A disposable database, rebuilt from the real migrations, and the Resend stub
@@ -10,4 +11,6 @@ export default async function globalSetup() {
   await startFakeResend();
   await resetSchema();
   await migrate();
+  await prepareWorkerDatabases(WORKERS);
+  if (process.env.E2E_RELAX_DB) await relaxDurability(process.env.E2E_RELAX_DB, WORKERS);
 }

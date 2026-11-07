@@ -1,12 +1,13 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { copy } from "@/lib/copy";
 import { readUploadResponse } from "@/lib/upload-response";
 import { PHOTO_ACCEPT } from "@/lib/photo-validation";
 import { AVATAR_TARGET, prepareImage } from "./prepare-image";
 import { Avatar } from "./avatar";
+import { MemberLook } from "./member-look";
 
 type Status = "idle" | "saving" | "saved" | "removed" | "error";
 
@@ -18,12 +19,19 @@ export function ProfilePhoto({
   endpoint,
   name,
   photoUrl: initial,
+  charm,
+  frame,
   refresh = false,
   compact = false,
+  onFrame,
 }: {
   endpoint: string;
   name: string;
   photoUrl: string | null;
+  charm: string | null;
+  frame: string | null;
+  /** Tells the page when the frame changes, for a picture it shows elsewhere. */
+  onFrame?: (frame: string | null) => void;
   /** Re-render the surrounding server data after a change (the members list shows the photo too). */
   refresh?: boolean;
   /** Just the actions, for a row that already shows the person's picture. */
@@ -33,6 +41,15 @@ export function ProfilePhoto({
   const input = useRef<HTMLInputElement>(null);
   const change = useRef<HTMLButtonElement>(null);
   const [photoUrl, setPhotoUrl] = useState(initial);
+  const [frameNow, setFrameNow] = useState(frame);
+  const [lookOpened, setLookOpened] = useState(false);
+  const disclosure = useRef<HTMLDetailsElement>(null);
+  // /dev/screens links straight to the sheet.
+  useEffect(() => {
+    if (compact && new URLSearchParams(window.location.search).get("look") === "open" && disclosure.current) {
+      disclosure.current.open = true;
+    }
+  }, [compact]);
   const [status, setStatus] = useState<Status>("idle");
   const [message, setMessage] = useState("");
 
@@ -75,9 +92,25 @@ export function ProfilePhoto({
     await send({ method: "POST", body: form }, "saved");
   }
 
+  const look = (
+    <MemberLook
+      endpoint={endpoint}
+      name={name}
+      photoUrl={photoUrl}
+      charm={charm}
+      frame={frame}
+      refresh={refresh ? () => router.refresh() : undefined}
+      onFrame={(next) => {
+        setFrameNow(next);
+        onFrame?.(next);
+      }}
+    />
+  );
+
   return (
+    <>
     <div className="flex items-center gap-3">
-      {compact ? null : <Avatar name={name} photoUrl={photoUrl} className="!h-14 !w-14 !text-[20px]" />}
+      {compact ? null : <Avatar name={name} photoUrl={photoUrl} frame={frameNow} className="!h-14 !w-14 !text-[20px]" />}
       <div className="min-w-0">
         <div className={compact ? "flex flex-wrap gap-x-5" : "flex flex-wrap gap-2"}>
           <button
@@ -128,5 +161,13 @@ export function ProfilePhoto({
         </p>
       </div>
     </div>
+    {/* In the members list the row is already busy, so the sheet waits behind a tap. */}
+    {compact ? (
+      <details ref={disclosure} className="look-disclosure" onToggle={(event) => { if (event.currentTarget.open) setLookOpened(true); }}>
+        <summary className="link link--quiet cursor-pointer">{copy.identity.look.open}</summary>
+        {lookOpened ? look : null}
+      </details>
+    ) : look}
+    </>
   );
 }

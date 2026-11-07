@@ -13,12 +13,24 @@ import { createServer, type Server } from "node:http";
  */
 
 export const FAKE_MAIL_PORT = Number(process.env.E2E_FAKE_MAIL_PORT ?? 3101);
-export const FAKE_MAIL_URL = `http://127.0.0.1:${FAKE_MAIL_PORT}`;
+const STUB_URL = `http://127.0.0.1:${FAKE_MAIL_PORT}`;
+/** Each worker's server sends to `/w<n>`, so one test's forced failures can't reach another's mail. */
+export const FAKE_MAIL_URL = process.env.TEST_PARALLEL_INDEX === undefined
+  ? STUB_URL
+  : `${STUB_URL}/w${process.env.TEST_PARALLEL_INDEX}`;
 
 type Sent = { to: string; subject: string; headers?: Record<string, string> };
 type State = { failNext: number; failStatus: number; sent: Sent[] };
 
-const state: State = { failNext: 0, failStatus: 500, sent: [] };
+const mailboxes = new Map<string, State>();
+function mailbox(name: string): State {
+  let found = mailboxes.get(name);
+  if (!found) {
+    found = { failNext: 0, failStatus: 500, sent: [] };
+    mailboxes.set(name, found);
+  }
+  return found;
+}
 
 /** Addresses that always fail, so a fixture can mean "this person's mail bounces". */
 const ALWAYS_FAIL = /rejected@/i;
@@ -39,7 +51,8 @@ async function handle(
   request: import("node:http").IncomingMessage,
   response: import("node:http").ServerResponse,
 ) {
-  const path = new URL(request.url ?? "/", FAKE_MAIL_URL).pathname;
+  const [, name = "", path] = /^(?:\/(w\d+))?(\/.*)$/.exec(new URL(request.url ?? "/", STUB_URL).pathname) ?? [];
+  const state = mailbox(name);
 
   if (path === "/__control" && request.method === "POST") {
     const body = JSON.parse((await readBody(request)) || "{}") as Partial<State>;
@@ -107,7 +120,7 @@ async function handle(
 /** Reuse a stub a previous interrupted run left behind instead of failing on EADDRINUSE. */
 async function alreadyRunning(): Promise<boolean> {
   try {
-    const response = await fetch(`${FAKE_MAIL_URL}/__sent`);
+    const response = await fetch(`${STUB_URL}/__sent`);
     return response.ok;
   } catch {
     return false;
@@ -139,7 +152,7 @@ export async function stopFakeResend(server: Server | null): Promise<void> {
 /** Teardown runs from the runner process too, but a shutdown over HTTP is ordered. */
 export async function stopFakeResendRemotely(): Promise<void> {
   try {
-    await fetch(`${FAKE_MAIL_URL}/__shutdown`, { method: "POST" });
+    await fetch(`${STUB_URL}/__shutdown`, { method: "POST" });
   } catch {
     // Already gone: an interrupted run, or a stub this run reused.
   }

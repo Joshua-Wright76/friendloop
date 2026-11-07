@@ -10,7 +10,8 @@ import { formatAudioDuration } from "@/lib/audio-validation";
 import type { IssueComment } from "@/lib/comment-view";
 import type { IssueAnswer, IssueBlock, IssuePoll, IssueSectionBlock, IssueSectionReplyBlock } from "@/lib/issue-view";
 import type { PersonGroup } from "@/lib/issue-reading";
-import { Avatar } from "@/components/avatar";
+import { Avatar, NameCharm } from "@/components/avatar";
+import { EmojiPicker } from "@/components/emoji-picker";
 import { MusicCard } from "@/components/music-card";
 import { PhotoLightbox, useLightbox, type LightboxPhoto } from "@/components/photo-lightbox";
 import { Tape } from "@/components/stationery";
@@ -82,11 +83,12 @@ export function IssueBody({
 
       {groups
         ? groups.map((group, index) => (
-            <section key={group.id} id={`person-${group.id}`} aria-label={group.name} className="card paper ride-in scroll-mt-20 p-5 pt-7">
+            <section key={group.id} id={`person-${group.id}`} aria-label={group.name} data-paper="answer" className="card paper ride-in scroll-mt-20 p-5 pt-7">
               <Tape tone={(["dots", "stripe", "mint", "check"] as const)[index % 4]} position={index % 2 ? "right" : "left"} />
               <h2 className="issue-question flex items-center gap-3 text-ink">
-                <span aria-hidden="true"><Avatar name={group.name} photoUrl={group.photoUrl} /></span>
+                <span aria-hidden="true"><Avatar name={group.name} photoUrl={group.photoUrl} frame={group.frame} /></span>
                 {group.name}
+                <NameCharm charm={group.charm} />
               </h2>
               <div className="mt-3">
                 {group.entries.map((entry) =>
@@ -118,7 +120,7 @@ export function IssueBody({
       {groups ? null : blocks
         .filter((block) => block.answers.length > 0)
         .map((block, index) => (
-          <section key={block.questionId} id={`question-${block.questionId}`} className="card paper ride-in scroll-mt-20 p-5 pt-7">
+          <section key={block.questionId} id={`question-${block.questionId}`} data-paper={block.poll ? "poll" : "answer"} className="card paper ride-in scroll-mt-20 p-5 pt-7">
             <Tape tone={(["dots", "stripe", "mint", "check"] as const)[index % 4]} position={index % 2 ? "right" : "left"} />
             <h2 className="issue-question flex items-start gap-3 text-ink">
               <span className="question-number mt-0.5 numeric">{index + 1}</span>
@@ -150,7 +152,7 @@ export function IssueBody({
         ))}
 
       {groups ? null : sections.map((section, sectionIndex) => (
-        <section key={section.id} id={`section-${section.id}`} className="card paper ride-in scroll-mt-20 p-5 pt-7">
+        <section key={section.id} id={`section-${section.id}`} data-paper="note" className="card paper ride-in scroll-mt-20 p-5 pt-7">
           <Tape tone={(["mint", "check", "dots", "stripe"] as const)[sectionIndex % 4]} position="left" />
           <h2 className="issue-question flex items-start gap-3 text-ink">
             <span className="question-number mt-0.5 numeric">{sectionOffset + 1 + sectionIndex}</span>
@@ -241,12 +243,13 @@ function SectionReplyCard({ reply, label }: { reply: IssueSectionReplyBlock; lab
         <h3 className="m-0 text-[22px] leading-tight text-ink">{label}</h3>
       ) : (
         <div className="flex items-center gap-2.5">
-          <Avatar name={reply.author} photoUrl={reply.authorPhotoUrl} />
+          <Avatar name={reply.author} photoUrl={reply.authorPhotoUrl} frame={reply.authorFrame} />
           <p className="m-0 text-[14px] font-extrabold text-ink-soft">{reply.author}</p>
+          <NameCharm charm={reply.authorCharm} />
         </div>
       )}
       {reply.body ? (
-        <p className="mt-2 whitespace-pre-wrap text-[16px] leading-relaxed text-ink">{reply.body}</p>
+        <p className="answer-text mt-2 whitespace-pre-wrap text-[16px] leading-relaxed text-ink">{reply.body}</p>
       ) : null}
       {reply.linkUrl ? (
         <MusicCard
@@ -334,11 +337,12 @@ function AnswerCard({
 }) {
   const [pending, startTransition] = useTransition();
   const [threadOpen, setThreadOpen] = useState(false);
-  const [reactFailed, setReactFailed] = useState(false);
+  const [reactFailed, setReactFailed] = useState<string | null>(null);
+  const [picking, setPicking] = useState(false);
   // Once the connection is back, the message no longer applies.
   useEffect(() => {
     if (!reactFailed) return;
-    const clear = () => setReactFailed(false);
+    const clear = () => setReactFailed(null);
     window.addEventListener("online", clear);
     return () => window.removeEventListener("online", clear);
   }, [reactFailed]);
@@ -348,16 +352,35 @@ function AnswerCard({
   const [local, addLocal] = useOptimistic(
     answer.reactions,
     (state, emoji: string) =>
-      state.map((reaction) =>
-        reaction.emoji === emoji
-          ? {
-              ...reaction,
-              mine: !reaction.mine,
-              count: reaction.count + (reaction.mine ? -1 : 1),
-            }
-          : reaction,
-      ),
+      state.some((reaction) => reaction.emoji === emoji)
+        ? state.map((reaction) =>
+            reaction.emoji === emoji
+              ? {
+                  ...reaction,
+                  mine: !reaction.mine,
+                  count: reaction.count + (reaction.mine ? -1 : 1),
+                }
+              : reaction,
+          )
+        : [...state, { emoji, count: 1, mine: true }],
   );
+  const addLabel = answer.isYou ? copy.issue.reactMoreOwn : text(copy.issue.reactMore, { author: answer.author });
+
+  function react(emoji: string) {
+    if (pending) return;
+    setReactFailed(null);
+    startTransition(async () => {
+      addLocal(emoji);
+      try {
+        const result = await toggleReaction({ issueId, replyId: answer.replyId, emoji, viewerToken });
+        // Refused: the optimistic tap springs back, and this says why.
+        if (!result.ok) setReactFailed(result.error ?? copy.issue.reactFailed);
+      } catch {
+        // Offline: the same, with the connection named.
+        setReactFailed(copy.issue.reactFailed);
+      }
+    });
+  }
 
   return (
     <article id={`answer-${answer.replyId}`} className="answer-card mt-4 scroll-mt-4 border-t border-line pt-4 first:border-t-0">
@@ -366,8 +389,9 @@ function AnswerCard({
         <h3 className="m-0 text-[22px] leading-tight text-ink">{questionLabel}</h3>
       ) : (
         <div className="flex flex-wrap items-center gap-x-2.5">
-          <Avatar name={answer.author} photoUrl={answer.authorPhotoUrl} />
+          <Avatar name={answer.author} photoUrl={answer.authorPhotoUrl} frame={answer.authorFrame} />
           <p className="m-0 text-[14px] font-extrabold text-ink-soft">{answer.author}</p>
+          <NameCharm charm={answer.authorCharm} />
           {editHref ? <EditLink href={editHref} /> : null}
         </div>
       )}
@@ -379,7 +403,7 @@ function AnswerCard({
           ))}
         </ul>
       ) : (
-        <p className="mt-2 whitespace-pre-wrap text-[16px] leading-relaxed text-ink">
+        <p className="answer-text mt-2 whitespace-pre-wrap text-[16px] leading-relaxed text-ink">
           {answer.body}
         </p>
       )}
@@ -420,24 +444,7 @@ function AnswerCard({
                 ? text(copy.a11yStatus.reactWithCount, { emoji: reaction.emoji, count: reaction.count })
                 : text(copy.issue.reactAriaLabel, { emoji: reaction.emoji })
             }
-            onClick={() => {
-              if (pending) return;
-              setReactFailed(false);
-              startTransition(async () => {
-                addLocal(reaction.emoji);
-                try {
-                  await toggleReaction({
-                    issueId,
-                    replyId: answer.replyId,
-                    emoji: reaction.emoji,
-                    viewerToken,
-                  });
-                } catch {
-                  // Offline or refused: the optimistic tap springs back, and this says why.
-                  setReactFailed(true);
-                }
-              });
-            }}
+            onClick={() => react(reaction.emoji)}
             className={`reaction-chip disabled:opacity-50 aria-disabled:opacity-50 ${
               reaction.mine
                 ? "reaction-chip--mine"
@@ -449,6 +456,22 @@ function AnswerCard({
             <span key={reaction.count} className="reaction-count-slot numeric">{reaction.count > 0 ? reaction.count : ""}</span>
           </button>
         ))}
+        {canInteract ? (
+          <button
+            type="button"
+            aria-haspopup="dialog"
+            aria-label={addLabel}
+            onClick={() => setPicking(true)}
+            className="reaction-chip reaction-chip--add hover:bg-field"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M20 12.8A8.5 8.5 0 1 1 11.2 3.5" />
+              <path d="M8.5 14.5c1.7 2 5 2 6.7 0" />
+              <path d="M9 9.5h.01M14.5 9.5h.01" strokeWidth="2.6" />
+              <path d="M19 2.5v6M16 5.5h6" />
+            </svg>
+          </button>
+        ) : null}
         {commentsEnabled && (count > 0 || canInteract) ? (
           <button
             type="button"
@@ -466,7 +489,18 @@ function AnswerCard({
         ) : null}
       </div>
 
-      {reactFailed ? <p role="alert" className="action-failed">{copy.issue.reactFailed}</p> : null}
+      {reactFailed ? <p role="alert" className="action-failed">{reactFailed}</p> : null}
+      {picking ? (
+        <EmojiPicker
+          label={addLabel}
+          onClose={() => setPicking(false)}
+          onPick={(emoji) => {
+            setPicking(false);
+            // Picking one you've already used keeps it; only its chip takes it back.
+            if (!local.some((reaction) => reaction.emoji === emoji && reaction.mine)) react(emoji);
+          }}
+        />
+      ) : null}
 
       {threadOpen && commentsEnabled ? (
         <div className="mt-1">

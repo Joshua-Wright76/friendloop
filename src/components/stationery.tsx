@@ -1,16 +1,23 @@
 import Link from "next/link";
 import { copy } from "@/lib/copy";
 
+/**
+ * The mark. A loop with its own mascot swaps the art through `--mascot-image`, so
+ * every page that shows this wears it without being told, and every page outside a
+ * loop keeps the cherries.
+ */
 export function Cherries({ className = "" }: { className?: string }) {
   return (
-    <svg viewBox="0 0 32 32" aria-hidden="true" className={className}>
-      <path d="M16 4c-2.5 6-6 10-8.6 13M16 4c1.2 6 4 9.6 7.6 12" fill="none" stroke="#5b8a4a" strokeWidth="1.8" strokeLinecap="round" />
-      <path d="M16 4c3-2.6 7.5-2.4 9.5.4-3.4 2-6.6 1.8-9.5-.4z" fill="#7cb35f" />
-      <circle cx="8" cy="22" r="6" fill="#e0405e" />
-      <circle cx="23.6" cy="21" r="6" fill="#e0405e" />
-      <circle cx="5.8" cy="19.8" r="1.7" fill="#fff" opacity=".75" />
-      <circle cx="21.4" cy="18.8" r="1.7" fill="#fff" opacity=".75" />
-    </svg>
+    <span aria-hidden="true" className={`mascot ${className}`.trim()}>
+      <svg viewBox="0 0 32 32">
+        <path d="M16 4c-2.5 6-6 10-8.6 13M16 4c1.2 6 4 9.6 7.6 12" fill="none" stroke="#5b8a4a" strokeWidth="1.8" strokeLinecap="round" />
+        <path d="M16 4c3-2.6 7.5-2.4 9.5.4-3.4 2-6.6 1.8-9.5-.4z" fill="#7cb35f" />
+        <circle cx="8" cy="22" r="6" fill="#e0405e" />
+        <circle cx="23.6" cy="21" r="6" fill="#e0405e" />
+        <circle cx="5.8" cy="19.8" r="1.7" fill="#fff" opacity=".75" />
+        <circle cx="21.4" cy="18.8" r="1.7" fill="#fff" opacity=".75" />
+      </svg>
+    </span>
   );
 }
 

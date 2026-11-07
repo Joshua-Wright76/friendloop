@@ -139,6 +139,11 @@ export default function SettingsTab({ notices }: { notices: { saved?: string; er
         groupId={id}
         preset={group.themePreset}
         accent={group.themeAccent}
+        loopName={group.name}
+        background={group.themeBackground}
+        paperPack={group.themePaperPack}
+        tapePack={group.themeTapePack}
+        mascot={group.themeMascot}
         headerImageUrl={group.headerImageUrl}
       />
       </div>

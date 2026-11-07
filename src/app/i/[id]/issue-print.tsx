@@ -136,7 +136,7 @@ export function IssuePrint({
                 section.replies.map((reply) => (
                   <article key={reply.replyId} className="print-answer">
                     <h3 className="print-author">
-                      <Avatar name={reply.author} photoUrl={reply.authorPhotoUrl} eager />
+                      <Avatar name={reply.author} photoUrl={reply.authorPhotoUrl} frame={reply.authorFrame} eager />
                       <span>{reply.author}</span>
                     </h3>
                     {reply.body ? <p className="print-body">{reply.body}</p> : null}
@@ -186,7 +186,7 @@ function PrintAnswer({ answer }: { answer: IssueAnswer }) {
   return (
     <article className="print-answer">
       <h3 className="print-author">
-        <Avatar name={answer.author} photoUrl={answer.authorPhotoUrl} eager />
+        <Avatar name={answer.author} photoUrl={answer.authorPhotoUrl} frame={answer.authorFrame} eager />
         <span>{answer.author}</span>
       </h3>
       {answer.choices.length > 0 ? (
@@ -233,7 +233,7 @@ function CommentList({ comments }: { comments: IssueComment[] }) {
       {comments.map((comment) => (
         <div key={comment.id} className="print-comment">
           <p className="print-comment-author">
-            <Avatar name={comment.author} photoUrl={comment.authorPhotoUrl} className="!h-6 !w-6 !text-[11px]" eager />
+            <Avatar name={comment.author} photoUrl={comment.authorPhotoUrl} frame={comment.authorFrame} className="!h-6 !w-6 !text-[11px]" eager />
             <span>{comment.author}</span>
           </p>
           {comment.quote ? (

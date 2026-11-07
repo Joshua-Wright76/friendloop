@@ -45,6 +45,8 @@ const SCREENS: Array<[label: string, href: string, status?: number, isClosedCard
   ["Rounds filtered", `/g/${P.groupId}/issues?member=${P.aliceMembershipId}`],
   ["Album", `/g/${P.groupId}/album`],
   ["Settings", `/g/${P.groupId}/settings`],
+  ["Stationery settings", `/g/${P.groupId}/settings?stationery=open`],
+  ["Charm and frame", `/g/${P.groupId}/members?look=open`],
   ["Reply", `/r/${OWNER}`],
   ["Suggest a question", `/r/${P.aliceToken}/suggest`],
   ["Round", `/i/${P.deliveredIssueId}?m=${OWNER}`],
@@ -91,7 +93,11 @@ async function sweep(
   href: string,
   theme: "light" | "dark",
   status = 200,
-  options: { closedCard?: boolean; stationery?: { preset: string | null; accent: string | null } } = {},
+  options: {
+    closedCard?: boolean;
+    /** Set for a colour scheme under test. Layout can't change with colour, and the main sweep covers it. */
+    stationery?: { preset: string | null; accent: string | null };
+  } = {},
 ): Promise<Problems> {
   const problems: Problems = [];
   const label = `${name} ${theme}`;
@@ -118,6 +124,13 @@ async function sweep(
 
   problems.push(...(await axeProblems(page, label)));
   problems.push(...(await keyboardProblems(page, `${label} desktop`)));
+  if (options.stationery) {
+    // Contrast at phone width as well: the bottom navigation only exists there.
+    await page.setViewportSize(ZOOM_400);
+    await settle(page);
+    problems.push(...(await axeProblems(page, `${label} 320px`)));
+    return problems;
+  }
   if (theme === "light") {
     problems.push(...(await textSpacingProblems(page, label)));
     // 2.4.2: a title that says where you are. Only the home page may be the bare brand.
@@ -172,7 +185,9 @@ test("WCAG AA sweep · Sign in, signed out", async ({ page }) => {
 });
 
 // The loop pages render in whichever stationery the owner chose, and the accent is
-// derived per paper, so every preset (and two hostile accents) is swept, not just the default.
+// derived per paper, so every preset (and two hostile accents) is checked for what colour
+// can change: contrast and focus rings. Reflow, text spacing and the phone-width keyboard
+// pass depend on layout, so the main sweep above covers those once.
 const STATIONERY: Array<[string, string | null, string | null]> = [
   ...THEME_PRESET_KEYS.map((key): [string, string | null, string | null] => [`${key} preset`, key, null]),
   ["a yellow accent", "gingham", "#ffee00"],
@@ -189,7 +204,7 @@ for (const [label, preset, accent] of STATIONERY) {
       ["Overview", `/g/${P.groupId}`],
       ["Members", `/g/${P.groupId}/members`],
       ["Rounds", `/g/${P.groupId}/issues`],
-      ["Settings", `/g/${P.groupId}/settings`],
+      ["Settings", `/g/${P.groupId}/settings?stationery=open`],
       ["Reply", `/r/${OWNER}`],
       ["Round", `/i/${P.deliveredIssueId}?m=${OWNER}`],
     ] as const) {

@@ -50,7 +50,7 @@ export default async function SharePage({
 
   return (
     <main className="mx-auto w-full max-w-[680px] px-4 pb-16 pt-5 sm:px-6">
-      <LoopTheme preset={view.group.themePreset} accent={view.group.themeAccent} />
+      <LoopTheme group={view.group} />
       <header className={`loop-head${view.group.headerImageUrl ? " has-snapshot" : ""}`}>
         <LoopSnapshot url={view.group.headerImageUrl} />
         <div className="loop-head__row">

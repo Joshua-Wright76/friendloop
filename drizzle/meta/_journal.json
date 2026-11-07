@@ -120,6 +120,13 @@
       "when": 1793825352400,
       "tag": "0016_media_deletions",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1794009245506,
+      "tag": "0017_stationery_and_looks",
+      "breakpoints": true
     }
   ]
 }

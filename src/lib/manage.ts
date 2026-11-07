@@ -47,6 +47,10 @@ export type CreateLoopInput = {
   /** The stationery chosen in the wizard, already validated; null keeps the original Gingham. */
   themePreset?: string | null;
   themeAccent?: string | null;
+  themeBackground?: string | null;
+  themePaperPack?: string | null;
+  themeTapePack?: string | null;
+  themeMascot?: string | null;
 };
 
 export async function createLoop(input: CreateLoopInput): Promise<string> {
@@ -62,6 +66,10 @@ export async function createLoop(input: CreateLoopInput): Promise<string> {
       cadenceWeeks: input.cadenceWeeks,
       themePreset: input.themePreset ?? null,
       themeAccent: input.themeAccent ?? null,
+      themeBackground: input.themeBackground ?? null,
+      themePaperPack: input.themePaperPack ?? null,
+      themeTapePack: input.themeTapePack ?? null,
+      themeMascot: input.themeMascot ?? null,
       createdAt: input.at,
     })
     .returning({ id: groups.id });
@@ -616,6 +624,8 @@ export async function membersOf(groupId: string) {
       email: memberships.email,
       name: memberships.name,
       photoUrl: memberships.photoUrl,
+      charm: memberships.charm,
+      avatarFrame: memberships.avatarFrame,
       access: memberships.access,
       participation: memberships.participation,
       invitedAt: memberships.invitedAt,

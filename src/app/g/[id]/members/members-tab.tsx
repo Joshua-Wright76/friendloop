@@ -5,7 +5,7 @@ import { removeAction, resendAction } from "./actions";
 import { ConfirmAction } from "@/components/confirm-action";
 import { MemberRolePicker } from "./member-role-picker";
 import { TransferControl } from "./transfer-control";
-import { Avatar } from "@/components/avatar";
+import { Avatar, NameCharm } from "@/components/avatar";
 import { ProfilePhoto } from "@/components/profile-photo";
 import { InviteForm } from "./invite-form";
 import { LoopNav } from "@/components/loop-nav";
@@ -52,10 +52,11 @@ export default function MembersTab({ notices }: {
               {/* On a phone the role picker wraps below, so the name keeps a readable width. */}
               <div className="member-row">
                 <div className="member-row__who">
-                  <Avatar name={person.name ?? person.email} photoUrl={person.photoUrl} />
+                  <Avatar name={person.name ?? person.email} photoUrl={person.photoUrl} frame={person.avatarFrame} />
                   <div className="min-w-0">
                     <p className="wrap-any text-[15px] font-medium text-ink">
                       {person.name ?? person.email.split("@")[0]}
+                      <NameCharm charm={person.charm} />
                       {isYou ? <span className="ml-1.5 text-[13px] text-ink-muted">{copy.members.you}</span> : null}
                     </p>
                     <p className="wrap-any text-[13px] text-ink-muted">{person.email}</p>
@@ -117,6 +118,8 @@ export default function MembersTab({ notices }: {
                     endpoint={`/api/loop/${id}/profile-photo`}
                     name={person.name ?? person.email}
                     photoUrl={person.photoUrl}
+                    charm={person.charm}
+                    frame={person.avatarFrame}
                     refresh
                     compact
                   />

@@ -94,3 +94,38 @@ test("B7 · skipping the step changes nothing, and a bad accent or an oversize p
   expect(group).toEqual({ theme_preset: null, theme_accent: null, header_image_url: null });
   await expect(page.locator(".snapshot img, img.loop-banner")).toHaveCount(0);
 });
+
+test("B7 · the wizard also offers the page, paper pack, tape pack and mascot, saved with the loop", async ({ page }) => {
+  await signIn(page, uniqueEmail("owner"));
+  await toLookStep(page, "Dressed Up");
+
+  await page.getByRole("radio", { name: /^Daisies/ }).check();
+  await page.getByRole("radio", { name: /^Watercolor pad/ }).check();
+  await page.getByRole("radio", { name: /^Candy shop/ }).check();
+  await page.getByRole("radio", { name: /^Snail/ }).check();
+
+  // Tried on straight away, before the loop exists: the page behind, and the sheet itself.
+  const backgroundOf = (selector: string) => page.locator(selector).first().evaluate((el) => getComputedStyle(el).backgroundImage);
+  expect(await backgroundOf("html")).toContain("data:image/svg+xml");
+  expect(await backgroundOf(".wizard-sheet")).toContain("data:image/svg+xml");
+  expect(await cssVar(page, "--mascot-image")).toContain("/stickers/snail.svg");
+  // School notebook rules the words rather than the card, and still changes the sheet.
+  await page.getByRole("radio", { name: /^School notebook/ }).check();
+  expect(await backgroundOf(".wizard-sheet")).toContain("radial-gradient");
+  // Plain cream takes it all off again.
+  await page.getByRole("radio", { name: /^Plain cream/ }).check();
+  expect(await backgroundOf(".wizard-sheet")).toBe("none");
+  await page.getByRole("radio", { name: /^Watercolor pad/ }).check();
+
+  // Moving on and coming back costs nothing.
+  await page.getByRole("button", { name: NEXT }).click();
+  await page.getByRole("button", { name: "Go to the previous setup step" }).click();
+  await expect(page.getByRole("radio", { name: /^Candy shop/ })).toBeChecked();
+
+  await createFromLookStep(page);
+  const [group] = await rows<Record<string, string | null>>(
+    "select theme_background, theme_paper_pack, theme_tape_pack, theme_mascot from groups where name = $1",
+    ["Dressed Up"],
+  );
+  expect(group).toEqual({ theme_background: "daisies", theme_paper_pack: "watercolor", theme_tape_pack: "candy", theme_mascot: "snail" });
+});

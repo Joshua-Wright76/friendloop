@@ -184,6 +184,7 @@ async function deliverDueIssues(at: Date): Promise<{ delivered: number; skipped:
         audioDurationMs: replies.audioDurationMs,
         authorName: memberships.name,
         authorEmail: memberships.email,
+        authorCharm: memberships.charm,
         addedAfterDelivery: replies.addedAfterDelivery,
       })
       .from(replies)
@@ -211,6 +212,7 @@ async function deliverDueIssues(at: Date): Promise<{ delivered: number; skipped:
             linkTitle: musicLinks.title,
             authorName: memberships.name,
             authorEmail: memberships.email,
+            authorCharm: memberships.charm,
             addedAfterDelivery: sectionReplies.addedAfterDelivery,
           })
           .from(sectionReplies)
@@ -228,6 +230,7 @@ async function deliverDueIssues(at: Date): Promise<{ delivered: number; skipped:
     const answers: AnswerBlock[] = rows.map((row) => ({
       question: row.question,
       author: row.authorName ?? row.authorEmail.split("@")[0],
+      authorCharm: row.authorCharm,
       body: row.kind === "poll" ? pollEmailChoice(row) : row.body,
       pollResults: row.kind === "poll" ? pollEmailResults(row, rows) : null,
       photoUrl: row.photoUrl,
@@ -253,6 +256,7 @@ async function deliverDueIssues(at: Date): Promise<{ delivered: number; skipped:
         .filter((row) => row.issueSectionId === section.id)
         .map((row) => ({
           author: row.authorName ?? row.authorEmail.split("@")[0],
+          authorCharm: row.authorCharm,
           body: row.body,
           linkUrl: row.linkUrl,
           linkTitle: row.linkTitle,

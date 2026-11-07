@@ -73,7 +73,9 @@ jobs:
   # that sit together in file order all land in one shard. Hence three groups,
   # each sharded on its own: the flows, the WCAG checks, and the seven stationery
   # sweeps (about 1.5 min each), which alone made one shard take 11 minutes. The
-  # greps on the shared title prefixes make the groups exact complements.
+  # greps on the shared title prefixes make the groups exact complements. Each job
+  # runs two workers, each with its own database and server (e2e/support/parallel.ts),
+  # which suits the runners' four cores; scripts/e2e-db.mjs sets that from CI.
   e2e-shard:
     name: End-to-end (${{ matrix.group }} ${{ matrix.shard }}/${{ matrix.of }})
     runs-on: ubuntu-24.04
@@ -91,17 +93,16 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { group: flows, shard: 1, of: 4 }
-          - { group: flows, shard: 2, of: 4 }
-          - { group: flows, shard: 3, of: 4 }
-          - { group: flows, shard: 4, of: 4 }
-          - { group: wcag, shard: 1, of: 4 }
-          - { group: wcag, shard: 2, of: 4 }
-          - { group: wcag, shard: 3, of: 4 }
-          - { group: wcag, shard: 4, of: 4 }
-          - { group: stationery, shard: 1, of: 3 }
-          - { group: stationery, shard: 2, of: 3 }
-          - { group: stationery, shard: 3, of: 3 }
+          - { group: flows, shard: 1, of: 3 }
+          - { group: flows, shard: 2, of: 3 }
+          - { group: flows, shard: 3, of: 3 }
+          - { group: wcag, shard: 1, of: 5 }
+          - { group: wcag, shard: 2, of: 5 }
+          - { group: wcag, shard: 3, of: 5 }
+          - { group: wcag, shard: 4, of: 5 }
+          - { group: wcag, shard: 5, of: 5 }
+          - { group: stationery, shard: 1, of: 2 }
+          - { group: stationery, shard: 2, of: 2 }
     services:
       # Deterministic and separate from any dev database. When
       # TEST_DATABASE_URL is set, scripts/e2e-db.mjs stands down and uses this.
@@ -118,6 +119,8 @@ jobs:
     env:
       # Inside a job container, a service is reached by its name.
       TEST_DATABASE_URL: postgresql://postgres:postgres@postgres:5432/friendloop_test
+      # That Postgres lasts one job, so it needn't flush every commit to disk.
+      E2E_RELAX_DB: server
     steps:
       - uses: actions/checkout@v7
 

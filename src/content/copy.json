@@ -1105,7 +1105,9 @@
       "photoUnreadable": "We couldn't read that photo. Try a JPEG or PNG.",
       "photoFailed": "The photo didn't make it. Try again?",
       "invalidRequest": "That didn't go through. Try again?",
-      "tooMany": "You're commenting faster than we can keep up. Take a breath and try again in a few minutes."
+      "tooMany": "You're commenting faster than we can keep up. Take a breath and try again in a few minutes.",
+      "reactRefused": "That reaction didn't land. Try picking it again.",
+      "reactLimit": "That's as many reactions as one answer can take from you. Tap one to take it back."
     },
     "unknownMention": "someone",
     "commentCount": "{count} comments",
@@ -1141,7 +1143,9 @@
     "contentsButton": "Contents",
     "meta": "{answers} Delivered {date}.",
     "keepTitle": "Keep this issue",
-    "reactFailed": "That reaction didn't land. Check your connection and try again."
+    "reactFailed": "That reaction didn't land. Check your connection and try again.",
+    "reactMore": "Add a reaction to {author}'s answer",
+    "reactMoreOwn": "Add a reaction to your answer"
   },
   "share": {
     "eyebrow": "Fresh from the loop",
@@ -1279,7 +1283,7 @@
       "settings": "Loop settings",
       "reply": "Reply sheet",
       "suggest": "Suggest a question (as a member)",
-      "issue": "Delivered issue",
+      "issue": "Delivered issue (tap the plus for any emoji)",
       "issueOnePerson": "Delivered issue, one person's answers",
       "issueByPerson": "Delivered issue, read by person",
       "issuePrint": "Printed round (member)",
@@ -1289,7 +1293,19 @@
       "invalid": "Expired or invalid reply link",
       "emails": "Email templates",
       "outbox": "Captured email",
-      "feedback": "Feedback inbox"
+      "feedback": "Feedback inbox",
+      "stationery": "Stationery: background, paper, tape, mascot",
+      "charmAndFrame": "Your charm and frame"
+    },
+    "customizeHeading": "Stationery and looks",
+    "looksHeading": "Try a whole look on the demo loop",
+    "looks": {
+      "harbour": "Harbour (the demo's own)",
+      "schoolbook": "Schoolbook",
+      "parcel": "Parcel",
+      "sketchbook": "Sketchbook",
+      "postcard": "Postcard",
+      "original": "The original Gingham"
     }
   },
   "devEmails": {
@@ -1427,12 +1443,30 @@
       "removed": "Photo removed.",
       "error": "That photo didn't save. Try a smaller JPEG or PNG.",
       "inputLabel": "Choose a photo of yourself"
+    },
+    "look": {
+      "open": "Charm and frame",
+      "charmLegend": "Your charm",
+      "frameLegend": "Your frame",
+      "none": "None",
+      "hint": "A sticker beside your name and a frame around your picture, in this loop only.",
+      "saving": "Saving…",
+      "saved": "Saved.",
+      "error": "That didn't save, so nothing changed. Try again.",
+      "frames": {
+        "stitched": "Stitched",
+        "doily": "Doily",
+        "daisy": "Daisy",
+        "rosette": "Rosette",
+        "stamp": "Stamp",
+        "polaroid": "Snapshot"
+      }
     }
   },
   "stationery": {
     "title": "Stationery",
-    "intro": "Pick the paper your loop is written on. Only the colors change. Fonts and layout stay the same.",
-    "paperLegend": "Paper",
+    "intro": "Pick what your loop is written on: the page behind it, its colors, its paper and tape, and its mascot.",
+    "paperLegend": "Colors",
     "presets": {
       "gingham": {
         "name": "Gingham Picnic",
@@ -1484,12 +1518,68 @@
     "saved": "Stationery saved. Everyone sees it on their next visit.",
     "savedAdjusted": "Stationery saved. We nudged the accent a little so it stays easy to read.",
     "error": "That didn't save. Check the accent code and try again.",
-    "autoSaveNote": "Choosing a paper or color saves it straight away, for the whole loop.",
+    "autoSaveNote": "Each choice saves straight away, for the whole loop.",
     "statusSaving": "Saving…",
     "statusSaved": "Saved. Everyone sees it on their next visit.",
     "statusAdjusted": "Saved.",
     "statusError": "That didn't save, so nothing changed.",
-    "statusRetry": "Try again"
+    "statusRetry": "Try again",
+    "backgroundLegend": "Page background",
+    "backgroundHint": "The pattern behind everything. It takes its color from the choice below.",
+    "backgrounds": {
+      "gingham": "Gingham",
+      "dots": "Polka dots",
+      "deckchair": "Deckchair",
+      "graph": "Graph pad",
+      "scallops": "Scallops",
+      "hearts": "Hearts",
+      "daisies": "Daisies",
+      "stars": "Stars",
+      "confetti": "Confetti"
+    },
+    "packLegend": "Paper pack",
+    "packHint": "A set of papers for answers, polls, playlists and notes.",
+    "packs": {
+      "cream": {
+        "name": "Plain cream",
+        "description": "Smooth stationery. The original."
+      },
+      "schoolbook": {
+        "name": "School notebook",
+        "description": "Ruled answers, graph polls, playlists on a stave."
+      },
+      "journal": {
+        "name": "Bullet journal",
+        "description": "Dot grid, with graph paper for polls."
+      },
+      "recycled": {
+        "name": "Recycled",
+        "description": "Flecked and fibrous, like good brown paper."
+      },
+      "airmail": {
+        "name": "Airmail",
+        "description": "Thin woven sheets with a striped edge."
+      },
+      "watercolor": {
+        "name": "Watercolor pad",
+        "description": "Toothy paper with a wash of your color."
+      }
+    },
+    "tapeLegend": "Washi tape",
+    "tapeHint": "Picks separately from the paper. Tap a roll to try it on.",
+    "tapes": {
+      "picnic": "Picnic",
+      "garden": "Garden",
+      "seaside": "Seaside",
+      "candy": "Candy shop",
+      "starlight": "Starlight",
+      "kraft": "Parcel"
+    },
+    "mascotLegend": "Mascot",
+    "mascotHint": "Stands in for the cherries on this loop's pages and in its emails.",
+    "mascotPreviewHeader": "In the header",
+    "mascotPreviewEmail": "In an email",
+    "mascotPreviewSubject": "Round 12 is here"
   },
   "events": {
     "title": "Events and birthdays",
@@ -1645,7 +1735,7 @@
     "feedbackSent": "Your feedback was sent.",
     "recordingStopped": "Recording stopped.",
     "recordingNearLimit": "30 seconds left to record.",
-    "reactWithCount": "React with {emoji} ({count})",
+    "reactWithCount": "React with {emoji}, {count}",
     "photoAttached": "Photo attached: {name}.",
     "photoRemoved": "Photo removed.",
     "commentPosted": "Comment posted.",
@@ -1855,5 +1945,58 @@
     "playPlain": "Play voice note",
     "seek": "Position in the voice note",
     "title": "Voice note"
+  },
+  "stickers": {
+    "cherries": "Cherries",
+    "strawberry": "Strawberry",
+    "lemon": "Lemon",
+    "peach": "Peach",
+    "frog": "Frog",
+    "snail": "Snail",
+    "bee": "Bee",
+    "duck": "Duckling",
+    "cat": "Cat",
+    "ghost": "Ghost",
+    "mushroom": "Mushroom",
+    "daisy": "Daisy",
+    "tulip": "Tulip",
+    "sprout": "Sprout",
+    "star": "Star",
+    "moon": "Moon",
+    "cloud": "Cloud",
+    "rainbow": "Rainbow",
+    "heart": "Heart",
+    "teacup": "Teacup"
+  },
+  "emojiPicker": {
+    "title": "Pick a reaction",
+    "searchLabel": "Search for an emoji",
+    "searchPlaceholder": "Search emoji",
+    "toneLabel": "Skin tone",
+    "tones": [
+      "Default skin tone",
+      "Light skin tone",
+      "Medium-light skin tone",
+      "Medium skin tone",
+      "Medium-dark skin tone",
+      "Dark skin tone"
+    ],
+    "recent": "You used these lately",
+    "loading": "Finding the emoji…",
+    "loadFailed": "The emoji didn't load. Check your connection and try again.",
+    "retry": "Try again",
+    "empty": "No emoji by that name. Try another word.",
+    "searched": "Search results below.",
+    "groups": {
+      "smileys": "Smileys",
+      "people": "People",
+      "nature": "Animals and nature",
+      "food": "Food and drink",
+      "travel": "Travel and places",
+      "activities": "Activities",
+      "objects": "Objects",
+      "symbols": "Symbols",
+      "flags": "Flags"
+    }
   }
 }

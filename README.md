@@ -184,7 +184,9 @@ average exceeds `NAV_BUDGET_MS`.
 ```sh
 npm run verify              # typegen + typecheck + lint + unit + integration + flows + tables + migrations
 npm run test:coverage       # 100% line/function coverage of src/lib, enforced
-npm run e2e                 # Playwright — starts its own Postgres if needed
+npm run e2e                 # Playwright — starts its own Postgres if needed, one database and server per worker
+E2E_WORKERS=1 npm run e2e   # one at a time; the default is a third of your cores, up to 6
+npm run e2e -- --grep-invert "WCAG AA"  # the quick pass: everything but the accessibility sweeps
 npm run check:flows -- --strict   # what CI enforces on every run
 npx playwright test e2e/accessibility.spec.ts  # WCAG 2.2 AA axe checks, both themes
 npx playwright test e2e/wcag-sweep.spec.ts e2e/wcag-states.spec.ts --project=desktop  # what axe cannot judge: see below

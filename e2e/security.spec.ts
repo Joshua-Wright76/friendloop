@@ -154,7 +154,8 @@ test("an open round's reply sheet loads without CSP violations on a phone-width 
 
 test("the landing page has a link-preview card; private pages preview as Friendloop and are noindex", async ({ page, request }) => {
   await page.goto("/");
-  const og = (property: string) => page.locator(`meta[property="${property}"]`).getAttribute("content");
+  // With a server per worker, the build's own address can sit beside this one: only the path is used below.
+  const og = (property: string) => page.locator(`meta[property="${property}"]`).first().getAttribute("content");
   const twitter = (name: string) => page.locator(`meta[name="${name}"]`).getAttribute("content");
   expect(await og("og:title")).toBe("Friendloop");
   expect(await og("og:type")).toBe("website");

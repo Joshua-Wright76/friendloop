@@ -23,10 +23,12 @@ test("F2 · paused loops open nothing; resuming starts from now", async ({ page 
   await page.getByRole("button", { name: "Resume" }).click();
   await expect(page.getByRole("button", { name: "Pause" })).toBeVisible();
 
-  const [group] = await rows<{ paused_at: string | null; last_slot_at: string | null }>(
-    "select paused_at, last_slot_at from groups where id = $1",
-    [loop.groupId],
-  );
-  expect(group.paused_at).toBeNull();
-  expect(group.last_slot_at).not.toBeNull();
+  // The button changes before the write behind it lands, so wait for that.
+  const groupRow = async () =>
+    (await rows<{ paused_at: string | null; last_slot_at: string | null }>(
+      "select paused_at, last_slot_at from groups where id = $1",
+      [loop.groupId],
+    ))[0];
+  await expect.poll(async () => (await groupRow()).paused_at).toBeNull();
+  expect((await groupRow()).last_slot_at).not.toBeNull();
 });

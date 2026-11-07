@@ -7,11 +7,11 @@ import type { Deadline } from "@/lib/schedule";
 
 type Group = typeof groups.$inferSelect;
 type Membership = Pick<typeof memberships.$inferSelect,
-  "id" | "groupId" | "userId" | "email" | "name" | "photoUrl" | "access" | "participation" | "invitedAt" | "acceptedAt"
+  "id" | "groupId" | "userId" | "email" | "name" | "photoUrl" | "charm" | "avatarFrame" | "access" | "participation" | "invitedAt" | "acceptedAt"
 >;
 
 export type LoopPerson = Pick<Membership,
-  "id" | "email" | "name" | "photoUrl" | "access" | "participation" | "invitedAt" | "acceptedAt" | "userId"
+  "id" | "email" | "name" | "photoUrl" | "charm" | "avatarFrame" | "access" | "participation" | "invitedAt" | "acceptedAt" | "userId"
 > & {
   /** They turned off this loop's emails; they stay in the loop. */
   mutedAt: Date | null;

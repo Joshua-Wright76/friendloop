@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { copy } from "@/lib/copy";
-import { clearMemberPhoto, setMemberPhoto } from "@/lib/identity";
+import { clearMemberPhoto, setMemberLook, setMemberPhoto } from "@/lib/identity";
 import { resolveToken } from "@/lib/reply";
 import { imageFromRequest } from "../../../image-form";
 
@@ -27,6 +27,18 @@ export async function POST(request: Request, { params }: RouteContext) {
   const result = await setMemberPhoto(membership.id, image);
   if (!result.ok) return NextResponse.json({ error: result.error }, { status: result.status });
   return NextResponse.json({ ok: true, photoUrl: result.url });
+}
+
+/** Your charm and frame. */
+export async function PATCH(request: Request, { params }: RouteContext) {
+  const { token } = await params;
+  const membership = await contributorFor(token);
+  if (!membership) return NextResponse.json({ error: copy.reply.errors.invalidLink }, { status: 403 });
+
+  const body = await request.json().catch(() => null);
+  const result = body && typeof body === "object" ? await setMemberLook(membership.id, body) : { ok: false as const };
+  if (!result.ok) return NextResponse.json({ error: copy.identity.look.error }, { status: 400 });
+  return NextResponse.json(result);
 }
 
 export async function DELETE(_request: Request, { params }: RouteContext) {
