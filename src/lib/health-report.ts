@@ -6,10 +6,12 @@
 const HOUR = 60 * 60 * 1000;
 
 /**
- * Vercel Hobby runs the sweep once a day, anywhere inside its scheduled hour.
- * Two extra hours of slack keeps a late-but-fine run from paging anyone.
+ * A Vercel Schedule runs the sweep every 15 minutes, up to 15 minutes late. Two
+ * hours without one means the schedule has stopped (it is in beta, and skips runs
+ * past the Hobby monthly limit), and the fallback in sweep.yml can leave
+ * prompts hours late, which is worth hearing about.
  */
-export const SWEEP_STALE_AFTER_MS = 26 * HOUR;
+export const SWEEP_STALE_AFTER_MS = 2 * HOUR;
 
 /**
  * A row still unsent after this long has already been through at least one

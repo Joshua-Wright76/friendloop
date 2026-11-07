@@ -1,16 +1,14 @@
 name: Sweep
 
-# The fine-grained trigger SPEC.md §2 describes. The sweep reconciles state at
-# whatever instant it is called, so prompts, reminders, and deliveries go out
-# only as promptly as something calls it. Vercel Hobby crons run once a day
-# (vercel.json, kept as the backstop), which on its own leaves a loop's
-# "Sunday 9am" landing up to a day late. This runs it every 15 minutes.
+# The fallback trigger. A Vercel Schedule (vercel.json) calls the sweep every 15
+# minutes; Schedules are in beta and stop for the month past the Hobby run limit.
 #
-# GitHub schedules are best-effort: runs are often a few minutes late and are
-# dropped under load. That is fine — a late or missing run self-heals on the
-# next one, and the sweep's advisory lock makes an overlap with the Vercel cron
-# a no-op. GitHub also disables schedules in a public repo after 60 days with
-# no commits; re-enable from the Actions tab if that ever happens.
+# GitHub schedules are best-effort, and this one has been seen running about four
+# times a day rather than every 15 minutes, so it is not enough on its own. The
+# sweep reconciles state at whatever instant it is called and its advisory lock
+# makes an overlap a no-op, so running both is harmless. GitHub also disables
+# schedules in a public repo after 60 days with no commits; re-enable from the
+# Actions tab if that ever happens.
 
 on:
   schedule:

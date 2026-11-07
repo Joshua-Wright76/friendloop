@@ -59,9 +59,17 @@ export function previewCookieMatches(value: string | undefined): boolean {
 }
 
 /**
- * The preview itself is open at its /dev routes; the key only unlocks the
- * captured inbox, whose emails hold live sign-in links. Visiting /dev/ui with
- * `?key=<UI_PREVIEW_SECRET>` once sets a cookie scoped to /dev.
+ * The demo's tokens are in this public repository and its owner can invite
+ * anyone, so production never holds it, with or without the key. There the key
+ * opens only the inboxes and the stats.
+ */
+export function demoDataAllowed(): boolean {
+  return process.env.VERCEL_ENV !== "production";
+}
+
+/**
+ * Every /dev route is locked outside local development (see proxy.ts). Visiting
+ * /dev/ui with `?key=<UI_PREVIEW_SECRET>` once sets a cookie scoped to /dev.
  */
 export async function unlockUiInbox(key: string | null): Promise<void> {
   const expected = previewCookieValue();
@@ -271,7 +279,7 @@ export async function wearPreviewLook(key: string | null): Promise<boolean> {
   return true;
 }
 
-/** The captured inbox is the one /dev page that needs the unlock. */
+/** A second lock behind proxy.ts, for the pages that hold real people's data. */
 export async function requireUiPreview() {
   if (isLocalUiPreview()) return;
   const jar = await cookies();
@@ -299,7 +307,9 @@ export function isConstraintViolation(error: unknown): boolean {
  * The rebuild keeps the demo user, because deleting it would strip the owner from
  * any other loop a visitor made while signed in as the demo user.
  */
-export async function enableUiPreview(reset = false) {
+/** Seeds the demo and signs the caller in as its owner. False where the demo isn't allowed. */
+export async function enableUiPreview(reset = false): Promise<boolean> {
+  if (!demoDataAllowed()) return false;
   const now = new Date();
 
   try {
@@ -313,6 +323,7 @@ export async function enableUiPreview(reset = false) {
   }
 
   await createSession(UI_PREVIEW.userId, now);
+  return true;
 }
 
 async function seedUiPreview(now: Date, { deleteGroup, deleteUser }: { deleteGroup: boolean; deleteUser: boolean }) {

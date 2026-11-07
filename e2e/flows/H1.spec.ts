@@ -2,9 +2,28 @@ import { test, expect } from "@playwright/test";
 
 const SECRET = process.env.UI_PREVIEW_SECRET ?? "e2e-preview-secret";
 
-test("H1 · the screens and email previews open at their routes", async ({ page }) => {
-  const screens = await page.goto("/dev/screens");
-  expect(screens?.status()).toBe(200);
+test("H1 · without the key, nothing under /dev opens and nobody is signed in", async ({ page }) => {
+  for (const path of [
+    "/dev/ui",
+    "/dev/ui/wear?look=harbour",
+    "/dev/ui/signout",
+    "/dev/screens",
+    "/dev/emails",
+    "/dev/outbox",
+    "/dev/feedback",
+  ]) {
+    const response = await page.goto(path);
+    expect(response?.status(), `${path} must not open without the key`).toBe(404);
+  }
+  expect((await page.context().cookies()).map((cookie) => cookie.name)).not.toContain("fl_session");
+
+  await page.goto("/you");
+  await expect(page).toHaveURL(/\/signin/);
+});
+
+test("H1 · with the key, the screens and email previews open at their routes", async ({ page }) => {
+  await page.goto(`/dev/ui?key=${SECRET}`);
+  await expect(page).toHaveURL(/\/dev\/screens$/);
   await expect(page.getByRole("heading", { name: "UI preview" })).toBeVisible();
 
   await page.getByRole("link", { name: "Email templates" }).click();
@@ -15,10 +34,6 @@ test("H1 · the screens and email previews open at their routes", async ({ page 
   await expect(page.getByRole("heading", { name: "Someone mentioned you" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Delivered issue with its own stationery and a named round" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Empty round, loop paused" })).toBeVisible();
-
-  // The captured inbox holds live sign-in links and stays locked without the key.
-  const locked = await page.goto("/dev/outbox");
-  expect(locked?.status(), "the inbox must not open without the key").toBe(404);
 });
 
 test("H1 · the key unlocks the captured inbox", async ({ page }) => {

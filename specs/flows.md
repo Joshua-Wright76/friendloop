@@ -98,7 +98,7 @@ Status: `todo` (not built) · `done` (built and covered).
 
 | ID | Flow | Acceptance criteria | Status |
 | --- | --- | --- | --- |
-| H1 | Preview screens and emails | Every preview screen and the email templates open at their `/dev` routes on any environment without being linked from the site. The captured inbox stays locked without `UI_PREVIEW_SECRET`: it answers 404 until a keyed visit to `/dev/ui`, and a wrong key keeps it locked. | done |
+| H1 | Preview screens and emails | Every `/dev` route answers 404 outside local development until a keyed visit to `/dev/ui` sets the cookie, and a wrong key keeps it that way; nothing signs an unkeyed visitor in. With the key, the screens and email templates open. On production the key opens only the inboxes: the demo, whose tokens are public, is never seeded. | done |
 
 ## I · Suggested questions
 

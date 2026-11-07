@@ -7,12 +7,12 @@ const HOUR = 60 * 60 * 1000;
 const ago = (ms: number) => new Date(AT.getTime() - ms);
 
 test("a recent sweep and an empty backlog is healthy", () => {
-  const report = evaluateHealth({ at: AT, lastSweepAt: ago(6 * HOUR), stuckEmails: 0, oldestStuckAt: null });
+  const report = evaluateHealth({ at: AT, lastSweepAt: ago(HOUR), stuckEmails: 0, oldestStuckAt: null });
   assert.deepEqual(report, {
     ok: true,
     at: AT.toISOString(),
     checks: {
-      sweep: { ok: true, lastOkAt: ago(6 * HOUR).toISOString(), hoursSince: 6 },
+      sweep: { ok: true, lastOkAt: ago(HOUR).toISOString(), hoursSince: 1 },
       outbox: { ok: true, stuck: 0, oldestHours: null },
     },
   });
@@ -31,7 +31,7 @@ test("a sweep exactly at the threshold is still fine; a minute later it is stale
   });
   assert.equal(stale.ok, false);
   assert.equal(stale.checks.sweep.ok, false);
-  assert.equal(stale.checks.sweep.hoursSince, 26);
+  assert.equal(stale.checks.sweep.hoursSince, 2);
 });
 
 test("a sweep that never recorded a run is unhealthy", () => {

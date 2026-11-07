@@ -167,7 +167,7 @@ Instead every run of `/api/cron/sweep` reconciles state:
 `unique(group_id, slot_at)` plus `dedupe_key` make every step idempotent, so a late
 run self-heals and a doubled run is a no-op. Triggers:
 
-- Vercel cron, once daily (`vercel.json`) — cannot be disabled for inactivity.
+- Vercel Schedule, every 15 minutes (`vercel.json`) — cannot be disabled for inactivity.
 - GitHub Actions every 15 minutes — fine granularity, free.
 - Both hit the same endpoint (`.github/workflows/sweep.yml` is the GitHub one); a
   transaction-scoped `pg_try_advisory_xact_lock` (pooler-safe) keeps concurrent runs from

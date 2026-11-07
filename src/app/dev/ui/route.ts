@@ -4,6 +4,6 @@ import { enableUiPreview, unlockUiInbox } from "@/lib/ui-preview";
 export async function GET(request: Request) {
   const url = new URL(request.url);
   await unlockUiInbox(url.searchParams.get("key"));
-  await enableUiPreview(url.searchParams.get("reset") === "1");
-  redirect("/dev/screens");
+  const demo = await enableUiPreview(url.searchParams.get("reset") === "1");
+  redirect(demo ? "/dev/screens" : "/dev/feedback");
 }
