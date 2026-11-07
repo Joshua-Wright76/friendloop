@@ -99,3 +99,19 @@ test("on a phone the theme and feedback controls sit after the page, never over 
     expect(box!.y + box!.height).toBeLessThanOrEqual(bar!.y);
   }
 });
+
+test("the page's grain covers everything without taking a tap, and stays off paper", async ({ page }) => {
+  await page.goto("/");
+  const grain = () => page.evaluate(() => {
+    const style = getComputedStyle(document.body, "::after");
+    return { display: style.display, position: style.position, pointerEvents: style.pointerEvents, image: style.backgroundImage };
+  });
+  expect(await grain()).toMatchObject({ display: "block", position: "fixed", pointerEvents: "none" });
+  expect((await grain()).image).toContain("/textures/grain.png");
+  expect((await page.request.get("/textures/grain.png")).ok()).toBe(true);
+
+  await page.emulateMedia({ media: "print" });
+  expect((await grain()).display).toBe("none");
+  await page.emulateMedia({ media: "screen", contrast: "more" });
+  expect((await grain()).display).toBe("none");
+});

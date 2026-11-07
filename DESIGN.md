@@ -30,6 +30,10 @@ remain direct and easy to use on a phone.
 | `--accent-soft` / `--accent-line` | confirmation washes and dashed stitching |
 | `--danger` / `--success` | destructive and successful states |
 
+A very faint film of grain sits over every page, so flat colour and crisp patterns
+read as paper. It takes no taps, and it's gone in print and for people who ask their
+device for more contrast.
+
 Dark mode is a deliberately tuned evening stationery palette, not an inversion.
 It preserves the same contrast relationships and gingham texture.
 
