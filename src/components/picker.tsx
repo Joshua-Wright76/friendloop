@@ -220,7 +220,10 @@ export function Picker({ name, defaultValue, value: controlledValue, options, ar
       </button>
 
       {open ? (
-        <>
+        // A <label> around the picker would turn every tap in here into a click on the
+        // trigger, reopening the sheet the moment it closed. Cancelling the click's
+        // default stops that; the buttons are type="button", so nothing else is lost.
+        <div className="contents" onClick={(event) => event.preventDefault()}>
           {phoneLayout ? <div className="picker-scrim" aria-hidden="true" onClick={() => closePicker()} /> : null}
           <div className={`picker-popover${phoneLayout ? " picker-sheet" : ""}`} role={phoneLayout ? "dialog" : undefined} aria-modal={phoneLayout ? true : undefined} aria-label={phoneLayout ? ariaLabel : undefined}>
             {phoneLayout ? (
@@ -269,7 +272,7 @@ export function Picker({ name, defaultValue, value: controlledValue, options, ar
             </div>
             {filtered.length === 0 ? <p className="picker-empty">{copy.common.picker.noResults}</p> : null}
           </div>
-        </>
+        </div>
       ) : null}
     </div>
   );

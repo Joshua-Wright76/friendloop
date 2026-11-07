@@ -461,18 +461,18 @@ export function NewLoopForm({ packs }: { packs: QuestionPack[] }) {
 
               <p className="mt-3 text-[13px] font-medium text-ink-soft">{copy.newLoop.wizard.details.schedule}</p>
               <div className="mt-2 grid grid-cols-2 gap-3">
-                <label className="flex min-w-0 flex-col gap-1.5">
+                <div className="flex min-w-0 flex-col gap-1.5">
                   <span className="text-[13px] font-medium text-ink-soft">{copy.newLoop.day}</span>
                   <Picker name="__weekday" value={weekday} defaultValue="5" options={WEEKDAY_OPTIONS} ariaLabel={copy.newLoop.day} onValueChange={setWeekday} />
-                </label>
-                <label className="flex min-w-0 flex-col gap-1.5">
+                </div>
+                <div className="flex min-w-0 flex-col gap-1.5">
                   <span className="text-[13px] font-medium text-ink-soft">{copy.newLoop.time}</span>
                   <Picker name="__hour" value={hour} defaultValue="9" options={HOUR_OPTIONS} ariaLabel={copy.newLoop.time} onValueChange={setHour} />
-                </label>
-                <label className="col-span-2 flex min-w-0 flex-col gap-1.5">
+                </div>
+                <div className="col-span-2 flex min-w-0 flex-col gap-1.5">
                   <span className="text-[13px] font-medium text-ink-soft">{copy.newLoop.timezone}</span>
                   <TimezoneField name="__timezone" value={timezone || undefined} onValueChange={setTimezone} describedBy={timezoneError ? timezoneErrorId : undefined} />
-                </label>
+                </div>
                 {timezoneError ? <p id={timezoneErrorId} role="alert" tabIndex={-1} className="col-span-2 text-[14px] leading-snug text-danger outline-none">{timezoneError}</p> : null}
               </div>
               {/* What the three choices add up to, said again whenever one of them changes. */}

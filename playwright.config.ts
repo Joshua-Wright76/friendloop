@@ -71,7 +71,7 @@ export default defineConfig({
     {
       // The reply form is the surface that actually ships to phones.
       name: "phone",
-      testMatch: /(A2|B4|D4|D5|D6|theme-switch|a11y-phone)\.spec\.ts/,
+      testMatch: /(A2|B4|D4|D5|D6|theme-switch|a11y-phone|picker-phone)\.spec\.ts/,
       use: { ...devices["iPhone 13"] },
     },
   ],
