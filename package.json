@@ -26,6 +26,7 @@
     "verify:checks": "npm run typegen && npm run typecheck && npm run lint && npm run check:flows && npm run check:test-tables && npm run check:migrations",
     "check:migrations": "node scripts/check-migrations.mjs",
     "db:seed": "node scripts/seed-dev.mjs",
+    "mail:shim": "node scripts/mailpit-shim.mjs",
     "typegen": "next typegen"
   },
   "engines": {
