@@ -288,6 +288,20 @@ test("the inbox gate answers 404 unless the cookie matches", async (t) => {
   await requireUiPreview();
 });
 
+test("production never seeds the demo or signs anyone in as its owner", async () => {
+  const before = process.env.VERCEL_ENV;
+  process.env.VERCEL_ENV = "production";
+  try {
+    assert.equal(await enableUiPreview(), false);
+    assert.equal(await enableUiPreview(true), false);
+  } finally {
+    if (before === undefined) delete process.env.VERCEL_ENV;
+    else process.env.VERCEL_ENV = before;
+  }
+  assert.equal((await rows<{ count: number }>("select count(*)::int as count from groups"))[0].count, 0);
+  assert.equal((await rows<{ count: number }>("select count(*)::int as count from sessions"))[0].count, 0);
+});
+
 test("the preview seeds one loop, and can rebuild it from scratch", async () => {
   await enableUiPreview();
   const afterFirst = await rows<{ count: number }>("select count(*)::int as count from groups");

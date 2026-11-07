@@ -16,7 +16,7 @@ the answers become a shared issue delivered back to the group.
 - **Postgres + Drizzle** over `postgres.js` — same driver locally, in tests, and on Neon
 - **Resend** — prompts, reminders, issues, magic links
 - **`temporal-polyfill`** — every schedule is local wall-clock, resolved on demand
-- **Vercel cron + GitHub Actions** — one idempotent sweep, two triggers
+- **Vercel Schedules + GitHub Actions** — one idempotent sweep, two triggers
 
 ## The two seams everything hangs on
 
@@ -60,7 +60,7 @@ Vercel → Project → Settings → Environment Variables.
 | `EMAIL_TRANSPORT` | `outbox` to never call Resend (tests, offline dev) |
 | `NEXT_PUBLIC_APP_URL` | `http://localhost:3000` locally; your domain in prod |
 | `CRON_SECRET` | `openssl rand -hex 32` — protects the sweep endpoint |
-| `UI_PREVIEW_SECRET` | `openssl rand -hex 32` — the key that unlocks `/dev/outbox` outside local development |
+| `UI_PREVIEW_SECRET` | `openssl rand -hex 32` — the key that unlocks everything under `/dev` outside local development |
 | `BLOB_READ_WRITE_TOKEN` | Required for production photo uploads. Vercel → Storage → Blob |
 | `NEXT_PUBLIC_SENTRY_DSN` | Optional; set by the Sentry Vercel Marketplace integration. Browser, server, and edge error reporting; unset = off. Read at build time (also for the CSP's `connect-src`), so redeploy after setting it |
 | `SENTRY_DSN` | Optional server/edge override. The Marketplace integration does not set it; the server falls back to `NEXT_PUBLIC_SENTRY_DSN` |
@@ -76,7 +76,7 @@ Vercel → Project → Settings → Environment Variables.
 | Branch | `main` | `dev` |
 | Database | `neondb` | `friendloop_dev` (same Neon project) |
 | Email | Resend, really sent | Resend, really sent — and every send is logged at `/dev/outbox` |
-| Cron | daily sweep | none — Vercel cron runs against production only |
+| Sweep | every 15 minutes (Vercel Schedule) | none — a Preview branch's schedule stays inactive |
 
 ```sh
 git push origin main   # -> friendloop.dev, then syncs dev and updates dev.friendloop.dev
@@ -145,15 +145,17 @@ sample data and its plain-text twin, and `/dev/outbox` lists the captured mail.
 Use **Reset demo data** to restore the fixtures. The preview never touches
 existing loops.
 
-On dev and prod the screens and email previews work the same way at their `/dev`
-routes. Nothing links to them from the site, so only people who know the path
-find them. The one exception is `/dev/outbox`: it lists captured mail, sign-in
-links included, so anyone with that page can sign in as anyone who has mail in
-it. It stays 404 until `UI_PREVIEW_SECRET` is set and `/dev/ui?key=<secret>` is
-opened once on the environment being unlocked, which remembers the key in a
-cookie scoped to `/dev`. Give each environment its own secret. The
-keyed URL stays in browser history and in access logs, so rotate the secret when
-the group of people holding it changes; rotating locks everyone out immediately.
+Everywhere else, every `/dev` route answers 404 until `UI_PREVIEW_SECRET` is set
+and `/dev/ui?key=<secret>` is opened once on the environment being unlocked, which
+remembers the key in a cookie scoped to `/dev`. Without that lock, `/dev/ui` would
+sign any visitor in as the demo owner, who can invite anyone, and `/dev/outbox`
+lists sign-in links. Give each environment its own secret. The keyed URL stays in
+browser history and in access logs, so rotate the secret when the group of people
+holding it changes; rotating locks everyone out immediately.
+
+Production never seeds the demo, even with the key: its tokens are in this public
+repository. There the key opens only the inboxes and goes straight to
+`/dev/feedback`.
 
 ## Site and email copy
 

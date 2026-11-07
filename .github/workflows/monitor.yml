@@ -2,8 +2,8 @@ name: Monitor
 
 # Probes production's authenticated health endpoint every 30 minutes. A
 # non-200 fails the run, and GitHub emails a failed scheduled run to whoever
-# last edited this schedule. /api/health is 503 when the daily sweep has not
-# finished in 26 hours or when outbox mail has stayed unsent for 26 hours.
+# last edited this schedule. /api/health is 503 when the sweep has not finished
+# in 2 hours or when outbox mail has stayed unsent for 26 hours.
 #
 # Needs the repository secret CRON_SECRET (same value as in Vercel production).
 

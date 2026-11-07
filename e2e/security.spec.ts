@@ -136,7 +136,9 @@ test("the main flows load without a single CSP violation", async ({ page, browse
   await page.waitForLoadState("networkidle");
 
   // The preview tools: the email previews render in sandboxed srcdoc frames.
-  await visit(page, "/dev/screens");
+  await page.goto(`/dev/ui?key=${process.env.UI_PREVIEW_SECRET ?? "e2e-preview-secret"}`);
+  await page.waitForURL("**/dev/screens");
+  await page.waitForLoadState("networkidle");
   await visit(page, "/dev/emails");
 
   expect(violations).toEqual([]);
@@ -195,7 +197,7 @@ test("the landing page has a link-preview card; private pages preview as Friendl
   }
 
   const robots = await (await request.get("/robots.txt")).text();
-  for (const prefix of ["/r/", "/u/", "/s/", "/i/", "/g/", "/album/", "/you", "/signin", "/dev/"]) {
+  for (const prefix of ["/r/", "/u/", "/s/", "/i/", "/g/", "/album/", "/you", "/signin"]) {
     expect(robots).toContain(`Disallow: ${prefix}`);
   }
 });

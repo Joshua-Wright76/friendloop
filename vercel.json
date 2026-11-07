@@ -1,9 +1,11 @@
 {
+  "$schema": "https://openapi.vercel.sh/vercel.json",
   "buildCommand": "npm run check:migrations && node scripts/deploy-migrate.mjs && npm run build",
-  "crons": [
-    {
+  "schedules": {
+    "sweep": {
+      "schedule": "*/15 * * * *",
       "path": "/api/cron/sweep",
-      "schedule": "0 6 * * *"
+      "requestMethod": "GET"
     }
-  ]
+  }
 }
