@@ -10,6 +10,7 @@ import { currentUser } from "@/lib/auth";
 import { getNow } from "@/lib/clock";
 import { formatDate, atMoment, formatMoment } from "@/lib/format";
 import { groupSchedule, nextSlot } from "@/lib/schedule";
+import { ownAnswerHref } from "@/lib/answer-link";
 import { Brand, Cherries, Tape } from "@/components/stationery";
 import { NoticeFocus } from "@/components/notice-focus";
 import { copy, text } from "@/lib/copy";
@@ -71,11 +72,13 @@ export default async function YouPage({ searchParams }: {
         <ul className="loop-cards mt-6 grid gap-5">
           {loops.map((loop, index) => (
             <li key={loop.id} className="flex">
-            <Link href={`/g/${loop.id}`} className="card loop-card flex min-h-[156px] w-full flex-col p-5 pt-6 no-underline" style={loop.mascot ? (mascotVars(loop.mascot) as CSSProperties) : undefined}>
+            {/* The loop's name is the card's link, stretched over the whole card, so the
+                answer button can sit inside it without nesting one link in another. */}
+            <div className="card loop-card relative flex min-h-[156px] w-full flex-col p-5 pt-6" style={loop.mascot ? (mascotVars(loop.mascot) as CSSProperties) : undefined}>
               {index === 0 ? <Tape tone="dots" position="right" /> : null}
               <span className="flex items-center gap-2">
                 <Cherries className="h-7 w-7 flex-none" />
-                <span className="font-display text-[27px] font-bold leading-none text-ink">{loop.name}</span>
+                <Link href={`/g/${loop.id}`} className="loop-card__link font-display text-[27px] font-bold leading-none text-ink no-underline">{loop.name}</Link>
               </span>
               <span className="mt-3 block text-[14px] font-semibold leading-snug text-ink-soft numeric">
                 {statusLine(loop, at, user.timezone)}
@@ -85,10 +88,17 @@ export default async function YouPage({ searchParams }: {
                   {copy.common.roles[loop.access]}
                 </span>
               </span>
-              <span className="mt-auto flex items-center justify-between pt-4 text-[14px] font-extrabold text-ink-soft">
-                {copy.you.openLoop} <svg viewBox="0 0 20 20" aria-hidden="true" className="h-4 w-4"><path d="M4 10h11M11 6l4 4-4 4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
+              <span className="mt-auto flex flex-wrap items-center justify-between gap-x-3 gap-y-2 pt-4 text-[14px] font-extrabold text-ink-soft">
+                {loop.answerHref && loop.issueNumber != null ? (
+                  <Link href={loop.answerHref} prefetch={false} className={`btn ${loop.answeredByYou ? "btn-quiet" : "btn-primary"} loop-card__action`}>
+                    {loop.answeredByYou ? copy.loop.editAnswers : text(copy.loop.answerRound, { number: loop.issueNumber })}
+                  </Link>
+                ) : null}
+                <span aria-hidden="true" className="ml-auto flex items-center gap-1">
+                  {copy.you.openLoop} <svg viewBox="0 0 20 20" aria-hidden="true" className="h-4 w-4"><path d="M4 10h11M11 6l4 4-4 4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                </span>
               </span>
-            </Link>
+            </div>
             </li>
           ))}
         </ul>
@@ -132,6 +142,10 @@ type LoopCard = {
   answered: number;
   writers: number;
   mascot: string | null;
+  /** The viewer's own answer page while this loop's round takes their answers. */
+  answerHref: string | null;
+  /** The viewer is among the round's "in" people (counted like `answered`). */
+  answeredByYou: boolean;
 };
 
 /**
@@ -140,11 +154,12 @@ type LoopCard = {
  */
 async function loopCards(userId: string): Promise<LoopCard[]> {
   const rows = await db.execute<Record<string, unknown>>(sql`
-    select g.id, g.name, m.access, g.timezone,
+    select g.id, g.name, m.access, m.participation, m.reply_token, g.timezone,
       g.prompt_weekday, g.prompt_hour, g.cadence_weeks,
       g.created_at, g.paused_at, g.theme_mascot,
       li.number as issue_number, li.status as issue_status, li.delivers_at, li.delivered_at,
       coalesce(li.answered, 0)::int as answered,
+      coalesce(li.mine, false) as mine,
       (select count(*)::int from memberships w
         where w.group_id = g.id and w.revoked_at is null and w.participation = 'contributor') as writers
     from memberships m
@@ -152,7 +167,9 @@ async function loopCards(userId: string): Promise<LoopCard[]> {
     left join lateral (
       select i.number, i.status, i.delivers_at, i.delivered_at,
         (select count(distinct r.membership_id) from replies r
-          where r.issue_id = i.id and r.status = 'submitted') as answered
+          where r.issue_id = i.id and r.status = 'submitted') as answered,
+        exists (select 1 from replies r
+          where r.issue_id = i.id and r.membership_id = m.id and r.status = 'submitted') as mine
       from issues i
       where i.group_id = g.id and i.status <> 'skipped'
       order by i.number desc
@@ -179,6 +196,13 @@ async function loopCards(userId: string): Promise<LoopCard[]> {
     deliveredAt: date(row.delivered_at),
     answered: Number(row.answered),
     writers: Number(row.writers),
+    answerHref: ownAnswerHref({
+      participation: row.participation as "contributor" | "reader",
+      replyToken: String(row.reply_token),
+      pausedAt: date(row.paused_at),
+      hasOpenRound: row.issue_status === "open",
+    }),
+    answeredByYou: Boolean(row.mine),
   }));
 }
 

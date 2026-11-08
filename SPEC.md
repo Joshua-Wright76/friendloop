@@ -368,6 +368,7 @@ Status: `todo` (not built) · `done` (built and covered).
 | D7 | Deliver the issue | With the clock past the delivery instant, the sweep sends one issue email per member containing every submitted answer, the issue's status becomes `delivered`, and the next round opens with its questions in each contributor's email. | done |
 | D8 | Nothing to deliver | An issue reaching its delivery instant with zero submitted replies sends no email and is carried over to the next delivery; on its third empty delivery it is marked `skipped` and pauses the loop with an explanation to the owner. | done |
 | D9 | Nudge the stragglers | 48 hours before delivery, contributors with nothing submitted get exactly one reminder; anyone who submitted gets none, and a second sweep sends no duplicate. | done |
+| D13 | Answer from the app | A signed-in member who answers in the loop sees a primary "Answer round N" button on the overview's open-round card, and the same link on that loop's card on `/you`; both go to their own reply link and the page carries nobody else's. Once they are among the round's "in" people it reads "Edit your answers" and steps back to a quiet button. A reader, or anyone in a paused loop, sees neither and is sent no reply link. | done |
 
 ## E · Reading and reacting
 

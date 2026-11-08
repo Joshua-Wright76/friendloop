@@ -472,6 +472,9 @@ html[data-theme="dark"] .paper-tile { --scrap-page: var(--scrap-page-dark); --sc
 .home-step { display: flex; align-items: flex-start; gap: 12px; padding-top: 12px; border-top: 2px dashed var(--accent-line); }
 .loop-card { transition: transform 160ms ease, box-shadow 160ms ease; }
 .loop-card:hover { transform: translateY(-2px) rotate(-.2deg); box-shadow: var(--shadow-lift); }
+/* The name's link covers the whole card; the answer button sits above it. */
+.loop-card__link::after { content: ""; position: absolute; inset: 0; border-radius: inherit; z-index: 1; }
+.loop-card__action { position: relative; z-index: 2; min-height: 44px; }
 .reply-topbar { background: var(--card) !important; }
 .reply-actionbar { background: var(--card) !important; }
 /* iOS browsers shrink their toolbars as the document scrolls, and while they do

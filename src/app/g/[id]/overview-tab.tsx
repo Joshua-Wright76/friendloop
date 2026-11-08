@@ -15,7 +15,7 @@ import { useLoopData } from "./loop-data";
 import { SubmitButton } from "@/components/submit-button";
 
 export default function OverviewTab({ welcome, nudged }: { welcome?: string; nudged?: string }) {
-  const { group, membership, people, questions, rounds, suggestions, openIssue, openProgress, openWaiting, nextMoment, openMoment, weekdayLabel, lastNudge } = useLoopData();
+  const { group, membership, people, questions, rounds, suggestions, openIssue, openProgress, openWaiting, nextMoment, openMoment, weekdayLabel, lastNudge, answerHref } = useLoopData();
   const manages = membership.access !== "member";
   const writers = people.filter((person) => person.participation === "contributor").length;
   const pool = questions.filter((question) => question.active);
@@ -27,6 +27,10 @@ export default function OverviewTab({ welcome, nudged }: { welcome?: string; nud
   // Nobody nudges themselves: the person looking is left out of the reminder.
   const nudgeable = openWaiting.filter((person) => person.id !== membership.id);
   const waitingNames = listNames(nudgeable.map(display));
+  // Counted the same way as the "In" list, so the button and the list always agree.
+  const viewerIsIn = openProgress.some((person) => person.id === membership.id);
+  // Answering your own round comes first; while it's undone, it is the one primary button.
+  const answerFirst = Boolean(answerHref) && !viewerIsIn;
 
   return (
     <main className="loop-page mx-auto w-full max-w-[680px] px-4 pb-16 pt-5 sm:px-6 lg:max-w-[1040px]">
@@ -111,6 +115,11 @@ export default function OverviewTab({ welcome, nudged }: { welcome?: string; nud
           </div>
 
           <div className="mt-4 flex flex-wrap items-start gap-x-4 gap-y-2">
+            {answerFirst ? (
+              <Link href={answerHref!} prefetch={false} className="btn btn-primary">
+                {text(copy.loop.answerRound, { number: liveIssue.number })}
+              </Link>
+            ) : null}
             {/* "Send now" sends this round as it stands, so it needs something in it. */}
             {manages && openProgress.length > 0 ? (
               <ConfirmAction
@@ -120,7 +129,7 @@ export default function OverviewTab({ welcome, nudged }: { welcome?: string; nud
                 label={copy.loop.sendNow}
                 triggerLabel={copy.loop.sendNow}
                 tone="primary"
-                triggerTone={nudgeable.length > 0 ? "quiet" : "primary"}
+                triggerTone={answerFirst || nudgeable.length > 0 ? "quiet" : "primary"}
                 question={text(copy.loop.sendNowQuestion, { number: liveIssue.number })}
                 body={text(openProgress.length === 1 ? copy.loop.sendNowBodyOne : copy.loop.sendNowBody, {
                   count: openProgress.length,
@@ -140,7 +149,7 @@ export default function OverviewTab({ welcome, nudged }: { welcome?: string; nud
                   label={lastNudge ? copy.loop.nudgeAgain : text(copy.loop.nudgeNamed, { names: waitingNames })}
                   triggerLabel={lastNudge ? text(copy.loop.nudgeAgainLabel, { names: waitingNames }) : text(copy.loop.nudgeNamed, { names: waitingNames })}
                   tone="primary"
-                  triggerTone={lastNudge ? "quiet" : "primary"}
+                  triggerTone={answerFirst || lastNudge ? "quiet" : "primary"}
                   question={text(copy.loop.nudgeQuestion, { names: waitingNames })}
                   body={nudgeable.length === 1 ? copy.loop.nudgeBodyOne : copy.loop.nudgeBody}
                   confirmLabel={copy.loop.nudgeConfirm}
@@ -153,6 +162,10 @@ export default function OverviewTab({ welcome, nudged }: { welcome?: string; nud
                   </p>
                 ) : null}
               </>
+            ) : null}
+            {/* Already in: editing is there, but the owner's own jobs come first. */}
+            {answerHref && viewerIsIn ? (
+              <Link href={answerHref} prefetch={false} className="btn btn-quiet">{copy.loop.editAnswers}</Link>
             ) : null}
             <Link href={`/g/${group.id}/issues`} className="link">{copy.loop.seeRound}</Link>
           </div>
