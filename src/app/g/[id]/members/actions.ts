@@ -30,7 +30,8 @@ export async function inviteAction(formData: FormData) {
   if (emails.length === 0 || emails.some((email) => !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))) {
     return { ok: false as const, message: "invalid" as const };
   }
-  const participation = "contributor";
+  // A reader is chosen on purpose; anything else is an invitation to answer.
+  const participation = formData.get("participation") === "reader" ? "reader" : "contributor";
 
   try {
     const result = await inviteMembers({
@@ -78,10 +79,7 @@ export async function removeAction(formData: FormData) {
   redirect(`/g/${groupId}/members?removed=1`);
 }
 
-/**
- * Contributor or reader, from the member's picker. `setParticipation` keeps the
- * owner a contributor and everyone else a reader in `from_you` mode.
- */
+/** Contributor or reader, from the member's picker. `setParticipation` keeps the owner a contributor. */
 export async function participationAction(formData: FormData) {
   const groupId = String(formData.get("groupId") ?? "");
   const membershipId = String(formData.get("membershipId") ?? "");
@@ -130,7 +128,7 @@ export async function roleAction(formData: FormData) {
 }
 
 /**
- * Hand the loop to an admin. The form carries the new owner's membership id and
+ * Hand the loop to someone in it who has joined. The form carries the new owner's membership id and
  * an explicit confirmation; the acting owner is read from the session, never the form.
  */
 export async function transferAction(formData: FormData) {

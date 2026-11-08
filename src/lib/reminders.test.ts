@@ -1,29 +1,25 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { isReminderPreference, REMINDER_LEADS_MS, wantsReminder } from "./reminders.ts";
+import { REMINDER_LEAD_MS, remindersOn, storedReminderPreference } from "./reminders.ts";
 
-test("everyone who asked for all of them has every reminder", () => {
-  assert.deepEqual([0, 1, 2].map((index) => wantsReminder("all", index, 3)), [true, true, true]);
+test("reminders are on unless someone switched them off", () => {
+  assert.equal(remindersOn("all"), true);
+  assert.equal(remindersOn("none"), false);
 });
 
-test("last-only people get only the final reminder", () => {
-  assert.deepEqual([0, 1, 2].map((index) => wantsReminder("last", index, 3)), [false, false, true]);
+test("the old 'only the last reminder' reads as on", () => {
+  assert.equal(remindersOn("last"), true);
 });
 
-test("nobody on none gets anything", () => {
-  assert.deepEqual([0, 1, 2].map((index) => wantsReminder("none", index, 3)), [false, false, false]);
+test("the loop's one reminder goes 48 hours before delivery", () => {
+  assert.equal(REMINDER_LEAD_MS, 48 * 60 * 60 * 1000);
 });
 
-test("the loop's single reminder is the last one", () => {
-  assert.equal(REMINDER_LEADS_MS.length, 1);
-  assert.equal(wantsReminder("last", 0, REMINDER_LEADS_MS.length), true);
-  assert.equal(wantsReminder("all", 0, REMINDER_LEADS_MS.length), true);
-  assert.equal(wantsReminder("none", 0, REMINDER_LEADS_MS.length), false);
-});
-
-test("exactly the three stored values are preferences", () => {
-  assert.equal(["all", "last", "none"].every(isReminderPreference), true);
-  assert.equal(isReminderPreference("some"), false);
-  assert.equal(isReminderPreference(undefined), false);
-  assert.equal(isReminderPreference(3), false);
+test("only on and off are stored, and an old page's 'last' is stored as on", () => {
+  assert.equal(storedReminderPreference("all"), "all");
+  assert.equal(storedReminderPreference("none"), "none");
+  assert.equal(storedReminderPreference("last"), "all");
+  assert.equal(storedReminderPreference("some"), null);
+  assert.equal(storedReminderPreference(undefined), null);
+  assert.equal(storedReminderPreference(true), null);
 });

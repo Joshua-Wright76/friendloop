@@ -1,26 +1,26 @@
+/**
+ * What the database stores. Reminders are one switch, on or off; "last" is left
+ * from when there were three choices that all behaved the same, and reads as on.
+ */
 export type ReminderPreference = "all" | "last" | "none";
-
-export const REMINDER_PREFERENCES: readonly ReminderPreference[] = ["all", "last", "none"];
 
 const HOUR_MS = 60 * 60 * 1000;
 
-/**
- * When the loop's automatic reminders go out, as lead times before delivery,
- * earliest first. The loop sends one: 48 hours ahead. A second entry later (say
- * 24 hours) makes "all" and "last" differ without touching a stored preference.
- */
-export const REMINDER_LEADS_MS: readonly number[] = [48 * HOUR_MS];
+/** The loop sends one automatic reminder, this long before delivery. */
+export const REMINDER_LEAD_MS = 48 * HOUR_MS;
 
-export function isReminderPreference(value: unknown): value is ReminderPreference {
-  return typeof value === "string" && (REMINDER_PREFERENCES as readonly string[]).includes(value);
+/** Whether the loop's automatic reminder goes to someone with this stored preference. */
+export function remindersOn(preference: ReminderPreference): boolean {
+  return preference !== "none";
 }
 
 /**
- * Whether a contributor with this preference should get the reminder at `index`
- * of a schedule of `total`. A manual nudge never asks: it is the owner's choice.
+ * The value to store for a request to turn reminders on ("all") or off ("none"),
+ * or null for anything else. A page opened before the switch replaced the three
+ * choices may still send "last", which means on.
  */
-export function wantsReminder(preference: ReminderPreference, index: number, total: number): boolean {
-  if (preference === "none") return false;
-  if (preference === "last") return index === total - 1;
-  return true;
+export function storedReminderPreference(value: unknown): "all" | "none" | null {
+  if (value === "none") return "none";
+  if (value === "all" || value === "last") return "all";
+  return null;
 }

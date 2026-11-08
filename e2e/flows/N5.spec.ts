@@ -106,10 +106,10 @@ test("N5 · the photo routes answer only the person they belong to", async ({ re
   expect((await request.post(`/api/reply/${alice.token}/profile-photo`, form)).status()).toBe(200);
   await rows("update memberships set photo_url = null where id = $1", [alice.id]);
   expect((await request.delete(`/api/reply/${alice.token}/profile-photo`)).status()).toBe(200);
-  // An expired, never-opened invitation sets nothing.
-  await rows("update memberships set accepted_at = null, invited_at = now() - interval '30 days' where id = $1", [alice.id]);
+  // A removed member's link sets nothing.
+  await rows("update memberships set revoked_at = now() where id = $1", [alice.id]);
   expect((await request.post(`/api/reply/${alice.token}/profile-photo`, form)).status()).toBe(403);
-  await rows("update memberships set accepted_at = now(), invited_at = now() where id = $1", [alice.id]);
+  await rows("update memberships set revoked_at = null where id = $1", [alice.id]);
 
   // A real contributor with no file, or a file that is not an image, is told so plainly.
   await rows("update memberships set participation = 'contributor' where id = $1", [alice.id]);

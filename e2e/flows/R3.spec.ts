@@ -14,29 +14,34 @@ async function reminderRecipients() {
   return mail.map((row) => row.to);
 }
 
-test("R3 · a contributor chooses their reminders on their own page, and the choice sticks", async ({ page }) => {
+const SWITCH = { name: "Remind me before it goes out" };
+
+const preferenceOf = async (id: string) =>
+  (await rows<{ reminder_preference: string }>("select reminder_preference from memberships where id = $1", [id]))[0]
+    .reminder_preference;
+
+test("R3 · a contributor turns their reminder off and on with one switch, and the choice sticks", async ({ page }) => {
   const loop = await seedLoop();
   await seedOpenIssue(loop, { openedAt: OPENED });
   const bob = loop.members.find((member) => member.email.startsWith("bob"))!;
 
   await page.goto(`/r/${bob.token}`);
   await waitForSheet(page);
-  const group = page.getByRole("group", { name: "Reminders from this loop" });
-  await expect(group.getByLabel("Remind me")).toBeChecked();
+  const reminder = page.getByRole("switch", SWITCH);
+  await expect(reminder).toBeChecked();
+  // One switch, not a list of options that all do the same thing.
+  await expect(page.locator("#reminders input")).toHaveCount(1);
 
-  await group.getByLabel("No reminders").check();
+  await reminder.uncheck();
   await expect(page.getByText("Saved.", { exact: true })).toBeVisible();
+  expect(await preferenceOf(bob.id)).toBe("none");
   await page.reload();
   await waitForSheet(page);
-  await expect(page.getByRole("group", { name: "Reminders from this loop" }).getByLabel("No reminders")).toBeChecked();
+  await expect(page.getByRole("switch", SWITCH)).not.toBeChecked();
 
-  await page.getByRole("group", { name: "Reminders from this loop" }).getByLabel("Only the last reminder").check();
+  await page.getByRole("switch", SWITCH).check();
   await expect(page.getByText("Saved.", { exact: true })).toBeVisible();
-  const [row] = await rows<{ reminder_preference: string }>(
-    "select reminder_preference from memberships where id = $1",
-    [bob.id],
-  );
-  expect(row.reminder_preference).toBe("last");
+  expect(await preferenceOf(bob.id)).toBe("all");
 
   // The control never promises more than the loop sends.
   await expect(page.getByText(/Whoever runs the loop can still nudge you by hand/)).toBeVisible();
@@ -55,7 +60,18 @@ test("R3 · the reminder email points at the control, and the control is where i
   const alice = loop.members.find((member) => member.email.startsWith("alice"))!;
   await page.goto(`/r/${alice.token}`);
   await waitForSheet(page);
-  await expect(page.getByRole("group", { name: "Reminders from this loop" })).toBeVisible();
+  await expect(page.getByRole("switch", SWITCH)).toBeVisible();
+});
+
+test("R3 · someone who chose \"only the last reminder\" before sees the switch on", async ({ page }) => {
+  const loop = await seedLoop();
+  await seedOpenIssue(loop, { openedAt: OPENED });
+  const alice = loop.members.find((member) => member.email.startsWith("alice"))!;
+  await rows("update memberships set reminder_preference = 'last' where id = $1", [alice.id]);
+
+  await page.goto(`/r/${alice.token}`);
+  await waitForSheet(page);
+  await expect(page.getByRole("switch", SWITCH)).toBeChecked();
 });
 
 test("R3 · the loop's reminder follows each choice, never repeats, and leaves the owner's nudge alone", async ({ page }) => {
@@ -64,15 +80,12 @@ test("R3 · the loop's reminder follows each choice, never repeats, and leaves t
   const alice = loop.members.find((member) => member.email.startsWith("alice"))!;
   const bob = loop.members.find((member) => member.email.startsWith("bob"))!;
 
-  // Alice picks none through her page; Bob picks last-only.
+  // Alice switches hers off through her page; Bob is on the old "last only", which means on.
   await page.goto(`/r/${alice.token}`);
   await waitForSheet(page);
-  await page.getByLabel("No reminders").check();
+  await page.getByRole("switch", SWITCH).uncheck();
   await expect(page.getByText("Saved.", { exact: true })).toBeVisible();
-  await page.goto(`/r/${bob.token}`);
-  await waitForSheet(page);
-  await page.getByLabel("Only the last reminder").check();
-  await expect(page.getByText("Saved.", { exact: true })).toBeVisible();
+  await rows("update memberships set reminder_preference = 'last' where id = $1", [bob.id]);
 
   const at = new Date(issue.deliversAt.getTime() - 24 * HOUR);
   const first = await runSweep(at);
@@ -115,6 +128,7 @@ test("R3 · a reader or a stranger cannot set one, and a bad value writes nothin
   expect((await post("not-a-token", "none")).status).toBe(404);
   expect((await post(alice.token, "weekly")).status).toBe(400);
   expect((await post(alice.token, undefined)).status).toBe(400);
+  expect((await post(alice.token, true)).status).toBe(400);
 
   const stored = await rows<{ email: string; reminder_preference: string }>(
     "select email, reminder_preference from memberships where group_id = $1",
@@ -122,6 +136,9 @@ test("R3 · a reader or a stranger cannot set one, and a bad value writes nothin
   );
   expect(stored.every((row) => row.reminder_preference === "all")).toBe(true);
   expect((await post(alice.token, "none")).status).toBe(200);
+  // A page opened before the switch may still send the old "last": it is stored as on.
+  expect((await post(alice.token, "last")).status).toBe(200);
+  expect((await rows<{ reminder_preference: string }>("select reminder_preference from memberships where id = $1", [alice.id]))[0].reminder_preference).toBe("all");
 });
 
 test("R3 · opening the page or the email never changes a preference", async ({ page }) => {

@@ -17,7 +17,6 @@ import { replyUrl, unsubscribeUrl, url } from "./urls";
 import { groupSchedule, nextSlot } from "./schedule";
 import { openRound, rescheduleOpenRound, setLoopPaused } from "./rounds";
 import { syncOpenRoundQuestions } from "./round-questions";
-import { INVITE_DAYS } from "./reply";
 import { reorderIds } from "./question-order";
 import { newQuestionTexts } from "./question-packs";
 import { checkPoll } from "./poll";
@@ -36,7 +35,6 @@ export type CreateLoopInput = {
   ownerEmail: string;
   ownerName?: string | null;
   name: string;
-  mode: "group" | "from_you";
   timezone: string;
   promptWeekday: number;
   promptHour: number;
@@ -58,7 +56,6 @@ export async function createLoop(input: CreateLoopInput): Promise<string> {
     .values({
       name: input.name,
       displayName: input.name,
-      mode: input.mode,
       timezone: input.timezone,
       promptWeekday: input.promptWeekday,
       promptHour: input.promptHour,
@@ -111,7 +108,7 @@ export async function inviteMembers(input: {
   const [group] = await db.select().from(groups).where(eq(groups.id, input.groupId)).limit(1);
   if (!group) throw new Error("not-found");
 
-  const participation = group.mode === "from_you" ? "reader" : input.participation;
+  const participation = input.participation;
   let invited = 0;
   let skipped = 0;
   let limited = 0;
@@ -346,9 +343,6 @@ export async function setParticipation(
   membershipId: string,
   participation: "contributor" | "reader",
 ) {
-  const [group] = await db.select().from(groups).where(eq(groups.id, groupId)).limit(1);
-  if (!group) return false;
-
   const [membership] = await db
     .select()
     .from(memberships)
@@ -356,11 +350,10 @@ export async function setParticipation(
     .limit(1);
   if (!membership) return false;
 
-  // The owner always writes; in `from_you` nobody else does.
+  // The owner always writes.
   if (membership.access === "owner") return false;
-  const next = group.mode === "from_you" ? "reader" : participation;
 
-  await db.update(memberships).set({ participation: next }).where(eq(memberships.id, membershipId));
+  await db.update(memberships).set({ participation }).where(eq(memberships.id, membershipId));
   return true;
 }
 
@@ -379,30 +372,24 @@ export async function setAccess(groupId: string, membershipId: string, access: "
 class HandoverRefused extends Error {}
 
 /**
- * Hand the loop to an existing admin: they become the owner, the founder becomes
- * an admin. One transaction, and each half is guarded by the state it expects, so
- * a double submit, a second tab, or two owners racing each other can never leave
- * a loop with zero owners or two. Returns false when nothing changed.
+ * Hand the loop to anyone in it who has joined, in one step: they become the
+ * owner, the founder becomes an admin. One transaction, and each half is guarded
+ * by the state it expects, so a double submit, a second tab, or two owners racing
+ * each other can never leave a loop with zero owners or two. Returns false when
+ * nothing changed.
  *
- * Only an admin who has opened their invitation is eligible: handing a loop to an
- * address nobody has ever answered from would orphan it. Sessions and reply
- * tokens are untouched, so nobody is signed out by a handover.
+ * "Joined" means they have answered or signed in at least once: handing a loop to
+ * an address nobody has ever used would orphan it. Sessions and reply tokens are
+ * untouched, so nobody is signed out by a handover.
  */
 export async function transferOwnership(groupId: string, fromId: string, toId: string): Promise<boolean> {
   if (fromId === toId) return false;
 
   try {
     await db.transaction(async (tx) => {
-      const [group] = await tx.select({ mode: groups.mode }).from(groups).where(eq(groups.id, groupId)).limit(1);
-      if (!group) throw new HandoverRefused();
-
       const demoted = await tx
         .update(memberships)
-        .set({
-          access: "admin",
-          // In a from_you loop the owner is the only writer, and the new owner is now that.
-          ...(group.mode === "from_you" ? { participation: "reader" as const } : {}),
-        })
+        .set({ access: "admin" })
         .where(and(
           eq(memberships.id, fromId),
           eq(memberships.groupId, groupId),
@@ -418,7 +405,7 @@ export async function transferOwnership(groupId: string, fromId: string, toId: s
         .where(and(
           eq(memberships.id, toId),
           eq(memberships.groupId, groupId),
-          eq(memberships.access, "admin"),
+          inArray(memberships.access, ["admin", "member"]),
           isNull(memberships.revokedAt),
           isNotNull(memberships.acceptedAt),
         ))
@@ -678,13 +665,6 @@ export async function membersOf(groupId: string) {
 export async function userById(id: string) {
   const [row] = await db.select().from(users).where(eq(users.id, id)).limit(1);
   return row ?? null;
-}
-
-export const INVITE_TTL_DAYS = INVITE_DAYS;
-
-export function inviteExpired(invitedAt: Date, acceptedAt: Date | null, at: Date): boolean {
-  if (acceptedAt) return false;
-  return invitedAt.getTime() + INVITE_DAYS * 24 * 60 * 60 * 1000 <= at.getTime();
 }
 
 export function loopUrl(groupId: string) {

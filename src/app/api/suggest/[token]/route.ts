@@ -4,7 +4,7 @@ import { copy } from "@/lib/copy";
 
 /**
  * Contributor writes for suggestions live behind one POST endpoint, same rules
- * as the reply sheet: a reader or an expired invite gets a real 403.
+ * as the reply sheet: a reader gets a real 403.
  */
 export async function POST(request: Request, { params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;

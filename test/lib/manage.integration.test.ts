@@ -7,7 +7,6 @@ import {
   backfillShareTokens,
   createLoop,
   deleteLoop,
-  inviteExpired,
   inviteMembers,
   loopsForUser,
   loopUrl,
@@ -70,7 +69,6 @@ test("creating a loop writes the owner membership and the questions in order", a
     ownerEmail: " Owner@Friendloop.Test ",
     ownerName: "Owner",
     name: "Friday Loop",
-    mode: "group",
     timezone: "Europe/Amsterdam",
     promptWeekday: 5,
     promptHour: 9,
@@ -106,7 +104,6 @@ test("creating a loop with no questions is allowed", async () => {
     ownerUserId: userId,
     ownerEmail: "owner@friendloop.test",
     name: "Empty",
-    mode: "group",
     timezone: "UTC",
     promptWeekday: 1,
     promptHour: 8,
@@ -188,21 +185,28 @@ test("re-inviting a removed address revives it with a fresh token", async () => 
   assert.equal(revived.accepted_at, null);
 });
 
-test("a from_you loop invites everybody as a reader", async () => {
-  const loop = await seedLoop({ mode: "from_you" });
-  await inviteMembers({
-    groupId: loop.groupId,
-    emails: ["reader@friendloop.test"],
-    participation: "contributor",
-    actorName: "Sam",
-    actorUserId: "00000000-0000-4000-8000-000000000001",
-    at: E2E_NOW,
-  });
+test("an invitation is for answering or for reading, as chosen, and the email says which", async () => {
+  const loop = await seedLoop();
+  for (const [email, participation] of [["reader@friendloop.test", "reader"], ["writer@friendloop.test", "contributor"]] as const) {
+    await inviteMembers({
+      groupId: loop.groupId,
+      emails: [email],
+      participation,
+      actorName: "Sam",
+      actorUserId: "00000000-0000-4000-8000-000000000001",
+      at: E2E_NOW,
+    });
+  }
 
-  const [invited] = await rows<{ participation: string }>(
-    "select participation from memberships where email = 'reader@friendloop.test'",
+  const invited = await rows<{ email: string; participation: string; text: string }>(
+    `select m.email, m.participation, o.text from memberships m join outbox o on o.membership_id = m.id
+     where o.kind = 'invite' and m.email in ('reader@friendloop.test', 'writer@friendloop.test') order by m.email`,
   );
-  assert.equal(invited.participation, "reader");
+  assert.deepEqual(invited.map((row) => [row.email, row.participation]), [
+    ["reader@friendloop.test", "reader"],
+    ["writer@friendloop.test", "contributor"],
+  ]);
+  assert.notEqual(invited[0].text, invited[1].text, "a reader's invitation is not the one that asks for answers");
 });
 
 test("inviting to a loop that no longer exists throws", async () => {
@@ -271,23 +275,24 @@ test("removing a member revokes them, but never the owner", async () => {
   assert.equal(unchanged.revoked_at, null);
 });
 
-test("participation can change, except for the owner and except in from_you", async () => {
+test("participation can change, except for the owner", async () => {
   const group = await seedLoop();
-  const reader = await seedLoop({ mode: "from_you", name: "From You" });
   const alice = group.members.find((member) => member.email.startsWith("alice"))!;
+  const bob = group.members.find((member) => member.email.startsWith("bob"))!;
   const owner = group.members.find((member) => member.access === "owner")!;
-  const fromYouAlice = reader.members.find((member) => member.email.startsWith("alice"))!;
 
   assert.equal(await setParticipation(group.groupId, alice.id, "reader"), true);
   assert.equal(await setParticipation(group.groupId, owner.id, "reader"), false);
-  assert.equal(await setParticipation(reader.groupId, fromYouAlice.id, "contributor"), true);
+  assert.equal(await setParticipation(group.groupId, bob.id, "reader"), true);
+  assert.equal(await setParticipation(group.groupId, bob.id, "contributor"), true);
 
-  const [a, b] = await rows<{ email: string; participation: string }>(
+  const [a, b, o] = await rows<{ email: string; participation: string }>(
     "select email, participation from memberships where id = any($1::uuid[]) order by email",
-    [[alice.id, fromYouAlice.id]],
+    [[alice.id, bob.id, owner.id]],
   );
   assert.equal(a.participation, "reader");
-  assert.equal(b.participation, "reader", "from_you pins everybody else to reader");
+  assert.equal(b.participation, "contributor");
+  assert.equal(o.participation, "contributor", "the owner always writes");
 
   assert.equal(await setParticipation("00000000-0000-4000-8000-000000000000", alice.id, "reader"), false);
   assert.equal(await setParticipation(group.groupId, "00000000-0000-4000-8000-000000000000", "reader"), false);
@@ -605,13 +610,6 @@ test("a user can be read back by id", async () => {
   const user = await userById(userId);
   assert.equal(user?.email, "read@friendloop.test");
   assert.equal(await userById("00000000-0000-4000-8000-000000000000"), null);
-});
-
-test("an invite expires after two weeks unless it was accepted", () => {
-  const invitedAt = new Date(E2E_NOW.getTime() - 14 * 24 * 60 * 60 * 1000);
-  assert.equal(inviteExpired(invitedAt, null, E2E_NOW), true);
-  assert.equal(inviteExpired(invitedAt, E2E_NOW, E2E_NOW), false);
-  assert.equal(inviteExpired(E2E_NOW, null, E2E_NOW), false);
 });
 
 test("the loop url and a user's loops are readable", async () => {

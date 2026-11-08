@@ -9,6 +9,7 @@ import { copy, text } from "@/lib/copy";
 import { formatHour } from "@/lib/format";
 import type { QuestionPack } from "@/lib/question-packs";
 import { QuestionPackPicker } from "@/components/question-pack-picker";
+import { InviteParticipation, type Participation } from "@/components/invite-participation";
 import { PaperFields, type StationeryLooks } from "@/components/paper-fields";
 import { DEFAULT_BACKGROUND, DEFAULT_PAPER_PACK, DEFAULT_TAPE_PACK } from "@/lib/stationery";
 import { DEFAULT_MASCOT, stickerSrc } from "@/lib/stickers";
@@ -134,6 +135,7 @@ export function NewLoopForm({ packs }: { packs: QuestionPack[] }) {
   const [customQuestions, setCustomQuestions] = useState<Array<{ id: number; value: string }>>([]);
   const [pickedIdeas, setPickedIdeas] = useState<string[]>([]);
   const [emails, setEmails] = useState<string[]>([]);
+  const [participation, setParticipation] = useState<Participation>("contributor");
   const [emailDraft, setEmailDraft] = useState("");
   const [emailError, setEmailError] = useState("");
   const [emailNotice, setEmailNotice] = useState("");
@@ -368,7 +370,7 @@ export function NewLoopForm({ packs }: { packs: QuestionPack[] }) {
       <input type="hidden" name="weekday" value={weekday} />
       <input type="hidden" name="hour" value={hour} />
       <input type="hidden" name="timezone" value={timezone} />
-      <input type="hidden" name="participation" value="contributor" />
+      <input type="hidden" name="participation" value={participation} />
       <input type="hidden" name="personalNote" value={personalNote} />
       <input type="hidden" name="preset" value={preset} />
       <input type="hidden" name="accent" value={normalizeHex(accent) ?? ""} />
@@ -654,6 +656,7 @@ export function NewLoopForm({ packs }: { packs: QuestionPack[] }) {
               </div>
               {emailError ? <p id={errorId} role="alert" className="mt-2 text-[13px] leading-relaxed text-danger">{emailError}</p> : null}
               <p role="status" className={emailNotice ? "mt-2 text-[13px] leading-relaxed text-ink-soft" : undefined}>{emailNotice}</p>
+              <InviteParticipation value={participation} onChange={setParticipation} className="mt-2" />
               <p className="mt-3 text-[13px] leading-relaxed text-ink-muted">{copy.newLoop.wizard.readers.optional}</p>
             </div>
           </>

@@ -45,24 +45,23 @@ test("a contributor files a suggestion; bad input doesn't", async () => {
   assert.equal(`${row.status}/${row.author_display}`, "pending/name");
 });
 
-test("readers and anonymous-only loops cannot suggest", async () => {
+test("readers cannot suggest", async () => {
   const loop = await seedLoop();
   const alice = await memberOf(loop);
   await rows("update memberships set participation = 'reader' where id = $1", [alice.id]);
-  assert.equal((await createSuggestion({ token: alice.token, text: "hi", authorDisplay: "name" })).ok, false);
-
-  const solo = await seedLoop({ mode: "from_you" });
-  assert.equal((await createSuggestion({ token: solo.members[0].token, text: "hi", authorDisplay: "name" })).ok, false);
+  const refused = await createSuggestion({ token: alice.token, text: "hi", authorDisplay: "name" });
+  assert.equal(refused.ok === false && refused.status, 403);
 });
 
-test("an expired link cannot suggest; the queue is the owner's to work", async () => {
+test("an old unopened link can still suggest; the queue is the owner's to work", async () => {
   const loop = await seedLoop({ owner: null, members: [{ email: "pal@friendloop.test", name: "Pal" }] });
-  const [stale] = await rows<{ reply_token: string }>("select reply_token from memberships");
+  const [old] = await rows<{ reply_token: string }>("select reply_token from memberships");
   await rows(
     "update memberships set accepted_at = null, invited_at = $1 where reply_token = $2",
-    ["2025-12-01T00:00:00Z", stale.reply_token],
+    ["2025-01-01T00:00:00Z", old.reply_token],
   );
-  assert.equal((await createSuggestion({ token: stale.reply_token, text: "hi", authorDisplay: "name" })).ok, false);
+  assert.equal((await createSuggestion({ token: old.reply_token, text: "From an old link", authorDisplay: "name" })).ok, true);
+  await rows("delete from question_suggestions");
 
   void loop;
   const loop2 = await seedLoop();

@@ -68,8 +68,9 @@ Confirmed for v1:
 
 - Invite-only membership; anyone can create a loop, joining requires an invite.
 - Roles are two axes: access (`owner` / `admin` / `member`) and participation
-  (`contributor` / `reader`). The owner is always a contributor. `from_you` mode
-  makes every non-owner a reader.
+  (`contributor` / `reader`), chosen when inviting. The owner is always a
+  contributor. There is no invitation to accept or let lapse: someone is in the
+  loop, and their link works, until they are removed.
 - Contributors reply through a tokenized link with no account. Management actions
   require a signed-in session.
 - Question pool: a preset bank plus custom questions written by the owner.
@@ -211,7 +212,7 @@ Every human-facing deadline renders twice: the loop's time and the reader's own.
   that person signs in. Roles are two independent axes — `access`
   (`owner|admin|member`) and `participation` (`contributor|reader`) — because
   "admin who only reads" is a real state. Invariant: the owner is always a
-  contributor; in `from_you` mode every non-owner is a reader.
+  contributor. (`groups.mode` is a leftover column: every loop is a group loop.)
 
 **GET never mutates.** Mail scanners pre-fetch every URL in an email, so the token
 link renders and sets a cookie but never writes product state. Every state change
@@ -281,7 +282,7 @@ available to Playwright without a second data path.
 ## 9 · Writes go through one POST, not a Server Action
 
 `POST /api/reply/<token>` handles both autosave and submit. A Server Action would
-work, but a reader or an expired invitation has to be refused with a real HTTP
+work, but a reader or a removed member has to be refused with a real HTTP
 status, and a status is the only thing a test can assert on directly. The same rule
 covers the issue view: comments and reactions are Server Actions because they are
 only ever reachable from a page that already resolved who you are.
@@ -293,12 +294,17 @@ owner only, and a non-owner visiting it is redirected back to the loop rather th
 shown a 403 — a loop they cannot manage should not advertise a door. `owner` is the
 only role that can delete, transfer, or change the schedule.
 
-## 11 · Invitations expire, reply links do not
+## 11 · There are no invitations, only memberships
 
-An unopened invitation is good for 14 days (`INVITE_DAYS`); a reply link is a
-standing credential for someone in the loop. Ageing out a link that still works
-would break "the link in your inbox is the front door", so only *pending* invites
-expire, and re-inviting resurrects the membership with a fresh token.
+An invitation is just the first email a membership gets. A reply link is a standing
+credential for someone in the loop, from the day they are added until they are
+removed (`revoked_at`); nothing about it ages. An earlier version let an unopened
+invitation lapse after 14 days while the same person kept receiving every prompt,
+reminder and issue, which taught people an "accepted" state they could not see and
+readers could never reach. `accepted_at` survives only as "has answered or signed in
+at least once": the people tab uses it for a quiet "Hasn't answered yet" on a
+contributor, and a handover requires it. "Resend invite" re-sends the same link, and
+re-inviting a removed address revives the membership with a fresh token.
 
 ## 12 · The reply sheet is a credential page
 
@@ -339,12 +345,13 @@ Status: `todo` (not built) · `done` (built and covered).
 
 | ID | Flow | Acceptance criteria | Status |
 | --- | --- | --- | --- |
-| B1 | Create a loop | Owner picks name, mode, cadence, timezone and hour; the loop is created with them as owner+contributor, and lands on the loop dashboard. | done |
+| B1 | Create a loop | Owner picks name, cadence, timezone and hour; the loop is created with them as owner+contributor, and lands on the loop dashboard. | done |
 | B2 | Pick starting questions | During creation the owner selects at least one question from the preset bank; those questions exist on the loop in the chosen order. | done |
-| B3 | Invite several members | Pasting three addresses creates three pending memberships with distinct reply tokens and three `invite` rows in the outbox; each email names the loop and contains that member's own link. | done |
+| B3 | Invite several members | Pasting three addresses creates three memberships with distinct reply tokens and three `invite` rows in the outbox; each email names the loop and contains that member's own link. | done |
 | B4 | Accept an invitation | A contributor opening their invite link lands on the reply form for the current issue with their name shown, without signing in. | done |
-| B5 | Resend an invitation | Resending re-sends to a pending member, does not rotate the token, and does not create a duplicate membership. | done |
-| B6 | Expired invitation | An invite older than its TTL renders an "ask the owner for a new link" screen and creates no session. | done |
+| B5 | Resend an invitation | Resending re-sends the same link to someone who has not answered or signed in yet, does not rotate the token, and does not create a duplicate membership. | done |
+| B6 | Links never expire | A reply link works for as long as its membership is not removed: one sent months ago and never opened still opens the sheet and saves an answer, which counts as having joined. Removing the person is what ends it ("this link doesn't work anymore"). The people tab shows no invitation state: a contributor who has never answered or signed in reads "Hasn't answered yet", a reader shows nothing, and "Resend invite" sends the same link again. | done |
+| B9 | Invite to answer or to read | The invite form on the people tab, and the new-loop wizard's people step, ask how the people take part: "Answer and read" (the default) or "Just read". A reader's membership is created as a reader and their invitation says "Have a look" with nothing to answer, never "Answer the first round"; on the people tab they show as "Reads only" with no "Hasn't answered yet". | done |
 
 ## C · Questions
 
@@ -394,12 +401,11 @@ Status: `todo` (not built) · `done` (built and covered).
 
 | ID | Flow | Acceptance criteria | Status |
 | --- | --- | --- | --- |
-| G1 | Invite as reader | A reader is invited, receives the issue, is never prompted to reply, and their reply link shows the issue without a form. | done |
+| G1 | Invite as reader | A reader is invited (by choosing "Just read" when inviting), receives the issue, is never prompted to reply, and their reply link shows the issue without a form. | done |
 | G2 | Switch participation | Flipping a member between contributor and reader changes whether the next issue prompts them, and never deletes existing replies. | done |
 | G3 | Promote to admin | Promoting a member to admin lets them manage questions and members, while the owner-only actions stay unavailable to them. | done |
 | G4 | Reader cannot reply | A direct POST to the reply endpoint from a reader is rejected with 403 and writes nothing. | done |
-| G5 | Transfer ownership | The owner transfers ownership, becomes an admin+contributor, and the new owner gains owner-only actions while the old owner loses them. | done |
-| G6 | `from_you` mode | In `from_you`, every non-owner is forced to reader on invite and cannot be made a contributor. | done |
+| G5 | Transfer ownership | The owner transfers ownership in one step to anyone who has joined, becomes an admin+contributor, and the new owner gains owner-only actions while the old owner loses them. (Superseded by N3.) | done |
 
 ---
 

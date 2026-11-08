@@ -3,6 +3,7 @@
 import { useId, useRef, useState, useTransition, type FormEvent, type KeyboardEvent } from "react";
 import { useRouter } from "next/navigation";
 import { copy, text } from "@/lib/copy";
+import { InviteParticipation, type Participation } from "@/components/invite-participation";
 import { inviteAction } from "./actions";
 
 const validEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -11,6 +12,8 @@ export function InviteForm({ groupId }: { groupId: string }) {
   const router = useRouter();
   const [emails, setEmails] = useState<string[]>([]);
   const [input, setInput] = useState("");
+  // Most people invited to a loop answer it; "just read" is the deliberate choice.
+  const [participation, setParticipation] = useState<Participation>("contributor");
   const [error, setError] = useState("");
   const [status, setStatus] = useState("");
   const inputId = useId();
@@ -60,6 +63,7 @@ export function InviteForm({ groupId }: { groupId: string }) {
     startTransition(async () => {
       const data = new FormData();
       data.set("groupId", groupId);
+      data.set("participation", participation);
       pendingEmails.forEach((email) => data.append("emails", email));
       let result: Awaited<ReturnType<typeof inviteAction>>;
       try {
@@ -139,6 +143,7 @@ export function InviteForm({ groupId }: { groupId: string }) {
         aria-disabled={pending ? true : undefined}
         className="btn btn-primary flex-none aria-disabled:cursor-not-allowed aria-disabled:opacity-45">{pending ? copy.common.loading : copy.members.sendInvitations}</button>
       </div>
+      <InviteParticipation value={participation} onChange={setParticipation} disabled={pending} className="mt-1.5" />
       <p role="status" className="mt-2 text-[13px] text-ink-soft empty:mt-0">{status}</p>
     </form>
   );

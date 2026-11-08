@@ -55,8 +55,6 @@ export type SheetQuestion = {
 
 type Props = {
   token: string;
-  /** from_you loops have one writer who already owns the questions. */
-  canSuggest: boolean;
   sections: SheetSection[];
   loopName: string;
   loopTimezone: string;
@@ -105,7 +103,6 @@ type AudioStatus = "idle" | "recording" | "uploading" | "saved" | "removing" | "
 
 export function ReplySheet({
   token,
-  canSuggest,
   sections,
   loopName,
   loopTimezone,
@@ -1281,11 +1278,9 @@ export function ReplySheet({
             <button type="button" onClick={editAnswers} className="btn btn-primary mt-6 min-h-12 w-full sm:w-auto sm:px-8">
               {copy.reply.confirmation.edit}
             </button>
-            {canSuggest ? (
-              <p className="m-0 mt-3">
-                <Link href={`/r/${token}/suggest`} className="link">{copy.reply.suggestLink}</Link>
-              </p>
-            ) : null}
+            <p className="m-0 mt-3">
+              <Link href={`/r/${token}/suggest`} className="link">{copy.reply.suggestLink}</Link>
+            </p>
           </section>
         </main>
       ) : null}
@@ -1863,7 +1858,7 @@ export function ReplySheet({
           <ReminderPreference token={token} initial={reminderPreference} />
 
           <p className="m-0 mt-2 flex flex-wrap gap-x-5 border-t border-dashed border-line pt-1">
-            {canSuggest ? <Link href={`/r/${token}/suggest`} className="link">{copy.reply.suggestLink}</Link> : null}
+            <Link href={`/r/${token}/suggest`} className="link">{copy.reply.suggestLink}</Link>
             <Link href="/privacy" className="link link--quiet">{copy.legal.privacyLink}</Link>
             {/* The one link here that can't be undone: last, and in the danger colour. */}
             <Link href={`/r/${token}/leave`} className="link link--danger sm:ml-auto">{copy.reply.leaveLink}</Link>

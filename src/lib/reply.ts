@@ -8,16 +8,12 @@ import { deleteStoredPhoto } from "./photo-storage";
 import { deleteStoredAudio } from "./media-storage.ts";
 import { sectionReplies } from "@/db/schema";
 import { replyHasContentCondition } from "./reply-query";
-import { isReminderPreference } from "./reminders.ts";
+import { storedReminderPreference } from "./reminders.ts";
 import { checkPollChoices } from "./poll";
 import { log } from "./log";
 
-/** How long an unopened invitation stays good. */
-export const INVITE_DAYS = 14;
-
 export type TokenContext =
   | { state: "invalid" }
-  | { state: "expired"; groupName: string }
   | {
       state: "reader";
       groupName: string;
@@ -37,8 +33,6 @@ export type TokenContext =
  * writes, because a GET must never mutate (mail scanners fetch every link).
  */
 export async function resolveToken(token: string): Promise<TokenContext> {
-  const at = await getNow();
-
   const [row] = await db
     .select({ membership: memberships, group: groups })
     .from(memberships)
@@ -48,12 +42,9 @@ export async function resolveToken(token: string): Promise<TokenContext> {
 
   if (!row) return { state: "invalid" };
 
+  // A link works for as long as the person is in the loop: there is no invitation
+  // to accept or let lapse, only a membership, which ends when they are removed.
   const { membership, group } = row;
-
-  const pendingTooLong =
-    !membership.acceptedAt &&
-    membership.invitedAt.getTime() + INVITE_DAYS * 24 * 60 * 60 * 1000 <= at.getTime();
-  if (pendingTooLong) return { state: "expired", groupName: group.name };
 
   if (membership.participation === "reader") {
     return { state: "reader", groupName: group.name, groupId: group.id, membership, group };
@@ -93,12 +84,6 @@ async function ensureWritable(token: string): Promise<Gate> {
 
   if (context.state === "invalid") {
     return { ok: false, result: { ok: false, status: 404, error: copy.reply.errors.invalidLink } };
-  }
-  if (context.state === "expired") {
-    return {
-      ok: false,
-      result: { ok: false, status: 403, error: copy.reply.errors.expired },
-    };
   }
   if (context.state === "reader") {
     return { ok: false, result: { ok: false, status: 403, error: copy.reply.errors.reader } };
@@ -443,9 +428,9 @@ export async function saveNameFor(input: { token: string; name: string }): Promi
 }
 
 /**
- * How many automatic reminders this contributor wants. Per membership: a person in
- * two loops can ask one of them to stay quiet. It only touches the loop's own
- * reminder; the owner's nudge by hand does not look at it.
+ * Turn the loop's automatic reminder on or off for this contributor. Per
+ * membership: a person in two loops can ask one of them to stay quiet. It only
+ * touches the loop's own reminder; the owner's nudge by hand does not look at it.
  */
 export async function saveReminderPreferenceFor(input: {
   token: string;
@@ -453,14 +438,15 @@ export async function saveReminderPreferenceFor(input: {
 }): Promise<PollWriteResult> {
   const gate = await ensureWritable(input.token);
   if (!gate.ok) return gate.result;
-  if (!isReminderPreference(input.preference)) {
+  const preference = storedReminderPreference(input.preference);
+  if (!preference) {
     return { ok: false, status: 400, error: copy.reply.errors.reminderPreference };
   }
 
   const at = await getNow();
   await db
     .update(memberships)
-    .set({ reminderPreference: input.preference })
+    .set({ reminderPreference: preference })
     .where(eq(memberships.id, gate.context.membership.id));
   await markAccepted(gate.context.membership.id, gate.context.membership.acceptedAt, at);
   return { ok: true, savedAt: at.toISOString() };

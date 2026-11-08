@@ -14,8 +14,6 @@ type Props = {
   memberName: string;
   current: Access;
   participation: Participation;
-  /** In `from_you` everyone but the owner reads, so there is no choice to offer. */
-  fixedReader: boolean;
 };
 
 const ACCESS_OPTIONS: PickerOption[] = [
@@ -27,7 +25,7 @@ const PARTICIPATION_OPTIONS: PickerOption[] = [
   { value: "reader", label: copy.members.participation.reader },
 ];
 
-export function MemberRolePicker({ groupId, membershipId, memberName, current, participation: initialParticipation, fixedReader }: Props) {
+export function MemberRolePicker({ groupId, membershipId, memberName, current, participation: initialParticipation }: Props) {
   const router = useRouter();
   const [access, setAccess] = useState<Access>(current);
   const [participation, setParticipation] = useState<Participation>(initialParticipation);
@@ -77,20 +75,18 @@ export function MemberRolePicker({ groupId, membershipId, memberName, current, p
           disabled={pending}
         />
       </div>
-      {fixedReader ? null : (
-        <div className="member-role-picker">
-          <span className="member-role-label">{copy.members.participationLabel}</span>
-          <Picker
-            name="participation"
-            defaultValue={participation}
-            value={participation}
-            options={PARTICIPATION_OPTIONS}
-            ariaLabel={text(copy.members.participation.ariaLabel, { name: memberName })}
-            onValueChange={(next) => save("participation", next)}
-            disabled={pending}
-          />
-        </div>
-      )}
+      <div className="member-role-picker">
+        <span className="member-role-label">{copy.members.participationLabel}</span>
+        <Picker
+          name="participation"
+          defaultValue={participation}
+          value={participation}
+          options={PARTICIPATION_OPTIONS}
+          ariaLabel={text(copy.members.participation.ariaLabel, { name: memberName })}
+          onValueChange={(next) => save("participation", next)}
+          disabled={pending}
+        />
+      </div>
       {/* Both regions stay mounted so a change of text is announced; a node that appears with its text often is not. */}
       <div className="member-role-status leading-snug">
         <span role="status" aria-live="polite" className={pending || (message && !failed) ? "text-[13px] text-ink-muted" : undefined}>

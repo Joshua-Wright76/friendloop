@@ -8,7 +8,7 @@ test.beforeEach(async () => {
   await resetDatabase();
 });
 
-test("B1 · creating a group loop saves its cadence and makes you its owner", async ({ page }) => {
+test("B1 · creating a loop saves its cadence and makes you its owner", async ({ page }) => {
   const email = uniqueEmail("owner");
   await signIn(page, email);
 
@@ -45,11 +45,11 @@ test("B1 · creating a group loop saves its cadence and makes you its owner", as
   await expect(page.getByRole("heading", { name: "The Sunday Loop" })).toBeVisible();
   await expect(page.getByText(/Loop created/)).toBeVisible();
 
-  const group = await rows<{ mode: string; cadence_weeks: number }>(
-    "select mode, cadence_weeks from groups where name = $1",
+  const group = await rows<{ cadence_weeks: number }>(
+    "select cadence_weeks from groups where name = $1",
     ["The Sunday Loop"],
   );
-  expect(group).toEqual([{ mode: "group", cadence_weeks: 13 }]);
+  expect(group).toEqual([{ cadence_weeks: 13 }]);
 
   const owners = await rows<{ access: string; participation: string }>(
     `select m.access, m.participation from memberships m

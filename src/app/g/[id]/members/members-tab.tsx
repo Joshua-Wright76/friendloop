@@ -27,7 +27,6 @@ export default function MembersTab({ notices }: {
     <main className="loop-page mx-auto w-full max-w-[680px] px-4 pb-16 pt-5 sm:px-6 lg:max-w-[1040px]">
       <LoopNav id={id} name={group.name} access={membership.access} active="People">
         <h1>{copy.members.title}</h1>
-        {group.mode === "from_you" ? <p className="mt-1 text-[14px] leading-relaxed text-ink-soft">{copy.members.fromYouDescription}</p> : null}
         {/* Inviting is the owner's most common job here: one line, right under the title. */}
         {manages ? <InviteForm groupId={id} /> : null}
       </LoopNav>
@@ -43,7 +42,7 @@ export default function MembersTab({ notices }: {
       {manages && people.length === 1 ? (
         <div className="card mt-5 p-5">
           <h2 className="text-[18px] font-bold text-ink">{copy.members.firstPersonTitle}</h2>
-          <p className="mt-1 text-[14px] leading-relaxed text-ink-soft">{group.mode === "from_you" ? copy.members.firstPersonBodyFromYou : copy.members.firstPersonBody}</p>
+          <p className="mt-1 text-[14px] leading-relaxed text-ink-soft">{copy.members.firstPersonBody}</p>
         </div>
       ) : null}
 
@@ -74,7 +73,6 @@ export default function MembersTab({ notices }: {
                     memberName={person.name ?? person.email}
                     current={person.access}
                     participation={person.participation}
-                    fixedReader={group.mode === "from_you"}
                   />
                   </>
                 ) : (
@@ -119,7 +117,8 @@ export default function MembersTab({ notices }: {
                 </div>
               ) : null}
 
-              {isOwner && person.access === "admin" && person.acceptedAt ? (
+              {/* Anyone who has joined (answered or signed in) can take the loop over, in one step. */}
+              {isOwner && person.access !== "owner" && person.acceptedAt ? (
                 <div className="mt-3 flex justify-end">
                   <TransferControl
                     groupId={id}
@@ -134,9 +133,10 @@ export default function MembersTab({ notices }: {
                 <ChangeMemberEmail groupId={id} membershipId={person.id} name={person.name ?? person.email} />
               ) : null}
 
-              {!person.acceptedAt ? (
+              {/* Their link always works; the only thing worth saying is that a contributor hasn't written yet. A reader has nothing to do. */}
+              {!person.acceptedAt && (manages || person.participation === "contributor") ? (
                 <div className="mt-2 flex flex-wrap items-center gap-2 text-[13px] text-ink-soft">
-                  <span>{copy.members.invitePending}</span>
+                  {person.participation === "contributor" ? <span>{copy.members.invitePending}</span> : null}
                   {manages ? (
                     <SafeForm action={resendAction}>
                       <input type="hidden" name="groupId" value={id} />

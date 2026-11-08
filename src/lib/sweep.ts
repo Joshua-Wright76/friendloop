@@ -4,7 +4,7 @@ import { groups, issueQuestions, issues, memberships, replies, users } from "@/d
 import { flushOutbox, sendEmail } from "./email/send";
 import { mailDeadline } from "./notify";
 import { emailThemeOf, reminderEmail } from "./email/templates";
-import { REMINDER_LEADS_MS, wantsReminder } from "./reminders";
+import { REMINDER_LEAD_MS, remindersOn } from "./reminders";
 import { replyUrl, unsubscribeUrl } from "./urls";
 import { purgeQueuedMedia } from "./media-cleanup.ts";
 import { pruneRateLimits } from "./rate-limit";
@@ -118,7 +118,7 @@ async function deliverDueIssues(at: Date): Promise<{ delivered: number; carried:
 }
 
 async function remindStragglers(at: Date): Promise<number> {
-  const lead = REMINDER_LEADS_MS[0];
+  const lead = REMINDER_LEAD_MS;
   const window = await db
     .select({ issue: issues })
     .from(issues)
@@ -175,9 +175,8 @@ async function remindStragglers(at: Date): Promise<number> {
 
     for (const member of pending) {
       if (done.has(member.id) || questionCount === 0) continue;
-      // The loop sends one reminder, so it is both the first and the last. Only
-      // the contributor's own "none" holds it back — the owner's nudge never asks.
-      if (!wantsReminder(member.reminderPreference, 0, REMINDER_LEADS_MS.length)) continue;
+      // Only the contributor's own switch holds it back; the owner's nudge never asks.
+      if (!remindersOn(member.reminderPreference)) continue;
       const rendered = reminderEmail({
         groupName: group.name,
         memberName: member.name ?? member.email.split("@")[0],
