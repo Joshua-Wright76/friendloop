@@ -71,7 +71,7 @@ type Row = {
 
 /**
  * Every photo and voice note a delivered issue carries, one row each. Only
- * submitted answers of delivered issues; admin-only sections stay with the
+ * answers that went out with delivered issues; admin-only sections stay with the
  * admins who can already read them in the issue itself.
  */
 function everything(groupId: string, viewerIsAdmin: boolean): SQL {
@@ -86,7 +86,7 @@ function everything(groupId: string, viewerIsAdmin: boolean): SQL {
     join issues i on i.id = r.issue_id
     join issue_questions q on q.id = r.issue_question_id
     join memberships m on m.id = r.membership_id
-    where i.group_id = ${groupId} and i.status = 'delivered' and r.status = 'submitted' and r.photo_url is not null
+    where i.group_id = ${groupId} and i.status = 'delivered' and not r.never_sent and r.photo_url is not null
     union all
     select 'voice', 'voice-' || r.id::text, r.audio_url,
       r.audio_duration_ms, null::text, r.body, q.text,
@@ -98,7 +98,7 @@ function everything(groupId: string, viewerIsAdmin: boolean): SQL {
     join issues i on i.id = r.issue_id
     join issue_questions q on q.id = r.issue_question_id
     join memberships m on m.id = r.membership_id
-    where i.group_id = ${groupId} and i.status = 'delivered' and r.status = 'submitted' and r.audio_url is not null
+    where i.group_id = ${groupId} and i.status = 'delivered' and not r.never_sent and r.audio_url is not null
     union all
     select 'photo', 'media-' || sm.id::text, sm.url,
       null::integer, sm.caption, sr.body, s.title,
@@ -111,7 +111,7 @@ function everything(groupId: string, viewerIsAdmin: boolean): SQL {
     join issue_sections s on s.id = sr.issue_section_id
     join issues i on i.id = sr.issue_id
     join memberships m on m.id = sr.membership_id
-    where i.group_id = ${groupId} and i.status = 'delivered' and sr.status = 'submitted'
+    where i.group_id = ${groupId} and i.status = 'delivered' and not sr.never_sent
       and (s.admin_only = false or ${viewerIsAdmin})
   `;
 }

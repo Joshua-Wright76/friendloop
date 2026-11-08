@@ -1,5 +1,6 @@
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
+import { replyHasContentCondition, sectionReplyHasContentCondition } from "./reply-query";
 import { issueQuestions, issueSections, issues, replies, sectionReplies } from "@/db/schema";
 
 export { parseMemberFilter } from "./member-filter.ts";
@@ -36,9 +37,7 @@ export async function deliveredRoundsAnsweredByEveryone(input: {
       .where(
         and(
           delivered,
-          eq(replies.status, "submitted"),
-          // A poll pick cleared after sending is not an answer.
-          sql`(${issueQuestions.kind} <> 'poll' or jsonb_array_length(${replies.pollChoices}) > 0)`,
+          replyHasContentCondition(),
         ),
       ),
     db
@@ -46,7 +45,7 @@ export async function deliveredRoundsAnsweredByEveryone(input: {
       .from(sectionReplies)
       .innerJoin(issues, eq(issues.id, sectionReplies.issueId))
       .innerJoin(issueSections, eq(issueSections.id, sectionReplies.issueSectionId))
-      .where(and(delivered, eq(sectionReplies.status, "submitted"))),
+      .where(and(delivered, sectionReplyHasContentCondition())),
   ]);
 
   const byMember = new Map<string, Set<string>>();

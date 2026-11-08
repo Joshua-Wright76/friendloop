@@ -1150,7 +1150,6 @@ html[data-theme="dark"] .album-viewer::before { opacity: .6; }
 .answer-actions > .link { flex: none; margin-left: auto; }
 @media (max-width: 420px) { .reaction-chip { min-width: 44px; padding: 0 6px; } .reaction-chip--add { min-width: 44px; } }
 .display-digits { font-family: var(--font-body); font-weight: 800; font-size: .86em; letter-spacing: 0; font-variant-numeric: tabular-nums; }
-.question-status__unsent { display: inline-flex; align-items: center; padding: 2px 9px; border: 1.5px dashed var(--accent-line); border-radius: 999px; background: var(--card); color: var(--ink); font-size: 12.5px; }
 .attach-toggle { display: none; }
 @media (max-width: 639px) {
   .attach-row[data-folded] { display: none; }

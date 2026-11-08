@@ -932,23 +932,19 @@
     "nameError": "Your name wasn't saved.",
     "round": "Round {number}",
     "closes": "Goes out {deadline}",
+    "goesOutNote": "Everything you write here goes out then, finished or not. Clear an answer to leave it out.",
     "viewerTimezone": "your time ({time})",
-    "sent": "Sent. You can still change anything until it goes out.",
-    "wentOut": "Went out {date}. You can still add or change answers.",
-    "sentLate": "Sent. This round has gone out, so changes show as added late.",
     "confirmation": {
-      "sentTitle": "Sent",
-      "updatedTitle": "Changes saved",
-      "body": "Your answers are in for {round}.",
-      "delivery": "It goes out {deadline}. Until then, you can change anything.",
-      "deliveryLate": "This round has already gone out, so your changes show as added late.",
-      "edit": "Edit my answers",
-      "allSetTitle": "All set"
+      "title": "All set",
+      "body": "Everything you wrote for {round} goes out {deadline}.",
+      "change": "Until then you can change anything. Clear an answer to leave it out.",
+      "skipNote": " Questions you leave blank are simply skipped.",
+      "edit": "Back to my answers"
     },
     "placeholder": "Write a little or a lot",
     "saving": "Saving…",
     "saved": "Saved",
-    "draftSaved": "Draft saved",
+    "savedInRound": "Saved. It goes out with the round.",
     "retry": "Retry",
     "addPhoto": "Add a photo",
     "replacePhoto": "Replace photo",
@@ -968,12 +964,9 @@
     },
     "notSaved": "Not saved. Check your connection.",
     "privacy": "{displayName}, only the people in {loopName} will read this.",
-    "sentState": "Sent",
     "answered": "{answered} of {total} answered",
-    "sending": "Sending…",
-    "saveChanges": "Send new answers",
-    "sendAnswers": "Send answers",
-    "nothingToSend": "Write one answer to send. The rest can wait.",
+    "finishing": "Saving…",
+    "nothingWritten": "Nothing written yet. Write one answer and it goes out with the round. The rest can wait.",
     "genericError": "That didn't send. Check your connection and try again.",
     "errors": {
       "json": "Expected a JSON body.",
@@ -1092,14 +1085,11 @@
     "attachReplaceVoice": "New voice note",
     "attachRemoveVoice": "Remove voice note",
     "savedAsYouGo": "Saved as you go",
-    "liveEdits": "Edits to sent answers save as you go",
     "done": "Done",
-    "sendNew": "Send new answers",
     "attentionNeeded": "One music link isn't saved yet.",
     "pickNotSaved": "One music pick didn't save, so it won't go out. You can add it back any time before the round closes.",
     "guardQuestion": "One music link isn't saved.",
     "guardFix": "Fix the link",
-    "guardSend": "Send without it",
     "guardDone": "Finish without it",
     "extraNotSaved": "One extra isn't saved yet. It's safe on this device.",
     "retryExtra": "Try again",
@@ -1112,13 +1102,6 @@
     "jumpAnswered": "answered",
     "jumpOpen": "not answered yet",
     "sectionAddPhotoTo": "Add a photo to {section}",
-    "newUnsent": "New answers are saved here. Send them to add them to the round.",
-    "sentWithNew": "Sent, and you've written more since. Your new answers are saved here: send them to add them to the round.",
-    "sentSkipNote": " Any question you leave blank is simply skipped.",
-    "newUnsentOne": "1 new answer not sent yet",
-    "newUnsentCount": "{count} new answers not sent yet",
-    "sentWithNewShort": "Sent. Your newer answers are saved here until you send them too.",
-    "questionNotSent": "Not sent yet",
     "addAttachment": "Add a photo or sound",
     "pausedTitle": "Paused for now",
     "pausedBody": "{groupName} is paused, so it isn't taking answers right now. Your link will work again as soon as it's resumed."
@@ -1625,7 +1608,7 @@
     "previewHeading": "Round 12",
     "previewAnswerName": "Maya",
     "previewAnswer": "The best thing I ate all week was a peach.",
-    "previewButton": "Send answers",
+    "previewButton": "Done",
     "save": "Save stationery",
     "saved": "Stationery saved. Everyone sees it on their next visit.",
     "savedAdjusted": "Stationery saved. We nudged the accent a little so it stays easy to read.",
@@ -1818,7 +1801,6 @@
     "moveSectionDown": "Move section down: {title}",
     "withQuestion": "{label}: {question}",
     "forQuestionNumber": "{label}, question {n}",
-    "sendBar": "Send your answers",
     "archiveSection": "Archive {title}",
     "removeMemberQuestion": "Remove {name} from the loop?",
     "removeMemberBody": "They stop getting rounds. Their past answers stay in the issues they were part of.",
@@ -1838,11 +1820,11 @@
     "removeEventBody": "The event is deleted for good and can't be brought back.",
     "removeEventConfirm": "Yes, remove {title}",
     "confirmCancel": "Not yet",
-    "photoFrom": "Photo from {name}"
+    "photoFrom": "Photo from {name}",
+    "answerBar": "Your answers"
   },
   "a11yStatus": {
     "recordingStarted": "Recording started.",
-    "sentAnnouncement": "Your answers were sent.",
     "suggestionSent": "Your idea was passed along.",
     "linkCopied": "Link copied.",
     "feedbackSent": "Your feedback was sent.",
@@ -1854,7 +1836,8 @@
     "commentPosted": "Comment posted.",
     "questionMoved": "Moved \"{question}\" to position {position} of {total}.",
     "pickerResultsOne": "1 option available.",
-    "pickerResultsMany": "{count} options available."
+    "pickerResultsMany": "{count} options available.",
+    "doneAnnouncement": "All set. Your answers go out with the round."
   },
   "pageTitles": {
     "signIn": "Sign in",
@@ -1952,7 +1935,7 @@
     "contactBody": "Write to",
     "export": {
       "personalNote": "Everything you wrote on Friendloop, as of exportedAt. Photos and voice notes are links; they keep working until you delete your account or leave the loop, or the loop is deleted, so save any you want to keep first.",
-      "loopNote": "The whole loop as of exportedAt: every round with its questions, sent answers, sections, comments, and reactions. Photos and voice notes are links; they stop working once the loop or the person who added them is deleted, so save any you want to keep first. Drafts nobody has sent are not included."
+      "loopNote": "The whole loop as of exportedAt: every round with its questions, answers, sections, comments, and reactions, and the open round as it stands. Photos and voice notes are links; they stop working once the loop or the person who added them is deleted, so save any you want to keep first. Drafts a past round went out without are not included."
     },
     "privacy": {
       "metadataTitle": "Privacy",
@@ -1965,7 +1948,7 @@
           "items": [
             "Your email address, and the name you give. If you sign in, the timezone your browser reports, so deadlines read in your own clock.",
             "For each loop you are in: your name there, your profile photo if you add one, your role, your reminder choice, and the private link that lets you answer without an account.",
-            "Everything you write: answers (saved as drafts while you type, and shared once you send them), poll picks, photos, voice notes, section answers and music links, comments, reactions, and questions you suggest.",
+            "Everything you write: answers (saved as you type, and part of the round as soon as they save), poll picks, photos, voice notes, section answers and music links, comments, reactions, and questions you suggest.",
             "Birthdays and dates the loop's owner adds to its calendar.",
             "A copy of every email we send, and delivery notices from our email provider (sent, bounced, and so on), so a failed send can be retried and never doubled.",
             "Notes you send with the feedback button, with the page you were on, your screen size, and your browser.",
@@ -1975,7 +1958,7 @@
         {
           "heading": "Who can see it",
           "paragraphs": [
-            "The people in your loop see the answers you send, your name and photo, your comments and reactions, once the round is delivered. The owner and admins also see members' email addresses and who has answered so far. Drafts are visible to nobody but you.",
+            "The people in your loop see the answers you write, your name and photo, your comments and reactions. An answer is part of the round as soon as it saves: the loop's members can read the round while it is open, and everyone gets it when it goes out. Clear an answer before then to take it out. The owner and admins also see members' email addresses and who has answered so far.",
             "If you reply to a loop's email, your reply goes straight to the loop's owner, since their address is set as the reply-to. So members can see the owner's address when they reply.",
             "If the loop's owner turns on share links, anyone holding a round's share link can read that round. They are off unless the owner turns them on, and the owner can replace them at any time.",
             "Photos and voice notes are stored at long, unguessable web addresses. Anyone given one of those addresses can open that file."

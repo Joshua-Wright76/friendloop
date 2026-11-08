@@ -11,8 +11,8 @@ import {
   saveDraftFor,
   saveNameFor,
   savePhotoFor,
+  confirmFor,
   sheetFor,
-  submitFor,
 } from "../../src/lib/reply.ts";
 import { storePhoto } from "../../src/lib/photo-storage.ts";
 import { resetDatabase, rows, seedLoop, seedOpenIssue, setupDatabase } from "../support/app.ts";
@@ -103,7 +103,8 @@ test("drafts save, update in place, and are capped", async () => {
   const saved = await rows<{ body: string; status: string; updated_at: Date }>("select body, status, updated_at from replies");
   assert.equal(saved.length, 1, "one row per answer");
   assert.equal(saved[0].body, "replaced");
-  assert.equal(saved[0].status, "draft");
+  // Nothing reads it, but code from before answers saved straight in still might.
+  assert.equal(saved[0].status, "submitted");
 
   const long = "x".repeat(9000);
   await saveDraftFor({ token: alice.token, issueQuestionId: question.id, body: long });
@@ -132,33 +133,51 @@ test("a draft for a question in another round is refused", async () => {
   assert.equal(writes[0].count, 0);
 });
 
-test("submitting marks answers with content and leaves empty ones alone", async () => {
-  const { alice, question, second } = await openLoop();
-  await saveDraftFor({ token: alice.token, issueQuestionId: question.id, body: "A real answer" });
-  await saveDraftFor({ token: alice.token, issueQuestionId: second.id, body: "" });
+test("a delivered round takes no more answers: the link reaches only the open round", async () => {
+  const { alice, question, issue } = await openLoop();
+  await rows("update issues set status = 'delivered', delivered_at = $1 where id = $2", [
+    DELIVERY_DAY.toISOString(),
+    issue.issueId,
+  ]);
 
-  const result = await submitFor(alice.token);
-  assert.equal(result.ok, true);
+  const context = await resolveToken(alice.token);
+  assert.equal(context.state === "ok" && context.issue, null);
 
-  const replies = await rows<{ body: string; status: string; submitted_at: Date | null }>(
-    "select body, status, submitted_at from replies order by body",
-  );
-  assert.equal(replies.length, 2);
-  assert.equal(replies[1].status, "submitted");
-  assert.ok(replies[1].submitted_at);
-  assert.equal(replies[0].status, "draft", "an empty answer is not a submission");
+  const text = await saveDraftFor({ token: alice.token, issueQuestionId: question.id, body: "Too late" });
+  assert.equal(text.ok, false);
+  if (!text.ok) assert.equal(text.status, 409);
+  const photo = await savePhotoFor({ token: alice.token, issueQuestionId: question.id, photoUrl: await storePhoto(JPEG, JPEG_FORMAT) });
+  assert.equal(photo.ok, false);
+  assert.equal((await rows<{ count: number }>("select count(*)::int as count from replies"))[0].count, 0);
 });
 
-test("a photo-only answer counts as content", async () => {
+test("the old Send button only checks the link: answers are already in", async () => {
+  const { alice, question, loop } = await openLoop();
+  await rows("update memberships set accepted_at = null where id = $1", [alice.id]);
+  await saveDraftFor({ token: alice.token, issueQuestionId: question.id, body: "Already in" });
+  const before = await rows("select body, status, submitted_at, updated_at from replies");
+
+  assert.equal((await confirmFor(alice.token)).ok, true);
+  assert.deepEqual(await rows("select body, status, submitted_at, updated_at from replies"), before, "nothing changed");
+
+  const reader = loop.members.find((member) => member.email.startsWith("bob"))!;
+  await rows("update memberships set participation = 'reader' where id = $1", [reader.id]);
+  const refused = await confirmFor(reader.token);
+  assert.equal(refused.ok, false);
+  if (!refused.ok) assert.equal(refused.status, 403);
+
+  await rows("update issues set status = 'delivered'");
+  const closed = await confirmFor(alice.token);
+  assert.equal(closed.ok, false);
+  if (!closed.ok) assert.equal(closed.status, 409);
+});
+
+test("the first save accepts the invitation", async () => {
   const { alice, question } = await openLoop();
-  const photoUrl = "http://localhost:3100/uploads/" + "a".repeat(64) + ".jpg";
-
-  const saved = await savePhotoFor({ token: alice.token, issueQuestionId: question.id, photoUrl });
-  assert.equal(saved.ok, true);
-
-  await submitFor(alice.token);
-  const [reply] = await rows<{ status: string }>("select status from replies");
-  assert.equal(reply.status, "submitted");
+  await rows("update memberships set accepted_at = null where id = $1", [alice.id]);
+  await saveDraftFor({ token: alice.token, issueQuestionId: question.id, body: "Hello" });
+  const [membership] = await rows<{ accepted_at: Date | null }>("select accepted_at from memberships where id = $1", [alice.id]);
+  assert.ok(membership.accepted_at);
 });
 
 test("saving a photo replaces the old one and deletes the file nobody points at", async () => {
@@ -191,21 +210,6 @@ test("a photo URL already used by somebody else is refused", async () => {
     photoUrl,
   ]);
   assert.equal(owners[0].count, 1);
-});
-
-test("a photo saved after delivery is marked as a later addition", async () => {
-  const { alice, question, issue } = await openLoop();
-  await rows("update issues set status = 'delivered', delivered_at = $1 where id = $2", [
-    DELIVERY_DAY.toISOString(),
-    issue.issueId,
-  ]);
-
-  const photoUrl = await storePhoto(JPEG, JPEG_FORMAT);
-  const saved = await savePhotoFor({ token: alice.token, issueQuestionId: question.id, photoUrl });
-  assert.equal(saved.ok, true);
-
-  const [reply] = await rows<{ added_after_delivery: boolean }>("select added_after_delivery from replies");
-  assert.equal(reply.added_after_delivery, true);
 });
 
 test("removing a photo keeps the text and deletes the file", async () => {
@@ -345,30 +349,27 @@ test("the write gates refuse readers, expired invites, and unknown links", async
   assert.ok(loop.groupId);
 });
 
-test("the sheet carries the person's own answers and submitted state", async () => {
+test("the sheet carries the person's own answers", async () => {
   const { alice, question } = await openLoop();
   await saveDraftFor({ token: alice.token, issueQuestionId: question.id, body: "Mine" });
-  await submitFor(alice.token);
 
   const sheet = await sheetFor(alice.token);
   assert.ok(sheet);
   assert.equal(sheet.questions.length, 2);
   assert.equal(sheet.questions[0].body, "Mine");
-  assert.equal(sheet.questions[0].submitted, true);
   assert.equal(sheet.questions[1].body, "");
-  assert.equal(sheet.questions[1].submitted, false);
 
   assert.equal(await sheetFor("never-issued"), null);
 });
 
-test("a reply write after the deadline is marked as coming later", async () => {
+test("a write between the deadline and the sweep still goes out with the round, not late", async () => {
   const { alice, question } = await openLoop();
   setRequestHeaders({ "x-e2e-now": new Date(DELIVERY_DAY.getTime() + 60_000).toISOString() });
 
-  await saveDraftFor({ token: alice.token, issueQuestionId: question.id, body: "Late" });
+  await saveDraftFor({ token: alice.token, issueQuestionId: question.id, body: "Just in time" });
 
   const [reply] = await rows<{ added_after_delivery: boolean }>("select added_after_delivery from replies");
-  assert.equal(reply.added_after_delivery, true);
+  assert.equal(reply.added_after_delivery, false);
 });
 
 test("a photo write needs an open round, not just a valid token", async () => {

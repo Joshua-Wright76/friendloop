@@ -332,11 +332,12 @@ Flow coverage is not a vibe: `specs/flows.md` lists every user-visible flow, eac
 3. 48 hours before delivery, anyone who hasn't answered gets one reminder — unless
    they've turned reminders off on their answer page. The owner's nudge by hand
    ignores that choice.
-4. At the delivery instant the sweep compiles submitted replies, emails the issue,
-   and marks it `delivered`. Nothing submitted → the round is skipped and the loop
-   pauses rather than sending an empty email.
-5. The web issue is canonical: replies stay editable after delivery, and comments
-   and reactions live there.
+4. At the delivery instant the sweep compiles every saved, non-empty answer (there
+   is no send step), emails the issue, and marks it `delivered`. Nothing written →
+   the round carries over to the next delivery, and the third empty one is skipped
+   and pauses the loop rather than sending an empty email.
+5. The web issue is canonical: comments and reactions live there. The reply link
+   moves on to the next round, so a delivered round takes no more answers.
 
 ## Monitoring
 

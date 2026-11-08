@@ -24,7 +24,6 @@ test("L2 · a contributor taps to answer, changes their mind, and never sees a p
     data: { action: "pollChoice", issueQuestionId: campId, choices: [0] },
   });
   expect(bobVote.status()).toBe(200);
-  expect((await request.post(`/api/reply/${bob.token}`, { data: { action: "submit" } })).status()).toBe(200);
 
   await page.goto(`/r/${alice.token}`);
   await waitForSheet(page);
@@ -67,14 +66,14 @@ test("L2 · a contributor taps to answer, changes their mind, and never sees a p
   await expect(page.getByText("Results", { exact: true })).toHaveCount(0);
 
   await expect(page.getByText("2 of 3 answered").first()).toBeVisible();
-  await page.getByRole("button", { name: "Send answers" }).click();
-  await expect(page.getByRole("heading", { name: "Sent", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Done", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "All set", exact: true })).toBeVisible();
 
-  const [row] = await rows<{ poll_choices: number[]; status: string }>(
-    "select poll_choices, status from replies where issue_question_id = $1 and membership_id = $2",
+  const [row] = await rows<{ poll_choices: number[] }>(
+    "select poll_choices from replies where issue_question_id = $1 and membership_id = $2",
     [campId, alice.id],
   );
-  expect(row).toEqual({ poll_choices: [1], status: "submitted" });
+  expect(row).toEqual({ poll_choices: [1] });
 
   // Before delivery the web issue hands out no tally, and no one else's pick.
   await page.goto(`/i/${issueId}?m=${alice.token}`);

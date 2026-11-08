@@ -219,15 +219,19 @@ is a POST (server action or route handler) behind a confirm.
 
 ## 5 · Email is a snapshot, the permalink is canonical
 
-Delivery compiles the submitted replies into (a) an email and (b) a live page;
-comments and reactions live on the page. The reply link always points at the round
-that is open, so once an issue goes out, the link moves on to the next one. (Late
-replies to a delivered issue, marked "added later", remain for loops whose next
-round never opened.) The "missed it by three hours" failure mode is removed by
-there always being a round to answer, not by timezone cleverness.
+Delivery compiles every answer in the round into (a) an email and (b) a live page;
+comments and reactions live on the page. An answer is whatever someone has saved
+that isn't empty (§24): there is no send step, so a person who writes and closes the
+tab is in. The reply link only ever reaches the round that is open, so once an issue
+goes out the link moves on to the next one, and a delivered round takes no more
+writes (a paused loop's link reaches none). Answers marked "added later"
+(`added_after_delivery`) are history from before that rule and are still shown;
+nothing writes the flag any more. The "missed it by three hours" failure mode is
+removed by there always being a round to answer, not by timezone cleverness.
 
-An issue with zero submitted replies is carried over to the next delivery; on its
-third empty delivery it is `skipped`, not sent, and pauses the loop.
+An issue with no answers in it (nothing written, or only answers cleared back to
+nothing) is carried over to the next delivery; on its third empty delivery it is
+`skipped`, not sent, and pauses the loop.
 
 ## 6 · Release safety
 
@@ -280,11 +284,15 @@ available to Playwright without a second data path.
 
 ## 9 · Writes go through one POST, not a Server Action
 
-`POST /api/reply/<token>` handles both autosave and submit. A Server Action would
+`POST /api/reply/<token>` handles every save, and a save is all it takes for an
+answer to be in the round (§24). The old `submit` action is still accepted from a
+sheet loaded before that, checks the link and changes nothing. A Server Action would
 work, but a reader or an expired invitation has to be refused with a real HTTP
 status, and a status is the only thing a test can assert on directly. The same rule
-covers the issue view: comments and reactions are Server Actions because they are
-only ever reachable from a page that already resolved who you are.
+covers the issue view: reactions are Server Actions because they are only ever
+reachable from a page that already resolved who you are. Comments are a route
+handler (`POST /api/issue/<id>/comments`, multipart) for the same reason replies
+are: they carry a photo, and a refusal should be a real status. See §15.
 
 ## 10 · Management is two roles, one page each
 
@@ -362,12 +370,12 @@ Status: `todo` (not built) · `done` (built and covered).
 | D1 | Always a round open | A running loop without an open issue gets one at once from the sweep, due at the next delivery, with one `prompt` outbox row per contributor; creating a loop opens round 1 the same way. | done |
 | D2 | Do not open twice | A second sweep, or two at once, opens no second round and sends no duplicate email. | done |
 | D3 | Send now | "Send now" delivers the open round with the answers in so far, opens the next round straight away, and that round is due at the delivery after the one it replaced. With nothing in the round it sends nothing. | done |
-| D4 | Draft autosaves | Typing an answer persists it as a draft; reloading the reply page restores every draft. | done |
-| D5 | Submit answers | Submitting marks replies submitted with a timestamp, the bar shows "sent", and the owner's progress count increases. | done |
-| D6 | Edit a submitted answer | Before delivery, editing and re-submitting updates the reply and its timestamp without creating a duplicate row. | done |
-| D7 | Deliver the issue | With the clock past the delivery instant, the sweep sends one issue email per member containing every submitted answer, the issue's status becomes `delivered`, and the next round opens with its questions in each contributor's email. | done |
-| D8 | Nothing to deliver | An issue reaching its delivery instant with zero submitted replies sends no email and is carried over to the next delivery; on its third empty delivery it is marked `skipped` and pauses the loop with an explanation to the owner. | done |
-| D9 | Nudge the stragglers | 48 hours before delivery, contributors with nothing submitted get exactly one reminder; anyone who submitted gets none, and a second sweep sends no duplicate. | done |
+| D4 | Answers save as you go | Typing an answer saves it straight into the round; there is no send step. The sheet says, beside the deadline, that everything written goes out then, finished or not, and that clearing an answer leaves it out; reloading the reply page restores every answer. | done |
+| D5 | Done | Done waits for the last words typed to save, then replaces the sheet with a confirmation (focus on its heading) that names the round, says everything written goes out at the delivery time and that clearing an answer leaves it out, and offers "Back to my answers", which brings the sheet back with every answer intact. Done with nothing written points at the first question instead. The owner's progress count includes someone as soon as an answer of theirs saves, without Done. | done |
+| D6 | Change or clear an answer | Before delivery, changing an answer updates its row in place without creating a duplicate; clearing it back to nothing takes it out of the round, the issue page and the progress count. | done |
+| D7 | Deliver the issue | With the clock past the delivery instant, the sweep sends one issue email per member containing every saved, non-empty answer, the issue's status becomes `delivered`, and the next round opens with its questions in each contributor's email. | done |
+| D8 | Nothing to deliver | An issue reaching its delivery instant with nothing written in it (or only answers cleared back to nothing) sends no email and is carried over to the next delivery; on its third empty delivery it is marked `skipped` and pauses the loop with an explanation to the owner. | done |
+| D9 | Nudge the stragglers | 48 hours before delivery, contributors with nothing written get exactly one reminder; anyone with a saved answer (a question or a section) gets none, and a second sweep sends no duplicate. | done |
 
 ## E · Reading and reacting
 
@@ -429,7 +437,7 @@ and invisible at 11pm.
 | `--field` | the writing area inside a card | page background |
 | `--ink` / `--ink-soft` / `--ink-muted` | body, secondary, metadata on cards | text on accent fills |
 | `--accent` | the one action that matters on the screen | anything decorative |
-| `--accent-soft` / `--accent-line` | the "sent" confirmation, selection tints | primary buttons |
+| `--accent-soft` / `--accent-line` | the "all set" confirmation, selection tints | primary buttons |
 | `--danger` / `--success` | errors, confirmations | anything else |
 
 Exactly one accent per screen. If two things on a screen are blue, one of them is
@@ -460,15 +468,15 @@ wrong — the only exception is the focus ring, which is the same blue because f
 Two moves, both short:
 
 - Cards ride in 6px over 320ms on first paint, staggered only by document order.
-- The sent banner settles from 96% scale over 220ms.
+- The "all set" stamp settles from 96% scale over 220ms.
 
 Nothing bounces, nothing loops, and `prefers-reduced-motion` removes both.
 
 ## Copy
 
-Plain, second person, no exclamation marks. Buttons name their outcome ("Send
-answers", "Save changes"), errors name the recovery, and the confirmation says what
-happens next ("Sent. You can change these until Friday 9:00 AM."). Time is stated in
+Plain, second person, no exclamation marks. Buttons name their outcome ("Done",
+"Save changes"), errors name the recovery, and the confirmation says what
+happens next ("Everything you wrote for Round 4 goes out Friday 9:00 AM."). Time is stated in
 the loop's zone with the reader's own zone in parentheses when they differ.
 
 ## Email

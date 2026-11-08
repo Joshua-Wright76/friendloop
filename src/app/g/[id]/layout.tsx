@@ -1,10 +1,12 @@
 import { Suspense, type ReactNode } from "react";
 import type { Metadata } from "next";
-import { and, asc, countDistinct, desc, eq, isNull, like } from "drizzle-orm";
+import { and, asc, desc, eq, isNull, like } from "drizzle-orm";
 import { notFound, redirect } from "next/navigation";
 import { connection } from "next/server";
 import { db } from "@/db";
-import { groups, issues, memberships, outbox, questions, replies } from "@/db/schema";
+import { groups, issues, memberships, outbox, questions } from "@/db/schema";
+import { answeredCountSql } from "@/lib/reply-query";
+import { answeredMemberIds } from "@/lib/answered";
 import { pendingSuggestions } from "@/lib/suggestions";
 import { sectionsOf } from "@/lib/sections";
 import { eventsOf } from "@/lib/events";
@@ -116,14 +118,10 @@ async function LoadedGroupLayout({ children, params }: Props) {
       .from(issues)
       .where(eq(issues.groupId, group.id))
       .orderBy(desc(issues.number)),
-    // People who sent answers, per round. A separate grouped query: a correlated
-    // subquery in a single-table select renders unqualified columns, which then
-    // resolve against `replies` itself and always counted zero.
-    db.select({ issueId: replies.issueId, people: countDistinct(replies.membershipId) })
-      .from(replies)
-      .innerJoin(issues, eq(issues.id, replies.issueId))
-      .where(and(eq(issues.groupId, group.id), eq(replies.status, "submitted")))
-      .groupBy(replies.issueId),
+    // People who have written something, per round.
+    db.select({ issueId: issues.id, people: answeredCountSql("issues") })
+      .from(issues)
+      .where(eq(issues.groupId, group.id)),
     pendingSuggestions(group.id),
     sectionsOf(group.id),
     membership.access === "member" ? Promise.resolve([]) : eventsOf(group, at),
@@ -139,13 +137,10 @@ async function LoadedGroupLayout({ children, params }: Props) {
       group.shareEnabled && round.shareToken ? url(`/s/${round.shareToken}`) : null,
   }));
   const openIssue = rounds.find((round) => round.status === "open") ?? null;
-  const openProgress = openIssue
-    ? await db
-        .selectDistinct({ id: memberships.id, name: memberships.name, email: memberships.email })
-        .from(replies)
-        .innerJoin(memberships, eq(memberships.id, replies.membershipId))
-        .where(and(eq(replies.issueId, openIssue.id), eq(replies.status, "submitted")))
-    : [];
+  const answered = openIssue ? await answeredMemberIds(openIssue.id) : new Set<string>();
+  const openProgress = people
+    .filter((person) => answered.has(person.id))
+    .map((person) => ({ id: person.id, name: person.name, email: person.email }));
   // The owner's nudges are mail like any other, so the outbox remembers the last one.
   const [lastNudgeRow] = openIssue
     ? await db
@@ -155,7 +150,6 @@ async function LoadedGroupLayout({ children, params }: Props) {
         .orderBy(desc(outbox.createdAt))
         .limit(1)
     : [];
-  const answered = new Set(openProgress.map((person) => person.id));
   const openWaiting = openIssue
     ? people.filter((person) => person.participation === "contributor" && !answered.has(person.id))
     : [];

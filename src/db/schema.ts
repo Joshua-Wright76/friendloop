@@ -342,9 +342,16 @@ export const replies = pgTable(
     audioDurationMs: integer("audio_duration_ms"),
     /** A poll answer: indexes into the snapshotted `pollOptions`. Empty on written answers. */
     pollChoices: jsonb("poll_choices").$type<number[]>().default([]).notNull(),
+    /**
+     * Legacy: answers used to wait as drafts until sent. Every save now writes
+     * `submitted`, and nothing reads it (see `src/lib/reply-query.ts`).
+     */
     status: replyStatusEnum("status").default("draft").notNull(),
     submittedAt: timestamp("submitted_at", { withTimezone: true }),
+    /** Read-only history: an answer added after its round went out, from before a reply link only reached the open round. */
     addedAfterDelivery: boolean("added_after_delivery").default(false).notNull(),
+    /** A draft left unsent in a round that went out before answers saved straight into the round. Never shown. */
+    neverSent: boolean("never_sent").default(false).notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   },
@@ -486,9 +493,16 @@ export const sectionReplies = pgTable(
     /** Music sections only: the pasted link and who it belongs to. */
     linkUrl: text("link_url"),
     linkProvider: text("link_provider"),
+    /**
+     * Legacy: answers used to wait as drafts until sent. Every save now writes
+     * `submitted`, and nothing reads it (see `src/lib/reply-query.ts`).
+     */
     status: replyStatusEnum("status").default("draft").notNull(),
     submittedAt: timestamp("submitted_at", { withTimezone: true }),
+    /** Read-only history: an answer added after its round went out, from before a reply link only reached the open round. */
     addedAfterDelivery: boolean("added_after_delivery").default(false).notNull(),
+    /** A draft left unsent in a round that went out before answers saved straight into the round. Never shown. */
+    neverSent: boolean("never_sent").default(false).notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   },

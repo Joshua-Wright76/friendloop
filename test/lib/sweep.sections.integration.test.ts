@@ -7,7 +7,6 @@ import { sweep } from "../../src/lib/sweep.ts";
 import { snapshotSectionsForIssue } from "../../src/lib/sections.ts";
 import { latestOutbox, outboxCount, resetDatabase, rows, seedLoop, seedOpenIssue, seedReplies, setupDatabase } from "../support/app.ts";
 import { saveSectionMusicFor, saveSectionPhotoFor, saveSectionTextFor } from "../../src/lib/sections.ts";
-import { submitFor } from "../../src/lib/reply.ts";
 import { loadIssue } from "../../src/lib/issue-view.ts";
 import { AFTER_FIRST_SLOT, DELIVERY_DAY } from "../../e2e/support/clock.ts";
 import { clearRequest, setRequestHeaders } from "../stubs/request.mjs";
@@ -63,7 +62,6 @@ test("a section answer delivers the round, and the email carries the section", a
   const alice = loop.members.find((member) => member.email.startsWith("alice"))!;
 
   assert.equal((await saveSectionTextFor({ token: alice.token, issueSectionId: issueSection.id, body: "Banana bread." })).ok, true);
-  await submitFor(alice.token);
 
   const delivered = await sweep({ at: new Date(DELIVERY_DAY.getTime() + 60000) });
   assert.equal(delivered.delivered, 1);
@@ -95,13 +93,37 @@ test("photo counts ride the section blocks in the delivery email", async () => {
     caption: "Two",
     position: 1,
   });
-  await submitFor(alice.token);
 
   const delivered = await sweep({ at: new Date(DELIVERY_DAY.getTime() + 60000) });
   assert.equal(delivered.delivered, 1);
   const email = await latestOutbox("delivery:");
   assert.ok(email.html.includes("added 2 photos"));
   assert.ok(email.html.includes("Look at these"));
+});
+
+test("a photo on its own is a section answer; a cleared caption is not", async () => {
+  const loop = await sectionLoop({ kind: "photo_wall" });
+  await sweep({ at: AFTER_FIRST_SLOT });
+  const [issueSection] = await rows<{ id: string }>("select id from issue_sections limit 1");
+  const alice = loop.members.find((member) => member.email.startsWith("alice"))!;
+  const bob = loop.members.find((member) => member.email.startsWith("bob"))!;
+
+  await saveSectionPhotoFor({
+    token: alice.token,
+    issueSectionId: issueSection.id,
+    bytes: new Uint8Array(makeBytes()),
+    contentType: "image/png",
+    caption: "",
+    position: 0,
+  });
+  await saveSectionTextFor({ token: bob.token, issueSectionId: issueSection.id, body: "Soon" });
+  await saveSectionTextFor({ token: bob.token, issueSectionId: issueSection.id, body: "" });
+
+  const delivered = await sweep({ at: new Date(DELIVERY_DAY.getTime() + 60000) });
+  assert.equal(delivered.delivered, 1);
+  const email = await latestOutbox("delivery:");
+  assert.ok(email.html.includes("added 1 photos"), "the photo alone is an answer");
+  assert.ok(!email.html.includes(">Bob<"), "a cleared answer is left out");
 });
 
 test("a music link answer includes the provider link in the email", async () => {
@@ -114,7 +136,6 @@ test("a music link answer includes the provider link in the email", async () => 
     (await saveSectionMusicFor({ token: alice.token, issueSectionId: issueSection.id, url: "https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC", caption: "" })).ok,
     true,
   );
-  await submitFor(alice.token);
 
   // What the provider told us when the pick was saved.
   const [{ link_url: linkUrl }] = await rows<{ link_url: string }>("select link_url from section_replies limit 1");

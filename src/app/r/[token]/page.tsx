@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { formatDate, formatMoment } from "@/lib/format";
+import { formatMoment } from "@/lib/format";
 import { resolveToken, sheetFor } from "@/lib/reply";
 import { sectionsForSheet } from "@/lib/sections";
 import { LoopTheme } from "@/components/loop-theme";
@@ -134,7 +134,6 @@ export default async function ReplyPage({ params }: { params: Promise<{ token: s
       frame={context.membership.avatarFrame}
       deadlineMoment={formatMoment(issue.deliversAt, context.group.timezone)}
       deliversAtIso={issue.deliversAt.toISOString()}
-      wentOutLabel={issue.status === "open" ? null : formatDate(issue.deliveredAt ?? issue.deliversAt, context.group.timezone)}
       displayName={context.membership.name ?? context.membership.email.split("@")[0]}
       initialName={context.membership.name}
       reminderPreference={context.membership.reminderPreference}
@@ -152,7 +151,6 @@ export default async function ReplyPage({ params }: { params: Promise<{ token: s
         pollMultiple: question.pollMultiple,
         pollOptions: question.pollOptions,
         pollChoices: question.pollChoices,
-        submitted: question.submitted,
       }))}
     />
     </>

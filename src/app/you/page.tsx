@@ -6,6 +6,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { sql } from "drizzle-orm";
 import { db } from "@/db";
+import { answeredCountSql } from "@/lib/reply-query";
 import { currentUser } from "@/lib/auth";
 import { getNow } from "@/lib/clock";
 import { formatDate, atMoment, formatMoment } from "@/lib/format";
@@ -151,8 +152,7 @@ async function loopCards(userId: string): Promise<LoopCard[]> {
     join groups g on g.id = m.group_id
     left join lateral (
       select i.number, i.status, i.delivers_at, i.delivered_at,
-        (select count(distinct r.membership_id) from replies r
-          where r.issue_id = i.id and r.status = 'submitted') as answered
+        ${answeredCountSql("i")} as answered
       from issues i
       where i.group_id = g.id and i.status <> 'skipped'
       order by i.number desc

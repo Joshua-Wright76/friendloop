@@ -1,6 +1,7 @@
 import { DEFAULT_REACTIONS, tallyReactions } from "./reaction-emoji.ts";
 import { and, asc, eq, isNull } from "drizzle-orm";
 import { db } from "@/db";
+import { replyHasContentCondition, sectionReplyHasContentCondition } from "./reply-query";
 import {
   groups,
   issueQuestions,
@@ -166,7 +167,7 @@ export async function loadIssue(input: {
       })
       .from(replies)
       .innerJoin(memberships, eq(memberships.id, replies.membershipId))
-      .where(and(eq(replies.issueId, issue.id), eq(replies.status, "submitted"))),
+      .where(and(eq(replies.issueId, issue.id), replyHasContentCondition())),
     showComments
       ? loadComments({ issueId: issue.id, groupId: group.id, viewerMembershipId })
       : Promise.resolve({ top: [], byReply: new Map<string, IssueComment[]>(), mentionables: [] }),
@@ -199,24 +200,21 @@ export async function loadIssue(input: {
       })
       .from(sectionReplies)
       .innerJoin(memberships, eq(memberships.id, sectionReplies.membershipId))
-      .where(and(eq(sectionReplies.issueId, issue.id), eq(sectionReplies.status, "submitted"))),
+      .where(and(eq(sectionReplies.issueId, issue.id), sectionReplyHasContentCondition())),
     db
       .select({ sectionReplyId: sectionMedia.sectionReplyId, url: sectionMedia.url, caption: sectionMedia.caption })
       .from(sectionMedia)
       .innerJoin(sectionReplies, eq(sectionReplies.id, sectionMedia.sectionReplyId))
-      .where(and(eq(sectionReplies.issueId, issue.id), eq(sectionReplies.status, "submitted")))
+      .where(and(eq(sectionReplies.issueId, issue.id), sectionReplyHasContentCondition()))
       .orderBy(asc(sectionMedia.position)),
   ]);
 
   // Polls keep their results back until the issue goes out: before then, the only
-  // pick anyone can see is their own. A pick cleared after sending is not an answer.
+  // pick anyone can see is their own.
   const delivered = issue.status === "delivered";
   const pollIds = new Set(questions.filter((question) => question.kind === "poll").map((question) => question.id));
-  const rows = allRows.filter((row) => {
-    if (!pollIds.has(row.issueQuestionId)) return true;
-    if (row.pollChoices.length === 0) return false;
-    return delivered || row.membershipId === viewerMembershipId;
-  });
+  const rows = allRows.filter((row) =>
+    !pollIds.has(row.issueQuestionId) || delivered || row.membershipId === viewerMembershipId);
 
   const reactionsByReply = new Map<string, typeof reactionRows>();
   for (const reaction of reactionRows) {

@@ -36,10 +36,10 @@ test("visual · the reply sheet fits a phone without sideways scrolling", async 
   expect(await horizontalOverflow(page), "390px wide: nothing may hang off the side").toBeLessThanOrEqual(1);
 
   await page.getByLabel("What made you laugh this week?").fill("A cat fist bump.");
-  const send = page.getByRole("button", { name: "Send answers" });
-  await expect(send).toBeVisible();
+  const done = page.getByRole("button", { name: "Done", exact: true });
+  await expect(done).toBeVisible();
 
-  const box = await send.boundingBox();
+  const box = await done.boundingBox();
   expect(box, "the primary action is on screen").not.toBeNull();
   expect(box!.height, "touch target at least 44px").toBeGreaterThanOrEqual(44);
   expect(box!.y + box!.height, "and inside the viewport").toBeLessThanOrEqual(844 + 1);

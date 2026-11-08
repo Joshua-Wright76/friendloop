@@ -4,6 +4,7 @@
  */
 import { sql } from "drizzle-orm";
 import { db } from "@/db";
+import { answeredCountSql } from "./reply-query";
 import { dailySendBudget, sentInLastDay } from "./email/send";
 
 export type LoopStat = {
@@ -60,8 +61,7 @@ export async function readStats(): Promise<Stats> {
     from groups g
     left join lateral (
       select
-        (select count(distinct r.membership_id)::int from replies r
-          where r.issue_id = i.id and r.status = 'submitted') as answered,
+        ${answeredCountSql("i")} as answered,
         (select count(*)::int from memberships w
           where w.group_id = g.id and w.revoked_at is null and w.participation = 'contributor') as writers
       from issues i
