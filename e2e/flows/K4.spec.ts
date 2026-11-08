@@ -21,7 +21,8 @@ test("K4 · a photo wall takes several photos, captions optional", async ({ page
 
   const alice = loop.members.find((member) => member.email.startsWith("alice"))!;
   await page.goto(`/r/${alice.token}`);
-  const wall = page.getByRole("region", { name: "And a little extra" });
+  // A photo wall is a card of its own, in its place in the round.
+  const wall = page.locator("section").filter({ has: page.getByRole("heading", { name: "The wall" }) });
 
   // No caption needed for a photo to join the wall.
   await wall.getByLabel("Add a photo").first().setInputFiles({
@@ -40,7 +41,7 @@ test("K4 · a photo wall takes several photos, captions optional", async ({ page
     buffer: makePng(),
   });
   await expect(page.getByText("The leftovers")).toBeVisible();
-  const two = await rows<{ count: number }>("select count(*)::int as count from section_media");
+  const two = await rows<{ count: number }>("select count(*)::int as count from reply_media");
   expect(two[0].count).toBe(2);
 
   await page.getByRole("button", { name: "Done", exact: true }).click();
@@ -61,7 +62,7 @@ test("K4 · a photo wall takes several photos, captions optional", async ({ page
   await expect(viewer.getByText("Photo 1 of 2")).toBeVisible();
   const download = viewer.getByRole("link", { name: "Download" });
   await expect(download).toHaveAttribute("download", /^friendloop-.+-1\.png$/);
-  const [media] = await rows<{ url: string }>("select url from section_media order by position limit 1");
+  const [media] = await rows<{ url: string }>("select url from reply_media order by position limit 1");
   await expect(download).toHaveAttribute("href", media.url);
   // Same-origin uploads honour the attribute, so the click really saves a file.
   const [file] = await Promise.all([page.waitForEvent("download"), download.click()]);

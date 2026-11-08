@@ -48,3 +48,17 @@ test("a platform 413 on a section photo reads as the size message, not a generic
   const result = await uploadReplySectionPhoto("t", "s", new File(["x"], "p.png", { type: "image/png" }), "", 0, "generic", platform);
   assert.deepEqual(result, { ok: false, error: "Photos must be 4 MB or smaller." });
 });
+
+test("wall photos go to the question's media endpoint, named by the question", async () => {
+  const seen: Array<{ url: string; body: unknown }> = [];
+  const capture = (async (url: string | URL | Request, init?: RequestInit) => {
+    seen.push({ url: String(url), body: init?.body });
+    return new Response(JSON.stringify({ ok: true, savedAt: "now", mediaId: "m1", url: "/u" }));
+  }) as typeof fetch;
+  await uploadReplySectionPhoto("tok", "q1", new File(["x"], "p.png", { type: "image/png" }), "cap", 2, "failed", capture);
+  await removeReplySectionMedia("tok", "q1", "m1", "failed", capture);
+  assert.equal(seen[0].url, "/api/reply/tok/media");
+  assert.equal((seen[0].body as FormData).get("issueQuestionId"), "q1");
+  assert.equal(seen[1].url, "/api/reply/tok/media");
+  assert.deepEqual(JSON.parse(String(seen[1].body)), { issueQuestionId: "q1", mediaId: "m1" });
+});

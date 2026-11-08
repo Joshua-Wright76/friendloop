@@ -2,16 +2,14 @@ import { test, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { saveDraftFor, savePhotoFor, savePollChoicesFor } from "../../src/lib/reply.ts";
-import { saveSectionTextFor, snapshotSectionsForIssue } from "../../src/lib/sections.ts";
+import { createSection } from "../../src/lib/sections.ts";
 import { answeredMemberIds } from "../../src/lib/answered.ts";
 import { loadIssue } from "../../src/lib/issue-view.ts";
 import { loadAlbum } from "../../src/lib/album.ts";
 import { nudgeStragglers } from "../../src/lib/notify.ts";
 import { sweep } from "../../src/lib/sweep.ts";
 import { storePhoto } from "../../src/lib/photo-storage.ts";
-import { db } from "@/db";
-import { sections } from "@/db/schema";
-import { groupOf, latestOutbox, outboxCount, resetDatabase, rows, seedDeliveredIssue, seedLoop, seedOpenIssue, setupDatabase } from "../support/app.ts";
+import { latestOutbox, outboxCount, resetDatabase, rows, seedDeliveredIssue, seedLoop, seedOpenIssue, setupDatabase } from "../support/app.ts";
 import { seedPoll } from "../../e2e/support/polls.ts";
 import { AFTER_FIRST_SLOT, DELIVERY_DAY, HOUR } from "../../e2e/support/clock.ts";
 import { clearRequest, setRequestHeaders } from "../stubs/request.mjs";
@@ -109,11 +107,11 @@ test("progress, the reminder and the owner's nudge count saved answers", async (
 
 test("a section answer counts as having answered", async () => {
   const { loop, owner, issue } = await openRound();
-  await db.insert(sections).values({ groupId: loop.groupId, kind: "standard", title: "News", position: 0, createdAt: new Date() });
-  await snapshotSectionsForIssue({ group: await groupOf(loop.groupId), issueId: issue.issueId });
-  const [section] = await rows<{ id: string }>("select id from issue_sections where issue_id = $1", [issue.issueId]);
+  // Added while the round is open, so it joins the round people are answering.
+  await createSection({ groupId: loop.groupId, kind: "standard", title: "News", emoji: null, description: null, adminOnly: false, at: new Date() });
+  const [section] = await rows<{ id: string }>("select id from issue_questions where issue_id = $1 and text = 'News'", [issue.issueId]);
 
-  await saveSectionTextFor({ token: owner.token, issueSectionId: section.id, body: "We moved." });
+  await saveDraftFor({ token: owner.token, issueQuestionId: section.id, body: "We moved." });
   assert.deepEqual([...(await answeredMemberIds(issue.issueId))], [owner.id]);
 });
 

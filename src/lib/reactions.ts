@@ -1,15 +1,15 @@
 import { and, count, eq } from "drizzle-orm";
 import { db } from "@/db";
-import { reactions, replies } from "@/db/schema";
+import { issueQuestions, memberships, reactions, replies } from "@/db/schema";
 import { MAX_REACTIONS_PER_PERSON, isReactionEmoji } from "./reaction-emoji.ts";
-import { legacyReplyCondition } from "./legacy-ask";
 
 export type ReactionResult = { ok: true } | { ok: false; reason: "emoji" | "answer" | "limit" };
 
 /**
  * Add this person's reaction to an answer, or take it back if it's already there.
  * Any emoji is welcome; the checks are only that it is one, and that the answer
- * belongs to the round the viewer was let into.
+ * belongs to the round the viewer was let into, and that the viewer may read it:
+ * an owners-only answer takes reactions from owners and admins only.
  */
 export async function toggleReactionFor(input: {
   issueId: string;
@@ -20,11 +20,13 @@ export async function toggleReactionFor(input: {
   if (!isReactionEmoji(input.emoji)) return { ok: false, reason: "emoji" };
 
   const [reply] = await db
-    .select({ id: replies.id })
+    .select({ id: replies.id, adminOnly: issueQuestions.adminOnly, viewerAccess: memberships.access })
     .from(replies)
-    .where(and(eq(replies.id, input.replyId), eq(replies.issueId, input.issueId), legacyReplyCondition()))
+    .innerJoin(issueQuestions, eq(issueQuestions.id, replies.issueQuestionId))
+    .leftJoin(memberships, eq(memberships.id, input.membershipId))
+    .where(and(eq(replies.id, input.replyId), eq(replies.issueId, input.issueId)))
     .limit(1);
-  if (!reply) return { ok: false, reason: "answer" };
+  if (!reply || (reply.adminOnly && reply.viewerAccess === "member")) return { ok: false, reason: "answer" };
 
   const mineHere = and(eq(reactions.replyId, input.replyId), eq(reactions.membershipId, input.membershipId));
   const [existing] = await db

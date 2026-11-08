@@ -2,17 +2,24 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { and, asc, eq, isNull, sql } from "drizzle-orm";
+import { asc, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { groups, questions } from "@/db/schema";
 import { getNow } from "@/lib/clock";
-import { addPoll, addQuestion, addQuestionTexts, archiveQuestion, reorderQuestion, toggleSkipNext } from "@/lib/manage";
+import {
+  addPoll,
+  addQuestion,
+  addQuestionTexts,
+  archiveQuestion,
+  poolQuestionCondition,
+  reorderQuestion,
+  setQuestionsPerRound,
+  toggleSkipNext,
+} from "@/lib/manage";
 import { acceptSuggestion, declineSuggestion } from "@/lib/suggestions";
 import { archiveSection, createSection, moveSection, updateSection, type SectionKind } from "@/lib/sections";
 import { createEvent, deleteEvent, updateEvent } from "@/lib/events";
 import { viewerFor } from "@/lib/permissions";
-import { syncOpenRoundQuestions } from "@/lib/round-questions";
-import { legacyPoolCondition } from "@/lib/legacy-ask";
 
 async function requireManager(groupId: string) {
   const viewer = await viewerFor(groupId);
@@ -30,15 +37,8 @@ export async function rotationAction(formData: FormData) {
     redirect(`/g/${groupId}/questions?rotation=invalid`);
   }
 
-  await db
-    .update(groups)
-    .set({
-      questionsPerRound,
-      questionCursor: sql`case when ${groups.questionsPerRound} is not distinct from ${questionsPerRound} then ${groups.questionCursor} else 0 end`,
-    })
-    .where(eq(groups.id, groupId));
   // The round people are answering now asks the new number of questions.
-  await syncOpenRoundQuestions(groupId);
+  await setQuestionsPerRound(groupId, questionsPerRound);
   revalidatePath(`/g/${groupId}`, "layout");
   redirect(`/g/${groupId}/questions?rotation=1`);
 }
@@ -85,7 +85,7 @@ export async function reorderQuestions(groupId: string, questionId: string, targ
   await reorderQuestion(groupId, questionId, targetIndex);
   revalidatePath(`/g/${groupId}`, "layout");
   const after = await db.select({ id: questions.id, text: questions.text, skipNext: questions.skipNext }).from(questions)
-    .where(and(eq(questions.groupId, groupId), legacyPoolCondition(), isNull(questions.archivedAt))).orderBy(asc(questions.position));
+    .where(poolQuestionCondition(groupId)).orderBy(asc(questions.position), asc(questions.createdAt), asc(questions.id));
   return after;
 }
 
@@ -155,6 +155,7 @@ export async function updateSectionAction(formData: FormData) {
   await requireManager(groupId);
 
   const result = await updateSection({
+    at: await getNow(),
     groupId,
     sectionId: String(formData.get("sectionId") ?? ""),
     title: String(formData.get("title") ?? ""),

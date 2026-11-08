@@ -57,6 +57,7 @@ export function IssueBody({
   barTitle,
 }: Props) {
   const answered = blocks.filter((block) => block.answers.length > 0);
+  const talk: Conversation = { issueId, viewerToken, canInteract, commentsEnabled, mentionables };
   const sectionOffset = answered.length;
   // Reading by person, an answer still carries its question's number from the by-question view.
   const numberOf = new Map(answered.map((block, index) => [block.question, index + 1]));
@@ -112,6 +113,7 @@ export function IssueBody({
                       key={entry.reply.replyId}
                       reply={entry.reply}
                       label={`${entry.emoji ? `${entry.emoji} ` : ""}${entry.title}`}
+                      talk={talk}
                     />
                   ),
                 )}
@@ -127,8 +129,12 @@ export function IssueBody({
             <Tape tone={(["dots", "stripe", "mint", "check"] as const)[index % 4]} position={index % 2 ? "right" : "left"} />
             <h2 className="issue-question flex items-start gap-3 text-ink">
               <span className="question-number mt-0.5 numeric">{index + 1}</span>
+              {block.emoji ? <span className="mr-1">{block.emoji}</span> : null}
               {block.question}
             </h2>
+            {block.description ? (
+              <p className="mt-1.5 pl-8 text-[13px] leading-relaxed text-ink-muted">{block.description}</p>
+            ) : null}
             {block.suggestedBy ? (
               <p className="mt-1.5 pl-8 text-[13px] font-medium text-ink-muted">
                 {text(copy.issue.askedBy, { name: block.suggestedBy })}
@@ -138,7 +144,14 @@ export function IssueBody({
             {block.poll?.tally ? <PollResults poll={block.poll} /> : null}
 
             <div className="mt-3">
-              {block.answers.map((answer) => (
+              {block.format === "photo_wall" ? (
+                <PhotoWall
+                  title={block.question}
+                  entries={block.answers.map((answer) => ({ reply: answer, media: answer.media ?? [], anchor: `answer-${answer.replyId}` }))}
+                  talk={talk}
+                  number={index + 1}
+                />
+              ) : block.answers.map((answer) => (
                 <AnswerCard
                   key={answer.replyId}
                   issueId={issueId}
@@ -168,9 +181,16 @@ export function IssueBody({
           ) : null}
           <div className="mt-3">
             {section.kind === "photo_wall" ? (
-              <PhotoWall section={section} />
+              <PhotoWall
+                title={section.title}
+                entries={section.replies.map((reply) => ({ reply, media: reply.media, anchor: `section-reply-${reply.replyId}` }))}
+                talk={talk}
+                number={sectionOffset + 1 + sectionIndex}
+              />
             ) : (
-              section.replies.map((reply) => <SectionReplyCard key={reply.replyId} reply={reply} />)
+              section.replies.map((reply) => (
+                <SectionReplyCard key={reply.replyId} reply={reply} talk={talk} number={sectionOffset + 1 + sectionIndex} />
+              ))
             )}
             {section.replies.length === 0 ? (
               <p className="mt-2 text-[13.5px] text-ink-muted">{copy.issue.sectionEmpty}</p>
@@ -199,47 +219,69 @@ export function IssueBody({
   );
 }
 
-/** A photo wall laid edge to edge; tapping a photo opens it full size, with a download. */
-function PhotoWall({ section }: { section: IssueSectionBlock }) {
+type WallEntry = {
+  reply: Reactable & { authorPhotoUrl: string | null; authorFrame: string | null; authorCharm: string | null };
+  media: Array<{ url: string; caption: string | null }>;
+  /** Where the Album's "view in issue" lands for this person's photos. */
+  anchor: string;
+};
+
+/**
+ * A photo wall laid edge to edge; tapping a photo opens it full size, with a
+ * download. Under it, each person who added photos has their own reactions and
+ * thread.
+ */
+function PhotoWall({ title, entries, talk, number }: { title: string; entries: WallEntry[]; talk: Conversation; number: number }) {
   const lightbox = useLightbox();
-  const tiles = section.replies.flatMap((reply) =>
-    reply.media.map((item, mediaIndex) => ({ reply, item, first: mediaIndex === 0 })),
+  const tiles = entries.flatMap((entry) =>
+    entry.media.map((item, mediaIndex) => ({ entry, item, first: mediaIndex === 0 })),
   );
-  const photos: LightboxPhoto[] = tiles.map(({ reply, item }) => ({
+  const photos: LightboxPhoto[] = tiles.map(({ entry, item }) => ({
     url: item.url,
-    author: reply.author,
+    author: entry.reply.author,
     caption: item.caption,
-    context: section.title,
+    context: title,
   }));
 
   return (
     <>
       <div className="grid grid-cols-2 gap-2">
-        {tiles.map(({ reply, item, first }, index) => (
-          <figure key={item.url} id={first ? `section-reply-${reply.replyId}` : undefined} className="m-0 scroll-mt-4">
+        {tiles.map(({ entry, item, first }, index) => (
+          <figure key={item.url} id={first ? entry.anchor : undefined} className="m-0 scroll-mt-4">
             <button
               type="button"
               className="photo-wall-tile"
-              aria-label={text(copy.album.openPhoto, { author: reply.author, about: item.caption || section.title })}
+              aria-label={text(copy.album.openPhoto, { author: entry.reply.author, about: item.caption || title })}
               onClick={(event) => lightbox.open(index, event.currentTarget)}
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={item.url} alt="" loading="lazy" decoding="async" className="w-full rounded-lg border border-line object-cover" />
             </button>
             <figcaption className="mt-1 text-[12.5px] leading-snug text-ink-soft">
-              <span className="font-bold">{reply.author}</span>
+              <span className="font-bold">{entry.reply.author}</span>
               {item.caption ? `, ${item.caption}` : null}
             </figcaption>
           </figure>
         ))}
       </div>
       <PhotoLightbox photos={photos} state={lightbox} />
+      {/* A read-only copy shows a row only where someone has reacted or commented. */}
+      {entries.filter((entry) => talk.canInteract || entry.reply.comments.length > 0 || entry.reply.reactions.some((reaction) => reaction.count > 0)).map((entry) => (
+        <div key={entry.reply.replyId} className="mt-4 border-t border-line pt-3">
+          <div className="flex items-center gap-2.5">
+            <Avatar name={entry.reply.author} photoUrl={entry.reply.authorPhotoUrl} frame={entry.reply.authorFrame} />
+            <p className="m-0 text-[14px] font-extrabold text-ink-soft">{entry.reply.author}</p>
+            <NameCharm charm={entry.reply.authorCharm} />
+          </div>
+          <AnswerActions {...talk} answer={entry.reply} questionNumber={number} />
+        </div>
+      ))}
     </>
   );
 }
 
-/** One person's answer to a standard or music section, with its link card and photos. */
-function SectionReplyCard({ reply, label }: { reply: IssueSectionReplyBlock; label?: string }) {
+/** One person's answer to a standard or music section, with its link card, photos, reactions and thread. */
+function SectionReplyCard({ reply, label, talk, number }: { reply: IssueSectionReplyBlock; label?: string; talk: Conversation; number?: number }) {
   return (
     <div id={`section-reply-${reply.replyId}`} className="mt-4 scroll-mt-4 border-t border-line pt-4 first:border-t-0">
       {label ? (
@@ -276,6 +318,7 @@ function SectionReplyCard({ reply, label }: { reply: IssueSectionReplyBlock; lab
       {reply.addedLater ? (
         <p className="mt-2 text-[13px] text-ink-muted">{copy.issue.addedLater}</p>
       ) : null}
+      <AnswerActions {...talk} answer={reply} questionNumber={number} />
     </div>
   );
 }
@@ -317,6 +360,23 @@ function PollResults({ poll }: { poll: IssuePoll }) {
   );
 }
 
+type Conversation = {
+  issueId: string;
+  viewerToken: string | null;
+  canInteract: boolean;
+  commentsEnabled: boolean;
+  mentionables: Array<{ id: string; name: string }>;
+};
+
+/** What every answer carries, whatever it holds: reactions, and its own comment thread. */
+type Reactable = {
+  replyId: string;
+  author: string;
+  isYou: boolean;
+  reactions: IssueAnswer["reactions"];
+  comments: IssueComment[];
+};
+
 function AnswerCard({
   issueId,
   viewerToken,
@@ -327,13 +387,8 @@ function AnswerCard({
   questionLabel,
   questionNumber,
   editHref = null,
-}: {
-  issueId: string;
-  viewerToken: string | null;
-  canInteract: boolean;
+}: Conversation & {
   answer: IssueAnswer;
-  commentsEnabled: boolean;
-  mentionables: Array<{ id: string; name: string }>;
   /** Set when reading by person, where the question is no longer the heading above. */
   questionLabel?: string;
   /** The question's number on the page, so each reaction button's name says which answer it's for. */
@@ -341,6 +396,97 @@ function AnswerCard({
   /** Set on the viewer's own answer while it can still change. */
   editHref?: string | null;
 }) {
+  return (
+    <article id={`answer-${answer.replyId}`} className="answer-card mt-4 scroll-mt-4 border-t border-line pt-4 first:border-t-0">
+      {questionLabel ? (
+        // Reading by person: the card is already theirs, so the question leads and the byline would only repeat.
+        <h3 className="m-0 text-[22px] leading-tight text-ink">{questionLabel}</h3>
+      ) : (
+        <div className="flex flex-wrap items-center gap-x-2.5">
+          <Avatar name={answer.author} photoUrl={answer.authorPhotoUrl} frame={answer.authorFrame} />
+          <p className="m-0 text-[14px] font-extrabold text-ink-soft">{answer.author}</p>
+          <NameCharm charm={answer.authorCharm} />
+          {editHref ? <EditLink href={editHref} /> : null}
+        </div>
+      )}
+      {questionLabel && editHref ? <EditLink href={editHref} /> : null}
+      {answer.choices.length > 0 ? (
+        <ul className="mt-2 flex flex-wrap gap-1.5" aria-label={text(copy.polls.issue.chose, { choices: answer.choices.join(", ") })}>
+          {answer.choices.map((choice) => (
+            <li key={choice} className="chip border bg-accent-soft px-2.5 py-1 text-[13px] font-bold text-accent-ink">{choice}</li>
+          ))}
+        </ul>
+      ) : answer.body || !(answer.link || answer.media) ? (
+        <p className="answer-text mt-2 whitespace-pre-wrap text-[16px] leading-relaxed text-ink">
+          {answer.body}
+        </p>
+      ) : null}
+      {answer.link ? (
+        <MusicCard
+          url={answer.link.url}
+          provider={answer.link.provider}
+          title={answer.link.title}
+          artworkUrl={answer.link.artworkUrl}
+          tracks={answer.link.tracks}
+          trackCount={answer.link.trackCount}
+        />
+      ) : null}
+      {(answer.media ?? []).map((item) => (
+        <figure key={item.url} className="m-0 mt-3">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={item.url} alt={item.caption || text(copy.issue.photoAlt, { author: answer.author })} loading="lazy" decoding="async" className="w-full rounded-lg border border-line object-cover" />
+          {item.caption ? <figcaption className="mt-1 text-[12.5px] leading-snug text-ink-soft">{item.caption}</figcaption> : null}
+        </figure>
+      ))}
+      {answer.photoUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={answer.photoUrl}
+          alt={text(copy.issue.photoAlt, { author: answer.author })}
+          // Below the fold on all but the first answer, and photos are camera-sized.
+          loading="lazy"
+          decoding="async"
+          className="mt-3 w-full rounded-lg border border-line object-cover"
+        />
+      ) : null}
+      {answer.audioUrl ? (
+        <VoiceNote
+          className="mt-3"
+          src={answer.audioUrl}
+          durationMs={answer.audioDurationMs}
+          label={text(copy.issue.voiceLabel, { duration: formatAudioDuration(answer.audioDurationMs ?? 0) })}
+          playLabel={text(copy.voiceNote.play, { author: answer.author })}
+        />
+      ) : null}
+      {answer.addedLater ? (
+        <p className="mt-2 text-[13px] text-ink-muted">
+          {copy.issue.addedLater}
+        </p>
+      ) : null}
+
+      <AnswerActions
+        issueId={issueId}
+        viewerToken={viewerToken}
+        canInteract={canInteract}
+        commentsEnabled={commentsEnabled}
+        mentionables={mentionables}
+        answer={answer}
+        questionNumber={questionNumber}
+      />
+    </article>
+  );
+}
+
+/** Reactions and the comment thread under one answer. */
+function AnswerActions({
+  issueId,
+  viewerToken,
+  canInteract,
+  answer,
+  commentsEnabled,
+  mentionables,
+  questionNumber,
+}: Conversation & { answer: Reactable; questionNumber?: number }) {
   const [pending, startTransition] = useTransition();
   const [threadOpen, setThreadOpen] = useState(false);
   const [reactFailed, setReactFailed] = useState<string | null>(null);
@@ -397,56 +543,7 @@ function AnswerCard({
   }
 
   return (
-    <article id={`answer-${answer.replyId}`} className="answer-card mt-4 scroll-mt-4 border-t border-line pt-4 first:border-t-0">
-      {questionLabel ? (
-        // Reading by person: the card is already theirs, so the question leads and the byline would only repeat.
-        <h3 className="m-0 text-[22px] leading-tight text-ink">{questionLabel}</h3>
-      ) : (
-        <div className="flex flex-wrap items-center gap-x-2.5">
-          <Avatar name={answer.author} photoUrl={answer.authorPhotoUrl} frame={answer.authorFrame} />
-          <p className="m-0 text-[14px] font-extrabold text-ink-soft">{answer.author}</p>
-          <NameCharm charm={answer.authorCharm} />
-          {editHref ? <EditLink href={editHref} /> : null}
-        </div>
-      )}
-      {questionLabel && editHref ? <EditLink href={editHref} /> : null}
-      {answer.choices.length > 0 ? (
-        <ul className="mt-2 flex flex-wrap gap-1.5" aria-label={text(copy.polls.issue.chose, { choices: answer.choices.join(", ") })}>
-          {answer.choices.map((choice) => (
-            <li key={choice} className="chip border bg-accent-soft px-2.5 py-1 text-[13px] font-bold text-accent-ink">{choice}</li>
-          ))}
-        </ul>
-      ) : (
-        <p className="answer-text mt-2 whitespace-pre-wrap text-[16px] leading-relaxed text-ink">
-          {answer.body}
-        </p>
-      )}
-      {answer.photoUrl ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={answer.photoUrl}
-          alt={text(copy.issue.photoAlt, { author: answer.author })}
-          // Below the fold on all but the first answer, and photos are camera-sized.
-          loading="lazy"
-          decoding="async"
-          className="mt-3 w-full rounded-lg border border-line object-cover"
-        />
-      ) : null}
-      {answer.audioUrl ? (
-        <VoiceNote
-          className="mt-3"
-          src={answer.audioUrl}
-          durationMs={answer.audioDurationMs}
-          label={text(copy.issue.voiceLabel, { duration: formatAudioDuration(answer.audioDurationMs ?? 0) })}
-          playLabel={text(copy.voiceNote.play, { author: answer.author })}
-        />
-      ) : null}
-      {answer.addedLater ? (
-        <p className="mt-2 text-[13px] text-ink-muted">
-          {copy.issue.addedLater}
-        </p>
-      ) : null}
-
+    <>
       <div className="answer-actions">
         {/* Reactions wrap within their own row; Comment keeps its place at the right, however many there are. */}
         <div className="reaction-row">
@@ -538,6 +635,6 @@ function AnswerCard({
             </div>
         </div>
       ) : null}
-    </article>
+    </>
   );
 }

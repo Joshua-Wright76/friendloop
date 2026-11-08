@@ -51,6 +51,8 @@ function sectionReply(replyId: string, authorId: string, authorName: string): Is
     linkTrackCount: 0,
     addedLater: false,
     media: [],
+    reactions: [],
+    comments: [],
   };
 }
 

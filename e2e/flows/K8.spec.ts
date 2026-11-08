@@ -51,7 +51,10 @@ test("K8 · editing a section reaches the open round, until someone has written 
 
   // Round two, opened as round one went out, carries the latest words.
   const titles = await rows<{ title: string; number: number }>(
-    "select s.title, i.number from issue_sections s inner join issues i on i.id = s.issue_id order by i.number asc",
+    `select iq.text as title, i.number from issue_questions iq
+     join issues i on i.id = iq.issue_id
+     join questions q on q.id = iq.question_id
+     where q.frequency = 'every_round' and not q.active order by i.number asc`,
   );
   expect(titles).toEqual([
     { title: "The potluck corner, revisited", number: 1 },

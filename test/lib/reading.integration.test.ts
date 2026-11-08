@@ -2,7 +2,7 @@ import { test, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import { atLeast, requireViewer, viewerFor } from "../../src/lib/permissions.ts";
 import { loadIssue, membershipForViewer, reactionChoices } from "../../src/lib/issue-view.ts";
-import { snapshotQuestionsForIssue } from "../../src/lib/round-questions.ts";
+import { snapshotRound } from "../../src/lib/round-questions.ts";
 import { groupOf, resetDatabase, rows, seedDeliveredIssue, seedLoop, seedOpenIssue, seedReplies, setupDatabase } from "../support/app.ts";
 import { requestMagicLink, confirmMagicLink } from "../../src/lib/auth.ts";
 import { latestOutbox } from "../support/app.ts";
@@ -70,65 +70,56 @@ test("requireViewer hides a loop from outsiders and under-ranked members", async
   await assert.rejects(requireViewer("00000000-0000-4000-8000-000000000000"), /not-found/);
 });
 
-test("a round snapshots its questions in order and advances the cursor", async () => {
+/** A bare open round, as the opening transaction makes it, for snapshotting by hand. */
+async function bareRound(groupId: string, number: number, days: number) {
+  const at = new Date(E2E_NOW.getTime() + days * 24 * 60 * 60 * 1000);
+  const [issue] = await rows<{ id: string }>(
+    `insert into issues (group_id, number, status, slot_at, opens_at, delivers_at)
+     values ($1, $2, 'open', $3, $3, $3) returning id`,
+    [groupId, number, at.toISOString()],
+  );
+  return { issueId: issue.id, opensAt: at, deliversAt: at };
+}
+
+test("a round snapshots its questions in order; asking them all leaves the queue as it was", async () => {
   const loop = await seedLoop({ questions: ["One?", "Two?", "Three?"] });
   const group = await groupOf(loop.groupId);
-  await seedOpenIssue(loop, { openedAt: AFTER_FIRST_SLOT });
+  const round = await bareRound(loop.groupId, 9, 8);
 
-  // Re-snapshot into a second issue to observe the cursor moving.
-  const [second] = await rows<{ id: string }>(
-    `insert into issues (group_id, number, status, slot_at, opens_at, delivers_at)
-     values ($1, 9, 'open', $2, $2, $2) returning id`,
-    [loop.groupId, new Date(E2E_NOW.getTime() + 8 * 24 * 60 * 60 * 1000).toISOString()],
-  );
-
-  const count = await snapshotQuestionsForIssue({ group, issueId: second.id });
+  const count = await snapshotRound({ group, ...round });
   assert.equal(count, 3);
   const snapshotted = await rows<{ text: string; position: number }>(
     "select text, position from issue_questions where issue_id = $1 order by position",
-    [second.id],
+    [round.issueId],
   );
   assert.deepEqual(snapshotted.map((row) => row.text), ["One?", "Two?", "Three?"]);
   assert.deepEqual(snapshotted.map((row) => row.position), [0, 1, 2]);
+  const pool = await rows<{ text: string; position: number }>(
+    "select text, position from questions where group_id = $1 order by position",
+    [loop.groupId],
+  );
+  // Every turn-taker is asked each round (no count), so nothing moves.
+  assert.deepEqual(pool.map((row) => row.position), [0, 1, 2]);
+  assert.deepEqual(pool.map((row) => row.text), ["One?", "Two?", "Three?"]);
 });
 
-test("questions that are archived, inactive, or skipped stay out of the round", async () => {
-  const loop = await seedLoop({ questions: ["Keep?", "Archived?", "Inactive?"] });
-  const [keep, archived, inactive] = await rows<{ id: string }>(
+test("a stopped question stays out of the round; sitting out lasted only the round it was set in", async () => {
+  const loop = await seedLoop({ questions: ["Keep?", "Archived?"] });
+  const [keep, archived] = await rows<{ id: string }>(
     "select id from questions where group_id = $1 order by position",
     [loop.groupId],
   );
 
-  await rows("update questions set archived_at = $1, active = false where id = $2", [
-    E2E_NOW.toISOString(),
-    archived.id,
-  ]);
-  await rows("update questions set active = false where id = $1", [inactive.id]);
+  await rows("update questions set archived_at = $1 where id = $2", [E2E_NOW.toISOString(), archived.id]);
   await rows("update questions set skip_next = true where id = $1", [keep.id]);
 
   const group = await groupOf(loop.groupId);
-  await seedOpenIssue(loop, { openedAt: AFTER_FIRST_SLOT });
-  const [fresh] = await rows<{ id: string }>(
-    `insert into issues (group_id, number, status, slot_at, opens_at, delivers_at)
-     values ($1, 9, 'open', $2, $2, $2) returning id`,
-    [loop.groupId, new Date(E2E_NOW.getTime() + 8 * 24 * 60 * 60 * 1000).toISOString()],
-  );
-
-  // "Skip this round" keeps the question out; the skip lasts until that round goes out.
-  assert.equal(await snapshotQuestionsForIssue({ group, issueId: fresh.id }), 0);
-  const [question] = await rows<{ skip_next: boolean }>("select skip_next from questions where id = $1", [keep.id]);
-  assert.equal(question.skip_next, true);
-
-  await rows("update questions set skip_next = false where id = $1", [keep.id]);
-  const [nextRound] = await rows<{ id: string }>(
-    `insert into issues (group_id, number, status, slot_at, opens_at, delivers_at)
-     values ($1, 10, 'open', $2, $2, $2) returning id`,
-    [loop.groupId, new Date(E2E_NOW.getTime() + 14 * 24 * 60 * 60 * 1000).toISOString()],
-  );
-  const groupAfter = await groupOf(loop.groupId);
-  assert.equal(await snapshotQuestionsForIssue({ group: groupAfter, issueId: nextRound.id }), 1);
-  const texts = await rows<{ text: string }>("select text from issue_questions where issue_id = $1", [nextRound.id]);
+  const round = await bareRound(loop.groupId, 9, 8);
+  assert.equal(await snapshotRound({ group, ...round }), 1);
+  const texts = await rows<{ text: string }>("select text from issue_questions where issue_id = $1", [round.issueId]);
   assert.deepEqual(texts.map((row) => row.text), ["Keep?"]);
+  const [question] = await rows<{ skip_next: boolean }>("select skip_next from questions where id = $1", [keep.id]);
+  assert.equal(question.skip_next, false);
 });
 
 test("a delivered round renders for a member, marking their own answers", async () => {

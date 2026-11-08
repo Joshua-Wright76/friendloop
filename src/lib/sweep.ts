@@ -169,7 +169,7 @@ async function remindStragglers(at: Date): Promise<number> {
     const asksFor = await roundAsks(issue.id);
 
     for (const member of pending) {
-      const remaining = asksFor(member.access).length;
+      const remaining = asksFor(member).length;
       if (done.has(member.id) || remaining === 0) continue;
       // Only the contributor's own switch holds it back; the owner's nudge never asks.
       if (!remindersOn(member.reminderPreference)) continue;

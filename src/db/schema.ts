@@ -1,4 +1,5 @@
 import {
+  primaryKey,
   pgTable,
   date,
   uuid,
@@ -592,6 +593,24 @@ export const sectionMedia = pgTable(
 );
 
 /** Cached metadata for pasted music links; render falls back to a plain card on a miss. */
+/**
+ * Legacy row -> unified row, for everything migration `0023` copied out of the
+ * section tables (`kind` names the legacy table: section, event, issue_section,
+ * section_reply, section_media). A copy keeps its legacy id unless a row of the
+ * target table already held it, so `unified_id` is almost always `legacy_id`.
+ * The copy and mirror functions resolve through it, and so do the writes a reply
+ * sheet loaded before the switch still sends. Dropped with the legacy tables.
+ */
+export const unifyIds = pgTable(
+  "unify_ids",
+  {
+    kind: text("kind").notNull(),
+    legacyId: uuid("legacy_id").notNull(),
+    unifiedId: uuid("unified_id").notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.kind, t.legacyId] }), uniqueIndex("unify_ids_unified_idx").on(t.kind, t.unifiedId)],
+);
+
 export const musicLinks = pgTable("music_links", {
   url: text("url").primaryKey(),
   provider: text("provider").notNull(),

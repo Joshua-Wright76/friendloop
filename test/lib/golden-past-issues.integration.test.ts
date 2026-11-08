@@ -17,7 +17,7 @@ import { loadAlbum } from "../../src/lib/album.ts";
 import { loopArchive, replyLinkExport } from "../../src/lib/data-export.ts";
 import { deliverRound } from "../../src/lib/rounds.ts";
 import { rows, setupDatabase } from "../support/app.ts";
-import { GOLDEN, copyLikeUnify, matchGolden, reopenGoldenRound, seedGoldenWorld } from "../../e2e/support/golden.ts";
+import { GOLDEN, matchGolden, migrateLikeTheDeploy, reopenGoldenRound, seedGoldenWorld } from "../../e2e/support/golden.ts";
 import { clearRequest, setRequestHeaders } from "../stubs/request.mjs";
 
 setupDatabase();
@@ -50,14 +50,15 @@ async function collect(chunks: AsyncGenerator<string>): Promise<unknown> {
 }
 
 /*
- * Each check runs twice: on the round as seeded, and again with the next
- * release's copy of sections into questions sitting alongside it. The code that
- * ships before that release must not see the copy at all (src/lib/legacy-ask.ts).
+ * Each check runs twice, and the second reading must agree with the first: once
+ * with the seed copied into the unified tables by `0023`'s mirror triggers as it
+ * went in, and once seeded as PR A's release left it and then migrated by the
+ * real `0023`, the way the deploy runs it.
  */
-for (const [label, copied] of [["as seeded", false], ["with the unified copy alongside", true]] as const) {
+for (const [label, copied] of [["copied by the mirror triggers", false], ["migrated by 0023", true]] as const) {
   test(`${label}: a past round reads the same to a member, the owner and a share link`, async () => {
     compareOnly = copied;
-    if (copied) await copyLikeUnify();
+    if (copied) await migrateLikeTheDeploy();
     const { sam, bob } = GOLDEN.members;
     assertGolden("issue-member.json", readable(await loadIssue({ issueId: GOLDEN.issueId, viewerMembershipId: bob.id, viewerIsAdmin: false })));
     assertGolden("issue-owner.json", readable(await loadIssue({ issueId: GOLDEN.issueId, viewerMembershipId: sam.id, viewerIsAdmin: true })));
@@ -66,7 +67,7 @@ for (const [label, copied] of [["as seeded", false], ["with the unified copy alo
 
   test(`${label}: a past round's photos and voice notes fill the Album the same way`, async () => {
     compareOnly = copied;
-    if (copied) await copyLikeUnify();
+    if (copied) await migrateLikeTheDeploy();
     const { sam, bob } = GOLDEN.members;
     const filters = { member: null, q: "", pages: 1 };
     assertGolden("album-member.json", await loadAlbum({ groupId: GOLDEN.groupId, viewerMembershipId: bob.id, viewerIsAdmin: false, filters }));
@@ -75,7 +76,7 @@ for (const [label, copied] of [["as seeded", false], ["with the unified copy alo
 
   test(`${label}: a past round exports the same, for one person and for the whole loop`, async () => {
     compareOnly = copied;
-    if (copied) await copyLikeUnify();
+    if (copied) await migrateLikeTheDeploy();
     const person = await replyLinkExport(GOLDEN.members.alice.token, GOLDEN.readAt);
     assert.ok(person);
     assertGolden("export-person.json", await collect(person.chunks));
@@ -87,7 +88,7 @@ for (const [label, copied] of [["as seeded", false], ["with the unified copy alo
   test(`${label}: a round like it goes out in the same delivery emails`, async () => {
     compareOnly = copied;
     await reopenGoldenRound();
-    if (copied) await copyLikeUnify();
+    if (copied) await migrateLikeTheDeploy();
     const [row] = await db.select().from(issues).where(eq(issues.id, GOLDEN.issueId));
     assert.equal(await deliverRound({ issue: row, at: new Date(GOLDEN.deliveredAt.getTime() + 5 * 60_000) }), "delivered");
 

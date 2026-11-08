@@ -1,6 +1,14 @@
 import { NextResponse } from "next/server";
-import { confirmFor, saveDraftFor, saveNameFor, saveReminderPreferenceFor, savePollChoicesFor } from "@/lib/reply";
-import { saveSectionMusicFor, saveSectionTextFor } from "@/lib/sections";
+import {
+  confirmFor,
+  saveDraftFor,
+  saveMusicFor,
+  saveNameFor,
+  savePollChoicesFor,
+  saveReminderPreferenceFor,
+  saveSectionMusicFor,
+  saveSectionTextFor,
+} from "@/lib/reply";
 import { copy } from "@/lib/copy";
 
 /**
@@ -43,6 +51,23 @@ export async function POST(request: Request, { params }: { params: Promise<{ tok
       : NextResponse.json({ error: result.error }, { status: result.status });
   }
 
+  if (payload.action === "music") {
+    if (typeof payload.issueQuestionId !== "string") {
+      return NextResponse.json({ error: copy.reply.errors.missingQuestion }, { status: 400 });
+    }
+    const result = await saveMusicFor({
+      token,
+      issueQuestionId: payload.issueQuestionId,
+      url: typeof payload.url === "string" ? payload.url : "",
+      caption: typeof payload.caption === "string" ? payload.caption : "",
+    });
+    return result.ok
+      ? NextResponse.json({ ok: true, savedAt: result.savedAt })
+      : NextResponse.json({ error: result.error }, { status: result.status });
+  }
+
+  // A sheet loaded before sections became questions still sends these, with ids
+  // that now name its questions. Removed with the contract release.
   if (payload.action === "sectionDraft") {
     if (typeof payload.issueSectionId !== "string") {
       return NextResponse.json({ error: copy.reply.errors.missingQuestion }, { status: 400 });

@@ -10,9 +10,9 @@ test.beforeEach(async () => {
 type Placed = { number: number; title: string; event_date: string };
 const placements = () =>
   rows<Placed>(
-    `select i.number, s.title, s.event_date::text as event_date
-       from issue_sections s join issues i on i.id = s.issue_id
-      where s.event_id is not null order by i.number, s.position`,
+    `select i.number, s.text as title, s.occurrence_date::text as event_date
+       from issue_questions s join issues i on i.id = s.issue_id
+      where s.occurrence_date is not null order by i.number, s.position`,
   );
 
 test("O3 · a birthday lands in exactly one round, however many weekly rounds open around it", async () => {

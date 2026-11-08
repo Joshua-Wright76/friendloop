@@ -26,6 +26,11 @@ This round asks:
 - What are you looking forward to?
 - Which weekends work?
 - What did you cook?
+- 📝 This week
+- 📸 Photo wall
+- 🎵 Song of the week
+- 🗂️ Planning
+- 🏅 Small wins
 
 <app>/r/golden-token-cleo
 

@@ -79,7 +79,8 @@ test("a poll reorders and archives like any question", async () => {
     "select active, archived_at from questions where id = $1",
     [pollId],
   );
-  assert.equal(archived.active, false);
+  // Stopped is `archived_at`; `active` keeps saying "one of the loop's questions" (see asks.ts).
+  assert.equal(archived.active, true);
   assert.ok(archived.archived_at);
 });
 

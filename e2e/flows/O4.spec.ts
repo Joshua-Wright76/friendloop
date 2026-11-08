@@ -39,7 +39,7 @@ test("O4 · a round keeps the event section it was given, whatever happens to th
 
   // The open round still reads exactly as it was snapshotted.
   const snapshots = await rows<{ title: string; emoji: string; event_id: string | null; event_date: string }>(
-    "select title, emoji, event_id, event_date::text as event_date from issue_sections",
+    "select text as title, emoji, question_id as event_id, occurrence_date::text as event_date from issue_questions where occurrence_date is not null",
   );
   expect(snapshots).toEqual([{ title: "Alice's birthday", emoji: "🎂", event_id: null, event_date: "2026-01-06" }]);
   await page.goto(`/r/${bob.token}`);

@@ -211,7 +211,9 @@
               "url": "/uploads/golden-quilt.png",
               "caption": null
             }
-          ]
+          ],
+          "reactions": [],
+          "comments": []
         }
       ]
     },
@@ -248,7 +250,9 @@
               "url": "/uploads/golden-tent.png",
               "caption": "Tent, mostly up"
             }
-          ]
+          ],
+          "reactions": [],
+          "comments": []
         },
         {
           "replyId": "00000000-0000-4000-8000-000000000083",
@@ -272,7 +276,9 @@
               "url": "/uploads/golden-fire.png",
               "caption": null
             }
-          ]
+          ],
+          "reactions": [],
+          "comments": []
         }
       ]
     },
@@ -300,7 +306,9 @@
           "linkTracks": [],
           "linkTrackCount": 1,
           "addedLater": false,
-          "media": []
+          "media": [],
+          "reactions": [],
+          "comments": []
         }
       ]
     },
@@ -336,7 +344,9 @@
           "linkTracks": [],
           "linkTrackCount": 0,
           "addedLater": false,
-          "media": []
+          "media": [],
+          "reactions": [],
+          "comments": []
         }
       ]
     },
@@ -369,7 +379,9 @@
               "url": "/uploads/golden-cake.png",
               "caption": null
             }
-          ]
+          ],
+          "reactions": [],
+          "comments": []
         }
       ]
     }

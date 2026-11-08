@@ -1,7 +1,6 @@
 import { sql, type SQL } from "drizzle-orm";
 import { db } from "@/db";
 import { copy } from "./copy.ts";
-import { legacyAskSql } from "./legacy-ask.ts";
 import {
   ALBUM_PAGE_SIZE,
   escapeLike,
@@ -71,24 +70,29 @@ type Row = {
 };
 
 /**
- * Every photo and voice note a delivered issue carries, one row each. Only
- * answers that went out with delivered issues; admin-only sections stay with the
- * admins who can already read them in the issue itself.
+ * Every photo and voice note a delivered issue carries, one row each: answer
+ * photos and voice notes, and photo-wall photos. Only answers that went out with
+ * delivered issues; owners-only items stay with the admins who can already read
+ * them in the issue itself. Anything copied from a section keeps a section's
+ * place in the order and its anchor on the page.
  */
 function everything(groupId: string, viewerIsAdmin: boolean): SQL {
+  const visible = sql`i.group_id = ${groupId} and i.status = 'delivered' and not r.never_sent
+      and (q.admin_only = false or ${viewerIsAdmin})`;
   return sql`
     select 'photo' as kind, 'photo-' || r.id::text as key, r.photo_url as url,
       null::integer as duration_ms, null::text as caption, r.body as body, q.text as context,
       i.id as issue_id, i.number as number, i.name as issue_name,
-      coalesce(i.delivered_at, i.delivers_at) as delivered_at, 'answer-' || r.id::text as anchor,
+      coalesce(i.delivered_at, i.delivers_at) as delivered_at,
+      (case when q.from_section then 'section-reply-' else 'answer-' end) || r.id::text as anchor,
       m.id as member_id, m.name as author_name, m.email as author_email, m.photo_url as author_photo, m.charm as author_charm, m.avatar_frame as author_frame,
-      0 as source, q.position as context_position, 0 as media_position, r.created_at as created_at
+      (case when q.from_section then 1 else 0 end) as source, q.position as context_position,
+      (case when q.from_section then -1 else 0 end) as media_position, r.created_at as created_at
     from replies r
     join issues i on i.id = r.issue_id
     join issue_questions q on q.id = r.issue_question_id
     join memberships m on m.id = r.membership_id
-    where i.group_id = ${groupId} and i.status = 'delivered' and not r.never_sent and r.photo_url is not null
-      and ${legacyAskSql("q")}
+    where ${visible} and r.photo_url is not null
     union all
     select 'voice', 'voice-' || r.id::text, r.audio_url,
       r.audio_duration_ms, null::text, r.body, q.text,
@@ -100,22 +104,21 @@ function everything(groupId: string, viewerIsAdmin: boolean): SQL {
     join issues i on i.id = r.issue_id
     join issue_questions q on q.id = r.issue_question_id
     join memberships m on m.id = r.membership_id
-    where i.group_id = ${groupId} and i.status = 'delivered' and not r.never_sent and r.audio_url is not null
-      and ${legacyAskSql("q")}
+    where ${visible} and r.audio_url is not null and not q.from_section
     union all
-    select 'photo', 'media-' || sm.id::text, sm.url,
-      null::integer, sm.caption, sr.body, s.title,
+    select 'photo', 'media-' || rm.id::text, rm.url,
+      null::integer, rm.caption, r.body, q.text,
       i.id, i.number, i.name,
-      coalesce(i.delivered_at, i.delivers_at), 'section-reply-' || sr.id::text,
+      coalesce(i.delivered_at, i.delivers_at),
+      (case when q.from_section then 'section-reply-' else 'answer-' end) || r.id::text,
       m.id, m.name, m.email, m.photo_url, m.charm, m.avatar_frame,
-      1, s.position, sm.position, sr.created_at
-    from section_media sm
-    join section_replies sr on sr.id = sm.section_reply_id
-    join issue_sections s on s.id = sr.issue_section_id
-    join issues i on i.id = sr.issue_id
-    join memberships m on m.id = sr.membership_id
-    where i.group_id = ${groupId} and i.status = 'delivered' and not sr.never_sent
-      and (s.admin_only = false or ${viewerIsAdmin})
+      (case when q.from_section then 1 else 0 end), q.position, rm.position, r.created_at
+    from reply_media rm
+    join replies r on r.id = rm.reply_id
+    join issue_questions q on q.id = r.issue_question_id
+    join issues i on i.id = r.issue_id
+    join memberships m on m.id = r.membership_id
+    where ${visible}
   `;
 }
 

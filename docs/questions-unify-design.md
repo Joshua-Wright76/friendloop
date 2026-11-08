@@ -1,6 +1,6 @@
 # Questions, unified: design
 
-Status: PR A (expand and tolerate) built; B, C and D not started. Branch `questions-unify`, on top of PR #53 (answers autosave).
+Status: PR A (expand and tolerate) and PR B (copy and switch) built; C and D not started. PR B's choices that refine this design are recorded in its PR description and in `specs/architecture.md` §13.
 
 ## The idea
 

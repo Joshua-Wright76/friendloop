@@ -69,8 +69,10 @@ export function IssuePrint({
             <section key={block.questionId} className="print-question">
               <h2 className="flex items-start gap-3 text-ink">
                 <span className="question-number numeric">{index + 1}</span>
+                {block.emoji ? <span className="mr-1">{block.emoji}</span> : null}
                 {block.question}
               </h2>
+              {block.description ? <p className="print-credit">{block.description}</p> : null}
               {block.suggestedBy ? (
                 <p className="print-credit">{text(copy.issue.askedBy, { name: block.suggestedBy })}</p>
               ) : null}
@@ -160,6 +162,7 @@ export function IssuePrint({
                       </figure>
                     ))}
                     {reply.addedLater ? <p className="print-late">{copy.print.late}</p> : null}
+                    <PrintConversation reactions={reply.reactions} comments={reply.comments} />
                   </article>
                 ))
               )}
@@ -181,7 +184,6 @@ export function IssuePrint({
 }
 
 function PrintAnswer({ answer }: { answer: IssueAnswer }) {
-  const reactions = reactionSummary(answer.reactions);
   return (
     <article className="print-answer">
       <h3 className="print-author">
@@ -196,9 +198,17 @@ function PrintAnswer({ answer }: { answer: IssueAnswer }) {
             </li>
           ))}
         </ul>
-      ) : (
+      ) : answer.body || !(answer.link || answer.media) ? (
         <p className="print-body">{answer.body}</p>
-      )}
+      ) : null}
+      {answer.link ? <PrintMusic link={answer.link} /> : null}
+      {(answer.media ?? []).map((item) => (
+        <figure key={item.url} className="print-figure">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={item.url} alt={item.caption ? "" : text(copy.issue.photoAlt, { author: answer.author })} />
+          {item.caption ? <figcaption>{item.caption}</figcaption> : null}
+        </figure>
+      ))}
       {answer.photoUrl ? (
         <figure className="print-figure">
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -214,15 +224,43 @@ function PrintAnswer({ answer }: { answer: IssueAnswer }) {
         </div>
       ) : null}
       {answer.addedLater ? <p className="print-late">{copy.print.late}</p> : null}
-      {reactions ? (
-        <p className="print-reactions numeric">{text(copy.print.reactions, { summary: reactions })}</p>
+      <PrintConversation reactions={answer.reactions} comments={answer.comments} />
+    </article>
+  );
+}
+
+/** A music pick on paper: its title, where it lives, and the link to type in. */
+function PrintMusic({ link }: { link: NonNullable<IssueAnswer["link"]> }) {
+  return (
+    <div className="print-card">
+      <p className="print-card-title">{link.title ?? link.url}</p>
+      <p className="print-card-meta capitalize">{link.provider}</p>
+      <p className="print-card-link">{link.url}</p>
+      {link.trackCount > 1 && link.tracks.length > 0 ? (
+        <ol className="print-card-tracks">
+          {link.tracks.slice(0, 5).map((track, index) => (
+            <li key={`${index}-${track.title}`}>{track.title}</li>
+          ))}
+        </ol>
       ) : null}
-      {answer.comments.length > 0 ? (
+    </div>
+  );
+}
+
+/** An answer's reactions and thread, when it has any. */
+function PrintConversation({ reactions, comments }: Pick<IssueAnswer, "reactions" | "comments">) {
+  const summary = reactionSummary(reactions);
+  return (
+    <>
+      {summary ? (
+        <p className="print-reactions numeric">{text(copy.print.reactions, { summary })}</p>
+      ) : null}
+      {comments.length > 0 ? (
         <div className="print-thread" role="group" aria-label={copy.print.answerComments}>
-          <CommentList comments={answer.comments} />
+          <CommentList comments={comments} />
         </div>
       ) : null}
-    </article>
+    </>
   );
 }
 

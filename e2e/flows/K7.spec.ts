@@ -18,7 +18,7 @@ test("K7 · admin-only sections stay invisible to regular members", async ({ pag
   await page.getByRole("button", { name: "Add section" }).click();
   await expect(page.getByText("Section added.")).toBeVisible();
   await runSweep(new Date("2026-01-02T08:00:00Z"));
-  const [section] = await rows<{ id: string }>("select id from issue_sections limit 1");
+  const [section] = await rows<{ id: string }>("select id from issue_questions where text = 'Committee notes' limit 1");
 
   // Drop the owner's session before reading as Alice.
   await page.context().clearCookies();
@@ -43,6 +43,16 @@ test("K7 · admin-only sections stay invisible to regular members", async ({ pag
   // The owner, who contributes, still sees and answers it.
   await page.goto(`/r/${loop.ownerToken}`);
   await expect(page.getByText("Committee notes")).toBeVisible();
-  await page.goto(`/i/${issue.id}?m=${loop.ownerToken}`);
-  await expect(page.getByText("Committee notes")).toBeVisible();
+  await page.getByRole("textbox", { name: "Committee notes" }).fill("Budget looks fine.");
+  await page.getByRole("button", { name: "Done", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "All set", exact: true })).toBeVisible();
+
+  // Once it goes out, the owner reads it; Alice still doesn't.
+  await runSweep(new Date("2026-01-16T09:00:00Z"));
+  const [second] = await rows<{ id: string }>("select id from issues where status = 'delivered' order by number desc limit 1");
+  await page.goto(`/i/${second.id}?m=${loop.ownerToken}`);
+  await expect(page.getByText("Budget looks fine.")).toBeVisible();
+  await page.goto(`/i/${second.id}?m=${alice.token}`);
+  await expect(page.getByText("Committee notes")).toHaveCount(0);
+  await expect(page.getByText("Budget looks fine.")).toHaveCount(0);
 });

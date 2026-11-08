@@ -5,7 +5,7 @@ export type SectionPhotoSaveResult =
   | { ok: true; savedAt: string; mediaId: string; url: string }
   | { ok: false; error: string };
 
-/** A photo-wall or standard-section photo posts straight to the app. */
+/** A photo-wall photo posts straight to the app. */
 export async function uploadReplySectionPhoto(
   token: string,
   issueSectionId: string,
@@ -17,11 +17,11 @@ export async function uploadReplySectionPhoto(
 ): Promise<SectionPhotoSaveResult> {
   try {
     const form = new FormData();
-    form.set("issueSectionId", issueSectionId);
+    form.set("issueQuestionId", issueSectionId);
     form.set("photo", file, file.name);
     form.set("caption", caption);
     form.set("position", String(position));
-    const response = await fetcher(`/api/reply/${token}/section-media`, { method: "POST", body: form });
+    const response = await fetcher(`/api/reply/${token}/media`, { method: "POST", body: form });
     const data = await readUploadResponse<{
       ok?: boolean;
       savedAt?: string;
@@ -46,10 +46,10 @@ export async function removeReplySectionMedia(
   fetcher: typeof fetch = fetch,
 ): Promise<{ ok: true; savedAt: string } | { ok: false; error: string }> {
   try {
-    const response = await fetcher(`/api/reply/${token}/section-media`, {
+    const response = await fetcher(`/api/reply/${token}/media`, {
       method: "DELETE",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ issueSectionId, mediaId }),
+      body: JSON.stringify({ issueQuestionId: issueSectionId, mediaId }),
     });
     const data = (await response.json()) as { ok?: boolean; savedAt?: string; error?: string };
     if (!response.ok || !data.ok) return { ok: false, error: data.error ?? genericError };

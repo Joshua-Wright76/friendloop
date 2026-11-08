@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { rows } from "./db";
+import { rows, runMigrationFile } from "./db";
 
 /*
  * The golden past issue (docs/questions-unify-design.md, "Past issues stay exact").
@@ -17,7 +17,8 @@ import { rows } from "./db";
  *
  * Merging sections into questions must leave every snapshot unchanged. If a change
  * is meant to alter how past rounds read, regenerate with `UPDATE_GOLDEN=1` and
- * review the diff.
+ * review the diff. The seed writes the legacy tables, as the release before the
+ * switch did: the mirror triggers copy it, or `migrateLikeTheDeploy` runs `0023`.
  */
 
 const id = (n: number) => `00000000-0000-4000-8000-${String(n).padStart(12, "0")}`;
@@ -217,62 +218,23 @@ export async function reopenGoldenRound(): Promise<void> {
 }
 
 /**
- * Roughly what the next release's migration does (docs/questions-unify-design.md,
- * `0023`): copy sections, events and their answers into the question tables,
- * keeping their ids, and turn an "all questions" loop's pool into every-round
- * items. Plus what its code may write before a rollback: a new photo wall that
- * takes turns, stopped, and a music item in the open round with an answer.
- * Code that ships before it must read exactly as if none of this were there.
+ * The loop as PR A's release left it: sections, events and their answers only in
+ * the legacy tables. The test schema already has `0023`'s mirror triggers, so the
+ * seed was copied as it went in; this takes the copy out again.
  */
-export async function copyLikeUnify(): Promise<void> {
-  const format = (column: string) => `(case ${column} when 'standard' then 'written' else ${column}::text end)::answer_format`;
-  await rows(`
-    insert into questions (id, group_id, text, position, active, archived_at, kind, format, frequency, emoji, description, admin_only, created_at)
-    select s.id, s.group_id, s.title, s.position, false, coalesce(s.archived_at, case when not s.active then now() end),
-           'written', ${format("s.kind")}, 'every_round', s.emoji, s.description, s.admin_only, s.created_at
-      from sections s`);
-  await rows(`
-    insert into questions (id, group_id, text, position, active, kind, format, frequency, emoji, date_kind, month, day, year, about_membership_id, created_at)
-    select e.id, e.group_id, coalesce(e.title, ''), 0, false, 'written', 'written', 'on_date', e.emoji, e.kind, e.month, e.day, e.year,
-           e.membership_id, e.created_at
-      from events e`);
-  await rows(`
-    insert into issue_questions (id, issue_id, question_id, text, position, kind, format, emoji, description, admin_only,
-                                 occurrence_date, about_membership_id, from_section)
-    select s.id, s.issue_id, coalesce(s.section_id, s.event_id), s.title, 1000 + s.position, 'written', ${format("s.kind")},
-           s.emoji, s.description, s.admin_only, s.event_date,
-           (select e.membership_id from events e where e.id = s.event_id and e.kind = 'birthday'), true
-      from issue_sections s`);
-  await rows(`
-    insert into replies (id, issue_id, issue_question_id, membership_id, body, link_url, link_provider, status, submitted_at,
-                         added_after_delivery, never_sent, created_at, updated_at)
-    select r.id, r.issue_id, r.issue_section_id, r.membership_id, r.body, r.link_url, r.link_provider, r.status, r.submitted_at,
-           r.added_after_delivery, r.never_sent, r.created_at, r.updated_at
-      from section_replies r`);
-  await rows(`
-    update replies r set photo_url = m.url
-      from section_media m join section_replies sr on sr.id = m.section_reply_id join issue_sections s on s.id = sr.issue_section_id
-     where r.id = sr.id and s.kind = 'standard' and r.photo_url is null`);
-  await rows(`
-    insert into reply_media (id, reply_id, url, caption, position, created_at)
-    select m.id, m.section_reply_id, m.url, m.caption, m.position, m.created_at from section_media m
-     where not exists (select 1 from replies r where r.id = m.section_reply_id and r.photo_url = m.url)`);
-  await rows(`
-    update questions q set frequency = 'every_round' from groups g
-     where g.id = q.group_id and g.questions_per_round is null and q.frequency = 'rotating' and q.active`);
+export async function undoUnifiedCopy(): Promise<void> {
+  const copies = (kind: string) => `select unified_id from unify_ids where kind = '${kind}'`;
+  await rows(`delete from reply_media where id in (${copies("section_media")})`);
+  await rows(`delete from replies where id in (${copies("section_reply")})`);
+  await rows("delete from issue_questions where from_section");
+  await rows(`delete from questions where id in (${copies("section")} union ${copies("event")})`);
+  await rows("delete from unify_ids");
+}
 
-  // Written by the unified code itself.
-  await rows(`
-    insert into questions (group_id, text, position, active, archived_at, format, frequency)
-    select id, 'Weekend photos', 99, false, now(), 'photo_wall', 'rotating' from groups`);
-  await rows(`
-    with open as (select i.id, i.group_id from issues i where i.status = 'open'),
-         ask as (insert into issue_questions (issue_id, text, position, format)
-                 select id, 'Song for the road', 50, 'music' from open returning id, issue_id)
-    insert into replies (issue_id, issue_question_id, membership_id, body, link_url, link_provider, status, submitted_at)
-    select ask.issue_id, ask.id, m.id, 'Windows down', 'https://open.spotify.com/track/road', 'spotify', 'submitted', now()
-      from ask join open on open.id = ask.issue_id
-      join memberships m on m.group_id = open.group_id and m.access = 'owner'`);
+/** Run the real `0023` against the loop as PR A's release left it. */
+export async function migrateLikeTheDeploy(): Promise<void> {
+  await undoUnifiedCopy();
+  await runMigrationFile(path.join(process.cwd(), "drizzle", "0023_questions_unify.sql"));
 }
 
 const GOLDEN_DIR = path.join(process.cwd(), "test", "golden");

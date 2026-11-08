@@ -1,15 +1,14 @@
 import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
-import { replyHasContentCondition, sectionReplyHasContentCondition } from "./reply-query";
-import { legacyAskCondition } from "./legacy-ask";
-import { issueQuestions, issueSections, issues, replies, sectionReplies } from "@/db/schema";
+import { replyHasContentCondition } from "./reply-query";
+import { issueQuestions, issues, replies } from "@/db/schema";
 
 export { parseMemberFilter } from "./member-filter.ts";
 
 /**
- * The delivered rounds a person put an answer in: a written or poll answer, or a
- * section answer — except in sections only admins may read, which a plain member
- * has no business learning someone wrote in.
+ * The delivered rounds a person put an answer in, of any kind, except in items
+ * only owners and admins may read, which a plain member has no business learning
+ * someone wrote in.
  */
 export async function deliveredRoundsAnsweredBy(input: {
   groupId: string;
@@ -29,34 +28,19 @@ export async function deliveredRoundsAnsweredByEveryone(input: {
   includeAdminOnly: boolean;
 }): Promise<Map<string, string[]>> {
   const delivered = and(eq(issues.groupId, input.groupId), eq(issues.status, "delivered"));
-  const [questionRows, sectionRows] = await Promise.all([
-    db
-      .selectDistinct({ issueId: replies.issueId, membershipId: replies.membershipId })
-      .from(replies)
-      .innerJoin(issues, eq(issues.id, replies.issueId))
-      .innerJoin(issueQuestions, eq(issueQuestions.id, replies.issueQuestionId))
-      .where(
-        and(
-          delivered,
-          replyHasContentCondition(),
-          legacyAskCondition(),
-        ),
-      ),
-    db
-      .selectDistinct({ issueId: sectionReplies.issueId, membershipId: sectionReplies.membershipId, adminOnly: issueSections.adminOnly })
-      .from(sectionReplies)
-      .innerJoin(issues, eq(issues.id, sectionReplies.issueId))
-      .innerJoin(issueSections, eq(issueSections.id, sectionReplies.issueSectionId))
-      .where(and(delivered, sectionReplyHasContentCondition())),
-  ]);
+  const rows = await db
+    .selectDistinct({ issueId: replies.issueId, membershipId: replies.membershipId, adminOnly: issueQuestions.adminOnly })
+    .from(replies)
+    .innerJoin(issues, eq(issues.id, replies.issueId))
+    .innerJoin(issueQuestions, eq(issueQuestions.id, replies.issueQuestionId))
+    .where(and(delivered, replyHasContentCondition()));
 
   const byMember = new Map<string, Set<string>>();
-  const add = (membershipId: string, issueId: string) => {
-    const key = membershipId.toLowerCase();
+  for (const row of rows) {
+    if (row.adminOnly && !input.includeAdminOnly) continue;
+    const key = row.membershipId.toLowerCase();
     if (!byMember.has(key)) byMember.set(key, new Set());
-    byMember.get(key)!.add(issueId);
-  };
-  for (const row of questionRows) add(row.membershipId, row.issueId);
-  for (const row of sectionRows) if (input.includeAdminOnly || !row.adminOnly) add(row.membershipId, row.issueId);
+    byMember.get(key)!.add(row.issueId);
+  }
   return new Map([...byMember].map(([key, ids]) => [key, [...ids]]));
 }

@@ -3,6 +3,7 @@ import { resetDatabase, rows } from "../support/db";
 import { seedLoop } from "../support/seed";
 import { openPart, runSweep, signIn } from "../support/harness";
 import { makePng } from "../support/audio";
+import { chooseFile } from "../support/identity";
 
 test.beforeEach(async () => {
   await resetDatabase();
@@ -20,20 +21,15 @@ test("K3 · a standard section takes text and one photo", async ({ page }) => {
 
   const alice = loop.members.find((member) => member.email.startsWith("alice"))!;
   await page.goto(`/r/${alice.token}`);
-  // The sections area carries its own photo button, separate from questions.
-  const corner = page.getByRole("region", { name: "And a little extra" });
+  // A standard section is a written card now: text, one photo, and the same rules as any answer.
+  const corner = page.locator("section").filter({ has: page.getByRole("heading", { name: "The potluck corner" }) });
   await page.getByRole("textbox", { name: "The potluck corner" }).fill("Banana bread, again.");
-  await corner.getByLabel("Add a photo").first().setInputFiles({
-    name: "banana.png",
-    mimeType: "image/png",
-    buffer: makePng(),
-  });
-  await expect(page.getByText("Photo added.").first()).toBeVisible();
+  await chooseFile(page, "Add a photo", { name: "banana.png", mimeType: "image/png", buffer: makePng() }, corner);
+  await expect(corner.getByText("Photo saved").first()).toBeVisible();
 
-  // A second photo is refused: standard sections carry one. The form is gone at
-  // the cap, so exercise the acceptance rule through the API.
+  // A sheet from before the switch still posts to the old endpoint: a second photo is refused there too.
   const [section] = await rows<{ id: string }>(
-    "select iss.id from issue_sections iss where iss.title = 'The potluck corner' limit 1",
+    "select id from issue_questions where text = 'The potluck corner' limit 1",
   );
   const refused = await page.request.post(`/api/reply/${alice.token}/section-media`, {
     multipart: {

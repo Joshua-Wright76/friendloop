@@ -1,7 +1,9 @@
-import { and, asc, eq, isNull, sql } from "drizzle-orm";
+import { and, asc, eq, isNull, max, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { events, groups, issueSections, issues, memberships } from "@/db/schema";
+import { groups, issueQuestions, issues, memberships, questions } from "@/db/schema";
 import { copy, text } from "./copy.ts";
+import { formatOf } from "./asks";
+import type { Executor } from "./round-questions";
 import {
   EVENT_TITLE_MAX,
   describeDate,
@@ -13,143 +15,137 @@ import {
   type EventRule,
 } from "./event-dates.ts";
 
-type GroupRow = typeof groups.$inferSelect;
-type EventRow = typeof events.$inferSelect;
+/*
+ * An event is an item asked on a date (docs/questions-unify-design.md): a pool
+ * row with `frequency = 'on_date'`, holding a one-time date, or a birthday and
+ * the person it is about. Nothing reads it at delivery: when a round opens, each
+ * occurrence in the round's days becomes one of its snapshots, claimed once by
+ * `(question_id, occurrence_date)`.
+ */
 
-/** An event with the birthday person's current details, for snapshotting and the list. */
-type EventWithPerson = {
-  event: EventRow;
+type GroupRow = typeof groups.$inferSelect;
+type QuestionRow = typeof questions.$inferSelect;
+
+/** A dated item with the birthday person's current details, for snapshotting and the list. */
+type DatedItem = {
+  question: QuestionRow;
   personName: string | null;
   personEmail: string | null;
   personRevoked: boolean;
 };
 
-async function loadEvents(groupId: string, onlyId?: string): Promise<EventWithPerson[]> {
-  const rows = await db
+async function loadDated(ex: Executor, groupId: string, onlyId?: string): Promise<DatedItem[]> {
+  const rows = await ex
     .select({
-      event: events,
+      question: questions,
       personName: memberships.name,
       personEmail: memberships.email,
       personRevoked: sql<boolean>`${memberships.revokedAt} is not null`,
     })
-    .from(events)
-    .leftJoin(memberships, eq(memberships.id, events.membershipId))
-    .where(onlyId ? and(eq(events.groupId, groupId), eq(events.id, onlyId)) : eq(events.groupId, groupId))
-    .orderBy(asc(events.month), asc(events.day), asc(events.createdAt));
+    .from(questions)
+    .leftJoin(memberships, eq(memberships.id, questions.aboutMembershipId))
+    .where(and(
+      eq(questions.groupId, groupId),
+      eq(questions.frequency, "on_date"),
+      isNull(questions.archivedAt),
+      onlyId ? eq(questions.id, onlyId) : undefined,
+    ))
+    .orderBy(asc(questions.month), asc(questions.day), asc(questions.createdAt));
   return rows.map((row) => ({ ...row, personRevoked: row.personRevoked === true }));
 }
 
-function personLabel(row: Pick<EventWithPerson, "personName" | "personEmail">): string {
+function personLabel(row: Pick<DatedItem, "personName" | "personEmail">): string {
   return row.personName ?? row.personEmail?.split("@")[0] ?? "";
 }
 
-function ruleOf(event: EventRow): EventRule {
-  return { kind: event.kind, month: event.month, day: event.day, year: event.year };
+function kindOf(question: QuestionRow): "once" | "birthday" {
+  return question.dateKind === "birthday" ? "birthday" : "once";
 }
 
-/** What a snapshot of this event reads like, frozen into the issue. */
-function sectionTextFor(row: EventWithPerson): { title: string; description: string } {
-  if (row.event.kind === "birthday") {
+function ruleOf(question: QuestionRow): EventRule {
+  return { kind: kindOf(question), month: question.month ?? 1, day: question.day ?? 1, year: question.year };
+}
+
+/** What a snapshot of this date reads like, frozen into the round. */
+function snapshotTextFor(row: DatedItem): { text: string; description: string } {
+  if (kindOf(row.question) === "birthday") {
     const name = personLabel(row);
     return {
-      title: text(copy.events.section.birthdayTitle, { name }),
-      description: text(copy.events.section.birthdayDescription, { name }),
+      text: text(copy.events.section.birthdayTitle, { name }),
+      description: row.question.description ?? text(copy.events.section.birthdayDescription, { name }),
     };
   }
-  return { title: row.event.title ?? "", description: copy.events.section.onceDescription };
+  return { text: row.question.text, description: row.question.description ?? copy.events.section.onceDescription };
 }
 
 /**
- * Put every event whose date falls in an issue's coverage into that issue as a
- * section. Safe to repeat: an occurrence (event + date) can be claimed only once,
- * so a retried sweep, an overlapping window, or an event added mid-round never
- * produces a second section for the same day.
+ * Put every dated item whose day falls in a round's coverage into that round.
+ * Safe to repeat: an occurrence (item + date) can be claimed only once, so a
+ * retried sweep, an overlapping window or an item added mid-round never makes a
+ * second card for the same day. A day the owner took out of a round stays out.
  */
-async function placeEvents(input: {
-  issueId: string;
-  window: { start: string; end: string };
-  rows: EventWithPerson[];
-}): Promise<number> {
-  const claims = input.rows.flatMap((row) => {
-    // A birthday whose person has left the loop has nobody to celebrate.
-    if (row.event.kind === "birthday" && (row.event.membershipId === null || row.personRevoked)) return [];
-    return occurrencesInWindow(ruleOf(row.event), input.window).map((eventDate) => ({ row, eventDate }));
-  });
-  if (claims.length === 0) return 0;
-
-  const [{ maxPosition }] = await db
-    .select({ maxPosition: sql<number>`coalesce(max(${issueSections.position}), -1)::int` })
-    .from(issueSections)
-    .where(eq(issueSections.issueId, input.issueId));
-
-  claims.sort((left, right) => left.eventDate.localeCompare(right.eventDate));
-  const inserted = await db
-    .insert(issueSections)
-    .values(
-      claims.map(({ row, eventDate }, index) => ({
-        issueId: input.issueId,
-        sectionId: null,
-        kind: "standard" as const,
-        ...sectionTextFor(row),
-        emoji: row.event.emoji ?? copy.events.section.defaultEmoji,
-        adminOnly: false,
-        position: maxPosition + 1 + index,
-        eventId: row.event.id,
-        eventDate,
-      })),
-    )
-    .onConflictDoNothing({ target: [issueSections.eventId, issueSections.eventDate] })
-    .returning({ id: issueSections.id });
-  return inserted.length;
-}
-
-/**
- * Put a round's events into it: every occurrence from the day it opened through
- * the day it goes out. Rounds meet at a delivery date, and an occurrence on that
- * day goes to whichever round claims it first: the one going out. Repeatable, so
- * a round carried over to a later delivery just picks up the extra days.
- */
-export async function placeEventsInRound(input: {
+export async function placeDatedItems(input: {
+  ex?: Executor;
   group: GroupRow;
   issueId: string;
   opensAt: Date;
   deliversAt: Date;
+  onlyQuestionId?: string;
 }): Promise<number> {
-  const rows = await loadEvents(input.group.id);
-  if (rows.length === 0) return 0;
-  return placeEvents({
-    issueId: input.issueId,
-    window: issueCoverage({
-      opensAt: input.opensAt,
-      deliversAt: input.deliversAt,
-      timezone: input.group.timezone,
-    }),
-    rows,
+  const ex = input.ex ?? db;
+  const rows = await loadDated(ex, input.group.id, input.onlyQuestionId);
+  const window = issueCoverage({ opensAt: input.opensAt, deliversAt: input.deliversAt, timezone: input.group.timezone });
+  const claims = rows.flatMap((row) => {
+    // A birthday whose person has left the loop has nobody to celebrate.
+    if (kindOf(row.question) === "birthday" && (row.question.aboutMembershipId === null || row.personRevoked)) return [];
+    return occurrencesInWindow(ruleOf(row.question), window)
+      .filter((date) => !row.question.skippedDates.includes(date))
+      .map((occurrenceDate) => ({ row, occurrenceDate }));
   });
+  if (claims.length === 0) return 0;
+
+  const [{ last }] = await ex
+    .select({ last: max(issueQuestions.position) })
+    .from(issueQuestions)
+    .where(eq(issueQuestions.issueId, input.issueId));
+
+  claims.sort((left, right) => left.occurrenceDate.localeCompare(right.occurrenceDate));
+  const inserted = await ex
+    .insert(issueQuestions)
+    .values(
+      claims.map(({ row, occurrenceDate }, index) => ({
+        issueId: input.issueId,
+        questionId: row.question.id,
+        ...snapshotTextFor(row),
+        kind: row.question.kind,
+        format: formatOf(row.question),
+        pollMultiple: row.question.pollMultiple,
+        pollOptions: row.question.pollOptions,
+        emoji: row.question.emoji ?? copy.events.section.defaultEmoji,
+        adminOnly: row.question.adminOnly,
+        position: (last ?? -1) + 1 + index,
+        occurrenceDate,
+        aboutMembershipId: kindOf(row.question) === "birthday" ? row.question.aboutMembershipId : null,
+      })),
+    )
+    .onConflictDoNothing()
+    .returning({ id: issueQuestions.id });
+  return inserted.length;
 }
 
 /**
- * An event added while a round is already open would miss that round's snapshot. If
- * its date falls inside the open round, add it there now, so nothing owners type in
+ * A date added while a round is already open would miss that round's snapshot. If
+ * its day falls inside the open round, add it there now, so nothing owners type in
  * is silently lost to timing.
  */
-async function placeInOpenIssue(group: GroupRow, eventId: string): Promise<void> {
+async function placeInOpenIssue(group: GroupRow, questionId: string): Promise<void> {
   const [open] = await db
     .select()
     .from(issues)
     .where(and(eq(issues.groupId, group.id), eq(issues.status, "open")))
     .limit(1);
   if (!open) return;
-
-  await placeEvents({
-    issueId: open.id,
-    window: issueCoverage({
-      opensAt: open.opensAt,
-      deliversAt: open.deliversAt,
-      timezone: group.timezone,
-    }),
-    rows: await loadEvents(group.id, eventId),
-  });
+  await placeDatedItems({ group, issueId: open.id, opensAt: open.opensAt, deliversAt: open.deliversAt, onlyQuestionId: questionId });
 }
 
 export type EventListItem = {
@@ -177,26 +173,24 @@ function pad(value: number, width: number): string {
 /** The list a manager sees: soonest first, with finished one-time events last. */
 export async function eventsOf(group: Pick<GroupRow, "id" | "timezone">, at: Date): Promise<EventListItem[]> {
   const today = localDate(at, group.timezone);
-  const items = (await loadEvents(group.id))
-    .filter((row) => !(row.event.kind === "birthday" && row.personRevoked))
+  const items = (await loadDated(db, group.id))
+    .filter((row) => !(kindOf(row.question) === "birthday" && row.personRevoked))
     .map((row): EventListItem => {
-      const next = nextOccurrence(ruleOf(row.event), today);
+      const rule = ruleOf(row.question);
+      const next = nextOccurrence(rule, today);
       return {
-        id: row.event.id,
-        kind: row.event.kind,
-        label:
-          row.event.kind === "birthday"
-            ? text(copy.events.birthdayRow, { name: personLabel(row) })
-            : (row.event.title ?? ""),
-        title: row.event.title ?? "",
-        emoji: row.event.emoji,
-        membershipId: row.event.membershipId,
-        month: row.event.month,
-        day: row.event.day,
-        year: row.event.year,
+        id: row.question.id,
+        kind: rule.kind,
+        label: rule.kind === "birthday" ? text(copy.events.birthdayRow, { name: personLabel(row) }) : row.question.text,
+        title: rule.kind === "birthday" ? "" : row.question.text,
+        emoji: row.question.emoji,
+        membershipId: row.question.aboutMembershipId,
+        month: rule.month,
+        day: rule.day,
+        year: rule.year,
         nextDate: next,
         nextLabel: next ? describeDate(next) : null,
-        inputDate: `${pad(row.event.year ?? Number(today.slice(0, 4)), 4)}-${pad(row.event.month, 2)}-${pad(row.event.day, 2)}`,
+        inputDate: `${pad(rule.year ?? Number(today.slice(0, 4)), 4)}-${pad(rule.month, 2)}-${pad(rule.day, 2)}`,
       };
     });
 
@@ -224,12 +218,22 @@ export type EventWriteResult =
   | { ok: true }
   | { ok: false; code: EventErrorCode };
 
+type DateValues = {
+  text: string;
+  emoji: string | null;
+  dateKind: "once" | "birthday";
+  month: number;
+  day: number;
+  year: number | null;
+  aboutMembershipId: string | null;
+};
+
 /** Check an event form against the loop; returns the columns to store. */
 async function checkEvent(
   group: Pick<GroupRow, "id" | "timezone">,
   input: EventInput,
   options: { at: Date; allowPast: boolean },
-): Promise<{ ok: false; code: EventErrorCode } | { ok: true; values: Omit<typeof events.$inferInsert, "groupId"> }> {
+): Promise<{ ok: false; code: EventErrorCode } | { ok: true; values: DateValues }> {
   const date = parseDateInput(input.date);
   if (!date) return { ok: false, code: "invalid" };
 
@@ -251,7 +255,7 @@ async function checkEvent(
     if (!person) return { ok: false, code: "memberRequired" };
     return {
       ok: true,
-      values: { kind: "birthday", title: null, emoji, month: date.month, day: date.day, year: null, membershipId: person.id },
+      values: { text: "", emoji, dateKind: "birthday", month: date.month, day: date.day, year: null, aboutMembershipId: person.id },
     };
   }
 
@@ -262,7 +266,7 @@ async function checkEvent(
   }
   return {
     ok: true,
-    values: { kind: "once", title, emoji, month: date.month, day: date.day, year: date.year, membershipId: null },
+    values: { text: title, emoji, dateKind: "once", month: date.month, day: date.day, year: date.year, aboutMembershipId: null },
   };
 }
 
@@ -271,37 +275,48 @@ export async function createEvent(input: EventInput & { group: GroupRow; at: Dat
   if (!checked.ok) return checked;
 
   const [created] = await db
-    .insert(events)
-    .values({ ...checked.values, groupId: input.group.id, createdAt: input.at })
-    .returning({ id: events.id });
+    .insert(questions)
+    .values({
+      ...checked.values,
+      groupId: input.group.id,
+      position: 0,
+      active: false,
+      kind: "written",
+      format: "written",
+      frequency: "on_date",
+      createdAt: input.at,
+    })
+    .returning({ id: questions.id });
   await placeInOpenIssue(input.group, created.id);
   return { ok: true };
 }
 
-/** Edit an event. The kind is fixed; a delivered or open issue keeps what it snapshotted. */
+/** Edit a date. The kind is fixed; a delivered or open round keeps what it snapshotted. */
 export async function updateEvent(
   input: Omit<EventInput, "kind"> & { group: GroupRow; eventId: string; at: Date },
 ): Promise<EventWriteResult> {
   const [existing] = await db
     .select()
-    .from(events)
-    .where(and(eq(events.id, input.eventId), eq(events.groupId, input.group.id)))
+    .from(questions)
+    .where(and(eq(questions.id, input.eventId), eq(questions.groupId, input.group.id), eq(questions.frequency, "on_date")))
     .limit(1);
   if (!existing) return { ok: false, code: "invalid" };
 
   const checked = await checkEvent(
     input.group,
-    { ...input, kind: existing.kind },
+    { ...input, kind: kindOf(existing) },
     { at: input.at, allowPast: true },
   );
   if (!checked.ok) return checked;
 
-  await db.update(events).set(checked.values).where(eq(events.id, existing.id));
+  await db.update(questions).set(checked.values).where(eq(questions.id, existing.id));
   await placeInOpenIssue(input.group, existing.id);
   return { ok: true };
 }
 
-/** Remove an event. Sections already snapshotted keep their title and place. */
+/** Remove a date. Cards already in a round keep their title and place. */
 export async function deleteEvent(input: { groupId: string; eventId: string }): Promise<void> {
-  await db.delete(events).where(and(eq(events.id, input.eventId), eq(events.groupId, input.groupId)));
+  await db
+    .delete(questions)
+    .where(and(eq(questions.id, input.eventId), eq(questions.groupId, input.groupId), eq(questions.frequency, "on_date")));
 }

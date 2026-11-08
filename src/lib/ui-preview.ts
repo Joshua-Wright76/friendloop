@@ -1,5 +1,5 @@
 import { cookies } from "next/headers";
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { notFound } from "next/navigation";
 import { db } from "@/db";
 import {
@@ -186,10 +186,18 @@ const OPEN_QUESTION_IDS = [
   "22222222-2222-4222-8222-222222222282",
   "22222222-2222-4222-8222-222222222283",
 ];
+/*
+ * Every table gets its own id range, so no two seeded rows ever share an id across
+ * tables that are, or were, copied into one another (sections and events into
+ * questions, round sections into round questions, section answers into answers):
+ * questions …240–243 and …280–281, round questions …250–253, …260–263 and
+ * …282–285, sections …2b0–2b2, round sections …245–24a, …24d and …24e, events
+ * …24b and …24c, answers …2a0 and …2a1 (the rest of the answers get fresh ids).
+ */
 const SECTION_IDS = [
-  "22222222-2222-4222-8222-222222222240",
-  "22222222-2222-4222-8222-222222222241",
-  "22222222-2222-4222-8222-222222222242",
+  "22222222-2222-4222-8222-2222222222b0",
+  "22222222-2222-4222-8222-2222222222b1",
+  "22222222-2222-4222-8222-2222222222b2",
 ];
 const OPEN_SECTION_IDS = [
   "22222222-2222-4222-8222-222222222245",
@@ -307,13 +315,30 @@ export function isConstraintViolation(error: unknown): boolean {
  * The rebuild keeps the demo user, because deleting it would strip the owner from
  * any other loop a visitor made while signed in as the demo user.
  */
+/**
+ * Older seeds gave the demo's sections the ids of its first three questions. The
+ * copy into one list keeps those apart now, but topping up such a demo would
+ * leave its old sections beside the new ones, so it is rebuilt instead.
+ */
+const RETIRED_SECTION_IDS = [
+  "22222222-2222-4222-8222-222222222240",
+  "22222222-2222-4222-8222-222222222241",
+  "22222222-2222-4222-8222-222222222242",
+];
+
+async function olderSeedPresent(): Promise<boolean> {
+  const [row] = await db.select({ id: sections.id }).from(sections).where(inArray(sections.id, RETIRED_SECTION_IDS)).limit(1);
+  return Boolean(row);
+}
+
 /** Seeds the demo and signs the caller in as its owner. False where the demo isn't allowed. */
 export async function enableUiPreview(reset = false): Promise<boolean> {
   if (!demoDataAllowed()) return false;
   const now = new Date();
 
   try {
-    await seedUiPreview(now, { deleteGroup: reset, deleteUser: reset });
+    const rebuild = reset || (await olderSeedPresent());
+    await seedUiPreview(now, { deleteGroup: rebuild, deleteUser: reset });
   } catch (error) {
     if (reset || !isConstraintViolation(error)) throw error;
     const { cause } = error as { cause?: { code?: string; constraint_name?: string } };

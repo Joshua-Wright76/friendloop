@@ -1,15 +1,15 @@
 import { test, expect } from "@playwright/test";
 import { resetDatabase } from "./support/db";
 import { freezeClock } from "./support/harness";
-import { GOLDEN, copyLikeUnify, matchGolden, seedGoldenWorld } from "./support/golden";
+import { GOLDEN, matchGolden, migrateLikeTheDeploy, seedGoldenWorld } from "./support/golden";
 
 /*
  * Past issues stay exact (docs/questions-unify-design.md): the golden round's page,
  * share page and print views, as text, against `test/golden/`. The data behind them
  * (and the Album, exports and emails) is snapshotted by
- * `test/lib/golden-past-issues.integration.test.ts`. Each page is read twice: as
- * seeded, and with the next release's copy of sections into questions alongside,
- * which the code shipping before it must not show.
+ * `test/lib/golden-past-issues.integration.test.ts`. Each page is read twice:
+ * with the seed copied by `0023`'s mirror triggers as it went in, and seeded as
+ * PR A's release left it, then migrated by the real `0023`.
  */
 
 test.use({ timezoneId: "UTC", locale: "en-US" });
@@ -24,12 +24,12 @@ const PAGES: Array<[name: string, path: string]> = [
   ["print-share.txt", `/s/${shareToken}?print`],
 ];
 
-for (const [label, copied] of [["as seeded", false], ["with the unified copy alongside", true]] as const) {
+for (const [label, copied] of [["copied by the mirror triggers", false], ["migrated by 0023", true]] as const) {
   test(`golden past issue, ${label}: the page, share page and print views read the same`, async ({ page }) => {
     test.skip(test.info().project.name !== "desktop", "one rendering is enough");
     await resetDatabase();
     await seedGoldenWorld();
-    if (copied) await copyLikeUnify();
+    if (copied) await migrateLikeTheDeploy();
     await freezeClock(page, GOLDEN.readAt);
 
     for (const [name, path] of PAGES) {

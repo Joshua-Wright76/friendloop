@@ -1,13 +1,15 @@
 import { uploadRefused } from "@/lib/upload-limit";
 import { NextResponse } from "next/server";
-import { removeSectionMediaFor, saveSectionPhotoFor } from "@/lib/sections";
+import { removeSectionMediaFor, saveSectionPhotoFor } from "@/lib/reply";
 import { copy } from "@/lib/copy";
 
 type RouteContext = { params: Promise<{ token: string }> };
 
 /**
- * Photos on section answers upload straight to the app — a photo wall is at
- * most six images, well inside every serverless body limit.
+ * What a sheet loaded before sections became questions uploads to: a photo-wall
+ * photo, or a standard section's one photo (now its answer's photo). The ids it
+ * sends are now question ids. New sheets use `/media` and `/photo`; this goes
+ * with the contract release.
  */
 export async function POST(request: Request, { params }: RouteContext) {
   const { token } = await params;
