@@ -294,7 +294,7 @@ select.field { cursor: pointer; }
 .sortable-row[data-locked] { opacity: .85; }
 .sortable-row[data-dragging] { position: relative; z-index: 5; border-color: var(--accent-line); box-shadow: 0 14px 30px rgb(61 42 48 / .24), var(--shadow-lift); opacity: 1; cursor: grabbing; }
 .sortable-list:has([data-dragging]) .sortable-row:not([data-dragging]) { opacity: .92; }
-.sortable-grip { display: inline-grid; width: 44px; min-height: 52px; flex: none; place-items: center; align-self: stretch; padding: 0; border: 0; border-right: 1px dashed var(--line); border-radius: 6px 0 0 6px; background: transparent; color: var(--ink-muted); cursor: grab; touch-action: none; }
+.sortable-grip { display: inline-grid; width: 44px; min-height: 52px; flex: none; place-items: start center; align-self: stretch; padding: 16px 0 0; border: 0; border-right: 1px dashed var(--line); border-radius: 6px 0 0 6px; background: transparent; color: var(--ink-muted); cursor: grab; touch-action: none; }
 .sortable-grip:hover, .sortable-grip[aria-expanded="true"] { background: var(--accent-soft); color: var(--ink); }
 .sortable-row[data-dragging] .sortable-grip { cursor: grabbing; }
 .sortable-body { min-width: 0; flex: 1; }
