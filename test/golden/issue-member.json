@@ -323,7 +323,25 @@
               "url": "/uploads/golden-quilt.png",
               "caption": null
             }
-          ]
+          ],
+          "reactions": [
+            {
+              "emoji": "❤️",
+              "count": 0,
+              "mine": false
+            },
+            {
+              "emoji": "😄",
+              "count": 0,
+              "mine": false
+            },
+            {
+              "emoji": "👏",
+              "count": 0,
+              "mine": false
+            }
+          ],
+          "comments": []
         }
       ]
     },
@@ -360,7 +378,25 @@
               "url": "/uploads/golden-tent.png",
               "caption": "Tent, mostly up"
             }
-          ]
+          ],
+          "reactions": [
+            {
+              "emoji": "❤️",
+              "count": 0,
+              "mine": false
+            },
+            {
+              "emoji": "😄",
+              "count": 0,
+              "mine": false
+            },
+            {
+              "emoji": "👏",
+              "count": 0,
+              "mine": false
+            }
+          ],
+          "comments": []
         },
         {
           "replyId": "00000000-0000-4000-8000-000000000083",
@@ -384,7 +420,25 @@
               "url": "/uploads/golden-fire.png",
               "caption": null
             }
-          ]
+          ],
+          "reactions": [
+            {
+              "emoji": "❤️",
+              "count": 0,
+              "mine": false
+            },
+            {
+              "emoji": "😄",
+              "count": 0,
+              "mine": false
+            },
+            {
+              "emoji": "👏",
+              "count": 0,
+              "mine": false
+            }
+          ],
+          "comments": []
         }
       ]
     },
@@ -412,7 +466,25 @@
           "linkTracks": [],
           "linkTrackCount": 1,
           "addedLater": false,
-          "media": []
+          "media": [],
+          "reactions": [
+            {
+              "emoji": "❤️",
+              "count": 0,
+              "mine": false
+            },
+            {
+              "emoji": "😄",
+              "count": 0,
+              "mine": false
+            },
+            {
+              "emoji": "👏",
+              "count": 0,
+              "mine": false
+            }
+          ],
+          "comments": []
         }
       ]
     },
@@ -448,7 +520,25 @@
           "linkTracks": [],
           "linkTrackCount": 0,
           "addedLater": false,
-          "media": []
+          "media": [],
+          "reactions": [
+            {
+              "emoji": "❤️",
+              "count": 0,
+              "mine": false
+            },
+            {
+              "emoji": "😄",
+              "count": 0,
+              "mine": false
+            },
+            {
+              "emoji": "👏",
+              "count": 0,
+              "mine": false
+            }
+          ],
+          "comments": []
         }
       ]
     },
@@ -481,7 +571,25 @@
               "url": "/uploads/golden-cake.png",
               "caption": null
             }
-          ]
+          ],
+          "reactions": [
+            {
+              "emoji": "❤️",
+              "count": 0,
+              "mine": false
+            },
+            {
+              "emoji": "😄",
+              "count": 0,
+              "mine": false
+            },
+            {
+              "emoji": "👏",
+              "count": 0,
+              "mine": false
+            }
+          ],
+          "comments": []
         }
       ]
     }
