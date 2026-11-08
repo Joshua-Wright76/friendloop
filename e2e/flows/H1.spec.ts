@@ -28,12 +28,13 @@ test("H1 · with the key, the screens and email previews open at their routes", 
 
   await page.getByRole("link", { name: "Email templates" }).click();
   await expect(page).toHaveURL(/\/dev\/emails$/);
-  await expect(page.locator("iframe")).toHaveCount(10);
+  await expect(page.locator("iframe")).toHaveCount(11);
   await expect(page.getByRole("heading", { name: "Sign-in link" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Delivered issue with a share link" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Someone mentioned you" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Delivered issue with its own stationery and a named round" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Empty round, loop paused" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Invitation from a loop with its own stationery" })).toBeVisible();
 });
 
 test("H1 · the key unlocks the captured inbox", async ({ page }) => {
