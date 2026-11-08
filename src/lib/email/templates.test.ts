@@ -14,20 +14,25 @@ import {
 } from "./templates.ts";
 import { emailPatternTiles } from "../stationery.ts";
 
-test("sign-in email uses the requested title, copy, and button", () => {
-  const email = signInEmail("https://friendloop.dev/signin/confirm?token=test");
-  const copy = "This link works once and expires in 15 minutes. If you didn't request this link, you can ignore it.";
+test("sign-in email carries the link and the code, and says how long both last", () => {
+  const email = signInEmail("https://friendloop.dev/signin/confirm?token=test", "042917");
+  const note = "The link and code work for 4 days, as many times as you need. If you didn't ask to sign in, you can ignore this email.";
 
+  // In the subject, so a phone's notification (and its code autofill) has it without opening the email.
+  assert.equal(email.subject, "Sign in to Friendloop: 042917");
   assert.match(email.html, /Sign in to Friendloop/);
-  assert.ok(email.html.includes(copy.replace("'", "&#39;")));
   assert.match(email.html, />Sign in<\/a>/);
-  assert.match(email.text, /Sign in to Friendloop/);
-  assert.ok(email.text.includes(copy));
+  assert.match(email.html, /letter-spacing:8px;[^>]*>042917<\/td>/);
+  assert.ok(email.html.includes(note.replace("'", "&#39;")));
+  assert.ok(email.html.indexOf(">Sign in</a>") < email.html.indexOf(">042917<"));
+  assert.match(email.text, /Sign in: https:\/\/friendloop\.dev\/signin\/confirm\?token=test/);
+  assert.match(email.text, /Or type this code: 042917/);
+  assert.ok(email.text.includes(note));
 });
 
 test("every email uses Friendloop's stationery system and plain-text twin", () => {
   const emails = [
-    signInEmail("https://friendloop.dev/signin"),
+    signInEmail("https://friendloop.dev/signin", "123456"),
     inviteEmail({ groupName: "Friday Loop", inviterName: "Dev", url: "https://friendloop.dev/invite", isReader: false }),
     promptEmail({ groupName: "Friday Loop", memberName: "Dev", issueNumber: 3, questionCount: 4, url: "https://friendloop.dev/answer", deadlineLabel: "Friday at 9:00 AM" }),
     reminderEmail({ groupName: "Friday Loop", memberName: "Dev", url: "https://friendloop.dev/answer", deadlineLabel: "Friday at 9:00 AM", remaining: 2 }),
@@ -245,7 +250,7 @@ test("every loop email can carry a visible 'stop emails' link in HTML and plain 
   const withoutLink = promptEmail({ groupName: "G", memberName: "M", issueNumber: 1, questionCount: 2, url: "https://x/r/t", deadlineLabel: "Fri" });
   assert.ok(!withoutLink.html.includes("Stop emails from this loop"));
   assert.ok(!withoutLink.text.includes("Stop emails"));
-  const signIn = signInEmail("https://x/signin");
+  const signIn = signInEmail("https://x/signin", "123456");
   assert.ok(!signIn.html.includes("Stop emails from this loop"));
   assert.match(signIn.text, /Privacy: \S+\/privacy\nTerms: \S+\/terms$/);
 });
