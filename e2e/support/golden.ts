@@ -223,10 +223,12 @@ export async function reopenGoldenRound(): Promise<void> {
  * seed was copied as it went in; this takes the copy out again.
  */
 export async function undoUnifiedCopy(): Promise<void> {
-  await rows("delete from reply_media where id in (select id from section_media)");
-  await rows("delete from replies where id in (select id from section_replies)");
+  const copies = (kind: string) => `select unified_id from unify_ids where kind = '${kind}'`;
+  await rows(`delete from reply_media where id in (${copies("section_media")})`);
+  await rows(`delete from replies where id in (${copies("section_reply")})`);
   await rows("delete from issue_questions where from_section");
-  await rows("delete from questions where id in (select id from sections union select id from events)");
+  await rows(`delete from questions where id in (${copies("section")} union ${copies("event")})`);
+  await rows("delete from unify_ids");
 }
 
 /** Run the real `0023` against the loop as PR A's release left it. */

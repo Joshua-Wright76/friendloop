@@ -51,6 +51,8 @@ export type SheetQuestion = {
   format: "written" | "poll" | "photo_wall" | "music";
   /** False on a card copied from a section in the round that was open at the switch: it never took voice notes. */
   voice: boolean;
+  /** What a sheet from before the switch called this card, for words it kept on the device. Usually `id`. */
+  legacyId: string;
   linkUrl: string;
   linkProvider: string;
   media: Array<{ id: string; url: string; caption: string | null }>;
@@ -66,6 +68,7 @@ export type SheetQuestion = {
 
 type SheetSection = {
   id: string;
+  legacyId: string;
   kind: "photo_wall" | "music";
   title: string;
   emoji: string | null;
@@ -144,6 +147,7 @@ export function ReplySheet({
   const questions = useMemo(() => items.filter((item) => !isCard(item)), [items]);
   const sections = useMemo(() => items.filter(isCard).map((item): SheetSection => ({
     id: item.id,
+    legacyId: item.legacyId,
     kind: item.format === "music" ? "music" : "photo_wall",
     title: item.text,
     emoji: item.emoji,
@@ -809,7 +813,7 @@ export function ReplySheet({
       }
       for (const section of sections) {
         if (section.kind === "music") {
-          const kept = recallPick(token, section.id);
+          const kept = recallPick(token, section.id) ?? recallPick(token, section.legacyId);
           if (!kept) continue;
           setSectionLinks((current) => (current[section.id] ? current : { ...current, [section.id]: kept.url }));
           setSectionCaptions((current) => (current[section.id] ? current : { ...current, [section.id]: kept.caption }));
@@ -934,7 +938,7 @@ export function ReplySheet({
     const frame = requestAnimationFrame(() => {
       for (const question of questions) {
         if (question.kind === "poll") continue;
-        const key = extraKey(token, question.id);
+        const key = extraKey(token, question.legacyId);
         const kept = recall(key);
         if (kept === null) continue;
         letGo(key);

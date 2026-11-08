@@ -233,12 +233,16 @@ contract release: "code from before the switch may ask this as a question", so
 a rollback never asks a photo wall.
 
 **The switch (PR B, migration `0023`).** Sections, events, round sections,
-section answers and section photos were copied into the unified tables keeping
-their UUIDs, by one upsert function per legacy table that the migration and the
-mirror triggers share. A sheet loaded before the deploy still saves (its
-`issueSectionId` is now an `issueQuestionId`; the `sectionDraft`,
-`sectionMusic` and `/section-media` writes are aliases until the contract
-release), and anchors, Album keys and comment targets stay put. Copied round
+section answers and section photos were copied into the unified tables by one
+upsert function per legacy table that the migration and the mirror triggers
+share. A copy keeps its legacy UUID wherever the target table doesn't already
+hold it; where it does (seeded fixtures with hand-picked ids), the legacy row
+gets a fresh id and the row that held it is never touched. `unify_ids` records
+every legacy → unified pairing, and every copy, mirror, delete and link between
+copies resolves through it. So a sheet loaded before the deploy still saves (the
+`sectionDraft`, `sectionMusic` and `/section-media` writes are aliases until the
+contract release, and resolve their ids through `unifiedIdOf`), and anchors,
+Album keys and comment targets stay put. Copied round
 items are `from_section`: they render as sections always did (§17, §18), and past
 issues read as before (`test/golden/`). The migration takes `SHARE ROW EXCLUSIVE`
 locks on the legacy tables, so a legacy write from the release still serving

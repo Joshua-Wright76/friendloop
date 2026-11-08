@@ -28,6 +28,7 @@ const TABLES = [
   "email_suppressions",
   "media_deletions",
   "outbox",
+  "unify_ids",
   "reply_media",
   "section_media",
   "section_replies",

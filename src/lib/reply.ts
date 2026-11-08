@@ -1,6 +1,6 @@
 import { and, asc, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { groups, issueQuestions, issues, memberships, replies, replyMedia, users } from "@/db/schema";
+import { groups, issueQuestions, issues, memberships, replies, replyMedia, unifyIds, users } from "@/db/schema";
 import { getNow } from "./clock";
 import { copy } from "./copy.ts";
 import { cleanDisplayName } from "./names";
@@ -457,6 +457,14 @@ export async function sheetFor(token: string) {
       .from(replies)
       .where(and(eq(replies.issueId, context.issue.id), eq(replies.membershipId, context.membership.id))),
   ]);
+  // A sheet from before the switch kept unsaved words under the legacy id.
+  const copied = rows.filter((question) => question.fromSection).map((question) => question.id);
+  const legacy = copied.length === 0
+    ? []
+    : await db
+        .select({ legacyId: unifyIds.legacyId, unifiedId: unifyIds.unifiedId })
+        .from(unifyIds)
+        .where(and(eq(unifyIds.kind, "issue_section"), inArray(unifyIds.unifiedId, copied)));
   const media = existing.length === 0
     ? []
     : await db
@@ -479,6 +487,8 @@ export async function sheetFor(token: string) {
           format: formatOf(question),
           /** Copied from a section in the round open at the switch: written, but without voice notes. */
           fromSection: question.fromSection,
+          /** The id a sheet from before the switch knew this card by, for what it kept on the device. */
+          legacyId: legacy.find((row) => row.unifiedId === question.id)?.legacyId ?? question.id,
           body: reply?.body ?? "",
           photoUrl: reply?.photoUrl ?? null,
           audioUrl: reply?.audioUrl ?? null,
@@ -788,15 +798,37 @@ export async function removeWallPhotoFor(input: {
  * sheet edits. Removed with the contract release.
  */
 
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * The unified id migration `0023` gave a legacy row. Almost always the same id;
+ * a different one only where the legacy id was already taken (`unify_ids`).
+ * Anything never copied is passed through, and fails the usual checks.
+ */
+export async function unifiedIdOf(kind: "issue_section" | "section_media", legacyId: string): Promise<string> {
+  if (!UUID.test(legacyId)) return legacyId;
+  const [row] = await db
+    .select({ id: unifyIds.unifiedId })
+    .from(unifyIds)
+    .where(and(eq(unifyIds.kind, kind), eq(unifyIds.legacyId, legacyId)))
+    .limit(1);
+  return row?.id ?? legacyId;
+}
+
 /** `sectionDraft`: a standard section's text, now a written answer. */
 export async function saveSectionTextFor(input: { token: string; issueSectionId: string; body: string }): Promise<WriteResult | { ok: false; status: 400; error: string }> {
   if (input.body.length > 2_000) return { ok: false, status: 400, error: copy.reply.errors.sectionSaveFailed };
-  return saveDraftFor({ token: input.token, issueQuestionId: input.issueSectionId, body: input.body });
+  return saveDraftFor({ token: input.token, issueQuestionId: await unifiedIdOf("issue_section", input.issueSectionId), body: input.body });
 }
 
 /** `sectionMusic`: a music section's pick. */
 export async function saveSectionMusicFor(input: { token: string; issueSectionId: string; url: string; caption: string }): Promise<MusicWriteResult> {
-  return saveMusicFor({ token: input.token, issueQuestionId: input.issueSectionId, url: input.url, caption: input.caption });
+  return saveMusicFor({
+    token: input.token,
+    issueQuestionId: await unifiedIdOf("issue_section", input.issueSectionId),
+    url: input.url,
+    caption: input.caption,
+  });
 }
 
 /** `POST /section-media`: a photo wall's photo, or a standard section's one photo (now the answer's photo). */
@@ -808,10 +840,11 @@ export async function saveSectionPhotoFor(input: {
   caption: string;
   position: number;
 }): Promise<WallPhotoWriteResult> {
-  const wall = await saveWallPhotoFor({ ...input, issueQuestionId: input.issueSectionId });
+  const issueQuestionId = await unifiedIdOf("issue_section", input.issueSectionId);
+  const wall = await saveWallPhotoFor({ ...input, issueQuestionId });
   if (wall.ok || wall.error !== copy.reply.errors.wrongQuestion) return wall;
 
-  const gate = await ensureWritableQuestion(input.token, input.issueSectionId, ["written"]);
+  const gate = await ensureWritableQuestion(input.token, issueQuestionId, ["written"]);
   if (!gate.ok) return gate.result;
   const validation = validatePhoto(input.bytes, input.contentType);
   if (!validation.ok) return refusedPhoto(validation);
@@ -840,7 +873,9 @@ export async function saveSectionPhotoFor(input: {
 
 /** `DELETE /section-media`: a photo-wall photo by its id, or a standard section's photo by its answer's. */
 export async function removeSectionMediaFor(input: { token: string; issueSectionId: string; mediaId: string }): Promise<WriteResult> {
-  const removed = await removeWallPhotoFor({ token: input.token, issueQuestionId: input.issueSectionId, mediaId: input.mediaId });
+  const issueQuestionId = await unifiedIdOf("issue_section", input.issueSectionId);
+  const mediaId = await unifiedIdOf("section_media", input.mediaId);
+  const removed = await removeWallPhotoFor({ token: input.token, issueQuestionId, mediaId });
   if (removed.ok || removed.status !== 404) return removed;
-  return removePhotoFor({ token: input.token, issueQuestionId: input.issueSectionId });
+  return removePhotoFor({ token: input.token, issueQuestionId });
 }

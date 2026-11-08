@@ -134,6 +134,7 @@ export default async function ReplyPage({ params }: { params: Promise<{ token: s
         description: question.description,
         format: question.format,
         voice: !question.fromSection,
+        legacyId: question.legacyId,
         linkUrl: question.linkUrl,
         linkProvider: question.linkProvider,
         media: question.media,
