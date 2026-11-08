@@ -7,6 +7,7 @@ import { db } from "@/db";
 import { groups, issues, memberships, outbox, questions } from "@/db/schema";
 import { answeredCountSql } from "@/lib/reply-query";
 import { answeredMemberIds } from "@/lib/answered";
+import { legacyPoolCondition } from "@/lib/legacy-ask";
 import { pendingSuggestions } from "@/lib/suggestions";
 import { sectionsOf } from "@/lib/sections";
 import { eventsOf } from "@/lib/events";
@@ -107,7 +108,7 @@ async function LoadedGroupLayout({ children, params }: Props) {
       pollOptions: questions.pollOptions,
     })
       .from(questions)
-      .where(and(eq(questions.groupId, group.id), isNull(questions.archivedAt)))
+      .where(and(eq(questions.groupId, group.id), legacyPoolCondition(), isNull(questions.archivedAt)))
       .orderBy(asc(questions.position)),
     db.select({
       id: issues.id,

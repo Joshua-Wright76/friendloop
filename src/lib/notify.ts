@@ -1,7 +1,8 @@
 import { and, desc, eq, isNull, like, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { answeredMemberIds } from "./answered";
-import { groups, issueQuestions, issues, memberships, outbox, users } from "@/db/schema";
+import { groups, issueQuestions, issueSections, issues, memberships, outbox, users } from "@/db/schema";
+import { legacyAskCondition } from "./legacy-ask";
 import { atMoment, formatMoment, timezonePlace } from "./format";
 import { sendEmail } from "./email/send";
 import { emailThemeOf, promptEmail, reminderEmail } from "./email/templates";
@@ -13,23 +14,50 @@ export function mailDeadline(instant: Date, loopTimezone: string, readerTimezone
   return `${atMoment(formatMoment(instant, loopTimezone))} ${timezonePlace(loopTimezone)} time`;
 }
 
-/** One prompt per contributor for a round that just opened. */
+type Access = (typeof memberships.$inferSelect)["access"];
+
+/**
+ * What a round asks, as one person sees it: its questions, then its sections
+ * (an event is one too). Sections only admins answer are left out for everyone
+ * else, so a member's count and list never mention them.
+ */
+export async function roundAsks(issueId: string): Promise<(access: Access) => string[]> {
+  const [asked, carried] = await Promise.all([
+    db
+      .select({ text: issueQuestions.text })
+      .from(issueQuestions)
+      .where(and(eq(issueQuestions.issueId, issueId), legacyAskCondition()))
+      .orderBy(issueQuestions.position),
+    db
+      .select({ title: issueSections.title, emoji: issueSections.emoji, adminOnly: issueSections.adminOnly })
+      .from(issueSections)
+      .where(eq(issueSections.issueId, issueId))
+      .orderBy(issueSections.position),
+  ]);
+  return (access) => [
+    ...asked.map((question) => question.text),
+    ...carried
+      .filter((section) => !section.adminOnly || access !== "member")
+      .map((section) => (section.emoji ? `${section.emoji} ${section.title}` : section.title)),
+  ];
+}
+
+/** One prompt per contributor for a round that just opened, unless it asks them nothing. */
 export async function sendPromptEmails(input: {
   group: typeof groups.$inferSelect;
   issueId: string;
   issueNumber: number;
   issueName?: string | null;
   deliversAt: Date;
-  questionCount: number;
 }): Promise<number> {
-  const { group, issueId, issueNumber, issueName, deliversAt, questionCount } = input;
-  if (questionCount === 0) return 0;
+  const { group, issueId, issueNumber, issueName, deliversAt } = input;
 
   const recipients = await db
     .select({
       id: memberships.id,
       email: memberships.email,
       name: memberships.name,
+      access: memberships.access,
       replyToken: memberships.replyToken,
       unsubscribeToken: memberships.unsubscribeToken,
       timezone: users.timezone,
@@ -44,23 +72,21 @@ export async function sendPromptEmails(input: {
       ),
     );
 
-  const asked = await db
-    .select({ text: issueQuestions.text })
-    .from(issueQuestions)
-    .where(eq(issueQuestions.issueId, issueId))
-    .orderBy(issueQuestions.position);
+  const asksFor = await roundAsks(issueId);
 
   let sent = 0;
   for (const recipient of recipients) {
+    const asked = asksFor(recipient.access);
+    if (asked.length === 0) continue;
     const rendered = promptEmail({
       groupName: group.name,
       memberName: recipient.name ?? recipient.email.split("@")[0],
       issueNumber,
       issueName,
-      questionCount,
+      questionCount: asked.length,
       url: replyUrl(recipient.replyToken),
       deadlineLabel: mailDeadline(deliversAt, group.timezone, recipient.timezone),
-      questions: asked.map((question) => question.text),
+      questions: asked,
       theme: emailThemeOf(group),
       unsubscribeUrl: unsubscribeUrl(recipient.unsubscribeToken),
     });
@@ -97,11 +123,7 @@ export async function nudgeStragglers(groupId: string, fromMembershipId?: string
     .limit(1);
   if (!issue) return 0;
 
-  const [{ count: questionCount }] = await db
-    .select({ count: sql<number>`count(*)::int` })
-    .from(issueQuestions)
-    .where(eq(issueQuestions.issueId, issue.id));
-  if (questionCount === 0) return 0;
+  const asksFor = await roundAsks(issue.id);
 
   // Anyone with something written is in; only an empty hand is reminded.
   const done = await answeredMemberIds(issue.id);
@@ -111,6 +133,7 @@ export async function nudgeStragglers(groupId: string, fromMembershipId?: string
       id: memberships.id,
       email: memberships.email,
       name: memberships.name,
+      access: memberships.access,
       replyToken: memberships.replyToken,
       unsubscribeToken: memberships.unsubscribeToken,
       timezone: users.timezone,
@@ -129,6 +152,8 @@ export async function nudgeStragglers(groupId: string, fromMembershipId?: string
   for (const member of contributors) {
     // The person sending the nudge doesn't get one.
     if (done.has(member.id) || member.id === fromMembershipId) continue;
+    const remaining = asksFor(member.access).length;
+    if (remaining === 0) continue;
 
     const [previous] = await db
       .select({ count: sql<number>`count(*)::int` })
@@ -141,7 +166,7 @@ export async function nudgeStragglers(groupId: string, fromMembershipId?: string
       memberName: member.name ?? member.email.split("@")[0],
       url: replyUrl(member.replyToken),
       deadlineLabel: mailDeadline(issue.deliversAt, group.timezone, member.timezone),
-      remaining: questionCount,
+      remaining,
       theme: emailThemeOf(group),
       unsubscribeUrl: unsubscribeUrl(member.unsubscribeToken),
     });

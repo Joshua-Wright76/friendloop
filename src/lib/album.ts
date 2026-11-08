@@ -1,6 +1,7 @@
 import { sql, type SQL } from "drizzle-orm";
 import { db } from "@/db";
 import { copy } from "./copy.ts";
+import { legacyAskSql } from "./legacy-ask.ts";
 import {
   ALBUM_PAGE_SIZE,
   escapeLike,
@@ -87,6 +88,7 @@ function everything(groupId: string, viewerIsAdmin: boolean): SQL {
     join issue_questions q on q.id = r.issue_question_id
     join memberships m on m.id = r.membership_id
     where i.group_id = ${groupId} and i.status = 'delivered' and not r.never_sent and r.photo_url is not null
+      and ${legacyAskSql("q")}
     union all
     select 'voice', 'voice-' || r.id::text, r.audio_url,
       r.audio_duration_ms, null::text, r.body, q.text,
@@ -99,6 +101,7 @@ function everything(groupId: string, viewerIsAdmin: boolean): SQL {
     join issue_questions q on q.id = r.issue_question_id
     join memberships m on m.id = r.membership_id
     where i.group_id = ${groupId} and i.status = 'delivered' and not r.never_sent and r.audio_url is not null
+      and ${legacyAskSql("q")}
     union all
     select 'photo', 'media-' || sm.id::text, sm.url,
       null::integer, sm.caption, sr.body, s.title,

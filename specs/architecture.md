@@ -38,6 +38,10 @@ Instead every run of `/api/cron/sweep` reconciles state:
    the loop.
 2. For any running loop with no open issue, open one due at the next slot and
    queue the prompt emails. (Creating a loop and resuming one open it directly.)
+   A prompt, reminder or nudge counts and lists every question and section that
+   person can answer (`roundAsks` in `src/lib/notify.ts`; admin-only sections only
+   for owner and admins), so a round of sections alone still asks, and someone it
+   asks nothing gets no email.
 3. Remind contributors who owe an answer 48 hours before `deliversAt`.
 4. Retry `outbox` rows still `pending`.
 
@@ -190,6 +194,14 @@ credential, and management actions never accept it. GET only renders — every w
 is a Server Action, because mail scanners prefetch every URL in an email.
 
 ## 13 · Question rotation uses one cursor
+
+> Questions and sections are becoming one list (`docs/questions-unify-design.md`, four PRs).
+> PR A added the unified columns, `reply_media` and a trigger that fills `format` from `kind`,
+> with no data in them yet. Until the code switches over, **every read of `issue_questions` and
+> `replies` goes through `legacyAskCondition()`** (`src/lib/legacy-ask.ts`: not `from_section`,
+> format written or poll) **and pool reads add `active = true`**, so rows the next release copies
+> in are invisible here. Only "is this file still used?" and erasure's file list read every row.
+> `test/golden/` holds the snapshots of a past round that the switch must leave unchanged.
 
 `groups.questions_per_round` is nullable. Null preserves the original behavior:
 every active, unskipped question goes into the issue. A positive count rotates

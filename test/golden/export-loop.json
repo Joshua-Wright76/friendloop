@@ -1,0 +1,359 @@
+{
+  "format": "friendloop-export/1",
+  "exportedAt": "2026-11-06T09:00:00.000Z",
+  "about": "The whole loop as of exportedAt: every round that has gone out, with its questions, answers, sections, comments, and reactions. Photos and voice notes are links; they stop working once the loop or the person who added them is deleted, so save any you want to keep first. Drafts a past round went out without are not included. The round that's open now isn't included: its answers stay private until it goes out.",
+  "loop": {
+    "name": "Golden Loop",
+    "timezone": "Europe/Amsterdam",
+    "cadenceWeeks": 1,
+    "headerImageUrl": null,
+    "createdAt": "2026-01-01T00:00:00.000Z"
+  },
+  "members": [
+    {
+      "name": "Sam",
+      "email": "sam@golden.test",
+      "access": "owner",
+      "participation": "contributor",
+      "photoUrl": null
+    },
+    {
+      "name": "Alice",
+      "email": "alice@golden.test",
+      "access": "member",
+      "participation": "contributor",
+      "photoUrl": null
+    },
+    {
+      "name": "Bob",
+      "email": "bob@golden.test",
+      "access": "member",
+      "participation": "contributor",
+      "photoUrl": null
+    },
+    {
+      "name": "Cleo",
+      "email": "cleo@golden.test",
+      "access": "admin",
+      "participation": "contributor",
+      "photoUrl": null
+    }
+  ],
+  "questionPool": [
+    {
+      "question": "What made you laugh this week?",
+      "kind": "written",
+      "archived": false
+    },
+    {
+      "question": "What are you looking forward to?",
+      "kind": "written",
+      "archived": false
+    },
+    {
+      "question": "Which weekends work?",
+      "kind": "poll",
+      "options": [
+        "June",
+        "July",
+        "August"
+      ],
+      "archived": false
+    },
+    {
+      "question": "What did you cook?",
+      "kind": "written",
+      "archived": false
+    },
+    {
+      "question": "What did you plant?",
+      "kind": "written",
+      "archived": true
+    }
+  ],
+  "rounds": [
+    {
+      "round": 1,
+      "name": null,
+      "status": "delivered",
+      "opensAt": "2026-10-23T08:00:00.000Z",
+      "deliversAt": "2026-10-30T08:00:00.000Z",
+      "deliveredAt": "2026-10-30T08:00:00.000Z",
+      "questions": [
+        {
+          "question": "What made you laugh this week?",
+          "kind": "written",
+          "suggestedBy": null,
+          "answers": [
+            {
+              "id": "00000000-0000-4000-8000-000000000070",
+              "by": "Sam",
+              "answer": "The goose on the towpath.",
+              "pollChoices": [],
+              "photoUrl": "<app>/uploads/golden-goose.png",
+              "audioUrl": "<app>/uploads/golden-honk.webm",
+              "updatedAt": "2026-10-23T08:10:00.000Z",
+              "addedLate": false,
+              "reactions": [
+                {
+                  "by": "Alice",
+                  "emoji": "❤️"
+                },
+                {
+                  "by": "Bob",
+                  "emoji": "❤️"
+                }
+              ]
+            },
+            {
+              "id": "00000000-0000-4000-8000-000000000071",
+              "by": "Alice",
+              "answer": "My nephew's knock-knock jokes.",
+              "pollChoices": [],
+              "photoUrl": null,
+              "audioUrl": null,
+              "updatedAt": "2026-10-23T08:20:00.000Z",
+              "addedLate": false,
+              "reactions": [
+                {
+                  "by": "Sam",
+                  "emoji": "😂"
+                }
+              ]
+            },
+            {
+              "id": "00000000-0000-4000-8000-000000000072",
+              "by": "Bob",
+              "answer": "A late one: the cat in the bread bin.",
+              "pollChoices": [],
+              "photoUrl": null,
+              "audioUrl": null,
+              "updatedAt": "2026-10-23T08:30:00.000Z",
+              "addedLate": true,
+              "reactions": []
+            }
+          ]
+        },
+        {
+          "question": "What are you looking forward to?",
+          "kind": "written",
+          "suggestedBy": "Alice",
+          "answers": [
+            {
+              "id": "00000000-0000-4000-8000-000000000074",
+              "by": "Cleo",
+              "answer": "The first frost.",
+              "pollChoices": [],
+              "photoUrl": null,
+              "audioUrl": null,
+              "updatedAt": "2026-10-23T08:50:00.000Z",
+              "addedLate": false,
+              "reactions": []
+            }
+          ]
+        },
+        {
+          "question": "Which weekends work?",
+          "kind": "poll",
+          "options": [
+            "June",
+            "July",
+            "August"
+          ],
+          "multiple": true,
+          "suggestedBy": null,
+          "answers": [
+            {
+              "id": "00000000-0000-4000-8000-000000000075",
+              "by": "Sam",
+              "answer": "",
+              "pollChoices": [
+                "June",
+                "August"
+              ],
+              "photoUrl": null,
+              "audioUrl": null,
+              "updatedAt": "2026-10-23T09:00:00.000Z",
+              "addedLate": false,
+              "reactions": []
+            },
+            {
+              "id": "00000000-0000-4000-8000-000000000076",
+              "by": "Alice",
+              "answer": "",
+              "pollChoices": [
+                "July"
+              ],
+              "photoUrl": null,
+              "audioUrl": null,
+              "updatedAt": "2026-10-23T09:10:00.000Z",
+              "addedLate": false,
+              "reactions": []
+            }
+          ]
+        },
+        {
+          "question": "What did you cook?",
+          "kind": "written",
+          "suggestedBy": null,
+          "answers": []
+        }
+      ],
+      "sections": [
+        {
+          "section": "This week",
+          "kind": "standard",
+          "emoji": "📝",
+          "description": "Anything you want to tell us.",
+          "answers": [
+            {
+              "by": "Alice",
+              "answer": "Finished the quilt.",
+              "linkUrl": null,
+              "photos": [
+                {
+                  "url": "<app>/uploads/golden-quilt.png",
+                  "caption": null
+                }
+              ],
+              "addedLate": false
+            }
+          ]
+        },
+        {
+          "section": "Photo wall",
+          "kind": "photo_wall",
+          "emoji": "📸",
+          "description": null,
+          "answers": [
+            {
+              "by": "Bob",
+              "answer": "",
+              "linkUrl": null,
+              "photos": [
+                {
+                  "url": "<app>/uploads/golden-lake.png",
+                  "caption": "The lake at dawn"
+                },
+                {
+                  "url": "<app>/uploads/golden-tent.png",
+                  "caption": "Tent, mostly up"
+                }
+              ],
+              "addedLate": false
+            },
+            {
+              "by": "Sam",
+              "answer": "",
+              "linkUrl": null,
+              "photos": [
+                {
+                  "url": "<app>/uploads/golden-fire.png",
+                  "caption": null
+                }
+              ],
+              "addedLate": true
+            }
+          ]
+        },
+        {
+          "section": "Song of the week",
+          "kind": "music",
+          "emoji": "🎵",
+          "description": "One song, any service.",
+          "answers": [
+            {
+              "by": "Cleo",
+              "answer": "For the drive home.",
+              "linkUrl": "https://open.spotify.com/track/golden",
+              "photos": [],
+              "addedLate": false
+            }
+          ]
+        },
+        {
+          "section": "Planning",
+          "kind": "standard",
+          "emoji": "🗂️",
+          "description": "Just for the people running things.",
+          "answers": [
+            {
+              "by": "Sam",
+              "answer": "Budget looks fine.",
+              "linkUrl": null,
+              "photos": [
+                {
+                  "url": "<app>/uploads/golden-receipt.png",
+                  "caption": "Receipts"
+                }
+              ],
+              "addedLate": false
+            }
+          ]
+        },
+        {
+          "section": "Small wins",
+          "kind": "standard",
+          "emoji": "🏅",
+          "description": null,
+          "answers": []
+        },
+        {
+          "section": "Camping weekend",
+          "kind": "standard",
+          "emoji": "🏕️",
+          "description": null,
+          "answers": [
+            {
+              "by": "Bob",
+              "answer": "Bring the big tarp.",
+              "linkUrl": null,
+              "photos": [],
+              "addedLate": false
+            }
+          ]
+        },
+        {
+          "section": "Alice's birthday",
+          "kind": "standard",
+          "emoji": "🎂",
+          "description": null,
+          "answers": [
+            {
+              "by": "Sam",
+              "answer": "Happy birthday, Alice!",
+              "linkUrl": null,
+              "photos": [
+                {
+                  "url": "<app>/uploads/golden-cake.png",
+                  "caption": null
+                }
+              ],
+              "addedLate": false
+            }
+          ]
+        }
+      ],
+      "comments": [
+        {
+          "id": "00000000-0000-4000-8000-000000000110",
+          "by": "Bob",
+          "comment": "What a round.",
+          "onAnswer": null,
+          "quoting": null,
+          "photoUrl": null,
+          "createdAt": "2026-10-30T08:00:00.000Z"
+        },
+        {
+          "id": "00000000-0000-4000-8000-000000000111",
+          "by": "Alice",
+          "comment": "Best goose, @Sam",
+          "onAnswer": "00000000-0000-4000-8000-000000000070",
+          "quoting": null,
+          "photoUrl": null,
+          "createdAt": "2026-10-30T08:00:00.000Z"
+        }
+      ]
+    }
+  ]
+}

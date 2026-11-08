@@ -1,6 +1,7 @@
 import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { replyHasContentCondition, sectionReplyHasContentCondition } from "./reply-query";
+import { legacyAskCondition } from "./legacy-ask";
 import { issueQuestions, issueSections, issues, replies, sectionReplies } from "@/db/schema";
 
 export { parseMemberFilter } from "./member-filter.ts";
@@ -38,6 +39,7 @@ export async function deliveredRoundsAnsweredByEveryone(input: {
         and(
           delivered,
           replyHasContentCondition(),
+          legacyAskCondition(),
         ),
       ),
     db

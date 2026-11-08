@@ -19,6 +19,7 @@ import { mailDeadline, sendPromptEmails } from "./notify";
 import { deliveryEmail, emailThemeOf, pausedEmail, type AnswerBlock } from "./email/templates";
 import { tallyPoll } from "./poll";
 import { replyHasContentCondition, sectionReplyHasContentCondition } from "./reply-query";
+import { legacyAskCondition } from "./legacy-ask";
 import { copy, text } from "./copy.ts";
 import { issueUrl, replyUrl, unsubscribeUrl, url } from "./urls";
 import { newToken } from "./tokens";
@@ -109,7 +110,7 @@ export async function openRound(input: {
   const { group, round } = outcome;
   if (!round.created) return round;
 
-  const questionCount = await snapshotQuestionsForIssue({ group, issueId: round.issueId, cursor: group.questionCursor });
+  await snapshotQuestionsForIssue({ group, issueId: round.issueId, cursor: group.questionCursor });
   await snapshotSectionsForIssue({ group, issueId: round.issueId });
   await placeEventsInRound({ group, issueId: round.issueId, opensAt: at, deliversAt: round.deliversAt });
 
@@ -119,7 +120,6 @@ export async function openRound(input: {
       issueId: round.issueId,
       issueNumber: round.number,
       deliversAt: round.deliversAt,
-      questionCount,
     });
   }
   return round;
@@ -188,7 +188,7 @@ export async function deliverRound(input: { issue: IssueRow; at: Date; early?: b
     .innerJoin(issueQuestions, eq(issueQuestions.id, replies.issueQuestionId))
     .innerJoin(memberships, eq(memberships.id, replies.membershipId))
     // Whatever is written goes out; an answer cleared back to nothing doesn't.
-    .where(and(eq(replies.issueId, issue.id), replyHasContentCondition()))
+    .where(and(eq(replies.issueId, issue.id), replyHasContentCondition(), legacyAskCondition()))
     .orderBy(issueQuestions.position, memberships.createdAt);
 
   // Section answers are content too, but a truly empty issue stays empty.
@@ -278,7 +278,7 @@ export async function deliverRound(input: { issue: IssueRow; at: Date; early?: b
     ? await db
         .select({ text: issueQuestions.text })
         .from(issueQuestions)
-        .where(eq(issueQuestions.issueId, next.issueId))
+        .where(and(eq(issueQuestions.issueId, next.issueId), legacyAskCondition()))
         .orderBy(asc(issueQuestions.position))
     : [];
 

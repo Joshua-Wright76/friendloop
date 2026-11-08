@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { groups, issueQuestions, issues, questions, replies } from "@/db/schema";
 import { selectRoundQuestions } from "./question-rotation";
 import { suggestionCreditsForQuestions } from "./suggestions";
+import { legacyAskCondition, legacyPoolCondition } from "./legacy-ask";
 
 type QuestionRow = typeof questions.$inferSelect;
 
@@ -10,7 +11,7 @@ async function activePool(groupId: string): Promise<QuestionRow[]> {
   return db
     .select()
     .from(questions)
-    .where(and(eq(questions.groupId, groupId), eq(questions.active, true), isNull(questions.archivedAt)))
+    .where(and(eq(questions.groupId, groupId), legacyPoolCondition(), isNull(questions.archivedAt)))
     .orderBy(questions.position);
 }
 
@@ -77,7 +78,7 @@ export async function syncOpenRoundQuestions(groupId: string): Promise<void> {
   const current = await db
     .select({ id: issueQuestions.id, questionId: issueQuestions.questionId, position: issueQuestions.position })
     .from(issueQuestions)
-    .where(eq(issueQuestions.issueId, issue.id))
+    .where(and(eq(issueQuestions.issueId, issue.id), legacyAskCondition()))
     .orderBy(asc(issueQuestions.position));
   const started = new Set(
     current.length === 0

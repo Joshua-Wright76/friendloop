@@ -7,6 +7,7 @@ import { redirect } from "next/navigation";
 import { sql } from "drizzle-orm";
 import { db } from "@/db";
 import { answeredCountSql, replyHasContentSql, sectionReplyHasContentSql } from "@/lib/reply-query";
+import { legacyAskSql } from "@/lib/legacy-ask";
 import { currentUser } from "@/lib/auth";
 import { getNow } from "@/lib/clock";
 import { formatDate, atMoment, formatMoment } from "@/lib/format";
@@ -168,8 +169,8 @@ async function loopCards(userId: string): Promise<LoopCard[]> {
     left join lateral (
       select i.number, i.status, i.delivers_at, i.delivered_at,
         ${answeredCountSql("i")} as answered,
-        (exists (select 1 from replies r
-          where r.issue_id = i.id and r.membership_id = m.id and ${replyHasContentSql("r")})
+        (exists (select 1 from replies r join issue_questions rq on rq.id = r.issue_question_id
+          where r.issue_id = i.id and r.membership_id = m.id and ${replyHasContentSql("r")} and ${legacyAskSql("rq")})
          or exists (select 1 from section_replies sr
           where sr.issue_id = i.id and sr.membership_id = m.id and ${sectionReplyHasContentSql("sr")})) as mine
       from issues i

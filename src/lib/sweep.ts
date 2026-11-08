@@ -1,9 +1,9 @@
 import { and, eq, isNull, sql, inArray } from "drizzle-orm";
 import { db } from "@/db";
 import { answeredMemberIds } from "./answered";
-import { groups, issueQuestions, issues, memberships, users } from "@/db/schema";
+import { groups, issues, memberships, users } from "@/db/schema";
 import { flushOutbox, sendEmail } from "./email/send";
-import { mailDeadline } from "./notify";
+import { mailDeadline, roundAsks } from "./notify";
 import { emailThemeOf, reminderEmail } from "./email/templates";
 import { REMINDER_LEAD_MS, remindersOn } from "./reminders";
 import { replyUrl, unsubscribeUrl } from "./urls";
@@ -151,6 +151,7 @@ async function remindStragglers(at: Date): Promise<number> {
         unsubscribeToken: memberships.unsubscribeToken,
         timezone: users.timezone,
         reminderPreference: memberships.reminderPreference,
+        access: memberships.access,
       })
       .from(memberships)
       .leftJoin(users, eq(users.id, memberships.userId))
@@ -165,14 +166,11 @@ async function remindStragglers(at: Date): Promise<number> {
     // Anyone with something written is in; only an empty hand is reminded.
     const done = await answeredMemberIds(issue.id);
 
-    const totalQuestions = await db
-      .select({ count: sql<number>`count(*)::int` })
-      .from(issueQuestions)
-      .where(eq(issueQuestions.issueId, issue.id));
-    const questionCount = totalQuestions[0]?.count ?? 0;
+    const asksFor = await roundAsks(issue.id);
 
     for (const member of pending) {
-      if (done.has(member.id) || questionCount === 0) continue;
+      const remaining = asksFor(member.access).length;
+      if (done.has(member.id) || remaining === 0) continue;
       // Only the contributor's own switch holds it back; the owner's nudge never asks.
       if (!remindersOn(member.reminderPreference)) continue;
       const rendered = reminderEmail({
@@ -180,7 +178,7 @@ async function remindStragglers(at: Date): Promise<number> {
         memberName: member.name ?? member.email.split("@")[0],
         url: replyUrl(member.replyToken),
         deadlineLabel: mailDeadline(issue.deliversAt, group.timezone, member.timezone),
-        remaining: questionCount,
+        remaining,
         theme: emailThemeOf(group),
         unsubscribeUrl: unsubscribeUrl(member.unsubscribeToken),
       });

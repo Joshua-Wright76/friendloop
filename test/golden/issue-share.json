@@ -1,0 +1,381 @@
+{
+  "issue": {
+    "id": "00000000-0000-4000-8000-000000000010",
+    "number": 1,
+    "name": null,
+    "status": "delivered"
+  },
+  "group": "Golden Loop",
+  "blocks": [
+    {
+      "questionId": "00000000-0000-4000-8000-000000000050",
+      "question": "What made you laugh this week?",
+      "suggestedBy": null,
+      "poll": null,
+      "answers": [
+        {
+          "replyId": "00000000-0000-4000-8000-000000000070",
+          "authorId": "00000000-0000-4000-8000-000000000002",
+          "authorName": "Sam",
+          "author": "Sam",
+          "authorPhotoUrl": null,
+          "authorCharm": null,
+          "authorFrame": null,
+          "isYou": false,
+          "body": "The goose on the towpath.",
+          "photoUrl": "/uploads/golden-goose.png",
+          "audioUrl": "/uploads/golden-honk.webm",
+          "audioDurationMs": 4000,
+          "choices": [],
+          "addedLater": false,
+          "comments": [],
+          "reactions": [
+            {
+              "emoji": "❤️",
+              "count": 2,
+              "mine": false
+            }
+          ]
+        },
+        {
+          "replyId": "00000000-0000-4000-8000-000000000071",
+          "authorId": "00000000-0000-4000-8000-000000000003",
+          "authorName": "Alice",
+          "author": "Alice",
+          "authorPhotoUrl": null,
+          "authorCharm": null,
+          "authorFrame": null,
+          "isYou": false,
+          "body": "My nephew's knock-knock jokes.",
+          "photoUrl": null,
+          "audioUrl": null,
+          "audioDurationMs": null,
+          "choices": [],
+          "addedLater": false,
+          "comments": [],
+          "reactions": [
+            {
+              "emoji": "😂",
+              "count": 1,
+              "mine": false
+            }
+          ]
+        },
+        {
+          "replyId": "00000000-0000-4000-8000-000000000072",
+          "authorId": "00000000-0000-4000-8000-000000000004",
+          "authorName": "Bob",
+          "author": "Bob",
+          "authorPhotoUrl": null,
+          "authorCharm": null,
+          "authorFrame": null,
+          "isYou": false,
+          "body": "A late one: the cat in the bread bin.",
+          "photoUrl": null,
+          "audioUrl": null,
+          "audioDurationMs": null,
+          "choices": [],
+          "addedLater": true,
+          "comments": [],
+          "reactions": []
+        }
+      ]
+    },
+    {
+      "questionId": "00000000-0000-4000-8000-000000000051",
+      "question": "What are you looking forward to?",
+      "suggestedBy": "Alice",
+      "poll": null,
+      "answers": [
+        {
+          "replyId": "00000000-0000-4000-8000-000000000074",
+          "authorId": "00000000-0000-4000-8000-000000000005",
+          "authorName": "Cleo",
+          "author": "Cleo",
+          "authorPhotoUrl": null,
+          "authorCharm": null,
+          "authorFrame": null,
+          "isYou": false,
+          "body": "The first frost.",
+          "photoUrl": null,
+          "audioUrl": null,
+          "audioDurationMs": null,
+          "choices": [],
+          "addedLater": false,
+          "comments": [],
+          "reactions": []
+        }
+      ]
+    },
+    {
+      "questionId": "00000000-0000-4000-8000-000000000052",
+      "question": "Which weekends work?",
+      "suggestedBy": null,
+      "poll": {
+        "multiple": true,
+        "tally": [
+          {
+            "option": "June",
+            "votes": 1
+          },
+          {
+            "option": "July",
+            "votes": 1
+          },
+          {
+            "option": "August",
+            "votes": 1
+          }
+        ],
+        "voters": 2
+      },
+      "answers": [
+        {
+          "replyId": "00000000-0000-4000-8000-000000000075",
+          "authorId": "00000000-0000-4000-8000-000000000002",
+          "authorName": "Sam",
+          "author": "Sam",
+          "authorPhotoUrl": null,
+          "authorCharm": null,
+          "authorFrame": null,
+          "isYou": false,
+          "body": "",
+          "photoUrl": null,
+          "audioUrl": null,
+          "audioDurationMs": null,
+          "choices": [
+            "June",
+            "August"
+          ],
+          "addedLater": false,
+          "comments": [],
+          "reactions": []
+        },
+        {
+          "replyId": "00000000-0000-4000-8000-000000000076",
+          "authorId": "00000000-0000-4000-8000-000000000003",
+          "authorName": "Alice",
+          "author": "Alice",
+          "authorPhotoUrl": null,
+          "authorCharm": null,
+          "authorFrame": null,
+          "isYou": false,
+          "body": "",
+          "photoUrl": null,
+          "audioUrl": null,
+          "audioDurationMs": null,
+          "choices": [
+            "July"
+          ],
+          "addedLater": false,
+          "comments": [],
+          "reactions": []
+        }
+      ]
+    },
+    {
+      "questionId": "00000000-0000-4000-8000-000000000053",
+      "question": "What did you cook?",
+      "suggestedBy": null,
+      "poll": null,
+      "answers": []
+    }
+  ],
+  "sections": [
+    {
+      "id": "00000000-0000-4000-8000-000000000060",
+      "kind": "standard",
+      "title": "This week",
+      "emoji": "📝",
+      "description": "Anything you want to tell us.",
+      "replies": [
+        {
+          "replyId": "00000000-0000-4000-8000-000000000080",
+          "authorId": "00000000-0000-4000-8000-000000000003",
+          "authorName": "Alice",
+          "author": "Alice",
+          "authorPhotoUrl": null,
+          "authorCharm": null,
+          "authorFrame": null,
+          "isYou": false,
+          "body": "Finished the quilt.",
+          "linkUrl": null,
+          "linkProvider": null,
+          "linkTitle": null,
+          "linkArtwork": null,
+          "linkTracks": [],
+          "linkTrackCount": 0,
+          "addedLater": false,
+          "media": [
+            {
+              "url": "/uploads/golden-quilt.png",
+              "caption": null
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000061",
+      "kind": "photo_wall",
+      "title": "Photo wall",
+      "emoji": "📸",
+      "description": null,
+      "replies": [
+        {
+          "replyId": "00000000-0000-4000-8000-000000000082",
+          "authorId": "00000000-0000-4000-8000-000000000004",
+          "authorName": "Bob",
+          "author": "Bob",
+          "authorPhotoUrl": null,
+          "authorCharm": null,
+          "authorFrame": null,
+          "isYou": false,
+          "body": "",
+          "linkUrl": null,
+          "linkProvider": null,
+          "linkTitle": null,
+          "linkArtwork": null,
+          "linkTracks": [],
+          "linkTrackCount": 0,
+          "addedLater": false,
+          "media": [
+            {
+              "url": "/uploads/golden-lake.png",
+              "caption": "The lake at dawn"
+            },
+            {
+              "url": "/uploads/golden-tent.png",
+              "caption": "Tent, mostly up"
+            }
+          ]
+        },
+        {
+          "replyId": "00000000-0000-4000-8000-000000000083",
+          "authorId": "00000000-0000-4000-8000-000000000002",
+          "authorName": "Sam",
+          "author": "Sam",
+          "authorPhotoUrl": null,
+          "authorCharm": null,
+          "authorFrame": null,
+          "isYou": false,
+          "body": "",
+          "linkUrl": null,
+          "linkProvider": null,
+          "linkTitle": null,
+          "linkArtwork": null,
+          "linkTracks": [],
+          "linkTrackCount": 0,
+          "addedLater": true,
+          "media": [
+            {
+              "url": "/uploads/golden-fire.png",
+              "caption": null
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000062",
+      "kind": "music",
+      "title": "Song of the week",
+      "emoji": "🎵",
+      "description": "One song, any service.",
+      "replies": [
+        {
+          "replyId": "00000000-0000-4000-8000-000000000084",
+          "authorId": "00000000-0000-4000-8000-000000000005",
+          "authorName": "Cleo",
+          "author": "Cleo",
+          "authorPhotoUrl": null,
+          "authorCharm": null,
+          "authorFrame": null,
+          "isYou": false,
+          "body": "For the drive home.",
+          "linkUrl": "https://open.spotify.com/track/golden",
+          "linkProvider": "spotify",
+          "linkTitle": "Golden Hour",
+          "linkArtwork": null,
+          "linkTracks": [],
+          "linkTrackCount": 1,
+          "addedLater": false,
+          "media": []
+        }
+      ]
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000064",
+      "kind": "standard",
+      "title": "Small wins",
+      "emoji": "🏅",
+      "description": null,
+      "replies": []
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000065",
+      "kind": "standard",
+      "title": "Camping weekend",
+      "emoji": "🏕️",
+      "description": null,
+      "replies": [
+        {
+          "replyId": "00000000-0000-4000-8000-000000000086",
+          "authorId": "00000000-0000-4000-8000-000000000004",
+          "authorName": "Bob",
+          "author": "Bob",
+          "authorPhotoUrl": null,
+          "authorCharm": null,
+          "authorFrame": null,
+          "isYou": false,
+          "body": "Bring the big tarp.",
+          "linkUrl": null,
+          "linkProvider": null,
+          "linkTitle": null,
+          "linkArtwork": null,
+          "linkTracks": [],
+          "linkTrackCount": 0,
+          "addedLater": false,
+          "media": []
+        }
+      ]
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000066",
+      "kind": "standard",
+      "title": "Alice's birthday",
+      "emoji": "🎂",
+      "description": null,
+      "replies": [
+        {
+          "replyId": "00000000-0000-4000-8000-000000000087",
+          "authorId": "00000000-0000-4000-8000-000000000002",
+          "authorName": "Sam",
+          "author": "Sam",
+          "authorPhotoUrl": null,
+          "authorCharm": null,
+          "authorFrame": null,
+          "isYou": false,
+          "body": "Happy birthday, Alice!",
+          "linkUrl": null,
+          "linkProvider": null,
+          "linkTitle": null,
+          "linkArtwork": null,
+          "linkTracks": [],
+          "linkTrackCount": 0,
+          "addedLater": false,
+          "media": [
+            {
+              "url": "/uploads/golden-cake.png",
+              "caption": null
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "answerCount": 12,
+  "comments": [],
+  "commentsEnabled": true,
+  "mentionables": []
+}
