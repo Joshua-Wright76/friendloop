@@ -11,7 +11,7 @@ import { SafeForm } from "@/components/safe-form";
 import { SortableList } from "@/components/sortable-list";
 import { SubmitButton } from "@/components/submit-button";
 import { copy, text } from "@/lib/copy";
-import { formatDate, formatMoment } from "@/lib/format";
+import { formatMoment } from "@/lib/format";
 import { QUESTION_PACKS, newQuestionTexts } from "@/lib/question-packs";
 import type { AskFrequency } from "@/lib/asks";
 import { useLoopData, type PageItem, type RoundItem } from "../loop-data";
@@ -117,7 +117,8 @@ function PageNotices({ notices }: { notices: Notices }) {
 }
 
 function roundTag(round: { number: number; deliversAt: Date } | null, timezone: string): string {
-  return round ? text(copy.questions.upNext.roundTag, { number: round.number, date: formatDate(round.deliversAt, timezone) }) : copy.questions.upNext.later;
+  // The same moment format as "This round asks", so one round never reads as two different times.
+  return round ? text(copy.questions.upNext.roundTag, { number: round.number, date: formatMoment(round.deliversAt, timezone) }) : copy.questions.upNext.later;
 }
 
 function frequencyTag(row: RoundItem): string | null {
