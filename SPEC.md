@@ -259,7 +259,7 @@ destructive DDL in the release that depends on it: add nullable → backfill →
 What actually runs today: errors go to Sentry when a DSN is configured (tokens,
 cookies, and bodies scrubbed first); the sweep checks in to a Sentry cron monitor
 and writes a `heartbeats` row; `/api/health` (CRON_SECRET) turns 503 when that
-heartbeat is older than 26 hours or outbox mail has been stuck for 26 hours; and
+heartbeat is older than 2 hours or outbox mail has been stuck for 26 hours; and
 `.github/workflows/monitor.yml` probes it every 30 minutes. `/api/healthz` is the
 public, detail-free liveness check.
 

@@ -5,6 +5,8 @@ import { currentUser } from "@/lib/auth";
 import { LegalLinks } from "@/components/legal-page";
 import { copy } from "@/lib/copy";
 
+const SOURCE_URL = "https://github.com/Joshua-Wright76/friendloop";
+
 const HEADER_LINK = "text-[14px] font-bold text-ink-soft underline decoration-dashed underline-offset-4 hover:text-ink";
 
 /** A hand-drawn heart, in place of a "<3" that Gaegu draws as an angle bracket. */
@@ -101,6 +103,12 @@ export default function Home() {
 
       <footer className="pb-2">
         <LegalLinks />
+        <p className="m-0 mt-3 text-center text-[13px] text-ink-muted">
+          {copy.home.source.text}{" "}
+          <a href={SOURCE_URL} className="underline decoration-line-strong underline-offset-4 hover:text-ink">
+            {copy.home.source.link}
+          </a>
+        </p>
       </footer>
     </main>
   );

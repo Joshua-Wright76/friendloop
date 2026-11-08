@@ -8,6 +8,8 @@ test.beforeEach(async () => {
 
 test("V1 · privacy and terms are a click from the landing page, the sign-in page, and every email", async ({ page, request }) => {
   await page.goto("/");
+  // The code is public, and the landing page says where.
+  await expect(page.getByRole("link", { name: "See the code on GitHub" })).toHaveAttribute("href", "https://github.com/Joshua-Wright76/friendloop");
   const footer = page.getByRole("navigation", { name: "Legal" });
   await footer.getByRole("link", { name: "Privacy" }).click();
   await expect(page).toHaveURL(/\/privacy$/);

@@ -22,6 +22,7 @@ import { formatMoment, timezonePlace } from "@/lib/format";
 import { LoopDataProvider, type LoopData } from "./loop-data";
 import { TimezoneSync } from "@/app/you/timezone-sync";
 import { KeepSignedIn } from "@/components/keep-signed-in";
+import { heldMailFor } from "@/lib/email/send";
 
 type Props = {
   children: ReactNode;
@@ -93,7 +94,7 @@ async function LoadedGroupLayout({ children, params }: Props) {
   // "Now" belongs to this request, never to a prerender.
   await connection();
   const at = await getNow();
-  const [people, questionsPage, roundRows, answerRows, suggestionRows, answeredIn] = await Promise.all([
+  const [people, questionsPage, roundRows, answerRows, suggestionRows, answeredIn, heldEmails] = await Promise.all([
     membersOf(group.id),
     questionsPageOf({ group, viewer: membership, at }),
     db.select({
@@ -116,6 +117,8 @@ async function LoadedGroupLayout({ children, params }: Props) {
     pendingSuggestions(group.id),
     // For the rounds list's "who answered" filter, so it filters without a request.
     deliveredRoundsAnsweredByEveryone({ groupId: group.id, includeAdminOnly: membership.access !== "member" }),
+    // Whoever sends this loop's mail should hear when it's waiting; members can't act on it.
+    membership.access === "member" ? 0 : heldMailFor(group.id),
   ]);
 
   const answeredBy = new Map(answerRows.map((row) => [row.issueId, row.people]));
@@ -182,6 +185,7 @@ async function LoadedGroupLayout({ children, params }: Props) {
       pausedAt: group.pausedAt,
       hasOpenRound: openIssue !== null,
     }),
+    heldEmails,
   };
 
   return (

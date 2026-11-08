@@ -56,6 +56,8 @@ export type LoopData = {
   roundsAnsweredBy: Record<string, string[]>;
   /** The viewer's own answer page while a round takes their answers; null for readers and paused loops. */
   answerHref: string | null;
+  /** This loop's emails waiting on the day's email budget. Only counted for owners and admins. */
+  heldEmails: number;
 };
 
 const LoopDataContext = createContext<LoopData | null>(null);

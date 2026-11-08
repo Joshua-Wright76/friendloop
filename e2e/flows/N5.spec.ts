@@ -2,7 +2,7 @@ import { test, expect } from "@playwright/test";
 import { resetDatabase, rows } from "../support/db";
 import { signIn, unfold } from "../support/harness";
 import { chooseFile, seedWorld } from "../support/identity";
-import { seedLoop } from "../support/seed";
+import { seedLoop, seedOpenIssue } from "../support/seed";
 import { TINY_PNG } from "../support/comments";
 
 test.beforeEach(async () => {
@@ -120,4 +120,28 @@ test("N5 · the photo routes answer only the person they belong to", async ({ re
   });
   expect(text.status()).toBe(415);
   expect(await photoOf("alice@friendloop.test", loop.groupId)).toBeNull();
+});
+
+test("N5 · someone added by email alone is greeted without their email handle and asked for a name first", async ({ page }) => {
+  const loop = await seedLoop({ members: [{ email: "dabluj76@friendloop.test" }] });
+  await seedOpenIssue(loop, { openedAt: new Date("2026-01-02T08:00:00Z") });
+  const newcomer = loop.members.find((member) => member.email.startsWith("dabluj76"))!;
+
+  await page.goto(`/r/${newcomer.token}`);
+  await expect(page.getByText("Hi there,")).toBeVisible();
+  await expect(page.getByText("dabluj76")).toHaveCount(0);
+  // The name field is already open: no need to find "Edit name and photo".
+  const field = page.getByLabel("What should we call you?");
+  await expect(field).toBeVisible();
+  await field.fill("Dana");
+  await field.blur();
+  await expect.poll(async () =>
+    (await rows<{ name: string | null }>("select name from memberships where id = $1", [newcomer.id]))[0].name,
+  ).toBe("Dana");
+  await expect(page.getByText("Hi Dana,")).toBeVisible();
+
+  // Next time, with a name on file, the line folds away as usual.
+  await page.reload();
+  await expect(page.getByText("Answering as Dana")).toBeVisible();
+  await expect(page.getByLabel("What should we call you?")).toBeHidden();
 });
