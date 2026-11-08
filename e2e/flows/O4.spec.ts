@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { resetDatabase, rows } from "../support/db";
 import { seedLoop } from "../support/seed";
-import { AFTER_FIRST_SLOT, DELIVERY_DAY, E2E_NOW, freezeClock, openPart, runSweep, signIn } from "../support/harness";
+import { AFTER_FIRST_SLOT, DELIVERY_DAY, E2E_NOW, freezeClock, openItem, runSweep, signIn } from "../support/harness";
 
 test.beforeEach(async () => {
   await resetDatabase();
@@ -25,23 +25,24 @@ test("O4 · a round keeps the event section it was given, whatever happens to th
   await signIn(page, "owner@friendloop.test");
   await freezeClock(page, E2E_NOW);
   await page.goto(`/g/${loop.groupId}/questions`);
-  await openPart(page, "Sections and dates");
-  const item = page.getByRole("list", { name: "Events, soonest first" }).locator("> li").first();
-  await expect(item).toContainText("Alicia's birthday"); // the list is live
-  await item.getByText("Edit").click();
-  await item.getByLabel("Date").fill("1990-05-05");
-  await item.getByLabel("Icon").fill("🎈");
+  // The row in Up next is live; the card in this round keeps its title.
+  await expect(page.getByRole("list", { name: "Events and birthdays, soonest first" })).toContainText("Alicia's birthday");
+  const item = await openItem(page, "Alicia's birthday");
+  await item.getByLabel(/^Date/).fill("1990-05-05");
+  await item.getByLabel("Emoji").fill("🎈");
   await item.getByRole("button", { name: "Save changes" }).click();
-  await expect(page.getByText("Event saved.")).toBeVisible();
-  await page.getByRole("button", { name: "Remove Alicia's birthday" }).click();
-  await page.getByRole("button", { name: /^Yes, remove/ }).click(); // removing asks first
-  await expect(page.getByText("Event removed.")).toBeVisible();
+  await expect(page.getByText("Saved.")).toBeVisible();
+  const again = await openItem(page, "Alicia's birthday");
+  await again.getByRole("button", { name: "Stop asking: Alicia's birthday" }).click();
+  await again.getByRole("button", { name: "Yes, stop asking" }).click(); // stopping asks first
+  // Bob wrote in it, so this round keeps it.
+  await expect(page.getByText("Stopped asking. Someone has written there this round, so this round keeps it.")).toBeVisible();
 
   // The open round still reads exactly as it was snapshotted.
   const snapshots = await rows<{ title: string; emoji: string; event_id: string | null; event_date: string }>(
     "select text as title, emoji, question_id as event_id, occurrence_date::text as event_date from issue_questions where occurrence_date is not null",
   );
-  expect(snapshots).toEqual([{ title: "Alice's birthday", emoji: "🎂", event_id: null, event_date: "2026-01-06" }]);
+  expect(snapshots.map((row) => ({ ...row, event_id: row.event_id !== null }))).toEqual([{ title: "Alice's birthday", emoji: "🎂", event_id: true, event_date: "2026-01-06" }]);
   await page.goto(`/r/${bob.token}`);
   await expect(page.getByRole("textbox", { name: "Alice's birthday" })).toHaveValue("Many happy returns.");
 

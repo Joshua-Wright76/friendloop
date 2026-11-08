@@ -365,10 +365,10 @@ Status: `todo` (not built) · `done` (built and covered).
 
 | ID | Flow | Acceptance criteria | Status |
 | --- | --- | --- | --- |
-| C1 | Add a custom question | A new question appears at the end of the pool, is active, and is available to the next issue. | done |
-| C2 | Reorder questions | Moving a question changes the order shown in the pool and the order used by the next issue. | done |
-| C3 | Archive a question | Archiving removes it from the pool's active list and from future issues, while past issues still render its original text. | done |
-| C4 | Choose the open round's questions | Skipping a question takes it out of the round that is open (unless someone has started answering it) until that round goes out; the question stays in the pool. | done |
+| C1 | Add anything to ask | One add card adds a written question, poll, photo wall or music link, taking turns, every round or on a date; a turn-taker waits in Up next unless asked this round too, while an every-round item or a date in this round's days joins the open round at once. | done |
+| C2 | Reorder the queue | Moving a turn-taker in Up next (drag, tap for Up and Down, or keyboard) changes the order coming rounds ask them; the open round keeps its own order. | done |
+| C3 | Stop asking | Stop asking takes an item out of Up next and, unless someone wrote there, the open round; Ask again brings it back, and past issues still render its original text. | done |
+| C4 | Edit this round | The open round's items are edited directly: removed (a turn-taker goes first in line for the next round), reordered, added to, and reworded in place unless someone has written there. | done |
 
 ## D · The issue cycle
 

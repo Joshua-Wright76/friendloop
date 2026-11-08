@@ -48,6 +48,9 @@ It preserves the same contrast relationships and gingham texture.
   quiet actions use an inset border. Minimum target height is 44px.
 - **Fields:** cream fill, visible border, and a soft accent focus ring. Every input
   has a label or accessible name.
+- **Ordered lists:** a list whose order matters (the Questions page's round and
+  queue) puts a grip in each row's margin: drag it, tap it for plain Up and Down
+  buttons, or pick the row up from the keyboard. A row opens in place to edit it.
 - **Navigation:** loop sections use stitched headers and underline tabs. Reply
   screens keep the loop name and answer count in a sticky top bar, with the
   save state and the primary action in a fixed bottom bar.

@@ -1,22 +1,18 @@
 import { test, expect } from "@playwright/test";
 import { resetDatabase, rows } from "../support/db";
 import { seedLoop } from "../support/seed";
-import { openPart, runSweep, signIn } from "../support/harness";
+import { addWithCard, runSweep, signIn } from "../support/harness";
 
 test.beforeEach(async () => {
   await resetDatabase();
 });
 
-test("K7 · admin-only sections stay invisible to regular members", async ({ page }) => {
+test("K7 · owners-only items stay invisible to regular members", async ({ page }) => {
   const loop = await seedLoop();
 
   await signIn(page, "owner@friendloop.test");
   await page.goto(`/g/${loop.groupId}/questions`);
-  await openPart(page, "Sections and dates");
-  await page.getByPlaceholder("The potluck corner").fill("Committee notes");
-  await page.getByRole("checkbox", { name: "Owner and admins only" }).check();
-  await page.getByRole("button", { name: "Add section" }).click();
-  await expect(page.getByText("Section added.")).toBeVisible();
+  await addWithCard(page, { text: "Committee notes", frequency: "Every round", adminOnly: true });
   await runSweep(new Date("2026-01-02T08:00:00Z"));
   const [section] = await rows<{ id: string }>("select id from issue_questions where text = 'Committee notes' limit 1");
 

@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { resetDatabase, rows } from "../support/db";
 import { seedLoop } from "../support/seed";
-import { openPart, runSweep, signIn } from "../support/harness";
+import { addWithCard, runSweep, signIn } from "../support/harness";
 import { makePng } from "../support/audio";
 import { chooseFile } from "../support/identity";
 
@@ -9,14 +9,12 @@ test.beforeEach(async () => {
   await resetDatabase();
 });
 
-test("K3 · a standard section takes text and one photo", async ({ page }) => {
+test("K3 · a written item asked every round takes text and one photo", async ({ page }) => {
   const loop = await seedLoop();
 
   await signIn(page, "owner@friendloop.test");
   await page.goto(`/g/${loop.groupId}/questions`);
-  await openPart(page, "Sections and dates");
-  await page.getByPlaceholder("The potluck corner").fill("The potluck corner");
-  await page.getByRole("button", { name: "Add section" }).click();
+  await addWithCard(page, { text: "The potluck corner", frequency: "Every round" });
   await runSweep(new Date("2026-01-02T08:00:00Z"));
 
   const alice = loop.members.find((member) => member.email.startsWith("alice"))!;

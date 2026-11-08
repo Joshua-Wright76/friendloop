@@ -31,7 +31,7 @@ test("G3 · an admin manages people but never reaches owner settings", async ({ 
   await expect(page.getByLabel("Invite people by email")).toBeVisible();
 
   await page.goto(`/g/${loop.groupId}/questions`);
-  await expect(page.getByLabel("New question")).toBeVisible();
+  await expect(page.getByLabel(/^What to ask/)).toBeVisible();
 
   await page.goto(`/g/${loop.groupId}/settings`);
   await expect(page).toHaveURL(new RegExp(`/g/${loop.groupId}$`));
