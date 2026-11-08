@@ -138,6 +138,7 @@
     "codeSubmit": "Sign in with the code",
     "codeWrong": "That code doesn't match. Check it's from the newest sign-in email.",
     "codeBusy": "Lots of codes are coming from your network right now. Please wait a little while and try again.",
+    "codeLocked": "That's a lot of codes for this address today. Use the link in the email instead, or try again tomorrow.",
     "previewCaptured": "This preview captures email instead of sending it, ",
     "previewLogged": "Every preview email is kept as a copy. ",
     "openOutbox": "open the dev outbox",
@@ -1964,7 +1965,7 @@
             "Birthdays and dates the loop's owner adds to its calendar.",
             "A copy of every email we send, and delivery notices from our email provider (sent, bounced, and so on), so a failed send can be retried and never doubled.",
             "Notes you send with the feedback button, with the page you were on, your screen size, and your browser.",
-            "One cookie when you sign in, which keeps you signed in for 30 days. Your light or dark choice is kept in your own browser."
+            "One cookie when you sign in, which keeps you signed in for a year from the last time you visit, and a short-lived one that remembers the address you asked to sign in with, until you have. Your light or dark choice is kept in your own browser."
           ]
         },
         {

@@ -6,7 +6,6 @@ import {
   confirmSignInCode,
   currentUser,
   LINK_HOURS,
-  MAX_CODE_ATTEMPTS,
   membershipFromReplyToken,
   normalizeEmail,
   peekMagicLink,
@@ -382,26 +381,74 @@ test("a code only works for the address it was sent to", async () => {
   assert.deepEqual(await confirmSignInCode("theirs@friendloop.test", code, { ip: "192.0.2.3" }), { ok: false, reason: "wrong" });
 });
 
-test("five wrong codes stop that link's code working; the link itself still signs in", async () => {
+test("only the newest email's code works, so asking for more links adds nothing to guess at", async () => {
+  await requestMagicLink("twice@friendloop.test");
+  const older = await newestSignInCode();
+  const olderToken = await newestSignInToken();
+  at(60 * 1000);
+  await requestMagicLink("twice@friendloop.test");
+  const newer = await newestSignInCode();
+
+  if (older !== newer) {
+    assert.deepEqual(await confirmSignInCode("twice@friendloop.test", older, { ip: "192.0.2.10" }), { ok: false, reason: "wrong" });
+  }
+  assert.equal((await confirmSignInCode("twice@friendloop.test", newer, { ip: "192.0.2.10" })).ok, "name");
+  assert.equal((await confirmMagicLink(olderToken)).ok, true, "the older link itself still works");
+});
+
+test("an address takes ten codes a day, parallel or not, then even the right one waits; the link still works", async () => {
   await requestMagicLink("guessed@friendloop.test");
   const token = await newestSignInToken();
   const code = await newestSignInCode();
   const wrong = code === "000000" ? "000001" : "000000";
 
-  for (let i = 0; i < MAX_CODE_ATTEMPTS; i++) {
-    assert.deepEqual(await confirmSignInCode("guessed@friendloop.test", wrong, { ip: `192.0.2.${10 + i}` }), { ok: false, reason: "wrong" });
-  }
-  assert.deepEqual(await confirmSignInCode("guessed@friendloop.test", code, { ip: "192.0.2.20" }), { ok: false, reason: "wrong" });
+  // Fired at once, from many networks: the count is taken before anything is checked.
+  const guesses = await Promise.all(
+    Array.from({ length: 15 }, (_, i) => confirmSignInCode("guessed@friendloop.test", wrong, { ip: `192.0.2.${100 + i}` })),
+  );
+  assert.equal(guesses.filter((g) => !g.ok && g.reason === "wrong").length, LIMITS.signInCodeEmail.max);
+  assert.equal(guesses.filter((g) => !g.ok && g.reason === "locked").length, 15 - LIMITS.signInCodeEmail.max);
+  assert.deepEqual(await confirmSignInCode("guessed@friendloop.test", code, { ip: "192.0.2.20" }), { ok: false, reason: "locked" });
   assert.equal((await confirmMagicLink(token)).ok, true);
 
-  // A malformed code isn't a guess, and costs a fresh link nothing.
+  // A fresh link doesn't reset the count.
   await requestMagicLink("guessed@friendloop.test");
+  assert.deepEqual(
+    await confirmSignInCode("guessed@friendloop.test", await newestSignInCode(), { ip: "192.0.2.21" }),
+    { ok: false, reason: "locked" },
+  );
+
+  // An address nobody has is locked the same way, so the lock says nothing about accounts.
+  for (let i = 0; i < LIMITS.signInCodeEmail.max; i++) await confirmSignInCode("nobody-here@friendloop.test", wrong, { ip: "192.0.2.22" });
+  assert.deepEqual(await confirmSignInCode("nobody-here@friendloop.test", wrong, { ip: "192.0.2.23" }), { ok: false, reason: "locked" });
+
+  // Tomorrow, the right code works.
+  at(LIMITS.signInCodeEmail.windowMs);
   const fresh = await newestSignInCode();
-  assert.deepEqual(await confirmSignInCode("guessed@friendloop.test", "12", { ip: "192.0.2.21" }), { ok: false, reason: "wrong" });
-  const [{ failed }] = await rows<{ failed: number }>(
-    "select failed_code_attempts as failed from magic_links order by created_at desc, id limit 1");
-  assert.equal(failed, 0);
-  assert.equal((await confirmSignInCode("guessed@friendloop.test", fresh, { ip: "192.0.2.22" })).ok, "name");
+  assert.equal((await confirmSignInCode("guessed@friendloop.test", fresh, { ip: "192.0.2.24" })).ok, "name");
+});
+
+test("codes are keyed with the server secret, so a leaked table alone can't recover them", async () => {
+  const original = process.env.CRON_SECRET;
+  try {
+    process.env.CRON_SECRET = "secret-one";
+    await requestMagicLink("keyed@friendloop.test");
+    const code = await newestSignInCode();
+    process.env.CRON_SECRET = "secret-two";
+    assert.deepEqual(await confirmSignInCode("keyed@friendloop.test", code, { ip: "192.0.2.40" }), { ok: false, reason: "wrong" });
+    process.env.CRON_SECRET = "secret-one";
+    assert.equal((await confirmSignInCode("keyed@friendloop.test", code, { ip: "192.0.2.40" })).ok, "name");
+  } finally {
+    if (original === undefined) delete process.env.CRON_SECRET;
+    else process.env.CRON_SECRET = original;
+  }
+});
+
+test("a malformed code isn't a guess and costs the address nothing", async () => {
+  await requestMagicLink("typo@friendloop.test");
+  assert.deepEqual(await confirmSignInCode("typo@friendloop.test", "12", { ip: "192.0.2.25" }), { ok: false, reason: "wrong" });
+  const buckets = await rows<{ key: string }>("select key from rate_limits where key like 'signin:code-email:%'");
+  assert.equal(buckets.length, 0);
 });
 
 test("a blocked address's code signs nobody in", async () => {

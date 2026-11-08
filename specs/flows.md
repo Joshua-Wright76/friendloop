@@ -24,7 +24,7 @@ Status: `todo` (not built) · `done` (built and covered).
 | A6 | Revoked reply token | Opening a reply link whose token was rotated shows a "this link was replaced" page with no form and no data leak. | done |
 | A7 | Expired session | A session lasts a year from its last use: a signed-in page renews it (database and cookie) at most daily. One that ran out is refused: `/you` redirects to `/signin`, while a session still inside its window is accepted and shows the address. | done |
 | A8 | Abuse limits | Sign-in links are capped per address (5 per 15 min) and per network (20 per hour). A flooded address still lands on the same "check your inbox" screen but no further email is queued, so throttling reveals nothing about who signs in; a flooded network is told plainly to wait and nothing is sent. A stranger's feedback flood (30 per hour per network) and a member's comment flood (30 per 10 min) get a 429 with friendly words. | done |
-| A9 | Sign in with the code | Typing the emailed code on the check-email page (address included when this browser didn't ask) signs a returning person straight in, and takes someone new to the confirm page for their name. A wrong code says so and keeps the address; five wrong codes stop a link's code, not the link. | done |
+| A9 | Sign in with the code | Typing the emailed code on the check-email page (address included when this browser didn't ask) signs a returning person straight in, and takes someone new to the confirm page for their name. A wrong code says so and keeps the address. Only the newest email's code works, and an address takes ten codes a day; the emailed link works regardless. | done |
 
 ## B · Create and invite
 

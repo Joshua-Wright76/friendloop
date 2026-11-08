@@ -312,7 +312,7 @@ export async function eraseAccount(userId: string): Promise<EraseAccountResult> 
       await tx.delete(magicLinks).where(eq(magicLinks.email, user.email));
       await forgetSuppressions(tx, [user.email]);
       // The sign-in counter is keyed by the address itself.
-      await tx.delete(rateLimits).where(inArray(rateLimits.key, [limitKey.invite(user.id), limitKey.emailChange(user.id), limitKey.signInEmail(user.email), limitKey.feedbackUser(user.id)]));
+      await tx.delete(rateLimits).where(inArray(rateLimits.key, [limitKey.invite(user.id), limitKey.emailChange(user.id), limitKey.signInEmail(user.email), limitKey.signInCodeEmail(user.email), limitKey.feedbackUser(user.id)]));
       // Sessions cascade from the user.
       await tx.delete(users).where(eq(users.id, user.id));
 

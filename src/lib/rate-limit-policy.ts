@@ -15,11 +15,13 @@ export const LIMITS = {
   signInEmail: { max: 5, windowMs: 15 * MINUTE },
   /** Sign-in requests from one network, whatever the addresses. Room for a shared office. */
   signInIp: { max: 20, windowMs: HOUR },
-  /**
-   * Codes typed from one network, right or wrong. Guessing one address's code is
-   * capped separately, by the five wrong tries each live link allows.
-   */
+  /** Codes typed from one network, right or wrong, whatever the addresses. */
   signInCode: { max: 30, windowMs: HOUR },
+  /**
+   * Codes tried for one address, right or wrong, however many links it has asked
+   * for. A day's worth of guessing is ten tries at a million.
+   */
+  signInCodeEmail: { max: 10, windowMs: DAY },
   /** Comments from one member: a lively thread, not a script. */
   comment: { max: 30, windowMs: 10 * MINUTE },
   /** Notes from someone the request proved (session or reply link). */
@@ -51,6 +53,7 @@ export const limitKey = {
   signInIp: (ip: string) => `signin:ip:${ip}`,
   signInEmail: (email: string) => `signin:email:${email}`,
   signInCode: (ip: string) => `signin:code:${ip}`,
+  signInCodeEmail: (email: string) => `signin:code-email:${email}`,
   comment: (membershipId: string) => `comment:member:${membershipId}`,
   feedbackMember: (membershipId: string) => `feedback:member:${membershipId}`,
   feedbackUser: (userId: string) => `feedback:user:${userId}`,

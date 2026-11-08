@@ -51,7 +51,16 @@ export async function enterCode(_previous: CodeState, formData: FormData): Promi
     profile: { timezone: String(formData.get("timezone") ?? "") },
   });
 
-  if (result.ok === true) redirect("/you");
+  if (result.ok === true) {
+    await forgetCheckEmail();
+    redirect("/you");
+  }
   if (result.ok === "name") redirect(`/signin/confirm?token=${encodeURIComponent(result.token)}`);
-  return { error: result.reason === "busy" ? copy.checkEmail.codeBusy : copy.checkEmail.codeWrong };
+  const errors = { busy: copy.checkEmail.codeBusy, locked: copy.checkEmail.codeLocked, wrong: copy.checkEmail.codeWrong };
+  return { error: errors[result.reason] };
+}
+
+/** Once someone is in, the address they asked for needn't sit in a cookie for days (a shared computer). */
+export async function forgetCheckEmail(): Promise<void> {
+  (await cookies()).delete({ name: CHECK_EMAIL_COOKIE, path: "/signin" });
 }

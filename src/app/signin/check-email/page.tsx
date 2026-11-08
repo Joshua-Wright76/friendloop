@@ -58,7 +58,8 @@ export default function CheckEmailPage() {
         </Suspense>
         <section aria-labelledby="code-title" className="mt-5 border-t border-dashed border-line pt-5">
           <h2 id="code-title" className="mb-3 text-[17px] font-semibold text-ink">{copy.checkEmail.codeTitle}</h2>
-          <Suspense fallback={<CodeForm askEmail={false} />}>
+          {/* A still placeholder, not a form: a box typed into before the address field arrived would be lost. */}
+          <Suspense fallback={<div aria-hidden className="h-[150px]" />}>
             <CodeSection />
           </Suspense>
         </section>

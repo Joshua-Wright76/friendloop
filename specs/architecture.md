@@ -365,6 +365,8 @@ twice `max` through across a boundary — acceptable for flood control.
 | --- | --- | --- |
 | `signin:ip:<ip>` | 20 / hour | form shows `signIn.tooMany`; no link, no email |
 | `signin:email:<address>` | 5 / 15 min | same "check your inbox" redirect, nothing sent |
+| `signin:code:<ip>` | 30 / hour | code form shows `checkEmail.codeBusy` |
+| `signin:code-email:<address>` | 10 / day | code form shows `checkEmail.codeLocked`, for any address; the emailed link still works |
 | `comment:member:<membership>` | 30 / 10 min | 429, `issue.errors.tooMany` |
 | `feedback:member:` / `feedback:user:<id>` | 10 / hour | 429, `feedback.errors.tooMany` |
 | `feedback:ip:<ip>` (no session or reply link) | 30 / hour | 429, `feedback.errors.tooMany` |

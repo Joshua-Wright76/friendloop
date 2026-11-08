@@ -1,5 +1,5 @@
 {
-  "id": "04ef967d-3125-4282-a627-034c407134aa",
+  "id": "68e86a62-22f5-4fcf-82e7-e7f0f383f896",
   "prevId": "40346f86-cc19-4dc8-9a3a-95e7b17e7e56",
   "version": "7",
   "dialect": "postgresql",
@@ -1311,13 +1311,6 @@
           "type": "text",
           "primaryKey": false,
           "notNull": false
-        },
-        "failed_code_attempts": {
-          "name": "failed_code_attempts",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "default": 0
         },
         "created_at": {
           "name": "created_at",

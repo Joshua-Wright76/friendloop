@@ -1,10 +1,10 @@
 import { cookies } from "next/headers";
 import { cacheLife, cacheTag, updateTag } from "next/cache";
-import { and, eq, gt, isNotNull, isNull, lt, sql } from "drizzle-orm";
+import { and, desc, eq, gt, isNotNull, isNull, lt, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { magicLinks, memberships, sessions, users } from "@/db/schema";
-import { randomInt } from "node:crypto";
-import { hashToken, newToken } from "./tokens";
+import { createHmac, randomInt } from "node:crypto";
+import { hashToken, newToken, safeEqual } from "./tokens";
 import { getNow } from "./clock";
 import { cleanDisplayName } from "./names";
 import { isValidTimezone } from "./timezone";
@@ -22,8 +22,6 @@ export const SESSION_DAYS = 365;
 export const LINK_HOURS = 100;
 /** A link reached by typing its code is used on the spot, so it needn't last. */
 const CODE_LINK_MINUTES = 15;
-/** Wrong codes an address can take while a link is live, before that link's code stops working. */
-export const MAX_CODE_ATTEMPTS = 5;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 export function normalizeEmail(email: string): string {
@@ -41,9 +39,16 @@ export function cleanSignInCode(raw: string): string | null {
   return /^\d{6}$/.test(digits) ? digits : null;
 }
 
-/** Hashed with the address, so a code only ever means something for the inbox it went to. */
+/**
+ * Hashed with the address, so a code only ever means something for the inbox it went
+ * to, and keyed with a server secret: a million codes is nothing to try against a
+ * plain hash, so a leaked table must not be enough to recover live ones. Production
+ * has CRON_SECRET; local and test runs have no secret to protect.
+ */
 function hashSignInCode(email: string, code: string): string {
-  return hashToken(`signin-code:${email}:${code}`);
+  return createHmac("sha256", process.env.CRON_SECRET || "friendloop-local-signin-code")
+    .update(`signin-code:${email}:${code}`)
+    .digest("base64url");
 }
 
 export type CurrentUser = {
@@ -151,13 +156,14 @@ export type CodeResult =
   | { ok: true; user: CurrentUser }
   /** Someone new: the confirm page asks their name, through a short link of its own. */
   | { ok: "name"; token: string }
-  | { ok: false; reason: "wrong" | "busy" };
+  | { ok: false; reason: "wrong" | "busy" | "locked" };
 
 /**
  * The code from the email, for the device the email isn't on, or the app on a
- * home screen, which a tapped link never reaches. Every wrong code for an address
- * counts against each of its live links, and a link takes five, so guessing gets
- * a handful of tries at a million combinations, not a hundred hours of them.
+ * home screen, which a tapped link never reaches. Only the newest email's code
+ * counts, so asking for more links never adds codes to guess at, and an address
+ * takes ten tries a day, counted before anything is checked, so parallel guesses
+ * can't slip past. The link in the email works regardless.
  * Someone who has signed in before goes straight in; someone new is handed a
  * fresh confirm link, so the name step is the same one the emailed link shows.
  */
@@ -174,27 +180,20 @@ export async function confirmSignInCode(
   const code = cleanSignInCode(rawCode);
   // A typo in the shape (five digits, a letter) isn't a guess, so it costs nothing.
   if (!code || !email) return { ok: false, reason: "wrong" };
-
-  const live = and(
-    eq(magicLinks.email, email),
-    gt(magicLinks.expiresAt, at),
-    isNotNull(magicLinks.codeHash),
-    lt(magicLinks.failedCodeAttempts, MAX_CODE_ATTEMPTS),
-  );
-  const [match] = await db
-    .select({ id: magicLinks.id })
-    .from(magicLinks)
-    .where(and(live, eq(magicLinks.codeHash, hashSignInCode(email, code))))
-    .limit(1);
-
-  if (!match) {
-    await db
-      .update(magicLinks)
-      .set({ failedCodeAttempts: sql`${magicLinks.failedCodeAttempts} + 1` })
-      .where(live);
-    return { ok: false, reason: "wrong" };
+  // The same for every address, known or not, so it says nothing about who has an account.
+  if (!(await consume(limitKey.signInCodeEmail(email), LIMITS.signInCodeEmail, at)).allowed) {
+    return { ok: false, reason: "locked" };
   }
-  if (await isBlocked(email)) return { ok: false, reason: "wrong" };
+
+  const [newest] = await db
+    .select({ id: magicLinks.id, codeHash: magicLinks.codeHash })
+    .from(magicLinks)
+    .where(and(eq(magicLinks.email, email), gt(magicLinks.expiresAt, at), isNotNull(magicLinks.codeHash)))
+    .orderBy(desc(magicLinks.createdAt), desc(magicLinks.id))
+    .limit(1);
+  const match = newest?.codeHash && safeEqual(newest.codeHash, hashSignInCode(email, code)) ? newest : null;
+
+  if (!match || (await isBlocked(email))) return { ok: false, reason: "wrong" };
 
   await db.update(magicLinks).set({ usedAt: at }).where(and(eq(magicLinks.id, match.id), isNull(magicLinks.usedAt)));
 

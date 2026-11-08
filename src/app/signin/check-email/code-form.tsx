@@ -42,6 +42,8 @@ export function CodeForm({ askEmail }: { askEmail: boolean }) {
             value={email}
             onChange={(event) => setEmail(event.target.value)}
             required
+            aria-invalid={state.error ? "true" : undefined}
+            aria-describedby={state.error ? "code-error" : undefined}
             autoComplete="email"
             inputMode="email"
             placeholder={copy.signIn.emailPlaceholder}
