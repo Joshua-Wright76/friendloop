@@ -35,7 +35,7 @@ test("D5 · sending marks the answers submitted and says so", async ({ page }) =
   // "Edit my answers" brings the sheet back, answers intact, ready to change.
   await page.getByRole("button", { name: "Edit my answers" }).click();
   await expect(page.getByLabel("What made you laugh this week?")).toHaveValue("A cat fist bump.");
-  await expect(page.getByText("Sent. You can still change anything until it closes.")).toBeVisible();
+  await expect(page.getByText("Sent. You can still change anything until it goes out.")).toBeVisible();
   // A sent answer changes as it's saved, so all that's left to press is Done.
   await expect(page.getByRole("button", { name: "Done" })).toBeVisible();
 

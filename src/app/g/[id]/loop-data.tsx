@@ -63,9 +63,9 @@ export type LoopData = {
   openWaiting: LoopPerson[];
   nextRoundLabel: Deadline;
   openIssueDeadlineLabel: string | null;
+  /** The delivery after the open round's, for "Send now" to say when the next one goes out. */
   nextMoment: { primary: string; loop: string | null };
   openMoment: { primary: string; loop: string | null } | null;
-  nextWhenThisCloses: boolean;
   lastNudge: string | null;
   weekdayLabel: string;
   /** Membership id to the ids of the delivered rounds they answered in. */

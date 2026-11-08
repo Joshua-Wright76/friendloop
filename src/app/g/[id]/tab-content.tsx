@@ -37,7 +37,7 @@ export function LoopTabContent(props: Props) {
     case "issues": {
       const member = parseMemberFilter(params.get("member"));
       const filter = member ? { memberId: member, roundIds: roundsAnsweredBy[member] ?? [] } : null;
-      return <IssuesTab notices={read("opened", "alreadyOpen", "named")} filter={filter} />;
+      return <IssuesTab notices={read("sent", "next", "nothingToSend", "named")} filter={filter} />;
     }
     case "settings":
       return <SettingsTab notices={read("saved", "error", "shares", "stationery")} />;

@@ -22,32 +22,19 @@ test("an instant becomes the local date of the loop, not of UTC", () => {
   assert.equal(localDate(instant, "America/New_York"), "2026-01-04");
 });
 
-test("coverage runs from the opening day through delivery when the window fills the cadence", () => {
+test("coverage runs from the opening day through the delivery day", () => {
   const coverage = issueCoverage({
     opensAt: new Date("2026-01-02T08:00:00Z"),
     deliversAt: new Date("2026-01-09T08:00:00Z"),
-    nextSlotAt: new Date("2026-01-09T08:00:00Z"),
     timezone: "Europe/Amsterdam",
   });
-  // Delivery day is the last covered date; the next slot's own day belongs to this issue too.
   assert.deepEqual(coverage, { start: "2026-01-02", end: "2026-01-09" });
 });
 
-test("a window shorter than the cadence stretches to the day before the next slot", () => {
-  const coverage = issueCoverage({
-    opensAt: new Date("2026-01-02T08:00:00Z"),
-    deliversAt: new Date("2026-01-09T08:00:00Z"),
-    nextSlotAt: new Date("2026-01-16T08:00:00Z"),
-    timezone: "Europe/Amsterdam",
-  });
-  assert.deepEqual(coverage, { start: "2026-01-02", end: "2026-01-15" });
-});
-
-test("a window longer than the cadence keeps its own delivery day", () => {
+test("a round carried over keeps covering through its later delivery", () => {
   const coverage = issueCoverage({
     opensAt: new Date("2026-01-02T08:00:00Z"),
     deliversAt: new Date("2026-01-23T08:00:00Z"),
-    nextSlotAt: new Date("2026-01-09T08:00:00Z"),
     timezone: "Europe/Amsterdam",
   });
   assert.deepEqual(coverage, { start: "2026-01-02", end: "2026-01-23" });
@@ -58,7 +45,6 @@ test("a window that crosses a DST change still ends on the local delivery date",
   const coverage = issueCoverage({
     opensAt: new Date("2026-03-27T08:00:00Z"),
     deliversAt: new Date("2026-04-03T07:00:00Z"),
-    nextSlotAt: new Date("2026-04-03T07:00:00Z"),
     timezone: "Europe/Amsterdam",
   });
   assert.deepEqual(coverage, { start: "2026-03-27", end: "2026-04-03" });

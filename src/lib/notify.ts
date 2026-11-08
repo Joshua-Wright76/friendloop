@@ -84,7 +84,7 @@ export async function sendPromptEmails(input: {
  * 48-hour reminder. Repeatable on purpose: every send gets its own dedupe key,
  * so a second click is one more gentle email rather than a duplicate.
  */
-export async function nudgeStragglers(groupId: string): Promise<number> {
+export async function nudgeStragglers(groupId: string, fromMembershipId?: string): Promise<number> {
   const [group] = await db.select().from(groups).where(eq(groups.id, groupId)).limit(1);
   if (!group) return 0;
 
@@ -129,7 +129,8 @@ export async function nudgeStragglers(groupId: string): Promise<number> {
 
   let sent = 0;
   for (const member of contributors) {
-    if (done.has(member.id)) continue;
+    // The person sending the nudge doesn't get one.
+    if (done.has(member.id) || member.id === fromMembershipId) continue;
 
     const [previous] = await db
       .select({ count: sql<number>`count(*)::int` })

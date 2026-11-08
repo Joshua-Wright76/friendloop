@@ -122,16 +122,16 @@ export const groups = pgTable("groups", {
   mode: modeEnum("mode").default("group").notNull(),
   /** IANA zone the schedule is written in. */
   timezone: text("timezone").default("UTC").notNull(),
-  /** 0 = Sunday … 6 = Saturday, evaluated in `timezone`. */
+  /** Delivery weekday, 0 = Sunday … 6 = Saturday, evaluated in `timezone`. */
   promptWeekday: integer("prompt_weekday").default(5).notNull(),
-  /** Local hour the prompt goes out, 0–23. */
+  /** Local hour the issue goes out, 0–23. (Named for the old model, where it opened the round.) */
   promptHour: integer("prompt_hour").default(9).notNull(),
   cadenceWeeks: integer("cadence_weeks").default(1).notNull(),
   /** Null keeps every active question in each round; a number rotates the pool. */
   questionsPerRound: integer("questions_per_round"),
   /** Zero-based position after the last question selected for a round. */
   questionCursor: integer("question_cursor").default(0).notNull(),
-  /** Reply window length in days; delivery lands this long after opening. */
+  /** Unused: a round now stays open from one delivery to the next. */
   windowDays: integer("window_days").default(7).notNull(),
   shareEnabled: boolean("share_enabled").default(false).notNull(),
   /** Stationery preset key; null is Gingham Picnic, the original look. */
@@ -151,7 +151,7 @@ export const groups = pgTable("groups", {
   /** The owner's switch: off hides every comment surface and refuses writes; nothing is deleted. */
   commentsEnabled: boolean("comments_enabled").default(true).notNull(),
   pausedAt: timestamp("paused_at", { withTimezone: true }),
-  /** Last slot that produced an issue, so pause/resume restarts cleanly. */
+  /** Unused since rounds open as the previous one goes out. */
   lastSlotAt: timestamp("last_slot_at", { withTimezone: true }),
   isSynthetic: boolean("is_synthetic").default(false).notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
@@ -245,10 +245,20 @@ export const issues = pgTable(
     /** The owner's name for this round ("Camping weekend"); null keeps "Round N". */
     name: text("name"),
     status: issueStatusEnum("status").default("open").notNull(),
-    /** The local wall-clock slot this issue came from, frozen as an instant. */
+    /**
+     * The delivery slot this issue was opened for, frozen as an instant. A round
+     * with nothing in it moves `deliversAt` on to a later slot; this stays put, so
+     * the distance between the two counts how often it was carried over.
+     */
     slotAt: timestamp("slot_at", { withTimezone: true }).notNull(),
+    /** When it started taking answers: the moment the round before it went out. */
     opensAt: timestamp("opens_at", { withTimezone: true }).notNull(),
     deliversAt: timestamp("delivers_at", { withTimezone: true }).notNull(),
+    /**
+     * The loop's question cursor when this round opened. Re-running the selection
+     * from here keeps the open round in step with edits to the question pool.
+     */
+    questionCursor: integer("question_cursor"),
     deliveredAt: timestamp("delivered_at", { withTimezone: true }),
     /** Set when the loop had nothing to send and the issue was dropped. */
     skippedAt: timestamp("skipped_at", { withTimezone: true }),

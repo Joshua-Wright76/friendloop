@@ -12,7 +12,7 @@ import { deliveredRoundsAnsweredByEveryone } from "@/lib/rounds-by-member";
 import { currentUser } from "@/lib/auth";
 import { getNow } from "@/lib/clock";
 import { membersOf } from "@/lib/manage";
-import { describeDeadline, upcomingSlot, weekdayName } from "@/lib/schedule";
+import { describeDeadline, groupSchedule, nextSlot, weekdayName } from "@/lib/schedule";
 import { url } from "@/lib/urls";
 import LoopLoading from "./loading";
 import { LoopTheme } from "@/components/loop-theme";
@@ -160,15 +160,12 @@ async function LoadedGroupLayout({ children, params }: Props) {
     ? people.filter((person) => person.participation === "contributor" && !answered.has(person.id))
     : [];
 
-  const next = upcomingSlot({
-    timezone: group.timezone,
-    promptWeekday: group.promptWeekday,
-    promptHour: group.promptHour,
-    cadenceWeeks: group.cadenceWeeks,
-    windowDays: group.windowDays,
-    createdAt: group.createdAt,
-    lastSlotAt: group.lastSlotAt,
-  }, at);
+  // The delivery after the open round's: when the round that opens as it goes out
+  // would go out in turn. Without an open round, simply the next delivery.
+  const next = nextSlot(
+    groupSchedule(group),
+    openIssue && openIssue.deliversAt.getTime() > at.getTime() ? openIssue.deliversAt : at,
+  );
 
   const data: LoopData = {
     group,
@@ -203,7 +200,6 @@ async function LoadedGroupLayout({ children, params }: Props) {
       ? describeDeadline(openIssue.deliversAt, group.timezone, user.timezone).inLoopZone
       : null,
     nextMoment: momentsOf(next, group.timezone, user.timezone),
-    nextWhenThisCloses: Boolean(openIssue && Math.abs(openIssue.deliversAt.getTime() - next.getTime()) < 60_000),
     lastNudge: lastNudgeRow?.at ? formatMoment(lastNudgeRow.at, user.timezone || group.timezone) : null,
     openMoment: openIssue ? momentsOf(openIssue.deliversAt, group.timezone, user.timezone) : null,
     weekdayLabel: weekdayName(group.promptWeekday),

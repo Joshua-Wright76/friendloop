@@ -34,28 +34,13 @@ export function localDate(instant: Date, timezone: string): string {
     .toString();
 }
 
-/** The date before an ISO date. */
-function dayBefore(iso: string): string {
-  return Temporal.PlainDate.from(iso).subtract({ days: 1 }).toString();
-}
-
 /**
- * The dates an issue answers for: from the day it opens through the day it
- * delivers, stretched to the day before the next slot when the reply window is
- * shorter than the cadence. Without the stretch, a biweekly loop with a one-week
- * window would silently lose every event in the second week. An event lands in the
- * issue that is open when its date approaches, never in the one that opens after.
+ * The dates a round answers for: from the day it opens through the day it goes
+ * out. Rounds run back to back, so together they cover every day, and an event
+ * lands in the round that is open as its date approaches.
  */
-export function issueCoverage(input: {
-  opensAt: Date;
-  deliversAt: Date;
-  nextSlotAt: Date;
-  timezone: string;
-}): EventWindow {
-  const start = localDate(input.opensAt, input.timezone);
-  const delivery = localDate(input.deliversAt, input.timezone);
-  const beforeNext = dayBefore(localDate(input.nextSlotAt, input.timezone));
-  return { start, end: delivery > beforeNext ? delivery : beforeNext };
+export function issueCoverage(input: { opensAt: Date; deliversAt: Date; timezone: string }): EventWindow {
+  return { start: localDate(input.opensAt, input.timezone), end: localDate(input.deliversAt, input.timezone) };
 }
 
 function pad(value: number, width: number): string {

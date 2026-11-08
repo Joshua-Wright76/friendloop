@@ -27,16 +27,17 @@ test("D10 · the owner nudges whoever is still missing, and can do it again", as
 
   await page.getByRole("button", { name: /^Nudge .*Alice/ }).click();
   await page.getByRole("button", { name: "Send the nudge" }).click();
-  await expect(page.getByText("3 nudges sent.")).toBeVisible();
-  await expect.poll(reminderKeys).toHaveLength(3);
-  expect(new Set(await reminderKeys()).size).toBe(3);
+  // Alice and Bob: the owner, also still waiting, doesn't nudge themselves.
+  await expect(page.getByText("2 nudges sent.")).toBeVisible();
+  await expect.poll(reminderKeys).toHaveLength(2);
+  expect(new Set(await reminderKeys()).size).toBe(2);
 
   // A second nudge is a second gentle email, not a duplicate row.
   await page.getByRole("button", { name: /^Nudge .*Alice.* again$/ }).click();
   await page.getByRole("button", { name: "Send the nudge" }).click();
-  await expect(page.getByText("3 nudges sent.")).toBeVisible();
-  await expect.poll(reminderKeys, { timeout: 10_000 }).toHaveLength(6);
-  expect(new Set(await reminderKeys()).size).toBe(6);
+  await expect(page.getByText("2 nudges sent.")).toBeVisible();
+  await expect.poll(reminderKeys, { timeout: 10_000 }).toHaveLength(4);
+  expect(new Set(await reminderKeys()).size).toBe(4);
 });
 
 test("D10 · nobody is nudged once everyone has answered", async ({ page }) => {

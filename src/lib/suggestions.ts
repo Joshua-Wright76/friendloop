@@ -115,6 +115,10 @@ export async function acceptSuggestion(input: {
     .set({ status: "accepted", acceptedQuestionId: question.id, decidedAt: input.at })
     .where(eq(questionSuggestions.id, suggestion.id));
 
+  // Imported here: round-questions reads suggestion credits from this module.
+  const { syncOpenRoundQuestions } = await import("./round-questions");
+  await syncOpenRoundQuestions(input.groupId);
+
   return { ok: true };
 }
 

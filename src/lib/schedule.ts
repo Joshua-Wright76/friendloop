@@ -4,23 +4,24 @@ import { copy } from "./copy.ts";
 /**
  * Schedule math. Everything here is pure: callers pass `at` explicitly.
  *
- * A loop's schedule is stored as local wall-clock fields (weekday, hour, zone),
- * never as a precomputed future instant, because a DST transition would silently
- * shift a stored instant by an hour. Instants are resolved on demand and frozen
- * only on the issue that actually opened.
+ * A loop's schedule is the moment its issue goes out: a weekday, an hour and a
+ * zone, repeating every `cadenceWeeks`. A round is open from one delivery to the
+ * next, so the schedule never says when answering starts, only when it ends.
+ *
+ * It is stored as local wall-clock fields, never as a precomputed future instant,
+ * because a DST transition would silently shift a stored instant by an hour.
+ * Instants are resolved on demand and frozen only on the issue that is open.
+ * (The fields keep their old `prompt*` names from when they opened a round.)
  */
 export type LoopSchedule = {
   timezone: string;
-  /** 0 = Sunday … 6 = Saturday, evaluated in `timezone`. */
+  /** Delivery weekday: 0 = Sunday … 6 = Saturday, evaluated in `timezone`. */
   promptWeekday: number;
-  /** Local hour, 0–23. */
+  /** Delivery hour, local, 0–23. */
   promptHour: number;
   cadenceWeeks: number;
-  /** Reply window in days; delivery is the same wall clock this far later. */
-  windowDays: number;
+  /** Cadence is phased from the first delivery on or after this. */
   createdAt: Date;
-  /** Nothing before this is ever materialized (pause/resume sets it to "now"). */
-  lastSlotAt: Date | null;
 };
 
 /** A group row's schedule fields, in the shape the math above takes. */
@@ -29,23 +30,16 @@ export function groupSchedule(group: {
   promptWeekday: number;
   promptHour: number;
   cadenceWeeks: number;
-  windowDays: number;
   createdAt: Date;
-  lastSlotAt: Date | null;
 }): LoopSchedule {
   return {
     timezone: group.timezone,
     promptWeekday: group.promptWeekday,
     promptHour: group.promptHour,
     cadenceWeeks: group.cadenceWeeks,
-    windowDays: group.windowDays,
     createdAt: group.createdAt,
-    lastSlotAt: group.lastSlotAt,
   };
 }
-
-/** Guards against a long outage trying to backfill years of issues. */
-const MAX_LOOKBACK_STEPS = 26;
 
 function zoned(instant: Date, timezone: string): Temporal.ZonedDateTime {
   return Temporal.Instant.from(instant.toISOString()).toZonedDateTimeISO(timezone);
@@ -97,44 +91,10 @@ function slotInstant(schedule: LoopSchedule, k: number): Date {
 }
 
 /**
- * The one slot that should have produced an issue by `at`, or null.
- *
- * Only the most recent missed slot is ever materialized: a newsletter from three
- * weeks ago is not worth sending, so an outage collapses to a single send.
+ * The next delivery strictly after `at`. A round that opens now goes out then,
+ * however close that is: answers are welcome up to the last moment, and a round
+ * with nothing in it simply carries over to the delivery after.
  */
-export function dueSlot(schedule: LoopSchedule, at: Date): Date | null {
-  const floor = Math.max(
-    schedule.createdAt.getTime(),
-    schedule.lastSlotAt ? schedule.lastSlotAt.getTime() : 0,
-  );
-  const now = zoned(at, schedule.timezone);
-  let k = slotIndex(schedule, now);
-  if (k < 0) return null;
-  k = Math.min(k, MAX_LOOKBACK_STEPS);
-
-  // Catch the same-day case where the slot hour has not arrived yet.
-  while (k >= 0) {
-    const instant = slotInstant(schedule, k);
-    if (instant.getTime() > at.getTime()) {
-      k -= 1;
-      continue;
-    }
-    if (instant.getTime() <= floor) return null;
-    return instant;
-  }
-  return null;
-}
-
-/**
- * The next slot that will really open a round. "Send now" uses up the slot after it
- * by moving `lastSlotAt` forward, so that one is skipped here as it is in `dueSlot`.
- */
-export function upcomingSlot(schedule: LoopSchedule, at: Date): Date {
-  const used = schedule.lastSlotAt;
-  return nextSlot(schedule, used && used.getTime() > at.getTime() ? used : at);
-}
-
-/** The next slot strictly after `at`, for "next send" copy. */
 export function nextSlot(schedule: LoopSchedule, at: Date): Date {
   const now = zoned(at, schedule.timezone);
   const k = Math.max(slotIndex(schedule, now), 0);
@@ -145,12 +105,19 @@ export function nextSlot(schedule: LoopSchedule, at: Date): Date {
 }
 
 /**
- * Delivery lands `windowDays` later at the same local wall clock, so a DST
- * change inside the window moves the instant but never the time people see.
+ * How many deliveries a round has already been carried past with nothing in it:
+ * the slots after the one it was opened for, up to its current delivery.
  */
-export function deliveryInstant(opensAt: Date, schedule: Pick<LoopSchedule, "timezone" | "windowDays">): Date {
-  const opened = zoned(opensAt, schedule.timezone);
-  return new Date(opened.add({ days: schedule.windowDays }).toInstant().epochMilliseconds);
+export function carriedOver(schedule: LoopSchedule, round: { slotAt: Date; deliversAt: Date }): number {
+  let count = 0;
+  let slot = round.slotAt;
+  // Bounded: a round is paused long before it could be carried this far.
+  while (count < 52) {
+    slot = nextSlot(schedule, slot);
+    if (slot.getTime() > round.deliversAt.getTime()) break;
+    count += 1;
+  }
+  return count;
 }
 
 export type Deadline = {

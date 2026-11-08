@@ -134,13 +134,12 @@ test("a music link answer includes the provider link in the email", async () => 
   assert.equal((await loadIssue({ issueId: issue.id }))!.answerCount, 1);
 });
 
-test("a round with sections but nothing submitted still skips", async () => {
+test("a round with sections but nothing submitted carries over instead of going out", async () => {
   await sectionLoop();
   await sweep({ at: AFTER_FIRST_SLOT });
   const report = await sweep({ at: new Date(DELIVERY_DAY.getTime() + 60000) });
-  // The skip pauses the loop, so the slot falling due at the same moment stays shut.
   assert.equal(report.opened, 0);
-  assert.equal(report.skipped, 1);
+  assert.equal(report.carried, 1);
   assert.equal(await outboxCount("delivery:"), 0);
 });
 

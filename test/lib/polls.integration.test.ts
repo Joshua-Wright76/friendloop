@@ -12,7 +12,7 @@ import {
 } from "../../src/lib/reply.ts";
 import { sweep } from "../../src/lib/sweep.ts";
 import { copy } from "../../src/lib/copy.ts";
-import { latestOutbox, outboxCount, resetDatabase, rows, seedLoop, setupDatabase } from "../support/app.ts";
+import { latestOutbox, outboxCount, resetDatabase, rows, seedLoop, seedReplies, setupDatabase } from "../support/app.ts";
 import { seedPoll } from "../../e2e/support/polls.ts";
 import { AFTER_FIRST_SLOT, DELIVERY_DAY, E2E_NOW } from "../../e2e/support/clock.ts";
 import { clearRequest, setRequestHeaders } from "../stubs/request.mjs";
@@ -92,12 +92,10 @@ test("a poll rotates through the pool with the written questions", async () => {
   const first = await rows<{ text: string; kind: string }>("select text, kind from issue_questions");
   assert.deepEqual(first.map((row) => [row.text, row.kind]), [["One", "written"]]);
 
-  // The next slot (a week on) carries the poll.
-  const nextWeek = new Date(AFTER_FIRST_SLOT.getTime() + 8 * 24 * 60 * 60 * 1000);
-  await sweep({ at: nextWeek });
-  // Nobody answered round 1, so that sweep skipped it and paused the loop.
-  await rows("update groups set paused_at = null");
-  await sweep({ at: nextWeek });
+  // Round 1 goes out with an answer in it, and round 2, opening as it goes, carries the poll.
+  const [round] = await rows<{ id: string; delivers_at: Date }>("select id, delivers_at from issues where number = 1");
+  await seedReplies({ issueId: round.id, membershipId: loop.members[1].id, answers: [{ text: "One", body: "Yes." }] });
+  await sweep({ at: new Date(round.delivers_at) });
   const second = await rows<{ text: string; kind: string }>(
     "select iq.text, iq.kind from issue_questions iq join issues i on i.id = iq.issue_id where i.number = 2",
   );
@@ -282,9 +280,10 @@ test("a vote after delivery is marked late and moves the tally", async () => {
   const { alice, bob, poll, issueId } = await openPollLoop();
   await vote(alice.token, poll, [0]);
   await submitFor(alice.token);
-  // Paused, so delivery doesn't open the next round and the sheet still points here.
-  await rows("update groups set paused_at = $1", [AFTER_FIRST_SLOT.toISOString()]);
   await sweep({ at: AFTER_DELIVERY });
+  // A loop from before rounds ran back to back: no round opened after this one, so
+  // the sheet still points at the round that went out.
+  await rows("update issues set status = 'skipped' where number = 2");
 
   setRequestHeaders({ "x-e2e-now": new Date(AFTER_DELIVERY.getTime() + 3_600_000).toISOString() });
   assert.equal((await vote(bob.token, poll, [2])).ok, true);
@@ -320,14 +319,14 @@ test("a round with only a poll pick still delivers, and the email shows the pick
   assert.ok(!email.html.includes(">Bob<"));
 });
 
-test("a round whose only content is a cleared poll pick is skipped", async () => {
+test("a round whose only content is a cleared poll pick is not sent", async () => {
   const { alice, poll } = await openPollLoop();
   await vote(alice.token, poll, [1]);
   await submitFor(alice.token);
   await vote(alice.token, poll, []);
 
   const report = await sweep({ at: AFTER_DELIVERY });
-  assert.equal(report.skipped, 1);
+  assert.equal(report.carried, 1, "an empty round carries over rather than going out");
   assert.equal(await outboxCount("delivery:"), 0);
 });
 

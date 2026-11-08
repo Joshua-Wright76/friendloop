@@ -86,11 +86,11 @@ test("R3 · the loop's reminder follows each choice, never repeats, and leaves t
   await page.goto(`/g/${loop.groupId}`);
   await page.getByRole("button", { name: /^Nudge .*Alice/ }).click();
   await page.getByRole("button", { name: "Send the nudge" }).click();
-  await expect(page.getByText("3 nudges sent.")).toBeVisible();
+  await expect(page.getByText("2 nudges sent.")).toBeVisible();
   const nudged = await rows<{ to: string }>(
     "select \"to\" from outbox where kind = 'reminder' and dedupe_key like 'manual-reminder:%' order by \"to\"",
   );
-  expect(nudged.map((row) => row.to)).toEqual(["alice@friendloop.test", "bob@friendloop.test", "owner@friendloop.test"]);
+  expect(nudged.map((row) => row.to)).toEqual(["alice@friendloop.test", "bob@friendloop.test"]);
 });
 
 test("R3 · a reader or a stranger cannot set one, and a bad value writes nothing", async () => {

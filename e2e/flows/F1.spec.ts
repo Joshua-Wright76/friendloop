@@ -1,16 +1,17 @@
 import { test, expect } from "@playwright/test";
 import { resetDatabase, rows } from "../support/db";
 import { seedOpenIssue, seedLoop } from "../support/seed";
-import { AFTER_FIRST_SLOT, pickOption, signIn } from "../support/harness";
+import { AFTER_FIRST_SLOT, clockHeaders, pickOption, signIn } from "../support/harness";
 
 test.beforeEach(async () => {
   await resetDatabase();
 });
 
-test("F1 · a schedule change moves the next round and leaves an open one alone", async ({ page }) => {
+test("F1 · a schedule change moves when it goes out, the open round included", async ({ page }) => {
   const loop = await seedLoop();
   const issue = await seedOpenIssue(loop, { openedAt: AFTER_FIRST_SLOT });
   await signIn(page, "owner@friendloop.test");
+  await page.setExtraHTTPHeaders(clockHeaders(AFTER_FIRST_SLOT));
 
   await page.goto(`/g/${loop.groupId}/settings`);
   // The schedule fields are Pickers, not native selects.
@@ -25,11 +26,12 @@ test("F1 · a schedule change moves the next round and leaves an open one alone"
   );
   expect(group).toEqual({ prompt_weekday: 1, prompt_hour: 18 });
 
-  const [stillOpen] = await rows<{ delivers_at: string }>(
+  // The round people are writing goes out on the new day: Monday 18:00 Amsterdam.
+  const [moved] = await rows<{ delivers_at: string }>(
     "select delivers_at from issues where id = $1",
     [issue.issueId],
   );
-  expect(new Date(stillOpen.delivers_at).toISOString()).toBe(issue.deliversAt.toISOString());
+  expect(new Date(moved.delivers_at).toISOString()).toBe("2026-01-05T17:00:00.000Z");
 
   await page.goto(`/g/${loop.groupId}`);
   await expect(page.getByText(/Monday at 6:00 PM/)).toBeVisible();

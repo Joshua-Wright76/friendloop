@@ -11,6 +11,7 @@ import { acceptSuggestion, declineSuggestion } from "@/lib/suggestions";
 import { archiveSection, createSection, moveSection, updateSection, type SectionKind } from "@/lib/sections";
 import { createEvent, deleteEvent, updateEvent } from "@/lib/events";
 import { viewerFor } from "@/lib/permissions";
+import { syncOpenRoundQuestions } from "@/lib/round-questions";
 
 async function requireManager(groupId: string) {
   const viewer = await viewerFor(groupId);
@@ -35,6 +36,8 @@ export async function rotationAction(formData: FormData) {
       questionCursor: sql`case when ${groups.questionsPerRound} is not distinct from ${questionsPerRound} then ${groups.questionCursor} else 0 end`,
     })
     .where(eq(groups.id, groupId));
+  // The round people are answering now asks the new number of questions.
+  await syncOpenRoundQuestions(groupId);
   revalidatePath(`/g/${groupId}`, "layout");
   redirect(`/g/${groupId}/questions?rotation=1`);
 }

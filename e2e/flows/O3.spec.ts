@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { resetDatabase, rows } from "../support/db";
-import { seedLoop } from "../support/seed";
+import { seedLoop, seedReplies } from "../support/seed";
 import { AFTER_FIRST_SLOT, DAY, runSweep } from "../support/harness";
 
 test.beforeEach(async () => {
@@ -18,14 +18,14 @@ const placements = () =>
 test("O3 · a birthday lands in exactly one round, however many weekly rounds open around it", async () => {
   const loop = await seedLoop();
   const alice = loop.members.find((member) => member.email.startsWith("alice"))!;
-  // 20 January 2026 is a Tuesday: it belongs to the round that opens on Friday the 16th.
+  // 20 January 2026 is a Tuesday: it belongs to the round open from Friday the 16th to the 23rd.
   await rows("insert into events (group_id, kind, month, day, membership_id) values ($1, 'birthday', 1, 20, $2)", [loop.groupId, alice.id]);
 
   for (let week = 0; week < 7; week += 1) {
     const at = new Date(AFTER_FIRST_SLOT.getTime() + week * 7 * DAY);
-    await runSweep(at);
-    // Nobody answers, so every round is skipped and pauses the loop; keep it running.
-    await rows("update groups set paused_at = null where id = $1", [loop.groupId]);
+    // Someone answers each round, so each one goes out and opens the next.
+    const [open] = await rows<{ id: string }>("select id from issues where group_id = $1 and status = 'open'", [loop.groupId]);
+    if (open) await seedReplies({ issueId: open.id, membershipId: alice.id, answers: [{ text: "What made you laugh this week?", body: "Week " + week }] });
     await runSweep(at);
     // A second trigger at the same moment changes nothing.
     await runSweep(at);
@@ -36,10 +36,10 @@ test("O3 · a birthday lands in exactly one round, however many weekly rounds op
   expect(await placements()).toEqual([{ number: 3, title: "Alice's birthday", event_date: "2026-01-20" }]);
 });
 
-test("O3 · a window shorter than the cadence still catches a date between two rounds", async () => {
+test("O3 · a biweekly round covers both of its weeks", async () => {
   const loop = await seedLoop({ cadenceWeeks: 2 });
   const bob = loop.members.find((member) => member.email.startsWith("bob"))!;
-  // Round 1 delivers on the 9th and round 2 opens on the 16th: the 13th is in the gap.
+  // Round 1 is open from the 2nd until it goes out on the 16th, so the 13th is in it.
   await rows("insert into events (group_id, kind, month, day, membership_id) values ($1, 'birthday', 1, 13, $2)", [loop.groupId, bob.id]);
 
   for (let round = 0; round < 3; round += 1) {

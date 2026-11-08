@@ -47,12 +47,13 @@ test("E1 · once a round has gone out, its reply sheet stops promising a deadlin
   const issue = await seedOpenIssue(loop, { openedAt: AFTER_FIRST_SLOT });
   const alice = loop.members.find((member) => member.email.startsWith("alice"))!;
   await seedReplies({ issueId: issue.issueId, membershipId: alice.id, answers: [{ text: "What made you laugh this week?", body: "Geese." }] });
-  // Paused, so no new round opens and the link stays on the one that went out.
-  await rows("update groups set paused_at = $1 where id = $2", [AFTER_FIRST_SLOT.toISOString(), loop.groupId]);
   await runSweep(issue.deliversAt);
+  // A loop from before rounds ran back to back: no round after this one, so the
+  // link stays on the one that went out.
+  await rows("update issues set status = 'skipped' where group_id = $1 and number = 2", [loop.groupId]);
 
   await page.setExtraHTTPHeaders(clockHeaders(new Date(issue.deliversAt.getTime() + 60_000)));
   await page.goto(`/r/${alice.token}`);
   await expect(page.getByText(/Went out /)).toBeVisible();
-  await expect(page.getByText(/Closes /)).toHaveCount(0);
+  await expect(page.getByText(/^Goes out /)).toHaveCount(0);
 });
