@@ -15,6 +15,7 @@ import { copy, text } from "@/lib/copy";
 import { atMoment, formatMoment, timezonePlace } from "@/lib/format";
 import { Avatar } from "@/components/avatar";
 import { VoiceNote } from "@/components/voice-note";
+import { MicHelpButton } from "@/components/mic-help";
 import { MAX_DISPLAY_NAME } from "@/lib/names";
 import { PHOTO_ACCEPT } from "@/lib/photo-validation";
 import { PHOTO_TARGET, prepareImage } from "@/components/prepare-image";
@@ -200,6 +201,8 @@ export function ReplySheet({
   const [retryableAudio, setRetryableAudio] = useState<Record<string, boolean>>({});
   const [audioPreviews, setAudioPreviews] = useState<Record<string, string | null>>({});
   const [recording, setRecording] = useState<{ questionId: string; startedAt: number } | null>(null);
+  /** The card whose recording the browser refused, which offers the how-to. */
+  const [micRefusedFor, setMicRefusedFor] = useState<string | null>(null);
   const [recordingElapsed, setRecordingElapsed] = useState(0);
   // True from Stop until the recorder has finished: nothing may start or stop meanwhile.
   const [stopping, setStopping] = useState(false);
@@ -664,6 +667,7 @@ export function ReplySheet({
       let warned = false;
       setAudioStates((current) => ({ ...current, [questionId]: "recording" }));
       setAudioErrors((current) => ({ ...current, [questionId]: null }));
+      setMicRefusedFor(null);
       recordingTimer.current = setInterval(() => {
         const elapsed = Date.now() - startedAt;
         if (elapsed >= MAX_AUDIO_DURATION_MS) {
@@ -685,7 +689,9 @@ export function ReplySheet({
       // microphone call for different things from the person.
       const name = error instanceof DOMException ? error.name : "";
       console.warn("Voice recording could not start", name || error);
-      const message = name === "NotAllowedError" || name === "SecurityError"
+      const refused = name === "NotAllowedError" || name === "SecurityError";
+      setMicRefusedFor(refused ? questionId : null);
+      const message = refused
         ? copy.reply.voiceBlocked
         : name === "NotFoundError" || name === "OverconstrainedError"
           ? copy.reply.voiceNoMic
@@ -1769,6 +1775,13 @@ export function ReplySheet({
                 message={audioStatusText}
                 isError={audioState === "uploadError" || audioState === "removeError"}
               />
+              {audioState === "uploadError" && micRefusedFor === question.id && !recording ? (
+                <MicHelpButton
+                  onRetry={() => {
+                    if (!recordBlocked) void startRecording(question.id);
+                  }}
+                />
+              ) : null}
               {(audioState === "removeError" || (audioState === "uploadError" && retryableAudio[question.id] && !recording)) ? (
                 <button
                   type="button"
