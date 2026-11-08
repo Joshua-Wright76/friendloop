@@ -113,7 +113,7 @@ test("send now sends the round as it stands and opens the next, due a delivery l
 
   const email = await latestOutbox("delivery:");
   assert.match(email.html, /The cat\./);
-  assert.match(email.html, /Next up: Issue 2/);
+  assert.match(email.html, /Next up: Round 2/);
 
   // The Friday it would have gone out passes quietly.
   const report = await sweep({ at: new Date("2026-01-09T08:05:00Z") });

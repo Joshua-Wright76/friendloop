@@ -42,7 +42,7 @@ test("K3 · a written item asked every round takes text and one photo", async ({
     },
   });
   expect(refused.status()).toBe(409);
-  expect((await refused.json()).error).toContain("Standard sections");
+  expect((await refused.json()).error).toContain("An answer takes one photo");
 
   await page.getByRole("button", { name: "Done", exact: true }).click();
   await expect(page.getByRole("heading", { name: "All set", exact: true })).toBeVisible();

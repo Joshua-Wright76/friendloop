@@ -1,7 +1,7 @@
 {
   "format": "friendloop-export/1",
   "exportedAt": "2026-11-06T09:00:00.000Z",
-  "about": "The whole loop as of exportedAt: every round that has gone out, with its questions, answers, sections, comments, and reactions. Photos and voice notes are links; they stop working once the loop or the person who added them is deleted, so save any you want to keep first. Drafts a past round went out without are not included. The round that's open now isn't included: its answers stay private until it goes out.",
+  "about": "The whole loop as of exportedAt: every round that has gone out, with its questions, answers, comments, and reactions (older rounds list their photo walls and music picks apart, as sections). Photos and voice notes are links; they stop working once the loop or the person who added them is deleted, so save any you want to keep first. Answers that some older rounds went out without are not included. The round that's open now isn't included: its answers stay private until it goes out.",
   "loop": {
     "name": "Golden Loop",
     "timezone": "Europe/Amsterdam",

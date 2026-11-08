@@ -1,6 +1,6 @@
-Subject: Golden Loop · issue 1
+Subject: Golden Loop · round 1
 
-Golden Loop · issue 1
+Golden Loop · round 1
 
 <app>/i/00000000-0000-4000-8000-000000000010?m=golden-token-bob
 
@@ -17,7 +17,7 @@ Results: June: 1 · July: 1 · August: 1
 Sam: Chose: June, August
 Alice: Chose: July
 
-Next up: Issue 2
+Next up: Round 2
 
 It's open now. Answer any time before it goes out on Fri 6 Nov, 9:00 AM Amsterdam time.
 

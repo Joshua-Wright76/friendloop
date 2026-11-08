@@ -28,7 +28,7 @@ test("R2 · the rounds list narrows to the rounds one person answered in, and re
   await expect(page.getByText("Round 3", { exact: true }), "an open round is not a delivered one").toHaveCount(0);
 
   // Reading lands on that person's answers.
-  await page.getByRole("link", { name: /^Read the issue/ }).click();
+  await page.getByRole("link", { name: /^Read the round/ }).click();
   await expect(page).toHaveURL(new RegExp(`/i/${world.first.issueId}\\?by=${world.alice.id}`));
   await expect(page.getByText("Alice on the goose.")).toBeVisible();
   await expect(page.getByText("Alice looks forward to soup.")).toBeVisible();
@@ -48,7 +48,7 @@ test("R2 · a person with no delivered answers gets a plain empty list and a way
   await page.goto(`/g/${world.loop.groupId}/issues?member=${world.alice.id}`);
   await pickOption(page, "Rounds with answers from", "Sam");
 
-  await expect(page.getByText("Sam hasn't answered in a delivered issue yet.")).toBeVisible();
+  await expect(page.getByText("Sam hasn't answered in a round that's gone out yet.")).toBeVisible();
   await expect(page.getByText("Round 1", { exact: true })).toHaveCount(0);
   await page.getByRole("link", { name: "Show every round" }).click();
   await expect(page).toHaveURL(new RegExp(`/g/${world.loop.groupId}/issues$`));
@@ -68,7 +68,7 @@ test("R2 · inside a round, one person's answers can be isolated and the round c
   await page.goto(path);
 
   await openReading(page);
-  const controls = page.getByRole("navigation", { name: "Reading this issue" });
+  const controls = page.getByRole("navigation", { name: "Reading this round" });
   await expect(controls).toBeVisible();
   await expect(controls.getByRole("link", { name: /^(✓ )?Everyone$/ })).toHaveAttribute("aria-current", "true");
   await expect(controls.getByRole("link", { name: /By question/ })).toHaveAttribute("aria-current", "true");
@@ -129,7 +129,7 @@ test("R2 · a person who did not write in the round, or a bad address, reads as 
   // The print view is the whole round whatever you were looking at.
   await page.goto(`/i/${world.first.issueId}?print&m=${world.alice.token}&by=${world.alice.id}`);
   await expect(page.getByText("Bob on the goose.")).toBeVisible();
-  await expect(page.getByRole("navigation", { name: "Reading this issue" })).toHaveCount(0);
+  await expect(page.getByRole("navigation", { name: "Reading this round" })).toHaveCount(0);
 });
 
 test("R2 · the reading controls pass the accessibility audit in both colour schemes", async ({ page }) => {
@@ -140,7 +140,7 @@ test("R2 · the reading controls pass the accessibility audit in both colour sch
       await page.goto(`/i/${world.first.issueId}?m=${world.alice.token}${query}`);
       // Audited with the controls open, so they are what gets measured.
       await openReading(page);
-      await expect(page.getByRole("navigation", { name: "Reading this issue" })).toBeVisible();
+      await expect(page.getByRole("navigation", { name: "Reading this round" })).toBeVisible();
       const result = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"]).analyze();
       expect(result.violations.map((violation) => `${violation.id} ${violation.nodes.map((n) => n.target).join(" ")}`), `${scheme} ${query}`).toEqual([]);
     }

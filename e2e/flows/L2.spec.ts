@@ -77,7 +77,7 @@ test("L2 · a contributor taps to answer, changes their mind, and never sees a p
 
   // Before delivery the web issue hands out no tally, and no one else's pick.
   await page.goto(`/i/${issueId}?m=${alice.token}`);
-  await expect(page.getByRole("heading", { name: "Issue 1" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Round 1" })).toBeVisible();
   await expect(page.getByText("Results")).toHaveCount(0);
   await expect(page.getByText("Bob", { exact: true })).toHaveCount(0);
   await expect(page.getByText("The mountains").first()).toBeVisible();

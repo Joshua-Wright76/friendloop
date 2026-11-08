@@ -20,7 +20,7 @@ test("E1 · a delivered round shows every answer and marks your own", async ({ p
   const alice = loop.members.find((member) => member.email.startsWith("alice"))!;
   await page.goto(`/i/${issue.issueId}?m=${alice.token}`);
 
-  await expect(page.getByRole("heading", { name: "Issue 1" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Round 1" })).toBeVisible();
   await expect(page.getByText("The cat fist bump.")).toBeVisible();
   await expect(page.getByText("A very long lunch.")).toBeVisible();
   await expect(page.getByText("2 answers from the group.")).toBeVisible();

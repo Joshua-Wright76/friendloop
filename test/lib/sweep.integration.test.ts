@@ -130,7 +130,7 @@ test("delivery opens the next round, and its questions ride along in each writer
     "select \"to\", html, text from outbox where kind = 'delivery' order by \"to\"",
   );
   const forAlice = mail.find((row) => row.to === alice.email)!;
-  assert.match(forAlice.html, /Next up: Issue 2/);
+  assert.match(forAlice.html, /Next up: Round 2/);
   assert.ok(forAlice.html.includes(`/r/${alice.token}`), "alice's own reply link");
   assert.ok(forAlice.text.includes(`/r/${alice.token}`));
   const forBob = mail.find((row) => row.to === bob.email)!;
