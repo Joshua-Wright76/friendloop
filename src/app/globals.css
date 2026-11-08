@@ -795,7 +795,7 @@ html[data-theme="dark"] .snapshot img { filter: brightness(.78) saturate(.9); }
 .subtab:hover { color: var(--ink); }
 .subtab[aria-pressed="true"], .subtab[aria-selected="true"] { background: var(--card); color: var(--accent-ink); box-shadow: 0 0 0 1.5px var(--accent-ink); }
 .row { display: flex; align-items: flex-start; gap: 8px; }
-.row-icon { display: inline-grid; width: 44px; height: 44px; flex: none; place-items: center; margin: -9px -6px -9px 0; padding: 0; border: 0; border-radius: 999px; background: transparent; color: var(--ink-muted); }
+.row-icon { display: inline-grid; width: 44px; height: 44px; flex: none; place-items: center; margin: -9px 0 -9px -6px; padding: 0; border: 0; border-radius: 999px; background: transparent; color: var(--ink-muted); }
 .row-icon:hover { background: var(--accent-soft); }
 .row-more { display: contents; }
 .row-more > summary { display: inline-grid; width: 44px; height: 44px; flex: none; place-items: center; margin: -9px -8px -9px 0; border-radius: 999px; color: var(--ink-soft); cursor: pointer; list-style: none; }

@@ -100,17 +100,27 @@ export function QuestionOrder({ groupId, questions: initial }: { groupId: string
             draggedId.current = null;
           }} className={`card paper question-order-item p-4 ${pending ? "is-reordering" : ""} ${movedId === question.id ? "just-moved" : ""}`}>
             <div className="row row--wrap">
+              <button type="button" draggable aria-disabled={pending ? true : undefined} data-question={question.id} data-control="handle" aria-label={text(copy.questions.moveItemLabel, { question: question.text })} title={copy.questions.dragHandle}
+                onDragStart={(event) => {
+                  if (pending) { event.preventDefault(); return; }
+                  draggedId.current = question.id;
+                  event.dataTransfer.effectAllowed = "move";
+                  event.dataTransfer.setData("text/plain", question.id);
+                  const card = event.currentTarget.closest<HTMLElement>(".question-order-item");
+                  if (card) {
+                    const bounds = card.getBoundingClientRect();
+                    event.dataTransfer.setDragImage(card, event.clientX - bounds.left, event.clientY - bounds.top);
+                  }
+                }}
+                onDragEnd={() => { draggedId.current = null; }} className="question-drag-handle row-icon aria-disabled:cursor-not-allowed aria-disabled:opacity-45" onClick={() => { if (!pending) setMovingId(question.id); }}>
+                <svg viewBox="0 0 20 20" aria-hidden="true" className="h-5 w-5 flex-none" fill="currentColor">{[4, 10, 16].flatMap((y) => [7, 13].map((x) => <circle key={`${x}-${y}`} cx={x} cy={y} r="1.6" />))}</svg>
+              </button>
               <span className="question-number numeric">{index + 1}</span>
               <div className="min-w-0 flex-1 basis-0">
                 <p className="m-0 text-[15.5px] font-bold leading-snug text-ink">{question.text}</p>
                 <PollSummary question={question} />
                 {question.skipNext ? <p className="m-0 mt-1 text-[13px] font-bold text-ink-soft">{copy.questions.skipNextNote}</p> : null}
               </div>
-              <button type="button" draggable aria-disabled={pending ? true : undefined} data-question={question.id} data-control="handle" aria-label={text(copy.questions.moveItemLabel, { question: question.text })} title={copy.questions.dragHandle}
-                onDragStart={(event) => { if (pending) { event.preventDefault(); return; } draggedId.current = question.id; event.dataTransfer.effectAllowed = "move"; event.dataTransfer.setData("text/plain", question.id); }}
-                onDragEnd={() => { draggedId.current = null; }} className="question-drag-handle row-icon aria-disabled:cursor-not-allowed aria-disabled:opacity-45" onClick={() => { if (!pending) setMovingId(question.id); }}>
-                <svg viewBox="0 0 20 20" aria-hidden="true" className="h-5 w-5 flex-none" fill="currentColor">{[4, 10, 16].flatMap((y) => [7, 13].map((x) => <circle key={`${x}-${y}`} cx={x} cy={y} r="1.6" />))}</svg>
-              </button>
               <details className="row-more">
                 <summary aria-label={text(copy.questions.moreLabel, { question: question.text })} title={copy.questions.more}>
                   <svg viewBox="0 0 20 20" aria-hidden="true" className="h-5 w-5" fill="currentColor"><circle cx="4" cy="10" r="1.8" /><circle cx="10" cy="10" r="1.8" /><circle cx="16" cy="10" r="1.8" /></svg>
