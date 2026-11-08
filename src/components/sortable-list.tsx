@@ -60,6 +60,9 @@ export function SortableList<T extends { id: string }>({ items: fresh, label, na
   // A drag ends with the pointer lifted on the grip, which the browser also calls a click:
   // that one shouldn't open Up and Down.
   const dragging = useRef(false);
+  // dnd-kit reports the row over its own place the moment it is picked up: saying so
+  // would talk over "Picked up", so that first report stays quiet.
+  const justPickedUp = useRef(false);
 
   const sensors = useSensors(
     // A few pixels of travel before it counts as a drag, so a tap still reaches the grip.
@@ -126,8 +129,15 @@ export function SortableList<T extends { id: string }>({ items: fresh, label, na
         accessibility={{
           screenReaderInstructions: { draggable: copy.reorder.instructions },
           announcements: {
-            onDragStart: ({ active }) => text(copy.reorder.pickedUp, { item: named(active.id), position: place(active.id), total: items.length }),
-            onDragOver: ({ active, over }) => over ? text(copy.reorder.over, { item: named(active.id), position: place(over.id), total: items.length }) : undefined,
+            onDragStart: ({ active }) => {
+              justPickedUp.current = true;
+              return text(copy.reorder.pickedUp, { item: named(active.id), position: place(active.id), total: items.length });
+            },
+            onDragOver: ({ active, over }) => {
+              const echo = justPickedUp.current && over?.id === active.id;
+              justPickedUp.current = false;
+              return over && !echo ? text(copy.reorder.over, { item: named(active.id), position: place(over.id), total: items.length }) : undefined;
+            },
             // The move itself is announced once it has saved.
             onDragEnd: () => undefined,
             onDragCancel: ({ active }) => text(copy.reorder.cancelled, { item: named(active.id) }),
