@@ -103,6 +103,7 @@ test("every email the product sends has a preview", () => {
       "deliveryThemed",
       "inviteContributor",
       "inviteReader",
+      "inviteThemed",
       "mention",
       "paused",
       "prompt",
@@ -118,6 +119,9 @@ test("every email the product sends has a preview", () => {
   const themed = previews.find((preview) => preview.id === "deliveryThemed")!;
   assert.match(themed.email.subject, /Camping weekend/);
   assert.match(themed.email.html, /#eef3fb/);
+  const invite = previews.find((preview) => preview.id === "inviteThemed")!;
+  assert.match(invite.email.html, /#f5f0fb/);
+  assert.match(invite.email.html, /hearts-lilac\.png|url\('data:image\/png;base64,/);
 });
 
 // ── photo storage ────────────────────────────────────────────
