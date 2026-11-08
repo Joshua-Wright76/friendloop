@@ -112,7 +112,7 @@ export async function latestOutboxBody(prefix: string): Promise<string> {
 
 /**
  * Open one part of a page split by a segmented control ("The pool", "Add more",
- * "Paper"…). The parts switch on the client, so a click that lands before hydration
+ * "Stationery"…). The parts switch on the client, so a click that lands before hydration
  * does nothing: retry until the control says it took.
  */
 export async function openPart(page: Page, name: string): Promise<void> {

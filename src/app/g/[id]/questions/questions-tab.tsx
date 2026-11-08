@@ -39,6 +39,14 @@ type View = "pool" | "add" | "extras";
 
 export default function QuestionsTab({ notices }: { notices: { added?: string; archived?: string; skip?: string; rotation?: string; fromPacks?: string; suggestion?: string; section?: string; poll?: string; event?: string } }) {
   const { group, membership, questions: pool, suggestions, sections } = useLoopData();
+  // The overview links here with #suggestions: open the list it points at.
+  const suggestionsRef = useRef<HTMLDetailsElement>(null);
+  useEffect(() => {
+    if (window.location.hash === "#suggestions" && suggestionsRef.current) {
+      suggestionsRef.current.open = true;
+      suggestionsRef.current.scrollIntoView({ block: "start" });
+    }
+  }, []);
   const id = group.id;
   const manages = membership.access !== "member";
   const [picked, setPicked] = useState<string[]>([]);
@@ -62,7 +70,7 @@ export default function QuestionsTab({ notices }: { notices: { added?: string; a
   const fresh = newQuestionTexts(picked, poolTexts);
 
   return (
-    <main className="mx-auto w-full max-w-[680px] px-4 pb-16 pt-5 sm:px-6">
+    <main className="loop-page mx-auto w-full max-w-[680px] px-4 pb-16 pt-5 sm:px-6 lg:max-w-[1040px]">
       <LoopNav id={id} name={group.name} access={membership.access} active="Questions">
         <h1>{copy.questions.title}</h1>
         <p>{copy.questions.description}</p>
@@ -132,7 +140,7 @@ export default function QuestionsTab({ notices }: { notices: { added?: string; a
       ) : null}
 
       {manages && suggestions.length > 0 ? (
-        <details className="card plain-details mt-4 px-4 py-1.5" aria-label={copy.questions.suggestionsTitle} open={notices.suggestion ? true : undefined}>
+        <details id="suggestions" ref={suggestionsRef} className="card plain-details mt-4 px-4 py-1.5" aria-label={copy.questions.suggestionsTitle} open={notices.suggestion ? true : undefined}>
           <summary className="pool-summary min-h-11 cursor-pointer">
             <span className="text-[15px] font-extrabold text-ink numeric">
               {suggestions.length === 1 ? copy.questions.suggestionsNoticeOne : text(copy.questions.suggestionsNotice, { count: suggestions.length })}
@@ -148,7 +156,7 @@ export default function QuestionsTab({ notices }: { notices: { added?: string; a
                     name: suggestion.authorName ?? suggestion.authorEmail.split("@")[0],
                   })}
                   {suggestion.authorDisplay === "anonymous" ? (
-                    <span className="ml-2 chip border bg-card px-2 py-0.5 text-[11px] text-ink-soft">
+                    <span className="ml-2 chip border bg-card px-2 py-0.5 text-[13px] text-ink-soft">
                       {copy.questions.suggestionAnonymous}
                     </span>
                   ) : null}
@@ -177,7 +185,7 @@ export default function QuestionsTab({ notices }: { notices: { added?: string; a
 
             {manages && pool.length ? <QuestionOrder groupId={id} questions={pool.map(({ id: questionId, text, skipNext, kind, pollMultiple, pollOptions }) => ({ id: questionId, text, skipNext, kind, pollMultiple, pollOptions }))} /> : (
         <ol className="mt-5 flex flex-col gap-2.5" aria-label={copy.questions.listLabel}>
-          {pool.map((question, index) => <li key={question.id} className="card paper p-4"><div className="flex items-start gap-3"><span className="question-number">{index + 1}</span><div><p className="text-[15px] font-medium leading-snug text-ink">{question.text}</p><PollSummary question={question} />{question.skipNext ? <p className="mt-1 text-[12px] font-medium text-ink-muted">{copy.questions.skipNextNote}</p> : null}</div></div></li>)}
+          {pool.map((question, index) => <li key={question.id} className="card paper p-4"><div className="flex items-start gap-3"><span className="question-number">{index + 1}</span><div><p className="text-[15px] font-medium leading-snug text-ink">{question.text}</p><PollSummary question={question} />{question.skipNext ? <p className="mt-1 text-[13px] font-medium text-ink-muted">{copy.questions.skipNextNote}</p> : null}</div></div></li>)}
           {pool.length === 0 ? <li className="card p-5 text-[14px] text-ink-muted"><p>{copy.questions.empty}</p>{manages ? <a href="#question-form" className="btn btn-primary mt-4 inline-flex">{copy.questions.firstQuestionAction}</a> : null}</li> : null}
         </ol>
       )}

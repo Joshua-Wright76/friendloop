@@ -114,7 +114,7 @@ test("WCAG AA · loop management, creation, and reply pages", async ({ page }) =
 
   // Updating a member role must preserve the trigger node and keyboard focus.
   await page.goto(`/g/${loop.groupId}/members`);
-  const roleTrigger = page.getByRole("button", { name: /^Member type for .+:/ }).first();
+  const roleTrigger = page.getByRole("button", { name: /^Role for .+:/ }).first();
   await roleTrigger.click();
   await page.getByRole("option", { name: "Admin" }).first().click();
   await expect(roleTrigger).toBeFocused();
@@ -160,11 +160,11 @@ test("WCAG AA · a picker keeps focus across a save that disables it", async ({ 
   });
 
   await page.goto(`/g/${loop.groupId}/members`);
-  const roleTrigger = page.getByRole("button", { name: /^Member type for .+:/ }).first();
+  const roleTrigger = page.getByRole("button", { name: /^Role for .+:/ }).first();
   await roleTrigger.click();
   await page.getByRole("option", { name: "Admin" }).first().click();
 
-  await expect(roleTrigger).toHaveAccessibleName(/Member type for .+: Admin/);
+  await expect(roleTrigger).toHaveAccessibleName(/Role for .+: Admin/);
   await expect(roleTrigger).toBeEnabled();
   await expect(roleTrigger).toBeFocused();
 });

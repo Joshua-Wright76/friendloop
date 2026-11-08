@@ -1,5 +1,6 @@
 "use client";
 
+import { wrapTab } from "./focus-wrap";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { copy, text } from "@/lib/copy";
 
@@ -70,6 +71,15 @@ export function PhotoLightbox({
     if (current !== null && !element.open) element.showModal();
   }, [current]);
 
+  // Leaving the page with the viewer open ("View in the issue"): the router keeps this page
+  // alive but hidden, and a modal dialog left open on it would make the next page inert.
+  useEffect(() => {
+    const element = dialog.current;
+    return () => {
+      if (element?.open) element.close();
+    };
+  }, []);
+
   const photo = current === null ? null : (photos[current] ?? null);
   const close = () => dialog.current?.close();
   const step = (by: number) =>
@@ -88,6 +98,7 @@ export function PhotoLightbox({
         if (event.target === event.currentTarget) close();
       }}
       onKeyDown={(event) => {
+        wrapTab(event);
         if (event.key === "ArrowRight") step(1);
         if (event.key === "ArrowLeft") step(-1);
       }}

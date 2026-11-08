@@ -3,6 +3,8 @@ import type { Metadata } from "next";
 import { resolveToken } from "@/lib/reply";
 import { copy, text } from "@/lib/copy";
 import { SuggestForm } from "./suggest-form";
+import { LoopTheme } from "@/components/loop-theme";
+import { Cherries, Tape } from "@/components/stationery";
 
 // One indexed query behind this page; a blocking route is faster than a skeleton.
 export const instant = false;
@@ -57,8 +59,15 @@ export default async function SuggestPage({ params }: { params: Promise<{ token:
 
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-[560px] flex-col justify-center px-4 py-10">
-      <div className="card p-6">
-        <h1 className="text-[22px] font-semibold leading-tight tracking-[-0.02em] text-ink">
+      {/* Written on the loop's own stationery, like the reply sheet it came from. */}
+      <LoopTheme group={context.group} />
+      <p className="mb-4 flex items-center gap-2 font-display text-[23px] font-bold text-ink">
+        <Cherries className="h-7 w-7 flex-none" />
+        <span className="wrap-any">{context.group.name}</span>
+      </p>
+      <div className="card p-6 pt-8">
+        <Tape tone="dots" position="left" />
+        <h1 className="text-ink">
           {copy.suggest.title}
         </h1>
         <p className="mt-2 text-[15px] leading-relaxed text-ink-soft">{copy.suggest.description}</p>

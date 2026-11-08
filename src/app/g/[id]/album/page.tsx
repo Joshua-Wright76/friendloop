@@ -20,7 +20,7 @@ type Props = {
 
 export default function AlbumPage(props: Props) {
   return (
-    <main className="mx-auto w-full max-w-[680px] px-4 pb-16 pt-5 sm:px-6">
+    <main className="loop-page mx-auto w-full max-w-[680px] px-4 pb-16 pt-5 sm:px-6 lg:max-w-[1040px]">
       <AlbumHeader />
       {/* The photos are read fresh on every visit; the header and tabs do not wait for them. */}
       <Suspense fallback={<AlbumLoading />}>

@@ -36,6 +36,7 @@ import {
 import { removeReplySectionMedia, uploadReplySectionPhoto } from "@/lib/section-client";
 import type { SheetSection } from "@/lib/sections";
 import { PollCard, type PollCardStatus } from "./poll-card";
+import { DisplayDigits } from "@/components/display-digits";
 
 export type SheetQuestion = {
   id: string;
@@ -270,16 +271,47 @@ export function ReplySheet({
     )),
     [token],
   );
-  const answered = useMemo(
-    () => questions.filter((question) =>
+  const answeredIds = useMemo(
+    () => new Set(questions.filter((question) =>
       question.kind === "poll"
         ? (pollPicks[question.id] ?? []).length > 0 && pollStatuses[question.id] !== "error"
         : (bodies[question.id] ?? "").trim().length > 0 ||
           Boolean(photoUrls[question.id]) ||
           Boolean(audioUrls[question.id]),
-    ).length,
+    ).map((question) => question.id)),
     [audioUrls, bodies, photoUrls, pollPicks, pollStatuses, questions],
   );
+  const answered = answeredIds.size;
+  const firstWrittenId = questions.find((question) => question.kind !== "poll")?.id ?? null;
+  const jumpMenu = useRef<HTMLDivElement>(null);
+  const [jumpOpen, setJumpOpen] = useState(false);
+  const [attachOpen, setAttachOpen] = useState<Record<string, boolean>>({});
+  // A tap anywhere else, or Escape, closes the question list.
+  useEffect(() => {
+    if (!jumpOpen) return;
+    const close = (event: Event) => {
+      const menu = jumpMenu.current;
+      if (!menu) return;
+      if (event instanceof KeyboardEvent ? event.key === "Escape" : !menu.contains(event.target as Node)) {
+        setJumpOpen(false);
+        if (event instanceof KeyboardEvent) menu.querySelector("button")?.focus();
+      }
+    };
+    document.addEventListener("pointerdown", close);
+    document.addEventListener("keydown", close);
+    return () => {
+      document.removeEventListener("pointerdown", close);
+      document.removeEventListener("keydown", close);
+    };
+  }, [jumpOpen]);
+  // From the progress pill to any question: its card comes into view and its field takes focus.
+  function jumpToQuestion(id: string) {
+    setJumpOpen(false);
+    const card = document.getElementById(`card-${id}`);
+    card?.scrollIntoView({ block: "start" });
+    const field = document.getElementById(`reply-${id}`) ?? card?.querySelector<HTMLElement>("input, textarea, button");
+    field?.focus({ preventScroll: true });
+  }
   // Section answers count toward the action bar, so a section-only round sends.
   const sectionAnswered = useMemo(
     () => sections.some((section) =>
@@ -327,8 +359,9 @@ export function ReplySheet({
     (photoStates[question.id] === "uploadError" && retryablePhotos[question.id]) ||
     (audioStates[question.id] === "uploadError" && retryableAudio[question.id]));
   // An answer already sent changes in place as it's saved. Only a brand-new one needs sending.
-  const newAfterSend = sent && questions.some((question) =>
-    !sentIds.has(question.id) && (bodies[question.id] ?? "").trim().length > 0);
+  const unsentCount = sent ? questions.filter((question) =>
+    !sentIds.has(question.id) && (bodies[question.id] ?? "").trim().length > 0).length : 0;
+  const newAfterSend = unsentCount > 0;
   const status: SaveStatus = useMemo(() => {
     const states = Object.values(questionStatuses);
     if (submitFailed || states.includes("error")) return "error";
@@ -1165,9 +1198,59 @@ export function ReplySheet({
           <span className="flex min-w-0 items-center gap-2 font-display text-[23px] font-bold text-ink">
             <Cherries className="h-7 w-7 flex-none" /><span className="wrap-any">{loopName}</span>
           </span>
-          <span className="chip flex h-7 flex-none items-center whitespace-nowrap border bg-card px-3 text-[12px] font-bold text-ink-soft numeric">
-            {text(copy.reply.answered, { answered, total })}
-          </span>
+          {/* The count opens a list of the questions, so a long round can be crossed in one tap. */}
+          <div ref={jumpMenu} className="reply-jump flex-none">
+            <button type="button" className="reply-jump__pill chip numeric" aria-expanded={jumpOpen} aria-controls="reply-jump-panel" aria-label={`${text(copy.reply.answered, { answered, total })}. ${copy.reply.jumpTitle}`} onClick={() => setJumpOpen((open) => !open)}>
+              <svg viewBox="0 0 20 20" aria-hidden="true" className="h-3.5 w-3.5 flex-none"><path d="M4 5.5h12M4 10h12M4 14.5h8" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>
+              {text(copy.reply.answered, { answered, total })}
+              <svg viewBox="0 0 20 20" aria-hidden="true" className="h-3.5 w-3.5 flex-none"><path d="m5.5 8 4.5 4.5L14.5 8" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" /></svg>
+            </button>
+            {/* Only in the page while open: closed, its titles would repeat every question. */}
+            {jumpOpen ? (
+            <nav id="reply-jump-panel" className="reply-jump__panel" aria-label={copy.reply.jumpTitle}>
+              <p className="reply-jump__title">{copy.reply.jumpTitle}</p>
+              <ol>
+                {questions.map((question, index) => {
+                  const done = answeredIds.has(question.id);
+                  return (
+                    <li key={question.id}>
+                      <a href={`#card-${question.id}`} onClick={(event) => { event.preventDefault(); jumpToQuestion(question.id); }}>
+                        <span className={`reply-jump__mark${done ? " is-done" : ""}`} aria-hidden="true">
+                          {done ? <svg viewBox="0 0 20 20" className="h-3 w-3"><path d="m4 10 4 4 8-9" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" /></svg> : index + 1}
+                        </span>
+                        <span className="min-w-0 wrap-any">{question.text}</span>
+                        <span className="sr-only">, {done ? copy.reply.jumpAnswered : copy.reply.jumpOpen}</span>
+                      </a>
+                    </li>
+                  );
+                })}
+              </ol>
+              {sections.length > 0 ? (
+                <>
+                  <p className="reply-jump__title mt-2">{copy.reply.sectionsHeading}</p>
+                  <ol>
+                    {sections.map((section) => {
+                      const done = (sectionBodies[section.id] ?? "").trim().length > 0
+                        || (sectionLinks[section.id] ?? "").trim().length > 0
+                        || (sectionMediaLists[section.id] ?? []).length > 0;
+                      return (
+                        <li key={section.id}>
+                          <a href={`#card-${section.id}`} onClick={(event) => { event.preventDefault(); jumpToQuestion(section.id); }}>
+                            <span className={`reply-jump__mark${done ? " is-done" : ""}`} aria-hidden="true">
+                              {done ? <svg viewBox="0 0 20 20" className="h-3 w-3"><path d="m4 10 4 4 8-9" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" /></svg> : (section.emoji ?? "·")}
+                            </span>
+                            <span className="min-w-0 wrap-any">{section.title}</span>
+                            <span className="sr-only">, {done ? copy.reply.jumpAnswered : copy.reply.jumpOpen}</span>
+                          </a>
+                        </li>
+                      );
+                    })}
+                  </ol>
+                </>
+              ) : null}
+            </nav>
+            ) : null}
+          </div>
         </div>
       </header>
 
@@ -1212,7 +1295,7 @@ export function ReplySheet({
           <LoopSnapshot url={headerImageUrl} />
           {headerImageUrl ? null : <Cherries className="reply-intro__cherries" />}
           <p className="reply-intro__hi">{text(copy.reply.hi, { name: name.trim() || displayName })}</p>
-          <h1 ref={sheetHeading} tabIndex={-1} className="text-ink">{issueTitle(copy.reply.round, roundNumber, roundName)}</h1>
+          <h1 ref={sheetHeading} tabIndex={-1} className="text-ink"><DisplayDigits>{issueTitle(copy.reply.round, roundNumber, roundName)}</DisplayDigits></h1>
           <p className="mt-1 text-[14.5px] leading-snug text-ink-soft numeric">
             {wentOutLabel ? text(copy.reply.wentOut, { date: wentOutLabel }) : text(copy.reply.closes, { deadline: deadlineBoth })}
           </p>
@@ -1248,7 +1331,7 @@ export function ReplySheet({
               <p
                 id="reply-name-status"
                 aria-live="polite"
-                className={`mt-1 text-[12px] leading-relaxed ${nameStatus === "error" ? "text-danger" : "text-ink-muted"}`}
+                className={`mt-1 text-[13px] leading-relaxed ${nameStatus === "error" ? "text-danger" : "text-ink-muted"}`}
               >
                 {nameStatus === "saving"
                   ? copy.reply.nameSaving
@@ -1280,7 +1363,9 @@ export function ReplySheet({
               <path d="M10 1.7a8.3 8.3 0 100 16.6 8.3 8.3 0 000-16.6zm3.8 6.4l-4.4 4.7a.9.9 0 01-1.3 0L6.2 10.9a.9.9 0 111.3-1.3l1.2 1.3 3.8-4a.9.9 0 011.3 1.2z" />
             </svg>
             <p className="text-[14px] leading-relaxed text-ink">
-              {wentOutLabel ? copy.reply.sentLate : text(copy.reply.sent, { deadline: deadlineBoth })}
+              {/* One state at a time: once there's something new to send, this says so too. */}
+              {newAfterSend ? copy.reply.sentWithNewShort : wentOutLabel ? copy.reply.sentLate : text(copy.reply.sent, { deadline: deadlineBoth })}
+              {!newAfterSend && !wentOutLabel && answered < total ? copy.reply.sentSkipNote : null}
             </p>
           </div>
         ) : null}
@@ -1354,15 +1439,26 @@ export function ReplySheet({
                     : audioErrors[question.id];
 
             return (
-            <section key={question.id} data-paper="answer" className="card paper ride-in block p-5 pt-7">
-              <Tape tone={(["dots", "stripe", "mint", "check"] as const)[index % 4]} position={index % 2 ? "right" : "left"} />
+            <section key={question.id} id={`card-${question.id}`} data-paper="answer" className="card paper ride-in block p-5 pt-7">
+              <Tape tone={(["dots", "stripe", "mint", "check"] as const)[index % 4]} position={index % 2 ? "center" : "left"} />
+              {/* Always top right; the tape never goes there on these cards, so the two can't overlap. */}
               <span className="question-status" aria-live="polite">
                 {questionStatuses[question.id] === "saving" ? <span>{copy.reply.questionStates.saving}</span> : null}
-                {questionStatuses[question.id] === "saved" ? <span>{copy.reply.questionStates.saved}</span> : null}
+                {sent && !sentIds.has(question.id) && (bodies[question.id] ?? "").trim() && questionStatuses[question.id] !== "saving" ? (
+                  <span className="question-status__unsent">{copy.reply.questionNotSent}</span>
+                ) : questionStatuses[question.id] === "saved" ? (
+                  <span className="question-status__saved">
+                    <svg viewBox="0 0 20 20" aria-hidden="true" className="h-3.5 w-3.5 flex-none"><path d="m4 10 4 4 8-9" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                    {copy.reply.questionStates.saved}
+                  </span>
+                ) : null}
               </span>
-              <label htmlFor={`reply-${question.id}`} className="block font-display text-[26px] font-bold leading-[1.15] text-ink">
-                {question.text}
-              </label>
+              {/* A heading, so a screen reader can move question to question; the label inside still names the field. */}
+              <h2 className="m-0 text-ink">
+                <label htmlFor={`reply-${question.id}`} className="block font-display text-[26px] font-bold leading-[1.15] text-ink">
+                  {question.text}
+                </label>
+              </h2>
               {questionStatuses[question.id] === "error" ? (
                 <p role="alert" className="m-0 mt-1 flex flex-wrap items-center gap-x-3 text-[13px] font-bold text-danger">
                   {conflicts[question.id] ?? copy.reply.questionStates.error}
@@ -1409,7 +1505,23 @@ export function ReplySheet({
               ) : null}
 
               {/* Photo and voice share one quiet row inside the card they belong to. */}
-              <div className="attach-row">
+              {/* On a phone the three attachment buttons fold behind one, so a long round isn't three buttons a card. */}
+              {!(photoUrl || preview || audioUrl || attachOpen[question.id]) ? (
+                <button
+                  type="button"
+                  className="attach-toggle"
+                  aria-expanded="false"
+                  aria-controls={`attach-${question.id}`}
+                  onClick={() => {
+                    setAttachOpen((current) => ({ ...current, [question.id]: true }));
+                    requestAnimationFrame(() => document.getElementById(`attach-${question.id}`)?.querySelector<HTMLElement>("button, label")?.focus());
+                  }}
+                >
+                  <svg viewBox="0 0 20 20" aria-hidden="true" className="attach-btn__icon"><path d="M10 4v12M4 10h12" /></svg>
+                  {copy.reply.addAttachment}
+                </button>
+              ) : null}
+              <div className="attach-row" id={`attach-${question.id}`} data-folded={photoUrl || preview || audioUrl || attachOpen[question.id] ? undefined : ""}>
                 <div className="contents">
                   <input
                     id={`photo-${question.id}`}
@@ -1518,8 +1630,9 @@ export function ReplySheet({
                   )}
                 </div>
               </div>
-              {!canRecord && !audioUrl && !isRecordingHere ? (
-                <p className="mt-2 text-[12px] leading-relaxed text-ink-muted">
+              {/* Said once, on the first question: the same note under every card is noise. */}
+              {!canRecord && !audioUrl && !isRecordingHere && question.id === firstWrittenId ? (
+                <p className="mt-2 text-[13px] leading-relaxed text-ink-muted">
                   {secureContext ? copy.reply.voiceNoRecorder : copy.reply.voiceInsecure}
                 </p>
               ) : null}
@@ -1583,7 +1696,7 @@ export function ReplySheet({
               const saveState = sectionSaveStates[section.id] ?? "idle";
               const cap = section.kind === "photo_wall" ? 6 : 1;
               return (
-                <div key={section.id} data-paper="note" className="card paper ride-in mt-4 block p-5 pt-6">
+                <div key={section.id} id={`card-${section.id}`} data-paper="note" className="card paper ride-in mt-4 block p-5 pt-6">
                   <h3 className="font-display text-[22px] font-bold leading-tight text-ink">
                     {section.emoji ? <span className="mr-2">{section.emoji}</span> : null}
                     {section.title}
@@ -1674,7 +1787,7 @@ export function ReplySheet({
                         disabled={sending}
                         className="field lined-field w-full py-2"
                       />
-                      <p aria-live="polite" className="mt-1 text-[12px] text-ink-muted">
+                      <p aria-live="polite" className="mt-1 text-[13px] text-ink-muted">
                         {saveState === "saving" ? copy.reply.sectionSaving : saveState === "saved" ? copy.reply.sectionDraftSaved : null}
                       </p>
                       <p role="alert" className={sectionErrors[section.id] ? "text-[13px] leading-relaxed text-danger" : undefined}>
@@ -1706,12 +1819,13 @@ export function ReplySheet({
                               {copy.reply.sectionRemovePhoto}
                             </button>
                           </div>
-                          <span className="text-[12px] text-ink-muted numeric">{index + 1}/{cap}</span>
+                          <span className="text-[13px] text-ink-muted numeric">{index + 1}/{cap}</span>
                         </div>
                       ))}
                       {media.length < cap ? (
                         <PhotoSlot
                           sectionId={section.id}
+                          sectionTitle={section.title}
                           kind={section.kind}
                           position={media.length}
                           disabled={sending || Boolean(sectionUploading[section.id])}
@@ -1750,8 +1864,9 @@ export function ReplySheet({
 
           <p className="m-0 mt-2 flex flex-wrap gap-x-5 border-t border-dashed border-line pt-1">
             {canSuggest ? <Link href={`/r/${token}/suggest`} className="link">{copy.reply.suggestLink}</Link> : null}
-            <Link href={`/r/${token}/leave`} className="link link--quiet">{copy.reply.leaveLink}</Link>
             <Link href="/privacy" className="link link--quiet">{copy.legal.privacyLink}</Link>
+            {/* The one link here that can't be undone: last, and in the danger colour. */}
+            <Link href={`/r/${token}/leave`} className="link link--danger sm:ml-auto">{copy.reply.leaveLink}</Link>
           </p>
         </div>
       </main>
@@ -1783,7 +1898,7 @@ export function ReplySheet({
           <>
           {/* The top bar keeps the count. This one says where the words are. */}
           <span aria-live="polite" data-save-status className={`min-w-0 flex-1 text-[13px] font-bold leading-snug numeric ${status === "error" || pollFailed || sectionFailed || attachFailed || extraFailed ? "text-danger" : "text-ink-soft"}`}>
-            {status === "saving" ? copy.reply.saving : status === "error" ? copy.reply.notSaved : pollFailed ? copy.reply.pollNotSaved : sectionFailed ? copy.reply.attentionNeeded : attachFailed ? copy.reply.attachNotSaved : extraFailed ? copy.reply.extraNotSaved : sent ? copy.reply.liveEdits : status === "saved" ? copy.reply.draftSaved : copy.reply.savedAsYouGo}
+            {status === "saving" ? copy.reply.saving : status === "error" ? copy.reply.notSaved : pollFailed ? copy.reply.pollNotSaved : sectionFailed ? copy.reply.attentionNeeded : attachFailed ? copy.reply.attachNotSaved : extraFailed ? copy.reply.extraNotSaved : sent ? (newAfterSend ? (unsentCount === 1 ? copy.reply.newUnsentOne : text(copy.reply.newUnsentCount, { count: unsentCount })) : copy.reply.liveEdits) : status === "saved" ? copy.reply.draftSaved : copy.reply.savedAsYouGo}
           </span>
           {/* aria-disabled, not disabled: the button the keyboard is on must not vanish mid-send. */}
           <button
@@ -1866,12 +1981,15 @@ function LiveMessage({ id, message, isError }: { id: string; message: string | n
 /** One photo slot on a standard section or photo wall. Photo walls offer a caption. */
 function PhotoSlot({
   sectionId,
+  sectionTitle,
   kind,
   position,
   disabled,
   onPick,
 }: {
   sectionId: string;
+  /** Named in the button, so each section's "Add a photo" says where the photo goes. */
+  sectionTitle: string;
   kind: "standard" | "photo_wall";
   position: number;
   disabled: boolean;
@@ -1897,6 +2015,7 @@ function PhotoSlot({
         type="file"
         accept={PHOTO_ACCEPT}
         className="peer sr-only"
+        aria-label={text(copy.reply.sectionAddPhotoTo, { section: sectionTitle })}
         aria-disabled={disabled ? true : undefined}
         onClick={(event) => {
           if (disabled) event.preventDefault();

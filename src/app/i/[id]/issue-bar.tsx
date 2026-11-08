@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { copy } from "@/lib/copy";
 
 export type ContentsItem = { href: string; number: number | null; label: string };
@@ -17,6 +17,23 @@ export function IssueBar({ contents, reading, readingLabel, title }: {
   title?: string;
 }) {
   const bar = useRef<HTMLDivElement>(null);
+  // Arriving from the album (a photo's "View in the issue"), the way back stays in reach.
+  const [albumHref, setAlbumHref] = useState<string | null>(null);
+  useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem("fl-from-album");
+      if (!raw) return;
+      sessionStorage.removeItem("fl-from-album");
+      const { href, at } = JSON.parse(raw) as { href?: unknown; at?: unknown };
+      // Only a trip just taken: a stale note from earlier in the session doesn't count.
+      if (typeof href === "string" && href.startsWith("/") && typeof at === "number" && Date.now() - at < 60_000) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- session storage only exists in the browser
+        setAlbumHref(href);
+      }
+    } catch {
+      // No storage, or a note that isn't ours: no way back to offer.
+    }
+  }, []);
   const sentinel = useRef<HTMLSpanElement>(null);
 
   // The name only needs repeating once the page's own title has scrolled away.
@@ -63,6 +80,19 @@ export function IssueBar({ contents, reading, readingLabel, title }: {
     };
   }, []);
 
+  const closeAll = () => bar.current?.querySelectorAll("details[open]").forEach((panel) => panel.removeAttribute("open"));
+
+  // After a jump, keyboard and screen reader users carry on from the section they chose.
+  function jumpTo(href: string) {
+    closeAll();
+    const target = document.getElementById(decodeURIComponent(href.replace(/^.*#/, "")));
+    if (!target) return;
+    requestAnimationFrame(() => {
+      if (!target.hasAttribute("tabindex")) target.setAttribute("tabindex", "-1");
+      target.focus({ preventScroll: true });
+    });
+  }
+
   function onToggle(event: React.SyntheticEvent<HTMLDetailsElement>) {
     if (!event.currentTarget.open) return;
     bar.current?.querySelectorAll("details[open]").forEach((panel) => {
@@ -89,7 +119,7 @@ export function IssueBar({ contents, reading, readingLabel, title }: {
                 <li key={item.href}>
                   <a
                     href={item.href}
-                    onClick={() => bar.current?.querySelectorAll("details[open]").forEach((panel) => panel.removeAttribute("open"))}
+                    onClick={() => jumpTo(item.href)}
                     className="flex min-h-11 items-center gap-3 rounded-sm py-1 text-[15px] font-bold leading-snug text-ink no-underline hover:underline"
                   >
                     {item.number !== null ? (
@@ -109,10 +139,17 @@ export function IssueBar({ contents, reading, readingLabel, title }: {
             <svg viewBox="0 0 20 20" aria-hidden="true" className="h-4 w-4 flex-none"><path d="M3 6h14M6 10h8M8.5 14h3" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>
             <span className="min-w-0 wrap-any">{readingLabel}</span>
           </summary>
-          <div className="issue-bar__panel">{reading}</div>
+          {/* Choosing who or how to read is a page change: the menu closes behind it. */}
+          <div className="issue-bar__panel" onClick={(event) => { if ((event.target as Element).closest("a")) closeAll(); }}>{reading}</div>
         </details>
       ) : null}
-      {title ? <span className="issue-bar__title" aria-hidden="true">{title}</span> : null}
+      {albumHref ? (
+        <a href={albumHref} className="issue-bar__button issue-bar__back" aria-label={copy.issue.backToAlbum}>
+          <svg viewBox="0 0 20 20" aria-hidden="true" className="h-4 w-4 flex-none"><path d="M12 4.5 6.5 10l5.5 5.5" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" /></svg>
+          <span className="issue-bar__word">{copy.issue.backToAlbumShort}</span>
+        </a>
+      ) : null}
+      {title && !albumHref ? <span className="issue-bar__title" aria-hidden="true">{title}</span> : null}
     </div>
     </>
   );

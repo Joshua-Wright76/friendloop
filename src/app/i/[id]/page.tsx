@@ -17,6 +17,7 @@ import { IssuePrint } from "./issue-print";
 import { ReadingControls } from "./reading-controls";
 import { applyReading, parseReading, readingHref, readingPeople } from "@/lib/issue-reading";
 import { resolveToken } from "@/lib/reply";
+import { DisplayDigits } from "@/components/display-digits";
 
 export const instant = false;
 
@@ -110,7 +111,7 @@ export default async function IssuePage({
           </span>
         </div>
         <div className="loop-head__page">
-          <h1>{issueTitle(copy.issue.round, view.issue.number, view.issue.name)}</h1>
+          <h1><DisplayDigits>{issueTitle(copy.issue.round, view.issue.number, view.issue.name)}</DisplayDigits></h1>
           <p className="numeric">
             {view.issue.name ? `${text(copy.issue.round, { number: view.issue.number })}. ` : null}
             {view.answerCount === 1 ? copy.issue.answer : text(copy.issue.answers, { count: view.answerCount })}{" "}

@@ -43,7 +43,7 @@ test("L1 · the owner adds a poll that lives in the pool like any question", asy
   expect(poll.poll_multiple).toBe(true);
 
   // It sits at the end of the pool, labelled, with its options listed.
-  await openPart(page, "The pool");
+  await openPart(page, "Your questions");
   const pool = page.getByRole("list", { name: "Questions in round order" });
   const item = pool.locator(":scope > li").last();
   await expect(item).toContainText("Where should we camp?");

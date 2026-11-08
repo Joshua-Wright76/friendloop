@@ -23,7 +23,7 @@ test("N3 · the owner hands the loop to an admin, names them in the confirmation
   await expect(page.getByRole("button", { name: /Make .* the owner/ })).toHaveCount(1);
   await expect(page.getByRole("button", { name: "Make heir the owner" })).toBeVisible();
   // And the role menu no longer offers "Owner" as just another role.
-  await page.locator(".card").filter({ hasText: "alice@friendloop.test" }).getByRole("button", { name: /Member type for/ }).click();
+  await page.locator(".card").filter({ hasText: "alice@friendloop.test" }).getByRole("button", { name: /Role for/ }).click();
   await expect(page.getByRole("option", { name: "Owner", exact: true })).toHaveCount(0);
   await page.keyboard.press("Escape");
 

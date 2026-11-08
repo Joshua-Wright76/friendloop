@@ -16,7 +16,7 @@ test("F7 · fixing a typo in someone's address invites the right one and retires
   const card = page.locator(".card").filter({ hasText: bob.email });
   await card.getByRole("button", { name: /^Fix address for/ }).click();
   await card.getByLabel("New email address").fill("robert@friendloop.test");
-  await card.getByRole("button", { name: "Send invite there" }).click();
+  await card.getByRole("button", { name: /^Send .* a new invite$/ }).click();
   await expect(page.getByText("Address changed, and a new invitation is on its way.")).toBeVisible();
   await expect(page.locator(".card").filter({ hasText: "robert@friendloop.test" })).toBeVisible();
 

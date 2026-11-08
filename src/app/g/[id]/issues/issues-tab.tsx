@@ -13,6 +13,7 @@ import { issueTitle, MAX_ISSUE_NAME } from "@/lib/issue-name";
 import { renameIssueAction } from "./actions";
 import { useLoopData } from "../loop-data";
 import { SubmitButton } from "@/components/submit-button";
+import { DisplayDigits } from "@/components/display-digits";
 
 export default function IssuesTab({
   notices,
@@ -36,7 +37,7 @@ export default function IssuesTab({
   const rounds = focus ? allRounds.filter((round) => answered.has(round.id)) : allRounds;
 
   return (
-    <main className="mx-auto w-full max-w-[680px] px-4 pb-16 pt-5 sm:px-6">
+    <main className="loop-page mx-auto w-full max-w-[680px] px-4 pb-16 pt-5 sm:px-6 lg:max-w-[1040px]">
       <LoopNav id={id} name={group.name} access={membership.access} active="Rounds">
         <h1>{copy.rounds.title}</h1>
         <p>
@@ -81,8 +82,8 @@ export default function IssuesTab({
         {rounds.map((round) => (
           <li key={round.id} className="card p-4 sm:p-5">
             <div className="flex items-start justify-between gap-3">
-              <h2 className="text-ink">{issueTitle(copy.rounds.round, round.number, round.name)}</h2>
-              <span className={`chip flex-none border px-2.5 py-1 text-[12px] font-bold capitalize ${round.status === "open" ? "bg-accent-soft text-accent-ink" : "bg-card text-ink-soft"}`}>
+              <h2 className="text-ink"><DisplayDigits>{issueTitle(copy.rounds.round, round.number, round.name)}</DisplayDigits></h2>
+              <span className={`chip flex-none border px-2.5 py-1 text-[13px] font-bold capitalize ${round.status === "open" ? "bg-accent-soft text-accent-ink" : "bg-card text-ink-soft"}`}>
                 {copy.common.issueStatus[round.status]}
               </span>
             </div>
@@ -126,7 +127,7 @@ export default function IssuesTab({
                       className="field h-11 py-0"
                     />
                   </label>
-                  <p className="text-[12px] leading-relaxed text-ink-muted">{text(copy.rounds.nameHint, { number: round.number })}</p>
+                  <p className="text-[13px] leading-relaxed text-ink-muted">{text(copy.rounds.nameHint, { number: round.number })}</p>
                   <SubmitButton className="btn btn-quiet h-11 min-h-11 self-start text-[14px]">{copy.rounds.nameSave}</SubmitButton>
                 </SafeForm>
               </details>
@@ -134,7 +135,10 @@ export default function IssuesTab({
             </div>
 
             {round.shareUrl ? (
-              <div className="mt-2 flex items-center justify-between gap-2 rounded-md border border-dashed border-line-strong bg-field px-3 py-1.5">
+              <p className="m-0 mt-2.5 text-[13px] font-bold text-ink-soft">{copy.rounds.shareLinkLabel}</p>
+            ) : null}
+            {round.shareUrl ? (
+              <div className="mt-1 flex items-center justify-between gap-2 rounded-md border border-dashed border-line-strong bg-field px-3 py-1.5">
                 <span className="min-w-0 wrap-any text-[13px] text-ink-soft">
                   {round.shareUrl.replace(/^https?:\/\//, "")}
                 </span>

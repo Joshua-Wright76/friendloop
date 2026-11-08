@@ -48,6 +48,7 @@ export function ProfilePhoto({
   useEffect(() => {
     if (compact && new URLSearchParams(window.location.search).get("look") === "open" && disclosure.current) {
       disclosure.current.open = true;
+      disclosure.current.scrollIntoView({ block: "start" });
     }
   }, [compact]);
   const [status, setStatus] = useState<Status>("idle");
@@ -147,7 +148,7 @@ export function ProfilePhoto({
         />
         <p
           aria-live="polite"
-          className={`text-[12px] leading-relaxed ${status === "error" ? "text-danger" : "text-ink-muted"} ${compact ? "empty:hidden" : "mt-1"}`}
+          className={`text-[13px] leading-relaxed ${status === "error" ? "text-danger" : "text-ink-muted"} ${compact ? "empty:hidden" : "mt-1"}`}
         >
           {status === "saving"
             ? copy.identity.profile.saving
@@ -163,7 +164,7 @@ export function ProfilePhoto({
     </div>
     {/* In the members list the row is already busy, so the sheet waits behind a tap. */}
     {compact ? (
-      <details ref={disclosure} className="look-disclosure" onToggle={(event) => { if (event.currentTarget.open) setLookOpened(true); }}>
+      <details ref={disclosure} id={compact ? "your-look" : undefined} className="look-disclosure" onToggle={(event) => { if (event.currentTarget.open) setLookOpened(true); }}>
         <summary className="link link--quiet cursor-pointer">{copy.identity.look.open}</summary>
         {lookOpened ? look : null}
       </details>

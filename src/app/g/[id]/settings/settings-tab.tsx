@@ -2,6 +2,7 @@
 
 import { SafeForm } from "@/components/safe-form";
 import { useState } from "react";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { TimezoneField } from "../../new/timezone-field";
 import { deleteAction, pauseHereAction, rotateSharesAction, settingsAction } from "./actions";
@@ -37,7 +38,7 @@ export default function SettingsTab({ notices }: { notices: { saved?: string; er
   if (!isOwner) redirect(`/g/${id}`);
 
   return (
-    <main className="mx-auto w-full max-w-[680px] px-4 pb-16 pt-5 sm:px-6">
+    <main className="loop-page mx-auto w-full max-w-[680px] px-4 pb-16 pt-5 sm:px-6 lg:max-w-[1040px]">
       <LoopNav id={id} name={group.name} access={membership.access} active="Settings">
         <h1>{copy.settings.title}</h1>
         <div className="subtabs" role="group" aria-label={copy.settings.tabsLabel}>
@@ -77,8 +78,8 @@ export default function SettingsTab({ notices }: { notices: { saved?: string; er
         </label>
         {nameError ? <p id="settings-name-error" role="alert" className="m-0 mt-1.5 text-[14px] font-bold text-danger">{copy.settings.nameRequired}</p> : null}
 
-        <div className="mt-4 grid grid-cols-2 gap-3">
-          <div className="col-span-2 flex flex-col gap-1.5">
+        <div className="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-[1fr_1fr_1fr_1.4fr]">
+          <div className="col-span-2 flex flex-col gap-1.5 lg:col-span-1">
             <span className="text-[13px] font-medium text-ink-soft">{copy.settings.every}</span>
             <Picker name="cadence" defaultValue={String(group.cadenceWeeks)} options={CADENCE_OPTIONS} ariaLabel={copy.settings.every} />
           </div>
@@ -92,7 +93,7 @@ export default function SettingsTab({ notices }: { notices: { saved?: string; er
           </div>
           {/* Full width, as on the new-loop form: zone names are long and a half
               column cuts "Europe/Amsterdam" to "Europe…" on a phone. */}
-          <div className="col-span-2 flex min-w-0 flex-col gap-1.5">
+          <div className="col-span-2 flex min-w-0 flex-col gap-1.5 lg:col-span-1">
             <span className="text-[13px] font-medium text-ink-soft">{copy.settings.timezone}</span>
             <TimezoneField defaultValue={group.timezone} />
           </div>
@@ -109,11 +110,12 @@ export default function SettingsTab({ notices }: { notices: { saved?: string; er
           <span>
             {copy.settings.sharing}
             <span className="mt-0.5 block text-[13px] text-ink-muted">{copy.settings.sharingDefault}</span>
+            {group.shareEnabled ? <span className="block"><Link href={`/g/${id}/issues`} className="link text-[13px]">{copy.settings.sharingWhere}</Link></span> : null}
           </span>
         </label>
 
         {group.shareEnabled ? null : (
-          <p className="mt-2 text-[12px] leading-relaxed text-ink-muted">{copy.settings.sharesOff}</p>
+          <p className="mt-2 text-[13px] leading-relaxed text-ink-muted">{copy.settings.sharesOff}</p>
         )}
 
         <label className="mt-4 flex items-start gap-2.5 text-[14px] leading-relaxed text-ink-soft">
@@ -146,6 +148,12 @@ export default function SettingsTab({ notices }: { notices: { saved?: string; er
         mascot={group.themeMascot}
         headerImageUrl={group.headerImageUrl}
       />
+      {/* The owner's own look lives with their card on People; this is the way there from the loop's look. */}
+      <section className="card mt-4 p-5" aria-labelledby="your-look-title">
+        <h2 id="your-look-title" className="text-ink">{copy.settings.yourLookTitle}</h2>
+        <p className="mt-1 text-[14px] leading-relaxed text-ink-soft">{copy.settings.yourLookBody}</p>
+        <Link href={`/g/${id}/members?look=open#your-look`} className="link mt-1">{copy.settings.yourLookLink}</Link>
+      </section>
       </div>
 
       <div id="settings-keep" hidden={view !== "keep"} className="card mt-4 p-5">

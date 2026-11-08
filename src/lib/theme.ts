@@ -296,7 +296,7 @@ const GINGHAM_PAPER: PresetPaper = {
   dark: {
     page: "#241a20", check: "rgb(255 140 170 / 0.07)", card: "#30242a", line: "#46343c",
     lineStrong: "#5c4650", controlLine: "#b28e99", field: "#2a2025", rule: "rgb(150 180 225 / 0.15)",
-    margin: "rgb(255 140 165 / 0.45)", ink: "#f8eaee", inkSoft: "#dbc2c9", inkMuted: "#ae939b",
+    margin: "rgb(255 140 165 / 0.45)", ink: "#f8eaee", inkSoft: "#dbc2c9", inkMuted: "#bba2a9",
     tape: "#f6a6ba",
   },
 };

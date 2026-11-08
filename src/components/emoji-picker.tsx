@@ -1,5 +1,6 @@
 "use client";
 
+import { wrapTab } from "./focus-wrap";
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { copy } from "@/lib/copy";
 
@@ -163,6 +164,7 @@ export function EmojiPicker({ label, onPick, onClose }: { label: string; onPick:
       className="emoji-picker"
       aria-label={label}
       onClose={onClose}
+      onKeyDown={wrapTab}
       onCancel={(event) => {
         event.preventDefault();
         onClose();
@@ -174,8 +176,8 @@ export function EmojiPicker({ label, onPick, onClose }: { label: string; onPick:
     >
       <div className="emoji-picker__panel">
         <div className="emoji-picker__head">
-          <h2 className="emoji-picker__title">{copy.emojiPicker.title}</h2>
-          <button type="button" className="link link--quiet min-h-11 cursor-pointer text-[14px] font-bold" onClick={onClose}>{copy.common.close}</button>
+          <h2 className="emoji-picker__title">{label}</h2>
+          <button type="button" className="link link--quiet min-h-11 min-w-11 cursor-pointer justify-center px-2 text-[14px] font-bold" onClick={onClose}>{copy.common.close}</button>
         </div>
         <div className="emoji-picker__tools">
           <input
@@ -188,6 +190,12 @@ export function EmojiPicker({ label, onPick, onClose }: { label: string; onPick:
             enterKeyHint="done"
             onChange={(event) => setQuery(event.target.value)}
             onKeyDown={(event) => {
+              // A search field eats the first Escape to clear itself; here Escape always closes the picker.
+              if (event.key === "Escape") {
+                event.preventDefault();
+                onClose();
+                return;
+              }
               if (event.key !== "Enter") return;
               event.preventDefault();
               const first = typed ?? (results?.[0] ? toned(results[0]) : null);

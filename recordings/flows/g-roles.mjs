@@ -24,7 +24,7 @@ export const flows = {
       await t.say("Meanwhile the owner promotes Max to admin");
       await t.signInAs(OWNER);
       await t.open(people);
-      await t.button("Member type for Max");
+      await t.button("Role for Max");
       await t.clickRole("option", "Admin", { exact: true });
       await t.see("max@friendloop.test");
       await t.pause(800);

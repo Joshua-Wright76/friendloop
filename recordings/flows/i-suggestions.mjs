@@ -66,8 +66,8 @@ export const flows = {
       const row = 'section[aria-label="Suggested questions"] li';
       const field = await find(t, row, "from Alice", 'input[name="text"]');
       await retype(t, field, "Who taught the dog to open doors, and when?");
-      await t.click(await find(t, row, "from Alice", "button", "Add to pool"));
-      await t.see("Suggestion added to the pool.");
+      await t.click(await find(t, row, "from Alice", "button", "Add to your questions"));
+      await t.see("Suggestion added to your questions.");
       await t.see("Who taught the dog to open doors, and when?");
       const [stored] = await rows(
         `select q.text, m.name as asked_by from question_suggestions s

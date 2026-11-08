@@ -29,7 +29,7 @@ test("N1 · the owner picks a paper and every member's surfaces wear it, light a
 
   await signIn(page, "owner@friendloop.test");
   await page.goto(`/g/${loop.groupId}/settings`);
-  await openPart(page, "Paper");
+  await openPart(page, "Stationery");
 
   // The settings show the original as chosen, and a live preview of both schemes.
   await expect(page.getByRole("radio", { name: /Gingham Picnic/ })).toBeChecked();
@@ -75,7 +75,7 @@ test("N1 · an accent that would be hard to read is nudged, and every preset pas
 
   // Pale yellow on cream is the classic unreadable accent.
   await page.goto(`/g/${loop.groupId}/settings`);
-  await openPart(page, "Paper");
+  await openPart(page, "Stationery");
   await page.getByRole("radio", { name: /Lilac Linen/ }).check();
   await expect(page.getByText("Saved. Everyone sees it on their next visit.")).toBeVisible();
   await page.getByLabel("Accent color as a hex code").fill("#ffee00");
@@ -123,7 +123,7 @@ test("N1 · a header picture shows above every surface and in the email; only th
 
   await signIn(page, "owner@friendloop.test");
   await page.goto(`/g/${loop.groupId}/settings`);
-  await openPart(page, "Paper");
+  await openPart(page, "Stationery");
   await chooseFile(page, "Choose a header picture", { name: "banner.png", mimeType: "image/png", buffer: TINY_PNG });
   await expect(page.getByText("Header picture saved.")).toBeVisible();
   const [row] = await rows<{ header_image_url: string }>("select header_image_url from groups where id = $1", [loop.groupId]);
@@ -142,7 +142,7 @@ test("N1 · a header picture shows above every surface and in the email; only th
   // Something that cannot be read as a picture is refused before it leaves the browser
   // (a real oversize photo is shrunk instead: see T1).
   await page.goto(`/g/${loop.groupId}/settings`);
-  await openPart(page, "Paper");
+  await openPart(page, "Stationery");
   await chooseFile(page, "Choose a header picture", { name: "huge.png", mimeType: "image/png", buffer: Buffer.alloc(4 * 1024 * 1024 + 1) });
   await expect(page.getByText("We couldn't read that picture.")).toBeVisible();
 

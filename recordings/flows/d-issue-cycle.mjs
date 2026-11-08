@@ -189,7 +189,7 @@ export const flows = {
       await t.signInAs(OWNER);
       await t.open(`/g/${loop.groupId}`);
       await t.say("The owner's page: nobody has answered yet");
-      await t.see("0 of 3 in");
+      await t.see("0 of 3 people in");
       await t.signInAs(null);
       await t.say("Alice answers both questions");
       await t.open(`/r/${alice.token}`);
@@ -219,7 +219,7 @@ export const flows = {
       await t.say("And the owner's count went up");
       await t.signInAs(OWNER);
       await t.open(`/g/${loop.groupId}`);
-      await t.see("1 of 3 in");
+      await t.see("1 of 3 people in");
       await t.pause(800);
     } },
 
@@ -330,7 +330,7 @@ export const flows = {
       await t.signInAs(OWNER);
       await t.open(`/g/${loop.groupId}`);
       await t.say("Delivery day, and nobody answered");
-      await t.see("0 of 3 in");
+      await t.see("0 of 3 people in");
       await t.say("The sweep runs");
       const report = await t.sweep(new Date(DELIVERY_DAY));
       t.check_(report.skipped === 1 && report.delivered === 0, "The round should be skipped, not delivered");
@@ -367,7 +367,7 @@ export const flows = {
       await t.signInAs(OWNER);
       await t.open(`/g/${loop.groupId}`);
       await t.say("A day to go: Alice has answered, Sam and Bob haven't");
-      await t.see("1 of 3 in");
+      await t.see("1 of 3 people in");
       await t.say("The sweep reminds the stragglers");
       const first = await t.sweep(at);
       t.check_(first.reminded === 2, `Expected 2 reminders, got ${first.reminded}`);

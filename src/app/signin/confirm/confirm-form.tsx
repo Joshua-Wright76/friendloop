@@ -36,7 +36,7 @@ export function ConfirmForm({ token, name }: { token: string; name?: string | nu
           placeholder={copy.confirm.namePlaceholder}
           className="field h-[46px] py-0"
         />
-        <span className="text-[12px] leading-relaxed text-ink-muted">{copy.confirm.nameHint}</span>
+        <span className="text-[13px] leading-relaxed text-ink-muted">{copy.confirm.nameHint}</span>
       </label>
       <SubmitButton className="btn btn-primary w-full">
         {copy.confirm.submit}

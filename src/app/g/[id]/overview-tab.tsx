@@ -15,7 +15,7 @@ import { useLoopData } from "./loop-data";
 import { SubmitButton } from "@/components/submit-button";
 
 export default function OverviewTab({ welcome, nudged }: { welcome?: string; nudged?: string }) {
-  const { group, membership, people, questions, rounds, openIssue, openProgress, openWaiting, nextMoment, openMoment, weekdayLabel, lastNudge, nextWhenThisCloses } = useLoopData();
+  const { group, membership, people, questions, rounds, suggestions, openIssue, openProgress, openWaiting, nextMoment, openMoment, weekdayLabel, lastNudge, nextWhenThisCloses } = useLoopData();
   const manages = membership.access !== "member";
   const writers = people.filter((person) => person.participation === "contributor").length;
   const pool = questions.filter((question) => question.active);
@@ -25,7 +25,7 @@ export default function OverviewTab({ welcome, nudged }: { welcome?: string; nud
   const waitingNames = listNames(openWaiting.map(display));
 
   return (
-    <main className="mx-auto w-full max-w-[680px] px-4 pb-16 pt-5 sm:px-6">
+    <main className="loop-page mx-auto w-full max-w-[680px] px-4 pb-16 pt-5 sm:px-6 lg:max-w-[1040px]">
       <LoopNav id={group.id} name={group.name} access={membership.access} active="Overview" nameIsHeading snapshotUrl={group.headerImageUrl} />
 
       {welcome === "1" || welcome === "no-picture" ? (
@@ -59,11 +59,13 @@ export default function OverviewTab({ welcome, nudged }: { welcome?: string; nud
         </section>
       ) : null}
 
+      <div className="overview-grid">
+      <div className="overview-grid__main">
       {openIssue ? (
         <section className="card ride-in mt-5 p-5 pt-7" aria-labelledby="this-round">
           <Tape tone="dots" position="left" />
           <p className="text-[14px] font-extrabold text-ink-soft">{issueTitle(copy.loop.round, openIssue.number, openIssue.name)}</p>
-          <h2 id="this-round" className="mt-0.5 text-ink numeric">
+          <h2 id="this-round" className="status-count mt-0.5 text-ink numeric">
             {text(copy.loop.progress, { answered: openProgress.length, writers })}
           </h2>
           <p className="mt-1 text-[15px] leading-relaxed text-ink-soft numeric">
@@ -170,6 +172,9 @@ export default function OverviewTab({ welcome, nudged }: { welcome?: string; nud
             )}
           </div>
         ) : null}
+        {manages && !openIssue && !group.pausedAt ? (
+          <p className="m-0 mt-2 text-[13px] leading-relaxed text-ink-muted numeric">{text(copy.loop.sendNowHint, { when: nextMoment.primary })}</p>
+        ) : null}
 
         <p className="mt-4 border-t border-dashed border-line pt-3 text-[14px] leading-relaxed text-ink-soft numeric">
           {text(copy.loop.schedule, {
@@ -183,6 +188,40 @@ export default function OverviewTab({ welcome, nudged }: { welcome?: string; nud
           <Link href={`/g/${group.id}/questions`} className="link link--inline">{text(copy.loop.questionsCount, { count: pool.length })}</Link>
         </p>
       </section>
+      </div>
+      <div className="overview-grid__side">
+      {manages && suggestions.length > 0 ? (
+        <section className="card needs-card ride-in mt-5 p-5 pt-6" aria-labelledby="needs-you">
+          <h2 id="needs-you" className="text-ink">{copy.loop.needsTitle}</h2>
+          <Link href={`/g/${group.id}/questions#suggestions`} className="yours-link mt-1">
+            <span className="yours-link__title numeric">
+              {suggestions.length === 1 ? copy.loop.yoursSuggestionsOne : text(copy.loop.yoursSuggestions, { count: suggestions.length })}
+            </span>
+            <span className="yours-link__hint">{copy.loop.yoursSuggestionsHint}</span>
+          </Link>
+        </section>
+      ) : null}
+      <section className="card ride-in mt-5 p-5 pt-6" aria-labelledby="make-it-yours">
+        <h2 id="make-it-yours" className="text-ink">{copy.loop.yoursTitle}</h2>
+        <ul className="yours-list mt-2">
+          {manages ? (
+            <li>
+              <Link href={`/g/${group.id}/settings?stationery=open`} className="yours-link">
+                <span className="yours-link__title">{copy.loop.yoursStationery}</span>
+                <span className="yours-link__hint">{copy.loop.yoursStationeryHint}</span>
+              </Link>
+            </li>
+          ) : null}
+          <li>
+            <Link href={`/g/${group.id}/members?look=open#your-look`} className="yours-link">
+              <span className="yours-link__title">{copy.loop.yoursCharm}</span>
+              <span className="yours-link__hint">{copy.loop.yoursCharmHint}</span>
+            </Link>
+          </li>
+        </ul>
+      </section>
+      </div>
+      </div>
     </main>
   );
 }

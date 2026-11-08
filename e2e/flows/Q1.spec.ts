@@ -217,7 +217,7 @@ test("Q1 · a shared round prints for people with only the link, and without any
   // Turning sharing off ends the paper too.
   await rows("update groups set share_enabled = false where id = $1", [world.loop.groupId]);
   await page.goto(`/s/${world.shareToken}?print`);
-  await expect(page.getByRole("heading", { name: "This page isn't here" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "This shared issue isn't available" })).toBeVisible();
   await expect(page.getByText("A goose on the towpath")).toHaveCount(0);
 });
 

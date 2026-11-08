@@ -42,7 +42,7 @@ test("N2 · choosing Gingham again stores nothing, so going back is the same as 
   const loop = await seedLoop();
   await signIn(page, "owner@friendloop.test");
   await page.goto(`/g/${loop.groupId}/settings`);
-  await openPart(page, "Paper");
+  await openPart(page, "Stationery");
 
   await page.getByRole("radio", { name: /Bluebell Notebook/ }).check();
   await expect(page.getByText("Saved. Everyone sees it on their next visit.")).toBeVisible();

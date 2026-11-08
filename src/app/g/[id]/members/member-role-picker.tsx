@@ -93,10 +93,10 @@ export function MemberRolePicker({ groupId, membershipId, memberName, current, p
       )}
       {/* Both regions stay mounted so a change of text is announced; a node that appears with its text often is not. */}
       <div className="member-role-status leading-snug">
-        <span role="status" aria-live="polite" className={pending || (message && !failed) ? "text-[12px] text-ink-muted" : undefined}>
+        <span role="status" aria-live="polite" className={pending || (message && !failed) ? "text-[13px] text-ink-muted" : undefined}>
           {pending ? (saving === "access" ? copy.members.roleSaving : copy.members.participation.saving) : failed ? "" : message}
         </span>
-        <span role="alert" className={failed ? "text-[12px] text-danger" : undefined}>
+        <span role="alert" className={failed ? "text-[13px] text-danger" : undefined}>
           {failed ? message : ""}
         </span>
       </div>

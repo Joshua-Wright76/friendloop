@@ -97,7 +97,7 @@ function CommentItem({ comment, onReply }: { comment: IssueComment; onReply: (()
             <p className="m-0 text-[13px] italic text-ink-muted">{comment.quote.text}</p>
           ) : (
             <>
-              <p className="m-0 text-[12px] font-bold text-ink-muted">
+              <p className="m-0 text-[13px] font-bold text-ink-muted">
                 {text(copy.issue.quoteBy, { author: comment.quote.author })}
               </p>
               <p className="m-0 whitespace-pre-wrap text-[13.5px] leading-snug text-ink-soft">{comment.quote.text}</p>
@@ -350,7 +350,7 @@ function CommentComposer({
               onMouseDown={(event) => event.preventDefault()}
               onClick={() => choose(person)}
             >
-              <Avatar name={person.name} photoUrl={person.photoUrl} className="!h-7 !w-7 !text-[12px]" />
+              <Avatar name={person.name} photoUrl={person.photoUrl} className="!h-7 !w-7 !text-[13px]" />
               {person.name}
             </li>
           ))}
@@ -361,7 +361,7 @@ function CommentComposer({
       </p>
 
       {mentionables.length > 0 ? (
-        <p className="mt-1.5 text-[12px] text-ink-muted">{copy.issue.mentionHint}</p>
+        <p className="mt-1.5 text-[13px] text-ink-muted">{copy.issue.mentionHint}</p>
       ) : null}
 
       {photo ? (

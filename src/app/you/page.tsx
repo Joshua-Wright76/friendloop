@@ -1,4 +1,6 @@
 import { SafeForm } from "@/components/safe-form";
+import type { CSSProperties } from "react";
+import { mascotVars } from "@/lib/stationery";
 import Link from "next/link";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
@@ -64,10 +66,10 @@ export default async function YouPage({ searchParams }: {
           </p>
         </div>
       ) : (
-        <ul className="mt-6 grid gap-5 sm:grid-cols-2">
+        <ul className="loop-cards mt-6 grid gap-5">
           {loops.map((loop, index) => (
             <li key={loop.id} className="flex">
-            <Link href={`/g/${loop.id}`} className="card loop-card flex min-h-[156px] w-full flex-col p-5 pt-6 no-underline">
+            <Link href={`/g/${loop.id}`} className="card loop-card flex min-h-[156px] w-full flex-col p-5 pt-6 no-underline" style={loop.mascot ? (mascotVars(loop.mascot) as CSSProperties) : undefined}>
               {index === 0 ? <Tape tone="dots" position="right" /> : null}
               <span className="flex items-center gap-2">
                 <Cherries className="h-7 w-7 flex-none" />
@@ -77,7 +79,7 @@ export default async function YouPage({ searchParams }: {
                 {statusLine(loop, at, user.timezone)}
               </span>
               <span className="mt-3 flex flex-wrap gap-2">
-                <span className="rounded-full border border-line-strong bg-page px-2.5 py-1 text-[12px] font-bold capitalize text-ink-soft">
+                <span className="rounded-full border border-line-strong bg-page px-2.5 py-1 text-[13px] font-bold capitalize text-ink-soft">
                   {copy.common.roles[loop.access]}
                 </span>
               </span>
@@ -90,13 +92,13 @@ export default async function YouPage({ searchParams }: {
         </ul>
       )}
 
-      <section aria-labelledby="your-address" className="card mt-10 p-5">
+      <section aria-labelledby="your-address" className="card mt-8 p-5">
         <h2 id="your-address" className="text-[22px] text-ink">{copy.you.emailChangeTitle}</h2>
         <p className="mt-1 text-[14px] leading-relaxed text-ink-soft">{copy.you.emailChangeBody}</p>
         <ChangeEmail />
       </section>
 
-      <section aria-labelledby="your-data" className="card mt-5 p-5">
+      <section aria-labelledby="your-data" className="card mt-8 p-5">
         <h2 id="your-data" className="text-[22px] text-ink">{copy.you.dataTitle}</h2>
         <p className="mt-1 text-[14px] leading-relaxed text-ink-soft">{copy.you.dataBody}</p>
         <div className="mt-4 flex flex-wrap justify-between gap-3">
@@ -129,6 +131,7 @@ type LoopCard = {
   deliveredAt: Date | null;
   answered: number;
   writers: number;
+  mascot: string | null;
 };
 
 /**
@@ -139,7 +142,7 @@ async function loopCards(userId: string): Promise<LoopCard[]> {
   const rows = await db.execute<Record<string, unknown>>(sql`
     select g.id, g.name, m.access, g.timezone,
       g.prompt_weekday, g.prompt_hour, g.cadence_weeks, g.window_days,
-      g.created_at, g.last_slot_at, g.paused_at,
+      g.created_at, g.last_slot_at, g.paused_at, g.theme_mascot,
       li.number as issue_number, li.status as issue_status, li.delivers_at, li.delivered_at,
       coalesce(li.answered, 0)::int as answered,
       (select count(*)::int from memberships w
@@ -162,6 +165,7 @@ async function loopCards(userId: string): Promise<LoopCard[]> {
   return rows.map((row) => ({
     id: String(row.id),
     name: String(row.name),
+    mascot: row.theme_mascot == null ? null : String(row.theme_mascot),
     access: row.access as LoopCard["access"],
     timezone: String(row.timezone),
     promptWeekday: Number(row.prompt_weekday),
