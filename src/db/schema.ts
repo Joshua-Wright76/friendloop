@@ -91,7 +91,12 @@ export const magicLinks = pgTable(
     email: text("email").notNull(),
     tokenHash: text("token_hash").notNull(),
     expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    /** When it was first used. A link works again until it expires; this is a record, not a lock. */
     usedAt: timestamp("used_at", { withTimezone: true }),
+    /** The six-digit code sent with the link, hashed with the address. Null for links with no code. */
+    codeHash: text("code_hash"),
+    /** Wrong codes typed for this address while the link was live. Past five, the code stops working; the link doesn't. */
+    failedCodeAttempts: integer("failed_code_attempts").default(0).notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => [uniqueIndex("magic_links_token_hash_idx").on(t.tokenHash), index("magic_links_email_idx").on(t.email)],

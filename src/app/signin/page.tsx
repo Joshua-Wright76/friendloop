@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import type { Metadata } from "next";
 import { currentUser } from "@/lib/auth";
@@ -30,6 +31,11 @@ export default async function SignInPage() {
           {copy.signIn.subtitle}
         </p>
         <SignInForm />
+        <p className="mt-3 text-center">
+          <Link href="/signin/check-email" className="inline-flex min-h-11 items-center text-[14px] font-bold text-accent-ink underline decoration-accent/30 underline-offset-4">
+            {copy.signIn.haveCode}
+          </Link>
+        </p>
         <p className="mt-5 border-t border-dashed border-line pt-4 text-[14px] leading-relaxed text-ink-soft">
           {copy.signIn.memberHint}
         </p>

@@ -27,6 +27,14 @@ test("A1 · requesting a link sends exactly one and points at the inbox", async 
   const mail = await latestOutbox("signin:");
   expect(mail.to).toBe(email);
   expect(mail.html).toContain("/signin/confirm?token=");
+  // The code rides in the subject too, so a phone's notification has it.
+  const code = /Or type this code: (\d{6})/.exec(mail.text)?.[1];
+  expect(code).toBeTruthy();
+  expect(mail.subject).toBe(`Sign in to Friendloop: ${code}`);
+  // The page that says "check your inbox" is also where the code goes, and it already knows the address.
+  await expect(page.getByLabel("Code from the email")).toBeVisible();
+  // By role, so the sign-in form navigation keeps mounted (hidden) doesn't count.
+  await expect(page.getByRole("textbox", { name: /Your email/ })).toHaveCount(0);
 });
 
 test("A1 · a malformed address never reaches the server", async ({ page }) => {

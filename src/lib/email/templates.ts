@@ -31,6 +31,8 @@ type LayoutInput = {
   sender?: string;
   /** Listed in the card, above the button: what's actually being asked. */
   questions?: { label: string; items: string[] };
+  /** A sign-in code, big under the button, with a quiet line after it. */
+  code?: { label: string; value: string; note: string };
 };
 
 export type EmailTheme = { palette: EmailPalette; headerImageUrl?: string | null; mascot?: string | null };
@@ -225,6 +227,14 @@ function legalLinks(c: EmailPalette): string {
   return `<p style="margin:8px 0 0;font:400 12px/1.6 ${BODY_FONT};color:${c.muted};text-align:center">${link(appLink("/privacy"), copy.legal.privacyLink)} · ${link(appLink("/terms"), copy.legal.termsLink)}</p>`;
 }
 
+function codeBlock(code: LayoutInput["code"], c: EmailPalette): string {
+  if (!code) return "";
+  // One run of digits, spaced by letter-spacing rather than a space, so it copies clean.
+  return `<p style="margin:22px 0 10px;font:400 15px/1.6 ${BODY_FONT};color:${c.soft}">${escapeHtml(code.label)}</p>
+<table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 0 20px"><tr><td style="padding:12px 18px;background:${c.page};border:1px dashed ${c.lineStrong};border-radius:6px;font:700 30px/1 ui-monospace,Menlo,Consolas,monospace;letter-spacing:8px;color:${c.ink}">${escapeHtml(code.value)}</td></tr></table>
+<p style="margin:0;font:400 13px/1.6 ${BODY_FONT};color:${c.muted}">${escapeHtml(code.note)}</p>`;
+}
+
 function questionList(questions: LayoutInput["questions"], c: EmailPalette): string {
   if (!questions || questions.items.length === 0) return "";
   const rows = questions.items
@@ -233,7 +243,7 @@ function questionList(questions: LayoutInput["questions"], c: EmailPalette): str
   return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 20px"><tr><td style="padding:0 0 8px;font:800 14px/1.4 ${BODY_FONT};color:${c.soft}">${escapeHtml(questions.label)}</td></tr>${rows}</table>`;
 }
 
-export function layout({ preheader, heading, body, cta, footer, answers, sections, answersUrl, theme, unsubscribeUrl, sender, questions, replyHint }: LayoutInput): string {
+export function layout({ preheader, heading, body, cta, footer, answers, sections, answersUrl, theme, unsubscribeUrl, sender, questions, replyHint, code }: LayoutInput): string {
   const c = theme?.palette ?? GINGHAM_EMAIL;
   const GINGHAM = gingham(c);
   const ctaHtml = cta
@@ -255,7 +265,7 @@ ${headerImage(theme?.headerImageUrl, c)}<tr><td style="padding:0 8px 20px;font:7
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${c.card};border:1px solid ${c.line};border-radius:6px;box-shadow:${c.shadow}"><tr><td style="padding:0 30px 30px">
 <table role="presentation" cellpadding="0" cellspacing="0" style="margin:-11px 0 20px;position:relative;z-index:2;transform:rotate(-2deg);opacity:.92;clip-path:polygon(0 0,100% 0,97% 25%,100% 50%,97% 75%,100% 100%,0 100%,3% 75%,0 50%,3% 25%)"><tr><td width="88" height="22" style="width:88px;height:22px;background-color:${c.tape};background-image:radial-gradient(circle,rgba(255,255,255,.85) 1.8px,transparent 2.3px);background-size:9px 9px"></td></tr></table>
 <h1 style="margin:0 0 14px;padding:0 0 12px;border-bottom:2px dashed ${c.lineStrong};font:700 32px/1.15 ${DISPLAY_FONT};color:${c.ink}">${escapeHtml(heading)}</h1>
-${paragraphs(body, c)}${questionList(questions, c)}${ctaHtml}${replyHint ? `<p style="margin:14px 0 0;font:400 13px/1.6 ${BODY_FONT};color:${c.muted}">${escapeHtml(copy.emails.replyHint)}</p>` : ""}
+${paragraphs(body, c)}${questionList(questions, c)}${ctaHtml}${codeBlock(code, c)}${replyHint ? `<p style="margin:14px 0 0;font:400 13px/1.6 ${BODY_FONT};color:${c.muted}">${escapeHtml(copy.emails.replyHint)}</p>` : ""}
 </td></tr></table>
 </td></tr>
 ${answers ? `<tr><td style="padding-top:20px">${answersHtml(answers, answersUrl ?? "#", c)}</td></tr>` : ""}
@@ -283,18 +293,20 @@ function withStopLine(body: string, unsubscribeUrl: string | undefined): string 
   return `${body}${stop}\n\n${legalText()}`;
 }
 
-export function signInEmail(url: string): RenderedEmail {
+export function signInEmail(url: string, code: string): RenderedEmail {
   const content = copy.emails.signIn;
+  const values = { url, code, note: content.note };
   return {
-    subject: content.subject,
+    subject: text(content.subject, values),
     html: layout({
-      preheader: content.preheader,
+      preheader: text(content.preheader, values),
       heading: content.heading,
       body: [content.body],
       cta: { label: content.cta, url },
+      code: { label: content.codeLabel, value: code, note: content.note },
       footer: content.footer,
     }),
-    text: withStopLine(text(content.text, { body: content.body, url }), undefined),
+    text: withStopLine(text(content.text, values), undefined),
   };
 }
 

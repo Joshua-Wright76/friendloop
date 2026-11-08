@@ -16,14 +16,15 @@ Status: `todo` (not built) · `done` (built and covered).
 
 | ID | Flow | Acceptance criteria | Status |
 | --- | --- | --- | --- |
-| A1 | Request a magic link | Submitting a known email writes one `outbox` row of kind `signin` containing a `…/signin/confirm?token=` URL, and the UI says "check your inbox". | done |
+| A1 | Request a magic link | Submitting a known email writes one `outbox` row of kind `signin` containing a `…/signin/confirm?token=` URL and a six-digit code (also in the subject), and the UI says "check your inbox", with a box for the code that already knows the address. | done |
 | A2 | Sign in with a valid link | Following that URL from the email sets a session cookie, redirects to `/you`, and the header shows the address that just signed in. | done |
-| A3 | Expired or reused link | A second visit to the same confirm URL (or one past its 15-minute TTL) shows a recoverable "this link has expired" screen with a "send me a new one" action, never a 500. | done |
+| A3 | Reused or expired link | The same confirm URL signs in again, from another browser too, for 100 hours; one past that shows a recoverable "this link has expired" screen with a "send me a new one" action, never a 500. | done |
 | A4 | Unknown email | An address with no account gets the identical "check your inbox" screen and the same email; the account only comes into existence when the link is used. | done |
 | A5 | Sign out | Sign out clears the session, `/you` redirects to `/signin`, and the previous cookie no longer authenticates. | done |
 | A6 | Revoked reply token | Opening a reply link whose token was rotated shows a "this link was replaced" page with no form and no data leak. | done |
-| A7 | Expired session | A session cookie that outlived its 30 days is refused: `/you` redirects to `/signin`, while a session still inside its window is accepted and shows the address. | done |
+| A7 | Expired session | A session lasts a year from its last use: a signed-in page renews it (database and cookie) at most daily. One that ran out is refused: `/you` redirects to `/signin`, while a session still inside its window is accepted and shows the address. | done |
 | A8 | Abuse limits | Sign-in links are capped per address (5 per 15 min) and per network (20 per hour). A flooded address still lands on the same "check your inbox" screen but no further email is queued, so throttling reveals nothing about who signs in; a flooded network is told plainly to wait and nothing is sent. A stranger's feedback flood (30 per hour per network) and a member's comment flood (30 per 10 min) get a 429 with friendly words. | done |
+| A9 | Sign in with the code | Typing the emailed code on the check-email page (address included when this browser didn't ask) signs a returning person straight in, and takes someone new to the confirm page for their name. A wrong code says so and keeps the address; five wrong codes stop a link's code, not the link. | done |
 
 ## B · Create and invite
 
