@@ -60,6 +60,8 @@ export const emailKindEnum = pgEnum("email_kind", [
   "mention",
   "feedback",
   "email_change",
+  /** To whoever runs this instance, e.g. the daily email budget running low. */
+  "alert",
 ]);
 
 export const users = pgTable("users", {

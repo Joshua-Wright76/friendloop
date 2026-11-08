@@ -169,6 +169,13 @@
       "when": 1794200000000,
       "tag": "0023_questions_unify",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1794210000000,
+      "tag": "0024_email_alert",
+      "breakpoints": true
     }
   ]
 }

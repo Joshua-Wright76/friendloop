@@ -2,7 +2,7 @@ import { Resend } from "resend";
 import { and, asc, eq, gt, inArray, lt, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { emailSuppressions, memberships, outbox } from "@/db/schema";
-import type { RenderedEmail } from "./templates";
+import { budgetAlertEmail, type RenderedEmail } from "./templates.ts";
 import { copy } from "../copy.ts";
 import { e2eSeamsAllowed } from "../e2e.ts";
 import { log } from "../log.ts";
@@ -28,7 +28,7 @@ export type QueueInput = RenderedEmail & {
 };
 
 /** Kinds that are never held back: someone asked for this exact email just now. */
-const TRANSACTIONAL: ReadonlySet<EmailKind> = new Set(["signin", "email_change"]);
+const TRANSACTIONAL: ReadonlySet<EmailKind> = new Set(["signin", "email_change", "alert"]);
 
 export type SuppressedReason = "muted" | "bounce" | "complaint";
 
@@ -51,14 +51,50 @@ export async function sentInLastDay(): Promise<number> {
   return count;
 }
 
+/** How much of the day's budget loop mail may use: all of it but the sign-in reserve. */
+export function loopMailAllowance(): number {
+  return Math.max(0, dailySendBudget() - SIGN_IN_RESERVE);
+}
+
+/** Loop mail this far into its allowance earns a heads-up, while there is still room. */
+export const BUDGET_WARNING_SHARE = 0.75;
+
 /**
- * Whether this email has to wait for tomorrow's quota. Loop mail stops short of
- * the provider's limit so a sign-in link can still go out. A held row stays
- * `pending` with no attempt counted, and the sweep sends it once there is room.
+ * Tell whoever runs this instance (`FEEDBACK_NOTIFY_EMAIL`) that the day's email
+ * is running low, or has run out and loop mail is waiting. Once per level per
+ * UTC day: the dedupe key makes every later call a no-op. An alert is never held
+ * back itself, or the one about running out could never arrive.
  */
-async function overBudget(kind: EmailKind): Promise<boolean> {
-  if (TRANSACTIONAL.has(kind)) return false;
-  return (await sentInLastDay()) >= Math.max(0, dailySendBudget() - SIGN_IN_RESERVE);
+async function alertBudget(level: "near" | "reached", used: number): Promise<void> {
+  const to = process.env.FEEDBACK_NOTIFY_EMAIL?.trim();
+  if (!to) return;
+  const day = new Date().toISOString().slice(0, 10);
+  // Like any send, a provider failure is recorded rather than thrown.
+  await sendEmail({
+    ...budgetAlertEmail({ level, used, allowance: loopMailAllowance(), budget: dailySendBudget() }),
+    to,
+    kind: "alert",
+    dedupeKey: `alert:budget-${level}:${day}`,
+  });
+}
+
+/**
+ * Whether loop mail has to wait for tomorrow's quota right now. Loop mail stops
+ * short of the provider's limit so a sign-in link can still go out. A held row
+ * stays `pending` with no attempt counted, and the sweep sends it once there is room.
+ */
+export async function loopMailHeld(): Promise<boolean> {
+  return (await sentInLastDay()) >= loopMailAllowance();
+}
+
+/** This loop's emails waiting on the daily budget: none unless the budget is spent. */
+export async function heldMailFor(groupId: string): Promise<number> {
+  if ((await transport()) === "outbox" || !(await loopMailHeld())) return 0;
+  const [{ count }] = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(outbox)
+    .where(and(eq(outbox.groupId, groupId), eq(outbox.status, "pending")));
+  return count;
 }
 
 /** The loop owner's address, for the replies people will send anyway. */
@@ -223,7 +259,12 @@ async function dispatch(row: {
     return "sent";
   }
 
-  if (await overBudget(row.kind)) return "held";
+  // Counted before the send, so loop mail can be held and the warning can fire after it.
+  const used = TRANSACTIONAL.has(row.kind) ? null : await sentInLastDay();
+  if (used !== null && used >= loopMailAllowance()) {
+    await alertBudget("reached", used);
+    return "held";
+  }
 
   try {
     const { data, error } = await resend().emails.send({
@@ -240,6 +281,9 @@ async function dispatch(row: {
       .update(outbox)
       .set({ status: "sent", sentAt: new Date(), providerId: data?.id ?? null, error: null })
       .where(eq(outbox.id, row.id));
+    if (used !== null && used + 1 >= Math.ceil(loopMailAllowance() * BUDGET_WARNING_SHARE)) {
+      await alertBudget("near", used + 1);
+    }
     return "sent";
   } catch (cause) {
     const message = cause instanceof Error ? cause.message : String(cause);

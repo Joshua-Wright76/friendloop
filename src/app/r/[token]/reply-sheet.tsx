@@ -163,6 +163,10 @@ export function ReplySheet({
     Object.fromEntries(questions.map((question) => [question.id, question.body])),
   );
   const [name, setName] = useState(initialName ?? "");
+  // Someone added by email alone would otherwise go out under their email handle.
+  // Ask for a name up front, and greet them without the handle meanwhile.
+  const nameMissing = !initialName;
+  const shownName = name.trim() || (nameMissing ? null : displayName);
   const [nameStatus, setNameStatus] = useState<NameStatus>("idle");
   const viewerTime = useSyncExternalStore(
     subscribeToNothing,
@@ -1401,7 +1405,7 @@ export function ReplySheet({
         <section className={`reply-intro card${headerImageUrl ? " has-snapshot" : ""}`}>
           <LoopSnapshot url={headerImageUrl} />
           {headerImageUrl ? null : <Cherries className="reply-intro__cherries" />}
-          <p className="reply-intro__hi">{text(copy.reply.hi, { name: name.trim() || displayName })}</p>
+          <p className="reply-intro__hi">{shownName ? text(copy.reply.hi, { name: shownName }) : copy.reply.hiThere}</p>
           <h1 ref={sheetHeading} tabIndex={-1} className="text-ink"><DisplayDigits>{issueTitle(copy.reply.round, roundNumber, roundName)}</DisplayDigits></h1>
           <p className="mt-1 text-[14.5px] leading-snug text-ink-soft numeric">
             {text(copy.reply.closes, { deadline: deadlineBoth })}
@@ -1410,10 +1414,10 @@ export function ReplySheet({
           <p className="m-0 mt-1 text-[14.5px] font-bold leading-snug text-ink">{copy.reply.goesOutNote}</p>
 
           {/* Who is answering is settled in one line; changing it is there for anyone who wants to. */}
-          <details className="reply-identity" open={nameStatus === "error" ? true : undefined}>
+          <details className="reply-identity" open={nameStatus === "error" || nameMissing ? true : undefined}>
             <summary>
               <Avatar name={name.trim() || displayName} photoUrl={photoUrl} frame={frameNow} className="album-avatar" />
-              <span className="min-w-0 flex-1 wrap-any">{text(copy.reply.answeringAs, { name: name.trim() || displayName })}</span>
+              <span className="min-w-0 flex-1 wrap-any">{shownName ? text(copy.reply.answeringAs, { name: shownName }) : copy.reply.addYourName}</span>
               <span className="reply-identity__change">{copy.reply.changeIdentity}</span>
               <span className="reply-identity__close">{copy.common.close}</span>
             </summary>
@@ -1806,7 +1810,7 @@ export function ReplySheet({
 
         <div className="card mt-6 p-4">
           <p className="m-0 text-[14px] leading-relaxed text-ink-soft">
-            {text(copy.reply.privacy, { displayName: name.trim() || displayName, loopName })}
+            {shownName ? text(copy.reply.privacy, { displayName: shownName, loopName }) : text(copy.reply.privacyNoName, { loopName })}
           </p>
 
           {mutedUnsubscribeToken ? <MutedNotice unsubscribeToken={mutedUnsubscribeToken} back={`/r/${token}`} /> : null}

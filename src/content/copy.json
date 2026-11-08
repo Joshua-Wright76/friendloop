@@ -85,7 +85,11 @@
       "switchToLight": "Dark mode: switch to light mode"
     },
     "actionFailed": "That didn't go through. Check your connection and try again.",
-    "offlineUpload": "That didn't upload. Check your connection and try again."
+    "offlineUpload": "That didn't upload. Check your connection and try again.",
+    "heldMail": {
+      "one": "1 email from this loop is waiting: Friendloop has sent as much email as it can for today. It will go out on its own, usually within a day. Nothing to do.",
+      "other": "{count} emails from this loop are waiting: Friendloop has sent as much email as it can for today. They will go out on their own, usually within a day. Nothing to do."
+    }
   },
   "home": {
     "signIn": "Sign in",
@@ -110,7 +114,11 @@
         "body": "On the day you pick, all the answers arrive together as one round for the whole group, and the next questions open."
       }
     ],
-    "noAccount": "Your friends don't need an account or an app."
+    "noAccount": "Your friends don't need an account or an app.",
+    "source": {
+      "text": "Friendloop is open source.",
+      "link": "See the code on GitHub"
+    }
   },
   "signIn": {
     "eyebrow": "Hello,",
@@ -970,6 +978,7 @@
     "nothingOpenTitle": "Nothing open right now",
     "nothingOpenBody": "{groupName} isn't taking answers at the moment. You'll get an email when the next round opens.",
     "hi": "Hi {name},",
+    "hiThere": "Hi there,",
     "nameTitle": "What should we call you?",
     "nameHint": "Shown next to your answers.",
     "namePlaceholder": "Your name",
@@ -1010,6 +1019,7 @@
     },
     "notSaved": "Not saved. Check your connection.",
     "privacy": "{displayName}, only the people in {loopName} will read this.",
+    "privacyNoName": "Only the people in {loopName} will read this.",
     "answered": "{answered} of {total} answered",
     "finishing": "Saving…",
     "nothingWritten": "Nothing written yet. Write one answer and it goes out with the round. The rest can wait.",
@@ -1091,6 +1101,7 @@
     "closesLine": "Goes out {when}",
     "loopTimeNote": "({when} in {place})",
     "answeringAs": "Answering as {name}",
+    "addYourName": "Add your name so everyone knows it's you",
     "changeIdentity": "Edit name and photo",
     "sectionMusicCaptionLabel": "A line about it",
     "attachPhoto": "Photo",
@@ -1359,6 +1370,19 @@
       "subject": "Friendloop feedback from {from}",
       "heading": "A note from the feedback button",
       "meta": "From {from}, on {path}"
+    },
+    "budgetAlert": {
+      "near": {
+        "subject": "Friendloop has used {used} of today's {allowance} loop emails",
+        "heading": "Email is running low today",
+        "body": "Loop email has used {used} of the {allowance} it may send in 24 hours ({budget} in all, with the rest kept for sign-in links). Past {allowance}, invites, rounds and reminders wait and go out on their own once there is room."
+      },
+      "reached": {
+        "subject": "Friendloop loop email is waiting: today's limit is reached",
+        "heading": "Loop email is waiting",
+        "body": "Loop email has reached its {allowance} for the last 24 hours, so invites, rounds and reminders are waiting. They go out on their own as room frees up, and loop owners see a note saying so. Sign-in links still go out."
+      },
+      "fix": "To raise the limit, move to a bigger Resend plan and set EMAIL_DAILY_BUDGET in Vercel to its daily allowance."
     }
   },
   "devUi": {
@@ -1446,7 +1470,8 @@
       "nudge": "reminder",
       "mention": "mention",
       "feedback": "feedback",
-      "email_change": "new address"
+      "email_change": "new address",
+      "alert": "alert"
     }
   },
   "suggest": {

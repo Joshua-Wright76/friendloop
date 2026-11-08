@@ -8,7 +8,7 @@ import {
   setAccountBlocked,
 } from "../../src/lib/account.ts";
 import { confirmMagicLink, requestMagicLink } from "../../src/lib/auth.ts";
-import { dailySendBudget, flushOutbox, sendEmail, TRANSPORT_HEADER } from "../../src/lib/email/send.ts";
+import { dailySendBudget, flushOutbox, heldMailFor, loopMailHeld, sendEmail, TRANSPORT_HEADER } from "../../src/lib/email/send.ts";
 import { eraseAccount } from "../../src/lib/erasure.ts";
 import { submitFeedback } from "../../src/lib/feedback.ts";
 import { changeMemberEmail, inviteMembers, ownedLoopCount } from "../../src/lib/manage.ts";
@@ -116,6 +116,52 @@ test("loop mail stops short of the daily budget, sign-in links still go, and the
   await rows("update outbox set sent_at = now() - interval '25 hours' where status = 'sent'");
   await flushOutbox();
   assert.equal((await status("prompt:c")).status, "sent");
+});
+
+test("whoever runs the site hears once when loop mail runs low and once when it runs out, and owners see what's waiting", async () => {
+  // 28 a day, 8 of them for loop mail: the warning comes at 6.
+  setEnv("EMAIL_DAILY_BUDGET", "28");
+  setEnv("FEEDBACK_NOTIFY_EMAIL", "admin@friendloop.test");
+  const loop = await seedLoop();
+  realProvider();
+  const alerts = () =>
+    rows<{ dedupe_key: string; to: string; status: string; subject: string }>(
+      "select dedupe_key, \"to\", status, subject from outbox where kind = 'alert' order by created_at",
+    );
+
+  for (let i = 1; i <= 5; i += 1) await mail(`l${i}@friendloop.test`, `prompt:l${i}`, { groupId: loop.groupId });
+  assert.equal((await alerts()).length, 0);
+  assert.equal(await heldMailFor(loop.groupId), 0);
+
+  await mail("l6@friendloop.test", "prompt:l6", { groupId: loop.groupId });
+  const [near] = await alerts();
+  assert.match(near.dedupe_key, /^alert:budget-near:\d{4}-\d{2}-\d{2}$/);
+  assert.equal(near.to, "admin@friendloop.test");
+  assert.equal(near.status, "sent");
+  assert.match(near.subject, /used 6 of today's 8 loop emails/);
+
+  // The alert itself counts, so one more loop email fills the allowance.
+  await mail("l7@friendloop.test", "prompt:l7", { groupId: loop.groupId });
+  assert.equal((await alerts()).length, 1);
+  assert.equal(await loopMailHeld(), true);
+
+  await mail("l8@friendloop.test", "prompt:l8", { groupId: loop.groupId });
+  await mail("l9@friendloop.test", "prompt:l9", { groupId: loop.groupId });
+  await flushOutbox();
+  const all = await alerts();
+  assert.deepEqual(all.map((row) => [row.dedupe_key.split(":")[1], row.status]), [["budget-near", "sent"], ["budget-reached", "sent"]]);
+  assert.equal(await heldMailFor(loop.groupId), 2);
+
+  // Mail only recorded, never sent, is never "waiting" on a budget.
+  clockOnly();
+  assert.equal(await heldMailFor(loop.groupId), 0);
+  realProvider();
+
+  // Without anyone to tell, running low is still just a log line.
+  setEnv("FEEDBACK_NOTIFY_EMAIL", undefined);
+  await rows("delete from outbox where kind = 'alert'");
+  await mail("l10@friendloop.test", "prompt:l10", { groupId: loop.groupId });
+  assert.equal((await alerts()).length, 0);
 });
 
 test("a person's invitations stop at the daily limit, and the rest are reported rather than sent", async () => {

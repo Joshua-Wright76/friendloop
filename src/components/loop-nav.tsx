@@ -5,6 +5,7 @@ import type { ReactNode } from "react";
 import { Cherries } from "@/components/stationery";
 import { LoopSnapshot } from "@/components/loop-theme";
 import { copy, text } from "@/lib/copy";
+import { useLoopData } from "@/app/g/[id]/loop-data";
 
 const ICONS: Record<string, ReactNode> = {
   // One hand: 1.7 stroke, round caps, drawn on a 22 grid.
@@ -33,6 +34,17 @@ type Access = keyof typeof copy.common.roles;
  * wide screen and become a fixed bar on a phone, where every destination stays in
  * view and in the same place.
  */
+/** While the day's email budget is spent, say so: an invite that seems sent but never arrives is worse. */
+function HeldMailNotice() {
+  const { heldEmails } = useLoopData();
+  if (heldEmails === 0) return null;
+  return (
+    <p role="status" className="notice m-0 mt-3 border bg-accent-soft px-4 py-3 text-[14px] leading-relaxed">
+      {text(heldEmails === 1 ? copy.common.heldMail.one : copy.common.heldMail.other, { count: heldEmails })}
+    </p>
+  );
+}
+
 export function LoopNav({ id, name, access, active, nameIsHeading = false, snapshotUrl = null, children }: {
   id: string;
   name: string;
@@ -66,6 +78,7 @@ export function LoopNav({ id, name, access, active, nameIsHeading = false, snaps
           </Link>
         ))}
       </nav>
+      <HeldMailNotice />
       {children ? <div className="loop-head__page">{children}</div> : null}
     </div>
   );

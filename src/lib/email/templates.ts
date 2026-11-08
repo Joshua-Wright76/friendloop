@@ -590,6 +590,18 @@ export function emailChangedEmail(input: { newEmail: string }): RenderedEmail {
 }
 
 /** A note from the corner button, for whoever runs this instance. */
+/** To whoever runs this instance: the day's email is running low, or loop mail is waiting. */
+export function budgetAlertEmail(input: { level: "near" | "reached"; used: number; allowance: number; budget: number }): RenderedEmail {
+  const content = copy.emails.budgetAlert[input.level];
+  const values = { used: input.used, allowance: input.allowance, budget: input.budget };
+  const body = [text(content.body, values), copy.emails.budgetAlert.fix];
+  return {
+    subject: text(content.subject, values),
+    html: layout({ preheader: text(content.subject, values), heading: content.heading, body, footer: copy.emails.signIn.footer }),
+    text: withStopLine(body.join("\n\n"), undefined),
+  };
+}
+
 export function feedbackEmail(input: { message: string; from: string; path: string | null }): RenderedEmail {
   const content = copy.emails.feedback;
   const values = { from: input.from, path: input.path ?? "?" };

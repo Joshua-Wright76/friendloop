@@ -66,8 +66,8 @@ Vercel → Project → Settings → Environment Variables.
 | `SENTRY_DSN` | Optional server/edge override. The Marketplace integration does not set it; the server falls back to `NEXT_PUBLIC_SENTRY_DSN` |
 | `SENTRY_AUTH_TOKEN` | Optional, build-time only; set by the Marketplace integration. Uploads source maps; without it the upload is skipped, never failed |
 | `SENTRY_ORG` / `SENTRY_PROJECT` | Set by the Marketplace integration. Org and project slugs, used with `SENTRY_AUTH_TOKEN` for the source map upload |
-| `EMAIL_DAILY_BUDGET` | Optional: emails per 24 hours, default 100 (Resend's free tier). Loop mail stops 20 short and waits for the sweep |
-| `FEEDBACK_NOTIFY_EMAIL` | Optional: where notes from the feedback button are emailed |
+| `EMAIL_DAILY_BUDGET` | Optional: emails per 24 hours, default 100 (Resend's free tier). Loop mail stops 20 short and waits for the sweep; meanwhile owners see a note on their loop that mail is waiting |
+| `FEEDBACK_NOTIFY_EMAIL` | Optional: where notes from the feedback button are emailed, and the email budget alerts: once a day when loop mail reaches 75% of its allowance, and once when it runs out |
 | `TEST_DATABASE_URL` | Optional: your own throwaway Postgres for e2e and the integration tests (a Neon branch). If unset, both start a local one. |
 
 ## Environments
@@ -362,7 +362,7 @@ without it.
   finds another sweep holding the lock (`busy: true`) records no heartbeat, so a
   stuck lock holder still turns the health check red.
 - **`GET /api/health`** (`Authorization: Bearer $CRON_SECRET`): 200 when the sweep
-  finished within 26 hours and no outbox mail has stayed `pending`/`failed` for 26
+  finished within 2 hours and no outbox mail has stayed `pending`/`failed` for 26
   hours, 503 with counts and ages otherwise. Never names a recipient.
 - **`GET /api/version`**: public, the commit this deployment was built from. After
   each push to `main`, the Verify production deploy workflow waits for it to report
