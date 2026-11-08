@@ -220,17 +220,23 @@ into `skipped_dates` so carry-over doesn't put it back), carry new wording into
 its snapshot unless someone wrote there (the K8 rule), or top the round up from
 the queue. Snapshots never change once anyone has written in them.
 
-**Until the Questions page ships, the old owner tab runs on adapters**
-(`src/lib/manage.ts`, `src/lib/sections.ts`, `src/lib/events.ts`). Its
-"questions" are the written and poll items marked `active`; its "sections" are
-every-round items that aren't (numbered from 1000, so they follow the
-questions); its "dates" are `on_date` items. "Each round asks N" makes the
-loop's questions take turns and "All questions" asks them every round; "Skip
-this round" removes the question from the open round, puts it first in line and
-marks `skip_next` for the list until the next round opens; reordering the list
-reorders the queue, not the open round. `active` keeps one meaning until the
-contract release: "code from before the switch may ask this as a question", so
-a rollback never asks a photo wall.
+**The Questions page shows the round, not the setup** (`src/app/g/[id]/questions/`,
+loaded by `questionsPageOf` in `src/lib/questions-page.ts`, written through
+`src/lib/ask-items.ts`). "This round asks" is the open round's snapshots in their
+own order, edited with the operations above (`addToOpenRound`, `removeSnapshot`,
+`reorderOpenRound`). "Up next" is the queue, the every-round order and the dates;
+each queue row's round comes from `planRounds()` (`src/lib/round-plan.ts`), a pure
+projection: the next round in full, then later rounds until every turn-taker has
+had its turn, at most six. "Each round asks N" sets `questions_per_round` for the
+coming rounds only. One add card creates any item: an every-round item, or a date
+in the open round's days, joins the round at once; a turn-taker waits unless the
+owner asks for it this round too. Stop asking sets `archived_at` and takes the item
+out of the open round unless someone wrote there (nothing takes its place); Ask
+again clears it. Format is fixed once anyone has answered the item. `skip_next` is
+no longer read or written. `active` keeps one meaning until the contract release:
+"code from before the switch may ask this as a question"; it is set for new written
+and poll items not on a date, and only ever narrowed by an edit, so a rollback never
+asks a photo wall.
 
 **The switch (PR B, migration `0023`).** Sections, events, round sections,
 section answers and section photos were copied into the unified tables by one

@@ -1,6 +1,6 @@
 # Questions, unified: design
 
-Status: PR A (expand and tolerate) and PR B (copy and switch) built; C and D not started. PR B's choices that refine this design are recorded in its PR description and in `specs/architecture.md` §13.
+Status: PR A (expand and tolerate), PR B (copy and switch) and PR C (Questions page) built; D not started. PR B's choices that refine this design are recorded in its PR description and in `specs/architecture.md` §13.
 
 ## The idea
 

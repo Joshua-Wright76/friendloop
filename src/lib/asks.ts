@@ -44,10 +44,10 @@ export function askLabel(row: { text: string; emoji: string | null }): string {
 
 /**
  * `questions.active` keeps its old meaning until the contract release: "code from
- * before the switch may ask this as a question". Only written and poll questions
- * that take turns or are asked every round as questions are; sections, dates,
- * photo walls and music picks never are, so a rollback never asks one.
+ * before the switch may ask this as a question". Only written and poll items that
+ * aren't tied to a date are; photo walls, music picks and dates never are, so a
+ * rollback never asks one as a question.
  */
-export function legacyActive(row: { format: AnswerFormat; frequency: AskFrequency; asQuestion: boolean }): boolean {
-  return row.asQuestion && (row.format === "written" || row.format === "poll") && row.frequency !== "on_date";
+export function legacyActive(row: { format: AnswerFormat; frequency: AskFrequency }): boolean {
+  return (row.format === "written" || row.format === "poll") && row.frequency !== "on_date";
 }

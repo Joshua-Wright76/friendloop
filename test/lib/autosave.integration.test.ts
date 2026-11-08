@@ -2,7 +2,7 @@ import { test, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { saveDraftFor, savePhotoFor, savePollChoicesFor } from "../../src/lib/reply.ts";
-import { createSection } from "../../src/lib/sections.ts";
+import { addSection } from "../support/items.ts";
 import { answeredMemberIds } from "../../src/lib/answered.ts";
 import { loadIssue } from "../../src/lib/issue-view.ts";
 import { loadAlbum } from "../../src/lib/album.ts";
@@ -108,7 +108,7 @@ test("progress, the reminder and the owner's nudge count saved answers", async (
 test("a section answer counts as having answered", async () => {
   const { loop, owner, issue } = await openRound();
   // Added while the round is open, so it joins the round people are answering.
-  await createSection({ groupId: loop.groupId, kind: "standard", title: "News", emoji: null, description: null, adminOnly: false, at: new Date() });
+  await addSection({ groupId: loop.groupId, title: "News" });
   const [section] = await rows<{ id: string }>("select id from issue_questions where issue_id = $1 and text = 'News'", [issue.issueId]);
 
   await saveDraftFor({ token: owner.token, issueQuestionId: section.id, body: "We moved." });

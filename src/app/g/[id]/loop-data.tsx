@@ -2,7 +2,7 @@
 
 import { createContext, useContext, type ReactNode } from "react";
 import type { CurrentUser } from "@/lib/auth";
-import type { groups, issues, memberships, questions } from "@/db/schema";
+import type { groups, issues, memberships } from "@/db/schema";
 import type { Deadline } from "@/lib/schedule";
 
 type Group = typeof groups.$inferSelect;
@@ -19,22 +19,7 @@ export type LoopPerson = Pick<Membership,
   suppression: "bounce" | "complaint" | null;
 };
 
-export type LoopQuestion = Pick<typeof questions.$inferSelect,
-  "id" | "text" | "active" | "skipNext" | "position" | "kind" | "pollMultiple" | "pollOptions"
->;
-
-export type LoopSection = {
-  id: string;
-  kind: "standard" | "photo_wall" | "music";
-  title: string;
-  emoji: string | null;
-  description: string | null;
-  adminOnly: boolean;
-  active: boolean;
-  position: number;
-};
-
-export type LoopEvent = import("@/lib/events").EventListItem;
+export type { PageItem, QuestionsPage, RoundItem } from "@/lib/questions-page";
 
 export type LoopSuggestion = {
   id: string;
@@ -53,9 +38,8 @@ export type LoopData = {
   membership: Membership;
   user: CurrentUser;
   people: LoopPerson[];
-  questions: LoopQuestion[];
-  sections: LoopSection[];
-  events: LoopEvent[];
+  /** The Questions page: this round, Up next and what was stopped (docs/questions-unify-design.md). */
+  questionsPage: import("@/lib/questions-page").QuestionsPage;
   suggestions: LoopSuggestion[];
   rounds: LoopRound[];
   openIssue: LoopRound | null;

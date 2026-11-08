@@ -3,7 +3,7 @@ import { db } from "@/db";
 import { musicLinks } from "@/db/schema";
 import { resetDatabase, rows } from "../support/db";
 import { seedLoop } from "../support/seed";
-import { openPart, pickOption, runSweep, signIn } from "../support/harness";
+import { addWithCard, runSweep, signIn } from "../support/harness";
 
 test.beforeEach(async () => {
   await resetDatabase();
@@ -14,10 +14,7 @@ test("K6 · a delivered issue renders a music card that opens the provider", asy
 
   await signIn(page, "owner@friendloop.test");
   await page.goto(`/g/${loop.groupId}/questions`);
-  await openPart(page, "Sections and dates");
-  await page.getByPlaceholder("The potluck corner").fill("Music picks");
-  await pickOption(page, "Kind", "Music, with Spotify, Bandcamp, or Qobuz picks");
-  await page.getByRole("button", { name: "Add section" }).click();
+  await addWithCard(page, { text: "Music picks", format: "Music link", frequency: "Every round" });
   await runSweep(new Date("2026-01-02T08:00:00Z"));
 
   const alice = loop.members.find((member) => member.email.startsWith("alice"))!;

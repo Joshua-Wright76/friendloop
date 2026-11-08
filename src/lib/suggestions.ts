@@ -92,13 +92,13 @@ export async function acceptSuggestion(input: {
   }
 
   // Imported here: round-questions reads suggestion credits from this module.
-  const { fillOpenRound, insertPoolItem, newQuestionFrequency } = await import("./round-questions");
+  const { addToOpenRound, insertPoolItem, newQuestionFrequency } = await import("./round-questions");
+  const frequency = await newQuestionFrequency(input.groupId);
   const questionId = await insertPoolItem({
     groupId: input.groupId,
     text,
     format: "written",
-    frequency: await newQuestionFrequency(input.groupId),
-    asQuestion: true,
+    frequency,
     createdByMembershipId: suggestion.membershipId,
     at: input.at,
   });
@@ -108,8 +108,9 @@ export async function acceptSuggestion(input: {
     .set({ status: "accepted", acceptedQuestionId: questionId, decidedAt: input.at })
     .where(eq(questionSuggestions.id, suggestion.id));
 
-  // Credited from here on, so the open round can take it now.
-  await fillOpenRound(input.groupId);
+  // Credited from here on. Asked every round, it joins the round open now, as any
+  // every-round item does; taking turns, it waits at the back of the queue.
+  if (frequency === "every_round") await addToOpenRound(input.groupId, questionId);
 
   return { ok: true };
 }

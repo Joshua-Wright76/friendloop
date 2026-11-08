@@ -3,7 +3,9 @@ import assert from "node:assert/strict";
 import { and, asc, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { groups, issues, memberships, questions } from "@/db/schema";
-import { createEvent, deleteEvent, eventsOf, placeDatedItems, updateEvent } from "../../src/lib/events.ts";
+import { placeDatedItems } from "../../src/lib/events.ts";
+import { createItem, stopAsking, updateItem, type ItemInput } from "../../src/lib/ask-items.ts";
+import { questionsPageOf } from "../../src/lib/questions-page.ts";
 import { removeMember } from "../../src/lib/manage.ts";
 import { saveDraftFor, sheetFor } from "../../src/lib/reply.ts";
 import { insertPoolItem } from "../../src/lib/round-questions.ts";
@@ -22,6 +24,38 @@ beforeEach(() => {
 // seedLoop: Friday 09:00 Amsterdam, weekly. The first issue opens 2 Jan 2026 and
 // covers 2 Jan through 9 Jan; the second opens on the 9th.
 const BEFORE_ANY_ISSUE = new Date("2026-01-01T12:00:00Z");
+
+type DateForm = { kind: "once" | "birthday"; title: string; emoji: string; date: string; membershipId: string | null };
+
+/** What the add card or a row's editor sends for an item on a date. */
+function dateItem(input: DateForm): ItemInput {
+  return {
+    text: input.title, format: "written", frequency: "on_date", pollOptions: [], pollMultiple: false,
+    emoji: input.emoji, description: "", adminOnly: false,
+    dateKind: input.kind, date: input.date, aboutMembershipId: input.membershipId,
+  };
+}
+
+/** Add a date the way the Questions page's add card does. */
+async function createEvent(input: DateForm & { group: typeof groups.$inferSelect; at: Date }) {
+  const result = await createItem({ group: input.group, item: dateItem(input), thisRound: false, at: input.at });
+  return result.ok ? { ok: true } : result;
+}
+
+/** Save a date's editor; its kind stays what it was. */
+async function updateEvent(input: Omit<DateForm, "kind"> & { eventId: string; group: typeof groups.$inferSelect; at: Date }) {
+  const [existing] = await db.select().from(questions).where(eq(questions.id, input.eventId));
+  const kind = existing?.dateKind === "birthday" ? "birthday" : "once";
+  const result = await updateItem({ group: input.group, questionId: input.eventId, item: dateItem({ ...input, kind }), at: input.at });
+  return result.ok ? { ok: true } : result;
+}
+
+/** The page's "On a date" list for its owner. */
+async function eventsOf(group: Pick<typeof groups.$inferSelect, "id"> & { timezone?: string }, at: Date) {
+  const [full] = await db.select().from(groups).where(eq(groups.id, group.id));
+  const [owner] = await db.select().from(memberships).where(and(eq(memberships.groupId, group.id), eq(memberships.access, "owner")));
+  return (await questionsPageOf({ group: full, viewer: owner, at })).dated;
+}
 
 async function groupOf(groupId: string) {
   const [group] = await db.select().from(groups).where(eq(groups.id, groupId)).limit(1);
@@ -154,7 +188,7 @@ test("with a window shorter than the cadence, a date in the gap still lands in t
   assert.equal(found[0].event_date, "2026-01-13");
 });
 
-test("editing or deleting an event, or renaming the member, never rewrites an issue", async () => {
+test("editing or removing a date, or renaming the member, never rewrites an issue", async () => {
   const loop = await seedLoop();
   await addBirthday(loop, "1990-01-06");
   await sweep({ at: AFTER_FIRST_SLOT });
@@ -176,7 +210,8 @@ test("editing or deleting an event, or renaming the member, never rewrites an is
   assert.equal(found[0].emoji, "🎉");
   assert.equal(found[0].event_date, "2026-01-06");
 
-  await deleteEvent({ groupId: loop.groupId, eventId: event.id });
+  // Its pool row gone altogether (stopping leaves the row; erasure is what deletes one).
+  await db.delete(questions).where(eq(questions.id, event.id));
   found = await eventSections();
   assert.equal(found.length, 1);
   assert.equal(found[0].title, "Alice's birthday");
@@ -303,18 +338,18 @@ test("an event form is checked against the loop", async () => {
   const alice = await aliceOf(loop);
   const base = { kind: "once" as const, emoji: "", membershipId: null, group, at };
 
-  assert.deepEqual(await createEvent({ ...base, title: "Party", date: "soon" }), { ok: false, code: "invalid" });
-  assert.deepEqual(await createEvent({ ...base, title: "Party", date: "2026-02-30" }), { ok: false, code: "invalid" });
-  assert.deepEqual(await createEvent({ ...base, title: "   ", date: "2026-03-01" }), { ok: false, code: "titleRequired" });
-  assert.deepEqual(await createEvent({ ...base, title: "x".repeat(81), date: "2026-03-01" }), { ok: false, code: "titleRequired" });
+  assert.deepEqual(await createEvent({ ...base, title: "Party", date: "soon" }), { ok: false, code: "date" });
+  assert.deepEqual(await createEvent({ ...base, title: "Party", date: "2026-02-30" }), { ok: false, code: "date" });
+  assert.deepEqual(await createEvent({ ...base, title: "   ", date: "2026-03-01" }), { ok: false, code: "text" });
+  assert.deepEqual(await createEvent({ ...base, title: "x".repeat(201), date: "2026-03-01" }), { ok: false, code: "text" });
   assert.deepEqual(await createEvent({ ...base, title: "Party", date: "2025-12-31" }), { ok: false, code: "pastDate" });
   assert.deepEqual(await createEvent({ ...base, title: "Party", date: "2026-01-02" }), { ok: true });
 
   const bday = { ...base, kind: "birthday" as const, title: "" };
-  assert.deepEqual(await createEvent({ ...bday, date: "1990-03-01" }), { ok: false, code: "memberRequired" });
-  assert.deepEqual(await createEvent({ ...bday, date: "1990-03-01", membershipId: other.members[0]?.id ?? other.groupId }), { ok: false, code: "memberRequired" });
+  assert.deepEqual(await createEvent({ ...bday, date: "1990-03-01" }), { ok: false, code: "person" });
+  assert.deepEqual(await createEvent({ ...bday, date: "1990-03-01", membershipId: other.members[0]?.id ?? other.groupId }), { ok: false, code: "person" });
   await removeMember(loop.groupId, alice.id, AFTER_FIRST_SLOT);
-  assert.deepEqual(await createEvent({ ...bday, date: "1990-03-01", membershipId: alice.id }), { ok: false, code: "memberRequired" });
+  assert.deepEqual(await createEvent({ ...bday, date: "1990-03-01", membershipId: alice.id }), { ok: false, code: "person" });
   assert.equal((await datedItems()).length, 1);
 
   // Leap day is a fine birthday.
@@ -335,30 +370,26 @@ test("updating an event keeps its kind and refuses a stranger's event or a bad d
   assert.equal(saved.day, 2);
   assert.equal(saved.dateKind, "once");
 
-  // Only a date is a date: a question of the loop is not edited here.
-  const [question] = await db.select().from(questions).where(eq(questions.frequency, "rotating")).limit(1);
-  assert.deepEqual(await updateEvent({ ...input, eventId: question.id }), { ok: false, code: "invalid" });
-
-  assert.deepEqual(await updateEvent({ ...input, eventId: "00000000-0000-4000-8000-000000000000" }), { ok: false, code: "invalid" });
-  assert.deepEqual(await updateEvent({ ...input, eventId: event.id, date: "nope" }), { ok: false, code: "invalid" });
+  // Another loop's item, or one that is gone, is refused.
+  const other = await seedLoop({ name: "Other", owner: { email: "other@friendloop.test", name: "Olive" }, members: [] });
+  assert.deepEqual(await updateEvent({ ...input, group: await groupOf(other.groupId), eventId: event.id }), { ok: false, code: "gone" });
+  assert.deepEqual(await updateEvent({ ...input, eventId: "00000000-0000-4000-8000-000000000000" }), { ok: false, code: "gone" });
+  assert.deepEqual(await updateEvent({ ...input, eventId: event.id, date: "nope" }), { ok: false, code: "date" });
   // A date that has already passed is fine to keep editing.
   assert.deepEqual(await updateEvent({ ...input, eventId: event.id, date: "2020-01-01" }), { ok: true });
 });
 
-test("deleting an event only works inside its own loop", async () => {
+test("stopping a date only works inside its own loop", async () => {
   const loop = await seedLoop();
   const other = await seedLoop({ name: "Other", owner: { email: "other@friendloop.test", name: "Olive" }, members: [] });
   await createEvent({ kind: "once", title: "Party", emoji: "", date: "2026-03-01", membershipId: null, group: await groupOf(loop.groupId), at: BEFORE_ANY_ISSUE });
   const [event] = await datedItems();
 
-  await deleteEvent({ groupId: other.groupId, eventId: event.id });
-  assert.equal((await datedItems()).length, 1);
-  // A question is not a date, and is not removed as one.
-  const [question] = await db.select().from(questions).where(eq(questions.groupId, loop.groupId)).limit(1);
-  await deleteEvent({ groupId: loop.groupId, eventId: question.id });
-  assert.equal((await db.select().from(questions).where(eq(questions.id, question.id))).length, 1);
-  await deleteEvent({ groupId: loop.groupId, eventId: event.id });
-  assert.equal((await datedItems()).length, 0);
+  assert.equal(await stopAsking(other.groupId, event.id, AFTER_FIRST_SLOT), null);
+  assert.equal((await datedItems())[0].archivedAt, null);
+  assert.equal(await stopAsking(loop.groupId, event.id, AFTER_FIRST_SLOT), "absent", "stopped; it was in no open round");
+  assert.equal(await stopAsking(loop.groupId, event.id, AFTER_FIRST_SLOT), null, "already stopped");
+  assert.deepEqual(await eventsOf({ id: loop.groupId }, AFTER_FIRST_SLOT), []);
 });
 
 test("a birthday row with no person yet to celebrate places nothing", async () => {
@@ -391,7 +422,7 @@ test("the same birthday comes back the next year as a new section in a new issue
 test("several events in one window follow the calendar, after the questions and every-round items", async () => {
   const loop = await seedLoop({ questions: ["Q1"] });
   await insertPoolItem({
-    groupId: loop.groupId, text: "The potluck corner", format: "written", frequency: "every_round", asQuestion: false, at: BEFORE_ANY_ISSUE,
+    groupId: loop.groupId, text: "The potluck corner", format: "written", frequency: "every_round", at: BEFORE_ANY_ISSUE,
   });
   // Added latest-date first on purpose.
   await addBirthday(loop, "1990-01-08", "bob");

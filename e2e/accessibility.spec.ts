@@ -6,7 +6,7 @@ import { groups } from "@/db/schema";
 import { resetDatabase, rows } from "./support/db";
 import { addMember, seedDeliveredIssue, seedLoop, seedOpenIssue } from "./support/seed";
 import { seedPoll, seedPollVote } from "./support/polls";
-import { openPart, pickOption, signIn } from "./support/harness";
+import { pickIn, signIn } from "./support/harness";
 import { seedAlbum } from "./support/album";
 
 const TAGS = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"];
@@ -223,7 +223,7 @@ test("WCAG AA · comments: an open answer thread, the mention list, a quote, lig
   }
 });
 
-test("WCAG AA · events and birthdays: the calendar with an event open for editing, light and dark", async ({ page }) => {
+test("WCAG AA · events and birthdays: a date open for editing and the add card on a date, light and dark", async ({ page }) => {
   test.setTimeout(120_000);
   const loop = await seedLoop();
   const alice = loop.members.find((member) => member.email.startsWith("alice"))!;
@@ -236,11 +236,9 @@ test("WCAG AA · events and birthdays: the calendar with an event open for editi
     if ((await page.locator("html").getAttribute("data-theme")) !== theme) {
       await page.getByRole("button", { name: theme === "light" ? /switch to light mode/ : /switch to dark mode/ }).click();
     }
-    await openPart(page, "Sections and dates");
-    const panel = page.getByRole("region", { name: "Events and birthdays" });
-    await panel.getByText("Edit").first().click();
-    await pickOption(page, "Type of event", "One-time event");
-    await audit(page, `the calendar with an edit form and the one-time form open (${theme})`, false);
+    await page.getByRole("button", { name: /^Edit Alice's birthday/ }).last().click();
+    await pickIn(page.getByRole("region", { name: "Add something to ask" }), page, "How often", "On a date");
+    await audit(page, `the dates with an editor and the add card's date fields open (${theme})`, false);
   }
 });
 

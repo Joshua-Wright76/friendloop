@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { resetDatabase, rows } from "../support/db";
 import { seedLoop } from "../support/seed";
-import { openPart, pickOption, runSweep, signIn } from "../support/harness";
+import { addWithCard, runSweep, signIn } from "../support/harness";
 import { makePng } from "../support/audio";
 
 test.beforeEach(async () => {
@@ -13,10 +13,7 @@ test("K4 · a photo wall takes several photos, captions optional", async ({ page
 
   await signIn(page, "owner@friendloop.test");
   await page.goto(`/g/${loop.groupId}/questions`);
-  await openPart(page, "Sections and dates");
-  await page.getByPlaceholder("The potluck corner").fill("The wall");
-  await pickOption(page, "Kind", "Photo wall, with up to six photos");
-  await page.getByRole("button", { name: "Add section" }).click();
+  await addWithCard(page, { text: "The wall", format: "Photo wall", frequency: "Every round" });
   await runSweep(new Date("2026-01-02T08:00:00Z"));
 
   const alice = loop.members.find((member) => member.email.startsWith("alice"))!;

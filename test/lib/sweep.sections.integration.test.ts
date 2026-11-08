@@ -2,7 +2,7 @@ import { test, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import { Buffer } from "node:buffer";
 import { sweep } from "../../src/lib/sweep.ts";
-import { createSection } from "../../src/lib/sections.ts";
+import { addSection as addItemSection } from "../support/items.ts";
 import { latestOutbox, outboxCount, resetDatabase, rows, seedLoop, seedReplies, setupDatabase } from "../support/app.ts";
 import type { SeededLoop } from "../../e2e/support/seed.ts";
 import { removeWallPhotoFor, saveDraftFor, saveMusicFor, saveWallPhotoFor } from "../../src/lib/reply.ts";
@@ -29,14 +29,12 @@ type Kind = "standard" | "photo_wall" | "music";
 const AFTER_DELIVERY = new Date(DELIVERY_DAY.getTime() + 60000);
 
 async function addSection(loop: SeededLoop, input: { kind?: Kind; title?: string; adminOnly?: boolean } = {}) {
-  const result = await createSection({
+  const result = await addItemSection({
     groupId: loop.groupId,
     kind: input.kind ?? "standard",
     title: input.title ?? "The potluck corner",
     emoji: "🍲",
-    description: null,
     adminOnly: input.adminOnly ?? false,
-    at: new Date(),
   });
   assert.deepEqual(result, { ok: true });
 }

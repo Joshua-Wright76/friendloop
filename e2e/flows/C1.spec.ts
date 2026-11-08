@@ -1,21 +1,128 @@
 import { test, expect } from "@playwright/test";
-import { resetDatabase } from "../support/db";
+import { db } from "@/db";
+import { memberships } from "@/db/schema";
+import { newToken } from "@/lib/tokens";
+import { latestOutbox, resetDatabase, rows } from "../support/db";
 import { seedLoop } from "../support/seed";
-import { signIn } from "../support/harness";
+import { AFTER_FIRST_SLOT, addWithCard, freezeClock, runSweep, signIn } from "../support/harness";
 
 test.beforeEach(async () => {
   await resetDatabase();
 });
 
-test("C1 · a custom question joins the pool at the end", async ({ page }) => {
+const LAUGH = "What made you laugh this week?";
+const AHEAD = "What are you looking forward to?";
+
+async function addReader(groupId: string) {
+  const token = newToken();
+  const [row] = await db
+    .insert(memberships)
+    .values({ groupId, email: "rita@friendloop.test", name: "Rita", participation: "reader", replyToken: token, acceptedAt: new Date("2026-01-01T00:00:00Z") })
+    .returning();
+  return { id: row.id, token };
+}
+
+const thisRound = (page: import("@playwright/test").Page) => page.getByRole("list", { name: "What this round asks, in order" });
+const turns = (page: import("@playwright/test").Page) => page.getByRole("list", { name: "Questions that take turns, in the order rounds ask them" });
+
+test("C1 · one add card adds any kind of item, and each lands where its frequency puts it", async ({ page }) => {
+  const loop = await seedLoop();
+  await runSweep(AFTER_FIRST_SLOT);
+  await signIn(page, "owner@friendloop.test");
+  await freezeClock(page, AFTER_FIRST_SLOT);
+  await page.goto(`/g/${loop.groupId}/questions`);
+  await expect(thisRound(page).locator(":scope > li")).toHaveCount(2);
+
+  // A question that takes turns waits at the back of Up next.
+  await addWithCard(page, { text: "What did you learn this week?" });
+  await expect(page.getByText("Added. It's in Up next.")).toBeVisible();
+  await expect(turns(page).locator(":scope > li").last()).toContainText("What did you learn this week?");
+  await expect(thisRound(page)).not.toContainText("What did you learn this week?");
+
+  // One asked this round too goes last in This round.
+  await addWithCard(page, { text: "Tea or coffee?", format: "Poll", options: ["Tea", "Coffee"], thisRound: true });
+  await expect(page.getByText("Added to this round.")).toBeVisible();
+  await expect(thisRound(page).locator(":scope > li").last()).toContainText("Tea or coffee?");
+
+  // An every-round photo wall joins this round at once, with its emoji and description.
+  await addWithCard(page, { text: "The fridge wall", format: "Photo wall", frequency: "Every round", emoji: "🧲", description: "Whatever's on yours" });
+  await expect(thisRound(page)).toContainText("The fridge wall");
+  await expect(page.getByRole("list", { name: "Asked every round, in order" })).toContainText("Photo wall");
+
+  // A birthday in this round's days joins it too, titled with the person's name.
+  await addWithCard(page, { frequency: "On a date", dateKind: "A birthday, every year", person: "Alice", date: "1990-01-06" });
+  await expect(thisRound(page).locator(":scope > li").last()).toContainText("Alice's birthday");
+  await expect(page.getByRole("list", { name: "Events and birthdays, soonest first" })).toContainText("Tue, Jan 6");
+
+  const stored = await rows<{ text: string; format: string; frequency: string; emoji: string | null; description: string | null }>(
+    "select text, format, frequency, emoji, description from questions where group_id = $1 order by text", [loop.groupId]);
+  expect(stored.map((row) => ({ ...row }))).toEqual([
+    { text: "", format: "written", frequency: "on_date", emoji: null, description: null },
+    { text: "Tea or coffee?", format: "poll", frequency: "rotating", emoji: null, description: null },
+    { text: "The fridge wall", format: "photo_wall", frequency: "every_round", emoji: "🧲", description: "Whatever's on yours" },
+    { text: AHEAD, format: "written", frequency: "rotating", emoji: null, description: null },
+    { text: "What did you learn this week?", format: "written", frequency: "rotating", emoji: null, description: null },
+    { text: LAUGH, format: "written", frequency: "rotating", emoji: null, description: null },
+  ].sort((left, right) => left.text.localeCompare(right.text)));
+  expect(stored.map((row) => row.text)).toEqual([
+    "", "Tea or coffee?", "The fridge wall", AHEAD, "What did you learn this week?", LAUGH,
+  ].sort((left, right) => left.localeCompare(right)));
+  const asked = await rows<{ text: string }>("select text from issue_questions order by position");
+  expect(asked.map((row) => row.text)).toEqual([LAUGH, AHEAD, "Tea or coffee?", "The fridge wall", "Alice's birthday"]);
+});
+
+test("C1 · a refused item says what to fix", async ({ page }) => {
   const loop = await seedLoop();
   await signIn(page, "owner@friendloop.test");
-
+  await freezeClock(page, AFTER_FIRST_SLOT);
   await page.goto(`/g/${loop.groupId}/questions`);
-  await page.getByLabel("New question").fill("What did you learn this week?");
-  await page.getByRole("button", { name: "Add question" }).click();
+  const card = page.getByRole("region", { name: "Add something to ask" });
+  const { fillItem } = await import("../support/harness");
+  await fillItem(page, card, { text: "Last week's party", frequency: "On a date", date: "2025-12-20" });
+  await card.getByRole("button", { name: "Add", exact: true }).click();
+  await expect(page.getByRole("alert").filter({ hasText: "That date has already gone by." })).toBeVisible();
+  expect(await rows("select 1 from questions where frequency = 'on_date'")).toHaveLength(0);
+});
 
-  await expect(page.getByText("Question added.")).toBeVisible();
-  const items = page.locator("ol > li");
-  await expect(items.last()).toContainText("What did you learn this week?");
+test("C1 · every format reaches the round's sheet and issue; readers read but never answer", async ({ page }) => {
+  const loop = await seedLoop();
+  const reader = await addReader(loop.groupId);
+  await signIn(page, "owner@friendloop.test");
+  await page.goto(`/g/${loop.groupId}/questions`);
+  await addWithCard(page, { text: "The potluck corner", frequency: "Every round" });
+
+  await runSweep(new Date("2026-01-02T08:00:00Z"));
+  const alice = loop.members.find((member) => member.email.startsWith("alice"))!;
+  await page.goto(`/r/${alice.token}`);
+  // One list: the every-round item follows the round's turn-takers.
+  const cards = await page.getByRole("heading", { level: 2 }).allInnerTexts();
+  expect(cards.indexOf("The potluck corner")).toBeGreaterThan(cards.indexOf(AHEAD));
+  await page.getByRole("textbox", { name: "The potluck corner" }).fill("Never too many dips.");
+  await page.getByRole("button", { name: "Done", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "All set", exact: true })).toBeVisible();
+
+  await runSweep(new Date("2026-01-09T09:00:00Z"));
+  const [issue] = await rows<{ id: string }>("select id from issues order by number asc limit 1");
+  await page.goto(`/i/${issue.id}?m=${alice.token}`);
+  await expect(page.getByText("Never too many dips.")).toBeVisible();
+  await page.goto(`/i/${issue.id}?m=${reader.token}`);
+  await expect(page.getByText("Never too many dips.")).toBeVisible();
+  const email = await latestOutbox("delivery:");
+  expect(email.html).toContain("The potluck corner");
+});
+
+test("C1 · a round that holds only every-round items still sends every contributor its prompt", async () => {
+  const loop = await seedLoop({ questions: [] });
+  await addReader(loop.groupId);
+  await rows("insert into sections (group_id, kind, title, emoji) values ($1, 'photo_wall', 'Photo wall', '📸')", [loop.groupId]);
+
+  await runSweep(new Date("2026-01-02T08:00:00Z"));
+  const prompts = await rows<{ to: string; subject: string; text: string }>(
+    "select \"to\", subject, text from outbox where kind = 'prompt' order by \"to\"",
+  );
+  expect(prompts.map((row) => row.to)).toEqual(["alice@friendloop.test", "bob@friendloop.test", "owner@friendloop.test"]);
+  for (const prompt of prompts) {
+    expect(prompt.subject).toContain("1 question for Friday Loop");
+    expect(prompt.text).toContain("- 📸 Photo wall");
+  }
 });

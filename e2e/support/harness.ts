@@ -1,4 +1,4 @@
-import { expect, type Page } from "@playwright/test";
+import { expect, type Locator, type Page } from "@playwright/test";
 import { latestOutbox, linkFrom } from "./db";
 import { AFTER_FIRST_SLOT, BEFORE_FIRST_SLOT, DAY, DELIVERY_DAY, E2E_NOW, HOUR } from "./clock";
 
@@ -125,9 +125,78 @@ export async function openPart(page: Page, name: string): Promise<void> {
   }).toPass();
 }
 
-/** Open a question or section row's "More" menu, where its less common actions live. */
-export async function openRowMenu(page: Page, row?: string | RegExp): Promise<void> {
-  const summary = page.getByLabel(row ?? /^More for: /).first();
+/** Choose an option in a picker inside `scope`, for when the page holds more than one with that name. */
+export async function pickIn(scope: Locator, page: Page, triggerLabel: string, option: string): Promise<void> {
+  const label = triggerLabel.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  await scope.getByRole("button", { name: new RegExp(`^${label}:`) }).click();
+  const sheet = page.locator(".picker-sheet");
+  const list = (await sheet.count()) > 0 ? sheet : page.locator(".picker-popover");
+  await list.getByRole("option", { name: option, exact: true }).click();
+}
+
+export type CardItem = {
+  text?: string;
+  format?: "Written" | "Poll" | "Photo wall" | "Music link";
+  frequency?: "Takes turns" | "Every round" | "On a date";
+  dateKind?: "A one-time event" | "A birthday, every year";
+  person?: string;
+  date?: string;
+  options?: string[];
+  multiple?: boolean;
+  emoji?: string;
+  description?: string;
+  adminOnly?: boolean;
+  thisRound?: boolean;
+};
+
+/** The Questions page's one add card. */
+export function addCard(page: Page): Locator {
+  return page.getByRole("region", { name: "Add something to ask" });
+}
+
+/** Fill the item fields in `scope` (the add card, or an open row's editor). */
+export async function fillItem(page: Page, scope: Locator, item: CardItem): Promise<void> {
+  if (item.format) await pickIn(scope, page, "Answer with", item.format);
+  if (item.frequency) await pickIn(scope, page, "How often", item.frequency);
+  if (item.dateKind) await pickIn(scope, page, "Which kind of date", item.dateKind);
+  if (item.person) await pickIn(scope, page, "Whose birthday?", item.person);
+  if (item.text !== undefined) await scope.getByLabel(/^What to ask/).fill(item.text);
+  if (item.date) await scope.getByLabel(/^Date/).fill(item.date);
+  for (const [index, option] of (item.options ?? []).entries()) {
+    if (index >= 2 && (await scope.getByLabel(`Option ${index + 1}`).count()) === 0) await scope.getByRole("button", { name: "Add option" }).click();
+    await scope.getByLabel(new RegExp(`^Option ${index + 1}\\b`)).fill(option);
+  }
+  if (item.multiple) await scope.getByLabel("People can pick more than one").check();
+  if (item.emoji !== undefined || item.description !== undefined || item.adminOnly !== undefined) {
+    await unfoldIn(scope, "Emoji, description and who answers");
+    if (item.emoji !== undefined) await scope.getByLabel("Emoji").fill(item.emoji);
+    if (item.description !== undefined) await scope.getByLabel("Description").fill(item.description);
+    if (item.adminOnly !== undefined) await scope.getByLabel("Owner and admins only").setChecked(item.adminOnly);
+  }
+}
+
+/** Add an item with the add card and wait for the page to say so. */
+export async function addWithCard(page: Page, item: CardItem): Promise<void> {
+  const card = addCard(page);
+  await fillItem(page, card, item);
+  if (item.thisRound !== undefined) await card.getByLabel("Ask it this round too").setChecked(item.thisRound);
+  await card.getByRole("button", { name: "Add", exact: true }).click();
+  await expect(page.getByRole("status").filter({ hasText: /^Added/ })).toBeVisible();
+}
+
+/** Open a row's editor in place (the first row with that label, in This round or Up next). */
+export async function openItem(page: Page, label: string, nth = 0): Promise<Locator> {
+  // A row's button is named by what it shows, after "Edit": its words, then its tags.
+  const words = label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const toggle = page.getByRole("button", { name: new RegExp(`^Edit ${words}(\\s|$)`) }).nth(nth);
+  if ((await toggle.getAttribute("aria-expanded")) !== "true") await toggle.click();
+  await expect(toggle).toHaveAttribute("aria-expanded", "true");
+  return toggle.locator("xpath=ancestor::li[1]");
+}
+
+/** Open the folded details with this summary text inside `scope`, unless it is already open. */
+export async function unfoldIn(scope: Locator, summaryText: string | RegExp): Promise<void> {
+  const summary = scope.locator("summary").filter({ hasText: summaryText }).first();
   const details = summary.locator("xpath=ancestor::details[1]");
   if ((await details.getAttribute("open")) === null) await summary.click();
   await expect(details).toHaveAttribute("open", "");

@@ -44,12 +44,13 @@ Status: `todo` (not built) · `done` (built and covered).
 
 | ID | Flow | Acceptance criteria | Status |
 | --- | --- | --- | --- |
-| C1 | Add a custom question | A new question appears at the end of the list and joins the round that is open when that round has room for it (every round, in a loop that asks every question); otherwise it waits its turn in the queue. | done |
-| C2 | Reorder questions | The list is the queue: moving a question changes the order shown and the order coming rounds take their turns in. The round already open keeps its own order. | done |
-| C3 | Archive a question | Archiving stops asking it: it leaves the list and the open round (unless someone has written there), and the next in line takes its place, while past issues still render its original text. | done |
-| C4 | Choose the open round's questions | Skipping a question takes it out of the round that is open (unless someone has started answering it) and puts it first in line for the next round; the question stays in the list, and the next round asks it again. | done |
-| C5 | Rotate questions | Setting a count of two takes questions 1–2, then 3–4, then wraps to 5 and 1: each round takes the front of the queue and sends what it took to the back. "Send now" opens the next round the same way, while "All questions" asks every question each round. | done |
-| C6 | Add questions from packs | The library is browsable by pack; several packs can be filtered at once, questions can be picked across them or added a whole pack at a time, and questions already in the pool are skipped. | done |
+| C1 | Add anything to ask | One add card on the Questions page adds a written question, a poll, a photo wall or a music link, asked in turns, every round, or on a date (a one-time event, or a birthday tied to a member), with an optional emoji, description and owners-only flag. A turn-taker waits at the back of Up next unless "Ask it this round too" is ticked (then it goes last in This round); an every-round item, or a date in the open round's days, joins This round at once. The reply sheet then shows the round as one list with one jump list; readers see every item in the delivered issue but are never asked to reply; the prompt counts and lists every item, so a round holding only every-round items still sends every contributor its prompt; a refused item (a date gone by, a poll with fewer than two different options) says what to fix. | done |
+| C2 | Reorder the queue | Up next lists the turn-takers in the order coming rounds ask them. Moving one by its grip (dragging it, tapping the grip for Up and Down, or with the keyboard: Space or Enter to pick it up, arrows, Space or Enter to set it down) saves the new order, keeps focus on the moved control, and updates the round shown on each row; every-round items reorder among themselves the same way. This round keeps its own order. | done |
+| C3 | Stop asking | Stop asking (after a confirmation) takes an item out of Up next, and out of This round unless someone has written there; it folds into "Stopped", where Ask again brings it back to the back of the queue (an every-round item to This round too); past issues still render it as it was asked. | done |
+| C4 | Edit this round | "This round asks" leads the page with the open round's items in its order, edited directly: the bin removes one (a turn-taker goes first in line for the next round, a date taken out stays out when the round is carried over), a row someone wrote in names them instead and stays, the grips reorder this round only, "Add to this round" opens the add card asking for this round, a row from Up next can be asked this round too, and a row opens in place to edit it: new words reach this round unless someone has written there, in which case it keeps the words they answered and the next round asks the new ones. A paused loop says plainly that changes apply when it resumes. | done |
+| C5 | Rotate questions | "Each round asks N of the questions that take turns", in Up next, sets how many turn-takers each coming round asks: a count of two takes questions 1–2, then 3–4, then wraps to 5 and 1, each round taking the front of the queue and sending what it took to the back; "All" asks every turn-taker each round. "Send now" opens the next round the same way, and the round already open stays as it is. | done |
+| C6 | Add questions from packs | Folded under the add card, the library is browsable by pack; several packs can be filtered at once, questions can be picked across them or added a whole pack at a time, and questions the loop already asks are skipped. They take turns, or are asked every round in a loop where nothing takes turns. | done |
+| C7 | Up next | Up next shows the rounds to come: each turn-taker tagged with the round that next asks it and that round's date (the next round in full, then later ones until every turn-taker has had its turn, at most six), then the items asked every round, then events and birthdays with their next date and the round that catches them. A member sees This round and Up next without owners-only items, dates, stopped items or any control. | done |
 
 ## D · The issue cycle
 
@@ -113,20 +114,17 @@ Status: `todo` (not built) · `done` (built and covered).
 | I3 | Suggested question in an issue | When an accepted suggestion is selected for an issue, the delivered issue credits it ("asked by Maya") unless the author chose anonymity; past issues keep their original credit. | done |
 | I4 | Readers are walled off | A reader has no suggest link, and a suggest URL reached by a reader (or a revoked token) shows the standard no-access screen with no data leak. | done |
 
-## K · Sections (and music picks)
+## K · Answer formats
 
-Sections are items asked every round in the one list of things to ask (`specs/architecture.md` §13), still managed on the "Sections and dates" tab until the Questions page replaces it. A standard section is a written item (text, one photo, a voice note); photo walls and music picks are their own answer formats.
+What were sections are items asked every round in the one list of things to ask (`specs/architecture.md` §13), added and edited on the Questions page like any other (C1, C4). A written item takes text, one photo and a voice note; photo walls and music picks are their own answer formats, and any item can be owners-only.
 
 | ID | Flow | Acceptance criteria | Status |
 | --- | --- | --- | --- |
-| K1 | Manage sections | Owner creates, edits, reorders, and archives sections; a new section joins the open round, an archived one leaves future rounds (and the open round, unless someone wrote there) while past issues keep their snapshot. | done |
-| K2 | Sections reach an issue | A round opens with its questions, then every section, then its dated items, as one list; the reply sheet shows them in that order as one list with one jump list; readers see them in the delivered issue but are never asked to reply. The prompt counts and lists each section (an event too) as one more thing asked, so a round that holds only sections still sends every contributor its prompt, and a delivery email's "next round" list names them too. | done |
-| K3 | Standard section reply | Contributors answer a Standard section on a written card: text and one photo (and a voice note), under the same media rules and caps as any answer. A sheet loaded before the switch still saves through its old section endpoints. | done |
+| K3 | Written item reply | Contributors answer a written item asked every round (a former standard section) on a written card: text and one photo (and a voice note), under the same media rules and caps as any answer. A sheet loaded before the switch still saves through its old section endpoints. | done |
 | K4 | Photo wall reply | Contributors add up to six photos to a photo wall, each with an optional one-line caption; the delivered issue lays them edge-to-edge, each with its author and any caption, and tapping one opens it full size in the same viewer as the Album (previous/next, Escape returns focus) with a Download button. Each person's photos take reactions and comments, on past photo walls too. | done |
-| K5 | Paste a music link | A music section accepts a Spotify, Bandcamp, or Qobuz link, with an optional caption; a non-music URL gets the plain-language error and nothing is saved until it is fixed or cleared. | done |
+| K5 | Paste a music link | A music-link item accepts a Spotify, Bandcamp, or Qobuz link, with an optional caption; a non-music URL gets the plain-language error and nothing is saved until it is fixed or cleared. | done |
 | K6 | Music renders | The delivered web issue renders every music pick as a card (artwork when the metadata provides it, title, provider badge) that opens the provider page, and it takes reactions and comments like any answer; the delivery email renders title + link. Playable Spotify/Bandcamp embeds are stretch. | done |
-| K7 | Admin-only sections | A section can be restricted to owner/admin contributors; other members don't see it on the sheet, in prompts (nor in their count), in a delivery email, or in the delivered issue, and can't react to or comment on its answers. | done |
-| K8 | Sections follow the open round | Editing a section while a round is open changes that round, unless someone has started writing in it, in which case it keeps the words they answered; the next round carries the new wording. | done |
+| K7 | Owners-only items | Any item can be restricted to owner/admin contributors; other members don't see it on the sheet, in prompts (nor in their count), in a delivery email, or in the delivered issue, and can't react to or comment on its answers. | done |
 
 ## J · Voice replies
 
@@ -143,7 +141,7 @@ Sections are items asked every round in the one list of things to ask (`specs/ar
 
 | ID | Flow | Acceptance criteria | Status |
 | --- | --- | --- | --- |
-| L1 | Author a poll | Owner adds a poll question (prompt, two to six options, single or multiple choice) from the questions tab; it appears in the pool labelled as a poll with its options, and can be reordered, archived, and rotated like any question. The next issue freezes its options. | done |
+| L1 | Author a poll | Owner adds a poll question (prompt, two to six options, single or multiple choice) with the Questions page's add card; it appears in Up next labelled as a poll with its options, and moves, stops and takes turns like any question. The next issue freezes its options. | done |
 | L2 | Answer a poll | A contributor picks one option (or several, on a multiple-choice poll) on the reply sheet and can change or clear the pick until delivery. The tally is never shown before delivery: not on the sheet, and not on the web issue, where only the viewer's own pick appears. | done |
 | L3 | Read a poll | The delivered issue shows every member's pick next to their name with a total tally; share-link visitors see the same, and the delivery email carries the picks and the results. | done |
 
@@ -172,10 +170,10 @@ Sections are items asked every round in the one list of things to ask (`specs/ar
 
 | ID | Flow | Acceptance criteria | Status |
 | --- | --- | --- | --- |
-| O1 | Add an event | The owner or an admin adds a one-time event (title, emoji, date) or an annual birthday tied to a member (emoji, date; the year is ignored); it lists under "Coming up" soonest first with its next date, can be edited or removed, and a date already gone by is refused with a plain message. Members never see the calendar. | done |
-| O2 | Event lands in the right round | The sweep puts an event whose local date falls in a round's window into that round as a card titled with the event (or "Maya's birthday"), after the round's questions and sections; contributors other than the birthday person see it on the sheet, reply with a message and a photo, and it travels in the delivery email and on the web issue. An event outside the window is left for the round that holds it. | done |
+| O1 | Add an event | The owner or an admin adds, with the add card asked "On a date", a one-time event (title, emoji, date) or an annual birthday tied to a member (emoji, date; the year is ignored); it lists under Up next's "On a date" soonest first with its next date, can be edited in place or stopped, and a date already gone by is refused with a plain message. Members never see the dates. | done |
+| O2 | Event lands in the right round | The sweep puts an event whose local date falls in a round's window into that round as a card titled with the event (or "Maya's birthday"), after the round's turn-takers and every-round items; contributors other than the birthday person see it on the sheet, reply with a message and a photo, and it travels in the delivery email and on the web issue. An event outside the window is left for the round that holds it. | done |
 | O3 | Birthdays recur | A birthday places exactly one card per year, in the one round whose window holds the date (loop timezone), however many rounds open around it or however often the sweep runs; a window shorter than the cadence still catches a date between two rounds, a window crossing New Year catches both sides, and 29 February keeps to 28 February in years without one. | done |
-| O4 | Past truth | A round keeps the title, emoji and place of the event card it was given even if the event is later edited or deleted or the member is renamed; replies already written stay with it. | done |
+| O4 | Past truth | A round keeps the title, emoji and place of the event card it was given even if the event is later edited or stopped or the member is renamed; replies already written stay with it. | done |
 
 ## P · The Album
 
