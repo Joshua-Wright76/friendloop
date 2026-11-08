@@ -325,10 +325,10 @@ test("the preview seeds one loop, and can rebuild it from scratch", async () => 
   // Tables with no natural unique key (section_media) must not grow per visit.
   const media = async () =>
     (await rows<{ count: number }>("select count(*)::int as count from section_media"))[0].count;
-  assert.equal(await media(), 2);
+  assert.equal(await media(), 3);
 
   await enableUiPreview(true);
-  assert.equal(await media(), 2);
+  assert.equal(await media(), 3);
   assert.equal((await rows<{ count: number }>("select count(*)::int as count from groups"))[0].count, 1);
   assert.equal((await rows<{ count: number }>("select count(*)::int as count from memberships"))[0].count, 3, "Alex, Alice, and Sam");
 });
