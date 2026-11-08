@@ -772,7 +772,7 @@
       "inThisRound": "In this round"
     },
     "item": {
-      "editLabel": "Edit {item}",
+      "editPrefix": "Edit",
       "textLabel": "What to ask",
       "textPlaceholder": "What did you learn this week?",
       "formatLabel": "Answer with",

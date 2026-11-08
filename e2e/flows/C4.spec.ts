@@ -41,8 +41,8 @@ test("C4 · the owner edits this round directly: remove, reorder, add, and rewor
   // And one from Up next, asked now too.
   const q4 = await openItem(page, "Q4");
   await q4.getByRole("button", { name: "Ask this round too: Q4" }).click();
+  await expect.poll(asked).toEqual(["Q1", "The potluck corner", "Q4"]);
   await expect(page.getByText("Added to this round.")).toBeVisible();
-  expect(await asked()).toEqual(["Q1", "The potluck corner", "Q4"]);
 
   // Reordered by the grip: this round only.
   await page.getByRole("button", { name: "Move: Q4" }).first().click();

@@ -186,7 +186,9 @@ export async function addWithCard(page: Page, item: CardItem): Promise<void> {
 
 /** Open a row's editor in place (the first row with that label, in This round or Up next). */
 export async function openItem(page: Page, label: string, nth = 0): Promise<Locator> {
-  const toggle = page.getByRole("button", { name: `Edit ${label}`, exact: true }).nth(nth);
+  // A row's button is named by what it shows, after "Edit": its words, then its tags.
+  const words = label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const toggle = page.getByRole("button", { name: new RegExp(`^Edit ${words}(\\s|$)`) }).nth(nth);
   if ((await toggle.getAttribute("aria-expanded")) !== "true") await toggle.click();
   await expect(toggle).toHaveAttribute("aria-expanded", "true");
   return toggle.locator("xpath=ancestor::li[1]");

@@ -185,9 +185,9 @@ function ThisRound({ everything, manages, onAdd }: { everything: PageItem[]; man
                         type="button"
                         className="item-row item-row--button"
                         aria-expanded={editing === row.id}
-                        aria-label={text(copy.questions.item.editLabel, { item: row.text })}
                         onClick={() => setEditing((current) => (current === row.id ? null : row.id))}
                       >
+                        <span className="sr-only">{copy.questions.item.editPrefix} </span>
                         {content}
                       </button>
                     ) : (

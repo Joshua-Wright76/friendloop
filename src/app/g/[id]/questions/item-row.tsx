@@ -70,9 +70,10 @@ export function ItemRow({ item, groupId, number, tag, inThisRound, manages, poll
         className="item-row item-row--button"
         aria-expanded={open}
         aria-controls={editorId}
-        aria-label={text(copy.questions.item.editLabel, { item: item.label })}
         onClick={() => setOpen((current) => !current)}
       >
+        {/* Named by what it shows (WCAG 2.5.3), after a word that says what tapping does. */}
+        <span className="sr-only">{copy.questions.item.editPrefix} </span>
         {body}
         <svg viewBox="0 0 20 20" aria-hidden="true" className="item-chevron">
           <path d="M5 7.5 10 12.5 15 7.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />

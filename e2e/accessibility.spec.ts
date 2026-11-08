@@ -236,7 +236,7 @@ test("WCAG AA · events and birthdays: a date open for editing and the add card 
     if ((await page.locator("html").getAttribute("data-theme")) !== theme) {
       await page.getByRole("button", { name: theme === "light" ? /switch to light mode/ : /switch to dark mode/ }).click();
     }
-    await page.getByRole("button", { name: "Edit Alice's birthday" }).last().click();
+    await page.getByRole("button", { name: /^Edit Alice's birthday/ }).last().click();
     await pickIn(page.getByRole("region", { name: "Add something to ask" }), page, "How often", "On a date");
     await audit(page, `the dates with an editor and the add card's date fields open (${theme})`, false);
   }
