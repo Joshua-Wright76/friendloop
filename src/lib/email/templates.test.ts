@@ -133,7 +133,9 @@ test("every pattern tile email can ask for has been rendered", () => {
   for (const tile of emailPatternTiles()) {
     assert.ok(existsSync(path.join(process.cwd(), "public", tile.path)), `${tile.path}: run node scripts/render-email-patterns.mjs`);
   }
-  assert.equal(readdirSync(path.join(process.cwd(), "public/patterns/email")).length, emailPatternTiles().length);
+  // No stray tiles either: the folder holds exactly what email can ask for (other files, like .DS_Store, aside).
+  const pngs = readdirSync(path.join(process.cwd(), "public/patterns/email")).filter((file) => file.endsWith(".png"));
+  assert.equal(pngs.length, emailPatternTiles().length);
 });
 
 test("a header picture sits above the brand line, decorative and escaped", () => {
