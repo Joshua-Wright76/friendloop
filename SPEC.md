@@ -34,11 +34,11 @@ a week, without anyone having to schedule a call or remember to write.
 
 Friendloop is a private group newsletter. A loop asks everyone a small set of
 questions on a recurring schedule, collects each person's answers privately
-through a link in their email, and compiles them into a shared issue that is
+through a link in their email, and compiles them into a round that is
 delivered back to the whole group.
 
 Success is a loop that keeps running: prompts go out on time, most people answer,
-and the issue is something people are glad to read. It exists because the group
+and each round is something people are glad to read. It exists because the group
 asked for it, it is meant to be genuinely nice to use, and it is free to run.
 
 ## Positioning
@@ -59,7 +59,7 @@ attributed to a person the group already knows.
   so there is always one to answer.
 - Members live in different timezones; every deadline is shown in the loop's time
   and the reader's own.
-- Email is the entire delivery surface: prompts, reminders, issues, and sign-in
+- Email is the entire delivery surface: prompts, reminders, delivered rounds, and sign-in
   links all arrive by mail from one sender address with the loop's display name.
 
 ## Capabilities and Constraints
@@ -75,14 +75,14 @@ Confirmed for v1:
   require a signed-in session.
 - Question pool: a preset bank plus custom questions written by the owner.
 - One photo per reply.
-- Delivered issues have comments and reactions. Comments can be hung from a single answer, quote another comment, carry one photo, and @mention any member (readers included, who get an email). The owner can turn commenting off for the loop; nothing is deleted.
-- Polls are a kind of question: two to six options, single or multiple choice. Contributors tap to answer, and the tally appears only once the issue is delivered.
-- A delivered issue can be shared by secret link, off by default.
+- Delivered rounds have comments and reactions. Comments can be hung from a single answer, quote another comment, carry one photo, and @mention any member (readers included, who get an email). The owner can turn commenting off for the loop; nothing is deleted.
+- Polls are a kind of question: two to six options, single or multiple choice. Contributors tap to answer, and the tally appears only once the round is delivered.
+- A delivered round can be shared by secret link, off by default.
 - Weekly, biweekly, monthly or quarterly cadence, per-loop timezone. Answering is
   open the whole time between deliveries.
-- Nobody misses the window: a round is open right up to its delivery, the next one
+- Nobody misses out: a round is open right up to its delivery, the next one
   opens as it goes out, and a round with nothing in it carries over rather than
-  going out empty. The web issue is canonical while the email is a snapshot.
+  going out empty. The round's web page is canonical while the email is a snapshot.
 - Runs on free tiers: Vercel Hobby, Neon, Resend.
 
 Explicitly undecided: whether a loop can be public/discoverable, native apps,
@@ -90,8 +90,11 @@ member-suggested questions.
 
 ## Brand Commitments
 
-- The name is Friendloop. The loop is the unit; issues are "issues" because the
-  group already says that.
+- The name is Friendloop. The loop is the unit, and each time it asks and delivers
+  is a **round**: "Round 8" on every page and in every email, never "issue". One
+  thing has one name (the group chose "round" in November 2026). Where "round"
+  would read oddly, rephrase ("everyone gets the round", "when it goes out").
+  Code, tables and routes still say `issue`; that never reaches a person.
 - The voice is warm, plain, and a little playful. It reads like a note from a
   friend, never like SaaS. Exclamation marks are rare, emoji are rare and earned.
 - Nothing about the product should feel like work software: no streaks, no
@@ -161,12 +164,12 @@ be wrong most of the time.
 
 Instead every run of `/api/cron/sweep` reconciles state:
 
-1. For any `open` issue past `deliversAt` (in a loop that isn't paused), deliver
+1. For any `open` round past `deliversAt` (in a loop that isn't paused), deliver
    it and open the next round in the same step; the delivery email carries the
-   new round's questions. An issue with nothing in it moves its `deliversAt` to
+   new round's questions. A round with nothing in it moves its `deliversAt` to
    the next slot instead, and on its third empty delivery is `skipped` and pauses
    the loop.
-2. For any running loop with no open issue, open one due at the next slot and
+2. For any running loop with no open round, open one due at the next slot and
    queue the prompt emails. (Creating a loop and resuming one open it directly.)
 3. Remind contributors who owe an answer 48 hours before `deliversAt`.
 4. Retry `outbox` rows still `pending`.
@@ -183,10 +186,10 @@ run self-heals and a doubled run is a no-op. Triggers:
 ## 3 · Schedules are local wall-clock, resolved on demand
 
 A loop stores `timezone`, `prompt_weekday`, `prompt_hour`, `cadence_weeks`: the
-moment its issue goes out (the `prompt_*` names are left from when they opened a
+moment its round goes out (the `prompt_*` names are left from when they opened a
 round). It never stores a precomputed future instant, because a DST transition
 would silently shift it. Instants are resolved with `Temporal.ZonedDateTime` from
-`temporal-polyfill` at the moment they are needed, and only the open issue keeps a
+`temporal-polyfill` at the moment they are needed, and only the open round keeps a
 frozen `slot_at`/`delivers_at`.
 
 A round runs from one delivery to the next: `opens_at` is when the previous one
@@ -223,14 +226,14 @@ is a POST (server action or route handler) behind a confirm.
 Delivery compiles every answer in the round into (a) an email and (b) a live page;
 comments and reactions live on the page. An answer is whatever someone has saved
 that isn't empty (§24): there is no send step, so a person who writes and closes the
-tab is in. The reply link only ever reaches the round that is open, so once an issue
+tab is in. The reply link only ever reaches the round that is open, so once a round
 goes out the link moves on to the next one, and a delivered round takes no more
 writes (a paused loop's link reaches none). Answers marked "added later"
 (`added_after_delivery`) are history from before that rule and are still shown;
 nothing writes the flag any more. The "missed it by three hours" failure mode is
 removed by there always being a round to answer, not by timezone cleverness.
 
-An issue with no answers in it (nothing written, or only answers cleared back to
+A round with no answers in it (nothing written, or only answers cleared back to
 nothing) is carried over to the next delivery; on its third empty delivery it is
 `skipped`, not sent, and pauses the loop.
 
@@ -290,7 +293,7 @@ answer to be in the round (§24). The old `submit` action is still accepted from
 sheet loaded before that, checks the link and changes nothing. A Server Action would
 work, but a reader or a removed member has to be refused with a real HTTP
 status, and a status is the only thing a test can assert on directly. The same rule
-covers the issue view: reactions are Server Actions because they are only ever
+covers the round view: reactions are Server Actions because they are only ever
 reachable from a page that already resolved who you are. Comments are a route
 handler (`POST /api/issue/<id>/comments`, multipart) for the same reason replies
 are: they carry a photo, and a refusal should be a real status. See §15.
@@ -308,7 +311,7 @@ An invitation is just the first email a membership gets. A reply link is a stand
 credential for someone in the loop, from the day they are added until they are
 removed (`revoked_at`); nothing about it ages. An earlier version let an unopened
 invitation lapse after 14 days while the same person kept receiving every prompt,
-reminder and issue, which taught people an "accepted" state they could not see and
+reminder and delivery, which taught people an "accepted" state they could not see and
 readers could never reach. `accepted_at` survives only as "has answered or signed in
 at least once": the people tab uses it for a quiet "Hasn't answered yet" on a
 contributor, and a handover requires it. "Resend invite" re-sends the same link, and
@@ -356,7 +359,7 @@ Status: `todo` (not built) · `done` (built and covered).
 | B1 | Create a loop | Owner picks name, cadence, timezone and hour; the loop is created with them as owner+contributor, and lands on the loop dashboard. | done |
 | B2 | Pick starting questions | During creation the owner selects at least one question from the preset bank; those questions exist on the loop in the chosen order. | done |
 | B3 | Invite several members | Pasting three addresses creates three memberships with distinct reply tokens and three `invite` rows in the outbox; each email names the loop and contains that member's own link. | done |
-| B4 | Accept an invitation | A contributor opening their invite link lands on the reply form for the current issue with their name shown, without signing in. | done |
+| B4 | Open an invite link | A contributor opening their invite link lands on the reply form for the current round with their name shown, without signing in. | done |
 | B5 | Resend an invitation | Resending re-sends the same link to someone who has not answered or signed in yet, does not rotate the token, and does not create a duplicate membership. | done |
 | B6 | Links never expire | A reply link works for as long as its membership is not removed: one sent months ago and never opened still opens the sheet and saves an answer, which counts as having joined. Removing the person is what ends it ("this link doesn't work anymore"). The people tab shows no invitation state: a contributor who has never answered or signed in reads "Hasn't answered yet", a reader shows nothing, and "Resend invite" sends the same link again. | done |
 | B9 | Invite to answer or to read | The invite form on the people tab, and the new-loop wizard's people step, ask how the people take part: "Answer and read" (the default) or "Just read". A reader's membership is created as a reader and their invitation says "Have a look" with nothing to answer, never "Answer the first round"; on the people tab they show as "Reads only" with no "Hasn't answered yet". | done |
@@ -367,21 +370,21 @@ Status: `todo` (not built) · `done` (built and covered).
 | --- | --- | --- | --- |
 | C1 | Add anything to ask | One add card adds a written question, poll, photo wall or music link, taking turns, every round or on a date; a turn-taker waits in Up next unless asked this round too, while an every-round item or a date in this round's days joins the open round at once. | done |
 | C2 | Reorder the queue | Moving a turn-taker in Up next (drag, tap for Up and Down, or keyboard) changes the order coming rounds ask them; the open round keeps its own order. | done |
-| C3 | Stop asking | Stop asking takes an item out of Up next and, unless someone wrote there, the open round; Ask again brings it back, and past issues still render its original text. | done |
+| C3 | Stop asking | Stop asking takes an item out of Up next and, unless someone wrote there, the open round; Ask again brings it back, and past rounds still render its original text. | done |
 | C4 | Edit this round | The open round's items are edited directly: removed (a turn-taker goes first in line for the next round), reordered, added to, and reworded in place unless someone has written there. | done |
 
-## D · The issue cycle
+## D · The round cycle
 
 | ID | Flow | Acceptance criteria | Status |
 | --- | --- | --- | --- |
-| D1 | Always a round open | A running loop without an open issue gets one at once from the sweep, due at the next delivery, with one `prompt` outbox row per contributor; creating a loop opens round 1 the same way. | done |
+| D1 | Always a round open | A running loop without an open round gets one at once from the sweep, due at the next delivery, with one `prompt` outbox row per contributor; creating a loop opens round 1 the same way. | done |
 | D2 | Do not open twice | A second sweep, or two at once, opens no second round and sends no duplicate email. | done |
 | D3 | Send now | "Send now" delivers the open round with the answers in so far, opens the next round straight away, and that round is due at the delivery after the one it replaced. With nothing in the round it sends nothing. | done |
 | D4 | Answers save as you go | Typing an answer saves it straight into the round; there is no send step. The sheet says, beside the deadline, that everything written goes out then, finished or not, and that clearing an answer leaves it out; reloading the reply page restores every answer. | done |
 | D5 | Done | Done waits for the last words typed to save, then replaces the sheet with a confirmation (focus on its heading) that names the round, says everything written goes out at the delivery time and that clearing an answer leaves it out, and offers "Back to my answers", which brings the sheet back with every answer intact. Done with nothing written points at the first question instead. The owner's progress count includes someone as soon as an answer of theirs saves, without Done. | done |
-| D6 | Change or clear an answer | Before delivery, changing an answer updates its row in place without creating a duplicate; clearing it back to nothing takes it out of the round, the issue page and the progress count. | done |
-| D7 | Deliver the issue | With the clock past the delivery instant, the sweep sends one issue email per member containing every saved, non-empty answer, the issue's status becomes `delivered`, and the next round opens with its questions in each contributor's email. | done |
-| D8 | Nothing to deliver | An issue reaching its delivery instant with nothing written in it (or only answers cleared back to nothing) sends no email and is carried over to the next delivery; on its third empty delivery it is marked `skipped` and pauses the loop with an explanation to the owner. | done |
+| D6 | Change or clear an answer | Before delivery, changing an answer updates its row in place without creating a duplicate; clearing it back to nothing takes it out of the round, the round's page and the progress count. | done |
+| D7 | Deliver the round | With the clock past the delivery instant, the sweep sends one delivery email per member containing every saved, non-empty answer, the round's status becomes `delivered`, and the next round opens with its questions in each contributor's email. | done |
+| D8 | Nothing to deliver | A round reaching its delivery instant with nothing written in it (or only answers cleared back to nothing) sends no email and is carried over to the next delivery; on its third empty delivery it is marked `skipped` and pauses the loop with an explanation to the owner. | done |
 | D9 | Nudge the stragglers | 48 hours before delivery, contributors with nothing written get exactly one reminder; anyone with a saved answer (a question or a section) gets none, and a second sweep sends no duplicate. | done |
 | D13 | Answer from the app | A signed-in member who answers in the loop sees a primary "Answer round N" button on the overview's open-round card, and the same link on that loop's card on `/you`; both go to their own reply link and the page carries nobody else's. Once they are among the round's "in" people it reads "Edit your answers" and steps back to a quiet button. A reader, or anyone in a paused loop, sees neither and is sent no reply link. | done |
 
@@ -389,28 +392,28 @@ Status: `todo` (not built) · `done` (built and covered).
 
 | ID | Flow | Acceptance criteria | Status |
 | --- | --- | --- | --- |
-| E1 | Read a delivered issue | A member opening `/i/<n>` sees every question with each contributor's answer, their own marked, and the issue's date. | done |
-| E2 | Read by share link | With sharing enabled, an anonymous visitor at the share URL reads the same issue and sees no other loop data or navigation. | done |
-| E3 | Comment on an issue | A member posts a comment, it appears for other members immediately, and an empty comment is rejected. | done |
+| E1 | Read a delivered round | A member opening `/i/<n>` sees every question with each contributor's answer, their own marked, and the round's date. | done |
+| E2 | Read by share link | With sharing enabled, an anonymous visitor at the share URL reads the same round and sees no other loop data or navigation. | done |
+| E3 | Comment on a round | A member posts a comment, it appears for other members immediately, and an empty comment is rejected. | done |
 | E4 | React to an answer | A member adds a reaction to someone's answer, the count updates for everyone, and toggling removes it. | done |
-| E5 | Browse the archive | The archive lists delivered issues newest-first; opening an older one renders without needing the current issue to exist. | done |
+| E5 | Browse the archive | The archive lists delivered rounds newest-first; opening an older one renders without needing the current round to exist. | done |
 
 ## F · Loop settings
 
 | ID | Flow | Acceptance criteria | Status |
 | --- | --- | --- | --- |
-| F1 | Change cadence or timezone | Saving a new weekday, hour, cadence or timezone changes when the issue goes out, shown to the owner, and moves the open round to the new delivery. | done |
+| F1 | Change cadence or timezone | Saving a new weekday, hour, cadence or timezone changes when the round goes out, shown to the owner, and moves the open round to the new delivery. | done |
 | F2 | Pause and resume | Pausing holds the open round (no delivery, no answers) and says so on the dashboard; resuming picks it up again, due at the next delivery if its own has passed. | done |
-| F3 | Remove a member | Removing a member stops their emails and revokes their links; their past answers remain in delivered issues. | done |
-| F4 | Delete a loop | The owner confirms by typing the loop name; the loop, its issues, replies and outbox rows disappear and `/g/<id>` 404s. | done |
+| F3 | Remove a member | Removing a member stops their emails and revokes their links; their past answers remain in delivered rounds. | done |
+| F4 | Delete a loop | The owner confirms by typing the loop name; the loop, its rounds, replies and outbox rows disappear and `/g/<id>` 404s. | done |
 | F5 | Non-owner is refused | A plain member visiting an owner route gets a 404/403 page, and the same request as a POST is rejected server-side. | done |
 
 ## G · Roles and permissions
 
 | ID | Flow | Acceptance criteria | Status |
 | --- | --- | --- | --- |
-| G1 | Invite as reader | A reader is invited (by choosing "Just read" when inviting), receives the issue, is never prompted to reply, and their reply link shows the issue without a form. | done |
-| G2 | Switch participation | Flipping a member between contributor and reader changes whether the next issue prompts them, and never deletes existing replies. | done |
+| G1 | Invite as reader | A reader is invited (by choosing "Just read" when inviting), receives each round, is never prompted to reply, and their reply link shows the round without a form. | done |
+| G2 | Switch participation | Flipping a member between contributor and reader changes whether the next round prompts them, and never deletes existing replies. | done |
 | G3 | Promote to admin | Promoting a member to admin lets them manage questions and members, while the owner-only actions stay unavailable to them. | done |
 | G4 | Reader cannot reply | A direct POST to the reply endpoint from a reader is rejected with 403 and writes nothing. | done |
 | G5 | Transfer ownership | The owner transfers ownership in one step to anyone who has joined, becomes an admin+contributor, and the new owner gains owner-only actions while the old owner loses them. (Superseded by N3.) | done |
@@ -493,5 +496,5 @@ Readable with images off, always with a plain-text twin.
 
 ## Not yet designed
 
-The delivered issue view (`/i/<n>`) and the create-a-loop flow do not exist yet.
+The delivered round view (`/i/<n>`) and the create-a-loop flow do not exist yet.
 Both inherit this world; neither has needed its own decisions so far.

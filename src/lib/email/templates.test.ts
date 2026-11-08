@@ -76,7 +76,7 @@ test("delivery email points to web comments without promising inbound replies", 
     answers: [{ question: "What made you laugh?", author: "Dev", body: "The cat fist bump." }],
   });
 
-  assert.match(email.html, /open the issue to read and comment/);
+  assert.match(email.html, /open the round to read and comment/);
   assert.doesNotMatch(email.html, /reply to this email/);
 });
 
@@ -93,7 +93,7 @@ test("a mention email names who said it, quotes it, and links to the issue", () 
   assert.equal(email.subject, "Alex mentioned you in Friday Loop");
   assert.match(email.html, /@Maya &lt;b&gt;this&lt;\/b&gt; is yours/);
   assert.match(email.html, /See the comment/);
-  assert.match(email.text, /Maya, Alex mentioned you in a comment on issue 4 of Friday Loop:/);
+  assert.match(email.text, /Maya, Alex mentioned you in a comment on round 4 of Friday Loop:/);
   assert.match(email.text, /https:\/\/friendloop\.dev\/i\/1\?m=token/);
 });
 
@@ -170,8 +170,8 @@ test("a named round replaces its number in the subject, headings and sentences",
     groupName: "Friday Loop", issueNumber: 2, url: "https://friendloop.dev/issue",
     answers: [{ question: "q", author: "Dev", body: "b" }],
   });
-  assert.equal(unnamed.subject, "Friday Loop · issue 2");
-  assert.match(unnamed.html, /<h1[^>]*>Issue 2<\/h1>/);
+  assert.equal(unnamed.subject, "Friday Loop · round 2");
+  assert.match(unnamed.html, /<h1[^>]*>Round 2<\/h1>/);
 
   const prompt = promptEmail({
     groupName: "Friday Loop", memberName: "Dev", issueNumber: 3, issueName: "Camping weekend", questionCount: 2,
@@ -219,7 +219,7 @@ test("a music pick's link says where it opens", () => {
   });
   assert.match(email.html, />Open in Spotify<\/a>/);
   assert.match(email.html, />Open in Bandcamp<\/a>/);
-  assert.doesNotMatch(email.html, /Listen on the web issue/);
+  assert.doesNotMatch(email.html, /Listen on the web/);
 });
 
 test("music link labels fall back to a plain one", async () => {

@@ -275,7 +275,7 @@ function questionList(questions: LayoutInput["questions"], c: EmailPalette): str
 /** The round that just opened, under a delivered issue: its questions and the way in. */
 function nextRoundHtml(next: NextRoundBlock, c: EmailPalette): string {
   const content = copy.emails.delivery;
-  const values = { issueHeading: text(copy.emails.issueHeading, { number: next.issueNumber }), deadlineLabel: next.deadlineLabel };
+  const values = { issueHeading: issueHeading(next.issueNumber, null), deadlineLabel: next.deadlineLabel };
   return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${c.card};border:1px solid ${c.line};border-radius:6px;box-shadow:${c.shadow}"><tr><td style="padding:24px 30px 26px">
 <h2 style="margin:0 0 8px;font:700 24px/1.2 ${DISPLAY_FONT};color:${c.ink}">${escapeHtml(text(content.nextHeading, values))}</h2>
 ${paragraphs([text(content.nextBody, values)], c)}${questionList({ label: copy.emails.promptQuestionsLabel, items: next.questions }, c)}<table role="presentation" cellpadding="0" cellspacing="0" style="margin:4px 0 0"><tr><td style="border-radius:999px;background:${c.accent}"><a href="${escapeHtml(next.url)}" style="display:inline-block;padding:15px 26px;font:700 16px/1 ${BODY_FONT};color:${c.onAccent};text-decoration:none;border-radius:999px">${escapeHtml(content.nextCta)}</a></td></tr></table>
@@ -466,7 +466,7 @@ export function mentionEmail(input: {
 }): RenderedEmail {
   const { groupName, memberName, authorName, issueNumber, issueName, excerpt, url, theme, unsubscribeUrl } = input;
   const content = copy.emails.mention;
-  const values = { groupName, memberName, authorName, issueNumber, excerpt, url, issueRef: issueName?.trim() ? issueName : text(copy.emails.issueRef, { number: issueNumber }) };
+  const values = { groupName, memberName, authorName, issueNumber, excerpt, url, issueRef: issueRef(issueNumber, issueName) };
   return {
     subject: text(content.subject, values),
     html: layout({
@@ -501,8 +501,8 @@ export function deliveryEmail(input: {
   const values = {
     groupName,
     issueNumber,
-    issueRef: issueName?.trim() ? issueName : text(copy.emails.issueRef, { number: issueNumber }),
-    issueHeading: issueName?.trim() ? issueName : text(copy.emails.issueHeading, { number: issueNumber }),
+    issueRef: issueRef(issueNumber, issueName),
+    issueHeading: issueHeading(issueNumber, issueName),
     url,
     shareUrl: shareUrl ?? "",
     count: answers.length,
@@ -539,7 +539,7 @@ export function deliveryEmail(input: {
 
 function nextRoundText(next: NextRoundBlock): string {
   const content = copy.emails.delivery;
-  const values = { issueHeading: text(copy.emails.issueHeading, { number: next.issueNumber }), deadlineLabel: next.deadlineLabel };
+  const values = { issueHeading: issueHeading(next.issueNumber, null), deadlineLabel: next.deadlineLabel };
   return [
     text(content.nextHeading, values),
     text(content.nextBody, values),

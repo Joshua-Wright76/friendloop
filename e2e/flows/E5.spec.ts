@@ -24,6 +24,6 @@ test("E5 · the archive lists rounds newest first and old ones still open", asyn
   await expect(cards.first()).toContainText("Round 2");
   await expect(cards.nth(1)).toContainText("Round 1");
 
-  await cards.nth(1).getByRole("link", { name: /^Read the issue/ }).click();
+  await cards.nth(1).getByRole("link", { name: /^Read the round/ }).click();
   await expect(page.getByText("Older answer.")).toBeVisible();
 });

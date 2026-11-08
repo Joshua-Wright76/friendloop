@@ -2,7 +2,7 @@
 
 A free, open-source, self-hostable private group newsletter for friends.
 Recurring questions go out by email, everyone answers through a private link, and
-the answers become a shared issue delivered back to the group.
+the answers become a round delivered back to the group.
 
 - Product truth: [`PRODUCT.md`](./PRODUCT.md)
 - Flow inventory (47 flows, the e2e checklist): [`specs/flows.md`](./specs/flows.md)
@@ -14,7 +14,7 @@ the answers become a shared issue delivered back to the group.
 
 - **Next.js 16 (App Router, Cache Components) PWA** on Vercel
 - **Postgres + Drizzle** over `postgres.js` — same driver locally, in tests, and on Neon
-- **Resend** — prompts, reminders, issues, magic links
+- **Resend** — prompts, reminders, delivered rounds, magic links
 - **`temporal-polyfill`** — every schedule is local wall-clock, resolved on demand
 - **Vercel Schedules + GitHub Actions** — one idempotent sweep, two triggers
 
@@ -142,7 +142,7 @@ npm run dev
 Open **http://localhost:3000/dev/ui** locally (or the **UI preview** link on the
 local landing page). This creates an isolated demo user and loop, starts a test
 session, and opens `/dev/screens`, where every public, management, reply, and
-issue screen is one click away. `/dev/emails` renders every email template with
+round screen is one click away. `/dev/emails` renders every email template with
 sample data and its plain-text twin, and `/dev/outbox` lists the captured mail.
 Use **Reset demo data** to restore the fixtures. The preview never touches
 existing loops.
@@ -317,7 +317,7 @@ Flow coverage is not a vibe: `specs/flows.md` lists every user-visible flow, eac
 | `/you` | signed in | your loops + start a new one |
 | `/g/<id>` | member | the loop: the open round, progress, schedule, doors |
 | `/g/<id>/members` | owner/admin | invite (to answer or just read), roles, remove, hand the loop to anyone who has joined, your photo |
-| `/g/<id>/questions` | owner/admin | pool, order, skip-next, archive |
+| `/g/<id>/questions` | owner/admin | this round, up next, stopped |
 | `/g/<id>/issues` | member | rounds and share links; the owner names rounds |
 | `/g/<id>/album` | member | every photo and voice note from delivered rounds; filter by person, search |
 | `/album/<id>?m=<token>` | member (session or reply link) | the same Album, for people who read from their inbox |
@@ -326,17 +326,17 @@ Flow coverage is not a vibe: `specs/flows.md` lists every user-visible flow, eac
 
 ## How a round flows
 
-1. The sweep sees a loop whose slot has passed → creates an issue, snapshots the
+1. The sweep sees a loop whose slot has passed → opens a round, snapshots the
    questions, queues one `prompt` email per contributor.
 2. Contributors answer through `/r/<token>` — no account, nothing to remember.
 3. 48 hours before delivery, anyone who hasn't answered gets one reminder — unless
    they've turned reminders off on their answer page. The owner's nudge by hand
    ignores that choice.
 4. At the delivery instant the sweep compiles every saved, non-empty answer (there
-   is no send step), emails the issue, and marks it `delivered`. Nothing written →
+   is no send step), emails the round, and marks it `delivered`. Nothing written →
    the round carries over to the next delivery, and the third empty one is skipped
    and pauses the loop rather than sending an empty email.
-5. The web issue is canonical: comments and reactions live there. The reply link
+5. The round's web page is canonical: comments and reactions live there. The reply link
    moves on to the next round, so a delivered round takes no more answers.
 
 ## Monitoring

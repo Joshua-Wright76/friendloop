@@ -37,11 +37,11 @@ test("B2 · defaults and a quick idea become the ordered question pool", async (
   await page.getByRole("button", { name: NEXT }).click();
   await continueFromReaders(page);
 
-  await page.getByRole("button", { name: "Preview the first issue" }).click();
+  await page.getByRole("button", { name: "Preview the first round" }).click();
   const preview = page.getByRole("dialog", { name: "A first look" });
   await expect(preview.getByText("Book Club")).toBeVisible();
   await expect(preview.getByText("What was one good moment from your week?")).toBeVisible();
-  await preview.getByRole("button", { name: "Close issue preview" }).click();
+  await preview.getByRole("button", { name: "Close round preview" }).click();
   await page.getByRole("button", { name: "Create loop" }).click();
   await expect(page).toHaveURL(/\/g\/[0-9a-f-]+/);
 

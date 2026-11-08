@@ -3,6 +3,10 @@
 The load-bearing choices, and why. Read this before changing the data model, the
 scheduler, or anything that sends an email.
 
+People only ever see **rounds** ("Round 8"). The code, tables (`issues`,
+`issue_questions`), routes (`/i/<id>`, `/api/issue/…`) and export field names
+still say `issue` for the same thing; keep it out of anything a person reads.
+
 ## 1 · Time and email are seams, not call sites
 
 Two things make "test 100% of flows" either real or a lie: the clock and the
@@ -31,12 +35,12 @@ be wrong most of the time.
 
 Instead every run of `/api/cron/sweep` reconciles state:
 
-1. For any `open` issue past `deliversAt` (in a loop that isn't paused), deliver
+1. For any `open` round past `deliversAt` (in a loop that isn't paused), deliver
    it and open the next round in the same step; the delivery email carries the
-   new round's questions. An issue with nothing in it moves its `deliversAt` to
+   new round's questions. A round with nothing in it moves its `deliversAt` to
    the next slot instead, and on its third empty delivery is `skipped` and pauses
    the loop.
-2. For any running loop with no open issue, open one due at the next slot and
+2. For any running loop with no open round, open one due at the next slot and
    queue the prompt emails. (Creating a loop and resuming one open it directly.)
    A prompt, reminder or nudge counts and lists everything the round asks that
    person (`roundAsks` in `src/lib/notify.ts`): owners-only items only for owner
@@ -53,7 +57,7 @@ run self-heals and a doubled run is a no-op. Triggers:
 - GitHub Actions every 15 minutes — fine granularity, free.
 - Both hit the same endpoint. Concurrency is handled per loop: `openRound`
   (`src/lib/rounds.ts`) takes `select … for update` on the loop row and checks for
-  an open round before computing the next issue number, so a second trigger finds
+  an open round before computing the next round number, so a second trigger finds
   the first one's round, or collides on `unique(group_id, slot_at)` and is ignored —
   without the lock the loser would instead trip `unique(group_id, number)` and
   return a 500. `e2e/flows/D11.spec.ts` runs two sweeps at the same instant and
@@ -62,10 +66,10 @@ run self-heals and a doubled run is a no-op. Triggers:
 ## 3 · Schedules are local wall-clock, resolved on demand
 
 A loop stores `timezone`, `prompt_weekday`, `prompt_hour`, `cadence_weeks`: the
-moment its issue goes out (the `prompt_*` names are left from when they opened a
+moment its round goes out (the `prompt_*` names are left from when they opened a
 round). It never stores a precomputed future instant, because a DST transition
 would silently shift it. Instants are resolved with `Temporal.ZonedDateTime` from
-`temporal-polyfill` at the moment they are needed, and only the open issue keeps a
+`temporal-polyfill` at the moment they are needed, and only the open round keeps a
 frozen `slot_at`/`delivers_at`.
 
 A round runs from one delivery to the next: `opens_at` is when the previous one
@@ -102,14 +106,14 @@ is a POST (server action or route handler) behind a confirm.
 Delivery compiles every answer in the round into (a) an email and (b) a live page;
 comments and reactions live on the page. An answer is whatever someone has saved
 that isn't empty (§24): there is no send step, so a person who writes and closes the
-tab is in. The reply link only ever reaches the round that is open, so once an issue
+tab is in. The reply link only ever reaches the round that is open, so once a round
 goes out the link moves on to the next one, and a delivered round takes no more
 writes (a paused loop's link reaches none). Answers marked "added later"
 (`added_after_delivery`) are history from before that rule and are still shown;
 nothing writes the flag any more. The "missed it by three hours" failure mode is
 removed by there always being a round to answer, not by timezone cleverness.
 
-An issue with no answers in it (nothing written, or only answers cleared back to
+A round with no answers in it (nothing written, or only answers cleared back to
 nothing) is carried over to the next delivery; on its third empty delivery it is
 `skipped`, not sent, and pauses the loop.
 
@@ -164,7 +168,7 @@ answer to be in the round (§24). The old `submit` action is still accepted from
 sheet loaded before that, checks the link and changes nothing. A Server Action would
 work, but a reader or a removed member has to be refused with a real HTTP
 status, and a status is the only thing a test can assert on directly. The same rule
-covers the issue view: reactions are Server Actions because they are only ever
+covers the round view: reactions are Server Actions because they are only ever
 reachable from a page that already resolved who you are. Comments are a route
 handler (`POST /api/issue/<id>/comments`, multipart) for the same reason replies
 are: they carry a photo, and a refusal should be a real status. See §15.
@@ -182,7 +186,7 @@ An invitation is just the first email a membership gets. A reply link is a stand
 credential for someone in the loop, from the day they are added until they are
 removed (`revoked_at`); nothing about it ages. An earlier version let an unopened
 invitation lapse after 14 days while the same person kept receiving every prompt,
-reminder and issue, which taught people an "accepted" state they could not see and
+reminder and delivery, which taught people an "accepted" state they could not see and
 readers could never reach. `accepted_at` survives only as "has answered or signed in
 at least once": the people tab uses it for a quiet "Hasn't answered yet" on a
 contributor, and a handover requires it. "Resend invite" re-sends the same link, and
@@ -250,7 +254,7 @@ copies resolves through it. So a sheet loaded before the deploy still saves (the
 contract release, and resolve their ids through `unifiedIdOf`), and anchors,
 Album keys and comment targets stay put. Copied round
 items are `from_section`: they render as sections always did (§17, §18), and past
-issues read as before (`test/golden/`). The migration takes `SHARE ROW EXCLUSIVE`
+rounds read as before (`test/golden/`). The migration takes `SHARE ROW EXCLUSIVE`
 locks on the legacy tables, so a legacy write from the release still serving
 waits a moment and is then mirrored; the triggers stay until the contract
 release, so a rollback keeps mirroring too (it just doesn't see what the new code
@@ -265,7 +269,7 @@ Polls ride the same machinery as written questions rather than a parallel
 pipeline. A poll is an item of format `poll` (`kind` still says `poll` until the
 contract release), with `poll_multiple` and `poll_options` (a JSON array of two to
 six strings); the round snapshot copies all three, so editing the pool never
-rewrites an issue that is already out. The queue, stopping and `snapshotRound`
+rewrites a round that is already out. The queue, stopping and `snapshotRound`
 treat a poll exactly like any other item.
 
 A pick lives on the person's `replies` row as `poll_choices`, a JSON array of
@@ -283,19 +287,19 @@ write names the formats it accepts, so text, photo and voice are refused on a po
 a pick on a written item, and a link lands only on a music pick.
 
 **Results are a delivery-time fact.** `loadIssue` returns a poll's tally only once the
-issue is `delivered`; before that the tally is `null` and the only pick returned is
+round is `delivered`; before that the tally is `null` and the only pick returned is
 the viewer's own. The reply sheet never receives anyone else's picks at all.
 
 ## 15 · Comments: mentions are references, threads are anchors
 
-`comments` carries `reply_id` (null for the issue-level thread, else the answer it
+`comments` carries `reply_id` (null for the round-level thread, else the answer it
 hangs from), `quote_comment_id` (a live reference to the comment being answered),
 and `photo_url`. `groups.comments_enabled` is the owner's switch.
 
 All comment writes go through `postComment` in `src/lib/comments.ts`, which refuses
 before it stores: the author must be a live member (`membershipForViewer` ignores
 revoked members), comments must be on, an anchor must be an answer (§24) of this
-issue (another member's poll pick stays hidden until delivery), a quote must be a
+round (another member's poll pick stays hidden until delivery), a quote must be a
 live comment in the same thread, and a photo must pass `validatePhoto`. The route
 handler is only parsing.
 
@@ -306,7 +310,7 @@ comment, and mention emails are keyed `mention:<issue>:<comment>:<membership>`, 
 they are sent once however many times the request arrives. Readers can be mentioned;
 the author, revoked members and people from other loops are dropped.
 
-`loadIssue` turns all of this into view data once: the issue thread, each answer's
+`loadIssue` turns all of this into view data once: the round's own thread, each answer's
 thread, and the viewer's mention list. With comments off, or on a share link, those
 are empty and the page renders no comment surface at all.
 
@@ -361,7 +365,7 @@ slot. A birthday whose person has left the loop places nothing.
 
 Nothing is copied to build the Album. `loadAlbum` (`src/lib/album.ts`) unions three
 selects — answer photos, answer voice notes, photo-wall photos (`reply_media`) —
-each joined to its delivered issue, round item and author (an item copied from a
+each joined to its delivered round, round item and author (an item copied from a
 section keeps a section's place in the order and its `section-reply-` anchor), then filters and orders the union
 once: newest round first, then the order the round reads in, with a stable key as the
 last tie-break so a longer page is always a strict extension of a shorter one. A page
@@ -376,7 +380,7 @@ joined only for owner and admins; the loop id is a bound parameter, so another l
 media cannot appear. Search words and the member id reach SQL only as parameters
 (`ILIKE` patterns are escaped; a member id that is not a UUID is no filter).
 
-Access reuses the issue page's rule rather than inventing one: a signed-in member of
+Access reuses the round page's rule rather than inventing one: a signed-in member of
 the loop, or the reply token in the link, and never a revoked membership
 (`membershipForViewer`). The tab inside `/g/<id>` rides the loop layout's own
 membership check. Share-link visitors have no route to it by construction.
@@ -543,7 +547,7 @@ people save what they want before deleting.
 Everything on the reply sheet saves as it is typed, so the only rule a newcomer
 can see is the one the data follows: a saved answer that isn't empty goes out with
 the round. There is no draft, no send and no "sent" state. `src/lib/reply-query.ts`
-holds the one definition, used by delivery and the empty-round check, the issue
+holds the one definition, used by delivery and the empty-round check, the round
 page, progress, reminders and nudges (`answeredMemberIds` in `src/lib/answered.ts`),
 comment anchors, the Album, the rounds filter and exports:
 

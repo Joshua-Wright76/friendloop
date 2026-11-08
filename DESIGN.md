@@ -55,7 +55,7 @@ It preserves the same contrast relationships and gingham texture.
   screens keep the loop name and answer count in a sticky top bar, with the
   save state and the primary action in a fixed bottom bar.
 - **Brand:** the cherry illustration and Gaegu wordmark are shared by the landing,
-  account, reply, and issue experiences.
+  account, reply, and reading experiences.
 
 ## What a loop can choose
 
