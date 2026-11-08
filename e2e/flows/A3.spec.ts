@@ -7,7 +7,7 @@ test.beforeEach(async () => {
   await resetDatabase();
 });
 
-test("A3 · a second visit to the same link says it was used", async ({ page }) => {
+test("A3 · the same link works again, from a second browser", async ({ page, browser }) => {
   const email = uniqueEmail("owner");
 
   await page.goto("/signin");
@@ -24,12 +24,18 @@ test("A3 · a second visit to the same link says it was used", async ({ page }) 
   await page.getByRole("button", { name: "Sign in" }).click();
   await expect(page).toHaveURL(/\/you$/);
 
-  await page.goto(link);
-  await expect(page.getByRole("heading", { name: /already used/i })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Send me a new link" })).toBeVisible();
+  // The phone opened it first; now the laptop.
+  const laptop = await browser.newContext();
+  const second = await laptop.newPage();
+  await second.goto(link);
+  await expect(second.getByText(email)).toBeVisible();
+  await second.getByRole("button", { name: "Sign in" }).click();
+  await expect(second).toHaveURL(/\/you$/);
+  await expect(second.getByText(`Signed in as ${email}`, { exact: true })).toBeVisible();
+  await laptop.close();
 });
 
-test("A3 · a link past its 15 minutes says it expired and offers a new one", async ({ page }) => {
+test("A3 · a link past its 100 hours says it expired and offers a new one", async ({ page }) => {
   const email = uniqueEmail("owner");
   const token = "expired-link-token";
 

@@ -16,6 +16,7 @@ import { copy, text } from "@/lib/copy";
 import { signOutAction } from "./actions";
 import { ChangeEmail } from "./change-email";
 import { TimezoneSync } from "./timezone-sync";
+import { KeepSignedIn } from "@/components/keep-signed-in";
 import { SubmitButton } from "@/components/submit-button";
 
 export const instant = false;
@@ -38,6 +39,7 @@ export default async function YouPage({ searchParams }: {
   return (
     <main className="mx-auto w-full max-w-[720px] px-4 pb-16 pt-6 sm:px-6">
       <TimezoneSync stored={user.timezone} />
+      <KeepSignedIn />
       <div className="loop-head">
         <header className="loop-head__row">
           <Brand href={null} />

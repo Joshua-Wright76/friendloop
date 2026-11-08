@@ -115,7 +115,8 @@
   "signIn": {
     "eyebrow": "Hello,",
     "title": "Sign in",
-    "subtitle": "New or returning, we'll email you a link. There's no password to remember.",
+    "subtitle": "New or returning, we'll email you a link and a code. There's no password to remember.",
+    "haveCode": "Already have a code?",
     "memberHint": "Answering questions? Use the link in your loop's email.",
     "emailLabel": "Your email",
     "emailPlaceholder": "you@example.com",
@@ -127,10 +128,17 @@
   },
   "checkEmail": {
     "title": "Check your inbox",
-    "body": "There's a sign-in link on its way. It works once and expires in 15 minutes.",
-    "sentTo": "We sent a sign-in link to",
-    "sentToEnd": ". It works once and expires in 15 minutes.",
+    "body": "A sign-in link and code are on their way. Both work for 4 days, on any device.",
+    "sentTo": "We sent a sign-in link and code to",
+    "sentToEnd": ". Tap the link, or type the code here. Both work for 4 days.",
     "differentEmail": "Use a different email",
+    "codeTitle": "Type the code",
+    "codeLabel": "Code from the email",
+    "codeEmailLabel": "Your email",
+    "codeSubmit": "Sign in with the code",
+    "codeWrong": "That code doesn't match. Check it's from the newest sign-in email.",
+    "codeBusy": "Lots of codes are coming from your network right now. Please wait a little while and try again.",
+    "codeLocked": "That's a lot of codes for this address today. Use the link in the email instead, or try again tomorrow.",
     "previewCaptured": "This preview captures email instead of sending it, ",
     "previewLogged": "Every preview email is kept as a copy. ",
     "openOutbox": "open the dev outbox",
@@ -149,11 +157,7 @@
     "problems": {
       "expired": {
         "title": "That link has expired",
-        "body": "Sign-in links last 15 minutes. Ask for a fresh one and it'll work."
-      },
-      "used": {
-        "title": "That link was already used",
-        "body": "Each link signs you in once. Ask for a new one to get back in."
+        "body": "Sign-in links last 4 days. Ask for a fresh one and it'll work."
       },
       "unknown": {
         "title": "That link isn't valid",
@@ -1244,13 +1248,15 @@
     "answerPlural": "answers",
     "addedLater": "added after the issue went out",
     "signIn": {
-      "subject": "Your Friendloop sign-in link",
-      "preheader": "This link works once and expires in 15 minutes.",
+      "subject": "Sign in to Friendloop: {code}",
+      "preheader": "Tap the button, or type {code}. Both work for 4 days.",
       "heading": "Sign in to Friendloop",
-      "body": "This link works once and expires in 15 minutes. If you didn't request this link, you can ignore it.",
+      "body": "Tap the button to sign in.",
+      "codeLabel": "On another device, or in the app on your home screen, type this code:",
+      "note": "The link and code work for 4 days, as many times as you need. If you didn't ask to sign in, you can ignore this email.",
       "cta": "Sign in",
       "footer": "Friendloop · private group newsletters",
-      "text": "Sign in to Friendloop\n\n{body}\n\nSign in: {url}"
+      "text": "Sign in to Friendloop\n\nSign in: {url}\n\nOr type this code: {code}\n\n{note}"
     },
     "invite": {
       "subject": "{inviterName} added you to {groupName}",
@@ -1959,7 +1965,7 @@
             "Birthdays and dates the loop's owner adds to its calendar.",
             "A copy of every email we send, and delivery notices from our email provider (sent, bounced, and so on), so a failed send can be retried and never doubled.",
             "Notes you send with the feedback button, with the page you were on, your screen size, and your browser.",
-            "One cookie when you sign in, which keeps you signed in for 30 days. Your light or dark choice is kept in your own browser."
+            "One cookie when you sign in, which keeps you signed in for a year from the last time you visit, and a short-lived one that remembers the address you asked to sign in with, until you have. Your light or dark choice is kept in your own browser."
           ]
         },
         {

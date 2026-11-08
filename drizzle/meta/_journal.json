@@ -134,6 +134,13 @@
       "when": 1794033676541,
       "tag": "0018_beta_safeguards",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1794122618582,
+      "tag": "0019_signin_codes",
+      "breakpoints": true
     }
   ]
 }

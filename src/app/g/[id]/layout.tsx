@@ -19,6 +19,7 @@ import { LoopTheme } from "@/components/loop-theme";
 import { formatMoment, timezonePlace } from "@/lib/format";
 import { LoopDataProvider, type LoopData } from "./loop-data";
 import { TimezoneSync } from "@/app/you/timezone-sync";
+import { KeepSignedIn } from "@/components/keep-signed-in";
 
 type Props = {
   children: ReactNode;
@@ -212,6 +213,7 @@ async function LoadedGroupLayout({ children, params }: Props) {
   return (
     <LoopDataProvider data={data}>
       <TimezoneSync stored={user.timezone} />
+      <KeepSignedIn />
       <LoopTheme group={group} />
       {children}
     </LoopDataProvider>

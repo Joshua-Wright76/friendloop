@@ -98,7 +98,7 @@ export function emailPreviews(): EmailPreview[] {
   return [
     {
       id: "signIn",
-      email: signInEmail("https://friendloop.dev/signin/confirm?token=preview-token"),
+      email: signInEmail("https://friendloop.dev/signin/confirm?token=preview-token", "418093"),
     },
     {
       id: "inviteContributor",
