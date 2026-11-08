@@ -1,31 +1,18 @@
 import { and, asc, eq, inArray, isNull, ne, sql } from "drizzle-orm";
 import { db } from "@/db";
-import {
-  groups,
-  issueQuestions,
-  issueSections,
-  issues,
-  memberships,
-  musicLinks,
-  questions,
-  replies,
-  sectionMedia,
-  sectionReplies,
-  users,
-} from "@/db/schema";
+import { groups, issueQuestions, issues, memberships, musicLinks, replies, replyMedia, users } from "@/db/schema";
 import { carriedOver, groupSchedule, nextSlot } from "./schedule";
 import { sendEmail } from "./email/send";
-import { mailDeadline, sendPromptEmails } from "./notify";
+import { mailDeadline, roundAsks, sendPromptEmails } from "./notify";
 import { deliveryEmail, emailThemeOf, pausedEmail, type AnswerBlock } from "./email/templates";
 import { tallyPoll } from "./poll";
-import { replyHasContentCondition, sectionReplyHasContentCondition } from "./reply-query";
-import { legacyAskCondition } from "./legacy-ask";
+import { replyHasContentCondition } from "./reply-query";
+import { isSectionLike } from "./asks";
 import { copy, text } from "./copy.ts";
 import { issueUrl, replyUrl, unsubscribeUrl, url } from "./urls";
 import { newToken } from "./tokens";
-import { snapshotQuestionsForIssue } from "./round-questions";
-import { snapshotSectionsForIssue } from "./sections";
-import { placeEventsInRound } from "./events";
+import { snapshotRound } from "./round-questions";
+import { placeDatedItems } from "./events";
 
 /**
  * The round lifecycle. A loop always has exactly one round taking answers, from
@@ -98,21 +85,18 @@ export async function openRound(input: {
         slotAt: deliversAt,
         opensAt: at,
         deliversAt,
-        questionCursor: group.questionCursor,
       })
       .onConflictDoNothing({ target: [issues.groupId, issues.slotAt] })
       .returning({ id: issues.id, number: issues.number });
     if (!created) return null;
+    // Under the loop's lock, so two openings can never take the same turn in the queue.
+    await snapshotRound({ ex: tx, group, issueId: created.id, opensAt: at, deliversAt });
     return { group, round: { issueId: created.id, number: created.number, deliversAt, created: true } };
   });
 
   if (!outcome) return null;
   const { group, round } = outcome;
   if (!round.created) return round;
-
-  await snapshotQuestionsForIssue({ group, issueId: round.issueId, cursor: group.questionCursor });
-  await snapshotSectionsForIssue({ group, issueId: round.issueId });
-  await placeEventsInRound({ group, issueId: round.issueId, opensAt: at, deliversAt: round.deliversAt });
 
   if (input.prompt) {
     await sendPromptEmails({
@@ -146,7 +130,7 @@ export async function rescheduleOpenRound(group: GroupRow, deliversAt: Date): Pr
     .update(issues)
     .set({ deliversAt, slotAt: deliversAt })
     .where(and(eq(issues.id, open.id), eq(issues.status, "open")));
-  await placeEventsInRound({ group, issueId: open.id, opensAt: open.opensAt, deliversAt });
+  await placeDatedItems({ group, issueId: open.id, opensAt: open.opensAt, deliversAt });
 }
 
 export type DeliveryOutcome = "delivered" | "carried" | "skipped" | "empty" | "gone";
@@ -167,98 +151,97 @@ export async function deliverRound(input: { issue: IssueRow; at: Date; early?: b
   const [group] = await db.select().from(groups).where(eq(groups.id, issue.groupId)).limit(1);
   if (!group) return "gone";
 
-  const rows = await db
-    .select({
-      questionId: issueQuestions.id,
-      question: issueQuestions.text,
-      kind: issueQuestions.kind,
-      pollOptions: issueQuestions.pollOptions,
-      position: issueQuestions.position,
-      pollChoices: replies.pollChoices,
-      body: replies.body,
-      photoUrl: replies.photoUrl,
-      audioUrl: replies.audioUrl,
-      audioDurationMs: replies.audioDurationMs,
-      authorName: memberships.name,
-      authorEmail: memberships.email,
-      authorCharm: memberships.charm,
-      addedAfterDelivery: replies.addedAfterDelivery,
-    })
-    .from(replies)
-    .innerJoin(issueQuestions, eq(issueQuestions.id, replies.issueQuestionId))
-    .innerJoin(memberships, eq(memberships.id, replies.membershipId))
-    // Whatever is written goes out; an answer cleared back to nothing doesn't.
-    .where(and(eq(replies.issueId, issue.id), replyHasContentCondition(), legacyAskCondition()))
-    .orderBy(issueQuestions.position, memberships.createdAt);
+  const [asked, rows] = await Promise.all([
+    db
+      .select()
+      .from(issueQuestions)
+      .where(eq(issueQuestions.issueId, issue.id))
+      .orderBy(asc(issueQuestions.position), asc(issueQuestions.id)),
+    db
+      .select({
+        replyId: replies.id,
+        questionId: issueQuestions.id,
+        question: issueQuestions.text,
+        kind: issueQuestions.kind,
+        adminOnly: issueQuestions.adminOnly,
+        pollOptions: issueQuestions.pollOptions,
+        pollChoices: replies.pollChoices,
+        body: replies.body,
+        photoUrl: replies.photoUrl,
+        audioUrl: replies.audioUrl,
+        audioDurationMs: replies.audioDurationMs,
+        linkUrl: replies.linkUrl,
+        linkTitle: musicLinks.title,
+        authorName: memberships.name,
+        authorEmail: memberships.email,
+        authorCharm: memberships.charm,
+        addedAfterDelivery: replies.addedAfterDelivery,
+        createdAt: replies.createdAt,
+      })
+      .from(replies)
+      .innerJoin(issueQuestions, eq(issueQuestions.id, replies.issueQuestionId))
+      .innerJoin(memberships, eq(memberships.id, replies.membershipId))
+      .leftJoin(musicLinks, eq(musicLinks.url, replies.linkUrl))
+      // Whatever is written goes out; an answer cleared back to nothing doesn't.
+      .where(and(eq(replies.issueId, issue.id), replyHasContentCondition()))
+      .orderBy(issueQuestions.position, memberships.createdAt),
+  ]);
 
-  // Section answers are content too, but a truly empty issue stays empty.
-  const sectionRows = await db
-    .select()
-    .from(issueSections)
-    .where(eq(issueSections.issueId, issue.id))
-    .orderBy(issueSections.position);
-  const sectionReplyRows = sectionRows.length
-    ? await db
-        .select({
-          replyId: sectionReplies.id,
-          issueSectionId: sectionReplies.issueSectionId,
-          body: sectionReplies.body,
-          linkUrl: sectionReplies.linkUrl,
-          linkTitle: musicLinks.title,
-          authorName: memberships.name,
-          authorEmail: memberships.email,
-          authorCharm: memberships.charm,
-          addedAfterDelivery: sectionReplies.addedAfterDelivery,
-        })
-        .from(sectionReplies)
-        .innerJoin(memberships, eq(memberships.id, sectionReplies.membershipId))
-        .leftJoin(musicLinks, eq(musicLinks.url, sectionReplies.linkUrl))
-        .where(and(eq(sectionReplies.issueId, issue.id), sectionReplyHasContentCondition()))
-    : [];
-
-  if (rows.length === 0 && sectionReplyRows.length === 0) {
+  if (rows.length === 0) {
     if (early) return "empty";
     return carryOrSkip({ issue, group, at });
   }
 
-  const answers: AnswerBlock[] = rows.map((row) => ({
-    question: row.question,
-    author: row.authorName ?? row.authorEmail.split("@")[0],
-    authorCharm: row.authorCharm,
-    body: row.kind === "poll" ? pollEmailChoice(row) : row.body,
-    pollResults: row.kind === "poll" ? pollEmailResults(row, rows) : null,
-    photoUrl: row.photoUrl,
-    audioUrl: row.audioUrl,
-    audioDurationMs: row.audioDurationMs,
-    addedLater: row.addedAfterDelivery,
+  // Questions read as answers; sections, photo walls and music picks as the cards they always were.
+  const sectionLike = new Set(asked.filter(isSectionLike).map((question) => question.id));
+  const answerRows = rows.filter((row) => !sectionLike.has(row.questionId));
+  const answers: Array<{ adminOnly: boolean; block: AnswerBlock }> = answerRows.map((row) => ({
+    adminOnly: row.adminOnly,
+    block: {
+      question: row.question,
+      author: row.authorName ?? row.authorEmail.split("@")[0],
+      authorCharm: row.authorCharm,
+      body: row.kind === "poll" ? pollEmailChoice(row) : row.body,
+      pollResults: row.kind === "poll" ? pollEmailResults(row, answerRows) : null,
+      photoUrl: row.photoUrl,
+      audioUrl: row.audioUrl,
+      audioDurationMs: row.audioDurationMs,
+      addedLater: row.addedAfterDelivery,
+    },
   }));
 
-  const sectionMediaCounts = new Map<string, number>();
-  if (sectionReplyRows.length > 0) {
+  const cardRows = rows
+    .filter((row) => sectionLike.has(row.questionId))
+    .sort((left, right) => left.createdAt.getTime() - right.createdAt.getTime() || left.replyId.localeCompare(right.replyId));
+  const mediaCounts = new Map<string, number>();
+  if (cardRows.length > 0) {
     const mediaRows = await db
-      .select({ sectionReplyId: sectionMedia.sectionReplyId })
-      .from(sectionMedia)
-      .where(inArray(sectionMedia.sectionReplyId, sectionReplyRows.map((row) => row.replyId)));
-    for (const row of mediaRows) {
-      sectionMediaCounts.set(row.sectionReplyId, (sectionMediaCounts.get(row.sectionReplyId) ?? 0) + 1);
-    }
+      .select({ replyId: replyMedia.replyId })
+      .from(replyMedia)
+      .where(inArray(replyMedia.replyId, cardRows.map((row) => row.replyId)));
+    for (const row of mediaRows) mediaCounts.set(row.replyId, (mediaCounts.get(row.replyId) ?? 0) + 1);
   }
-  const sections = sectionRows.map((section) => ({
-    adminOnly: section.adminOnly,
-    title: section.title,
-    emoji: section.emoji,
-    answers: sectionReplyRows
-      .filter((row) => row.issueSectionId === section.id)
-      .map((row) => ({
-        author: row.authorName ?? row.authorEmail.split("@")[0],
-        authorCharm: row.authorCharm,
-        body: row.body,
-        linkUrl: row.linkUrl,
-        linkTitle: row.linkTitle,
-        addedLater: row.addedAfterDelivery,
-        photoCount: row.replyId ? sectionMediaCounts.get(row.replyId) ?? 0 : 0,
-      })),
-  }));
+  const sections = asked
+    .filter((question) => sectionLike.has(question.id))
+    .map((question) => ({
+      fromSection: question.fromSection,
+      adminOnly: question.adminOnly,
+      title: question.text,
+      emoji: question.emoji,
+      answers: cardRows
+        .filter((row) => row.questionId === question.id)
+        .map((row) => ({
+          author: row.authorName ?? row.authorEmail.split("@")[0],
+          authorCharm: row.authorCharm,
+          body: row.body,
+          linkUrl: row.linkUrl,
+          linkTitle: row.linkTitle,
+          addedLater: row.addedAfterDelivery,
+          photoCount: (mediaCounts.get(row.replyId) ?? 0) + (row.photoUrl ? 1 : 0),
+        })),
+    }))
+    // A section from before keeps saying nobody added anything; a new card nobody answered isn't there.
+    .filter((section) => section.answers.length > 0 || section.fromSection);
 
   let shareToken = issue.shareToken;
   if (group.shareEnabled && !shareToken) {
@@ -266,21 +249,9 @@ export async function deliverRound(input: { issue: IssueRow; at: Date; early?: b
     await db.update(issues).set({ shareToken }).where(eq(issues.id, issue.id));
   }
 
-  // "Skip this round" covered the round going out now; the next one asks again.
-  await db
-    .update(questions)
-    .set({ skipNext: false })
-    .where(and(eq(questions.groupId, group.id), eq(questions.skipNext, true)));
-
   // The next round opens before anyone is told, so the email can carry its questions.
   const next = await openRound({ groupId: group.id, at, prompt: false, after: issue });
-  const nextQuestions = next
-    ? await db
-        .select({ text: issueQuestions.text })
-        .from(issueQuestions)
-        .where(and(eq(issueQuestions.issueId, next.issueId), legacyAskCondition()))
-        .orderBy(asc(issueQuestions.position))
-    : [];
+  const nextAsks = next ? await roundAsks(next.issueId) : null;
 
   const everyone = await db
     .select({
@@ -298,14 +269,17 @@ export async function deliverRound(input: { issue: IssueRow; at: Date; early?: b
     .where(and(eq(memberships.groupId, group.id), isNull(memberships.revokedAt)));
 
   for (const member of everyone) {
+    const nextQuestions = nextAsks ? nextAsks(member) : [];
     // Rendered per member: the issue link, the next round's link and the "stop emails" link are theirs.
     const rendered = deliveryEmail({
       groupName: group.name,
       issueNumber: issue.number,
       issueName: issue.name,
       url: issueUrl(issue.id, member.replyToken),
-      answers,
-      // Admin-only sections are for the owner and admins, here as on the issue page.
+      // Owners-only items are for the owner and admins, here as on the issue page.
+      answers: answers
+        .filter((answer) => !answer.adminOnly || member.access !== "member")
+        .map((answer) => answer.block),
       sections: sections
         .filter((section) => !section.adminOnly || member.access !== "member")
         .map((section) => ({ title: section.title, emoji: section.emoji, answers: section.answers })),
@@ -316,7 +290,7 @@ export async function deliverRound(input: { issue: IssueRow; at: Date; early?: b
               issueNumber: next.number,
               url: replyUrl(member.replyToken),
               deadlineLabel: mailDeadline(next.deliversAt, group.timezone, member.timezone),
-              questions: nextQuestions.map((question) => question.text),
+              questions: nextQuestions,
             }
           : undefined,
       theme: emailThemeOf(group),
@@ -360,7 +334,7 @@ async function carryOrSkip(input: { issue: IssueRow; group: GroupRow; at: Date }
       .where(and(eq(issues.id, issue.id), eq(issues.status, "open"), eq(issues.deliversAt, issue.deliversAt)))
       .returning({ id: issues.id });
     if (moved.length === 0) return "gone";
-    await placeEventsInRound({ group, issueId: issue.id, opensAt: issue.opensAt, deliversAt });
+    await placeDatedItems({ group, issueId: issue.id, opensAt: issue.opensAt, deliversAt });
     return "carried";
   }
   await skipRound({ issue, group, at });

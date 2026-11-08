@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { formatMoment } from "@/lib/format";
 import { resolveToken, sheetFor } from "@/lib/reply";
-import { sectionsForSheet } from "@/lib/sections";
 import { LoopTheme } from "@/components/loop-theme";
 import { ProfilePhoto } from "@/components/profile-photo";
 import { Brand, Tape } from "@/components/stationery";
@@ -107,7 +106,6 @@ export default async function ReplyPage({ params }: { params: Promise<{ token: s
   }
 
   const issue = sheet.context.issue;
-  const sections = await sectionsForSheet(token, issue.id);
 
   return (
     <>
@@ -128,11 +126,17 @@ export default async function ReplyPage({ params }: { params: Promise<{ token: s
       initialName={context.membership.name}
       reminderPreference={context.membership.reminderPreference}
       mutedUnsubscribeToken={context.membership.mutedAt ? context.membership.unsubscribeToken : null}
-      sections={sections}
       questions={sheet.questions.map((question, index) => ({
         id: question.id,
         index: index + 1,
         text: question.text,
+        emoji: question.emoji,
+        description: question.description,
+        format: question.format,
+        voice: !question.fromSection,
+        linkUrl: question.linkUrl,
+        linkProvider: question.linkProvider,
+        media: question.media,
         body: question.body,
         photoUrl: question.photoUrl,
         audioUrl: question.audioUrl,

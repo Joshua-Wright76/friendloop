@@ -34,14 +34,26 @@ import {
   uploadReplyPhoto,
 } from "@/lib/reply-client";
 import { removeReplySectionMedia, uploadReplySectionPhoto } from "@/lib/section-client";
-import type { SheetSection } from "@/lib/sections";
 import { PollCard, type PollCardStatus } from "./poll-card";
 import { DisplayDigits } from "@/components/display-digits";
 
+/**
+ * One item of the round, in round order. Written and poll items are answered on
+ * question cards; a photo wall or a music pick on its own card. Everything is one
+ * list (docs/questions-unify-design.md, "Reply sheet").
+ */
 export type SheetQuestion = {
   id: string;
   index: number;
   text: string;
+  emoji: string | null;
+  description: string | null;
+  format: "written" | "poll" | "photo_wall" | "music";
+  /** False on a card copied from a section in the round that was open at the switch: it never took voice notes. */
+  voice: boolean;
+  linkUrl: string;
+  linkProvider: string;
+  media: Array<{ id: string; url: string; caption: string | null }>;
   body: string;
   photoUrl: string | null;
   audioUrl: string | null;
@@ -52,9 +64,22 @@ export type SheetQuestion = {
   pollChoices: number[];
 };
 
+type SheetSection = {
+  id: string;
+  kind: "photo_wall" | "music";
+  title: string;
+  emoji: string | null;
+  description: string | null;
+  body: string;
+  linkUrl: string;
+  linkProvider: string;
+  media: Array<{ id: string; url: string; caption: string | null }>;
+};
+
+const isCard = (item: SheetQuestion) => item.format === "photo_wall" || item.format === "music";
+
 type Props = {
   token: string;
-  sections: SheetSection[];
   loopName: string;
   loopTimezone: string;
   roundNumber: number;
@@ -100,7 +125,6 @@ type AudioStatus = "idle" | "recording" | "uploading" | "saved" | "removing" | "
 
 export function ReplySheet({
   token,
-  sections,
   loopName,
   loopTimezone,
   roundNumber,
@@ -115,8 +139,20 @@ export function ReplySheet({
   initialName,
   reminderPreference,
   mutedUnsubscribeToken,
-  questions,
+  questions: items,
 }: Props) {
+  const questions = useMemo(() => items.filter((item) => !isCard(item)), [items]);
+  const sections = useMemo(() => items.filter(isCard).map((item): SheetSection => ({
+    id: item.id,
+    kind: item.format === "music" ? "music" : "photo_wall",
+    title: item.text,
+    emoji: item.emoji,
+    description: item.description,
+    body: item.body,
+    linkUrl: item.linkUrl,
+    linkProvider: item.linkProvider,
+    media: item.media,
+  })), [items]);
   const [frameNow, setFrameNow] = useState(frame);
   const [bodies, setBodies] = useState<Record<string, string>>(() =>
     Object.fromEntries(questions.map((question) => [question.id, question.body])),
@@ -215,9 +251,6 @@ export function ReplySheet({
   const dirty = useRef(new Set<string>());
   const savedName = useRef(initialName ?? "");
 
-  const [sectionBodies, setSectionBodies] = useState<Record<string, string>>(() =>
-    Object.fromEntries(sections.map((section) => [section.id, section.body])),
-  );
   const [sectionLinks, setSectionLinks] = useState<Record<string, string>>(() =>
     Object.fromEntries(sections.map((section) => [section.id, section.linkUrl])),
   );
@@ -236,7 +269,7 @@ export function ReplySheet({
   // Sections with a photo being shrunk or uploaded right now: Done waits for them.
   const [sectionUploading, setSectionUploading] = useState<Record<string, boolean>>({});
 
-  const total = questions.length;
+  const total = items.length;
   const writeDraft = useMemo(
     () => createSerialDraftWriter((questionId, body) => postReply(
       token,
@@ -253,14 +286,6 @@ export function ReplySheet({
     )),
     [token],
   );
-  const writeSectionDraft = useMemo(
-    () => createSerialDraftWriter((issueSectionId, body) => postReply(
-      token,
-      { action: "sectionDraft", issueSectionId, body },
-      copy.reply.errors.sectionSaveFailed,
-    )),
-    [token],
-  );
   const answeredIds = useMemo(
     () => new Set(questions.filter((question) =>
       question.kind === "poll"
@@ -271,7 +296,10 @@ export function ReplySheet({
     ).map((question) => question.id)),
     [audioUrls, bodies, photoUrls, pollPicks, pollStatuses, questions],
   );
-  const answered = answeredIds.size;
+  const cardDone = useCallback((id: string) =>
+    (sectionLinks[id] ?? "").trim().length > 0 || (sectionMediaLists[id] ?? []).length > 0,
+  [sectionLinks, sectionMediaLists]);
+  const answered = answeredIds.size + sections.filter((section) => cardDone(section.id)).length;
   const firstWrittenId = questions.find((question) => question.kind !== "poll")?.id ?? null;
   const jumpMenu = useRef<HTMLDivElement>(null);
   const [jumpOpen, setJumpOpen] = useState(false);
@@ -302,15 +330,6 @@ export function ReplySheet({
     const field = document.getElementById(`reply-${id}`) ?? card?.querySelector<HTMLElement>("input, textarea, button");
     field?.focus({ preventScroll: true });
   }
-  // Section answers count toward the action bar, so a section-only round is done.
-  const sectionAnswered = useMemo(
-    () => sections.some((section) =>
-      (sectionBodies[section.id] ?? "").trim().length > 0 ||
-      (sectionLinks[section.id] ?? "").trim().length > 0 ||
-      (sectionMediaLists[section.id] ?? []).length > 0,
-    ),
-    [sectionBodies, sectionLinks, sectionMediaLists, sections],
-  );
   const audioBusy = useMemo(
     () => Object.values(audioStates).some((state) => state === "uploading" || state === "removing"),
     [audioStates],
@@ -329,13 +348,12 @@ export function ReplySheet({
   const doneBlocked = finishing || photoBusy || audioBusy || pollBusy;
   // Nothing written yet: Done stays operable and points at the first question instead.
   // The name is not an answer.
-  const nothingWritten = answered === 0 && !sectionAnswered;
+  const nothingWritten = answered === 0;
   const [nudged, setNudged] = useState(false);
   // Once something is written the note has done its job; clearing it again doesn't bring it back.
   if (nudged && !nothingWritten) setNudged(false);
   const showNudge = nudged && nothingWritten;
   const questionList = useRef<HTMLDivElement>(null);
-  const sectionList = useRef<HTMLElement>(null);
   const nudgeMessage = useRef<HTMLParagraphElement>(null);
   // The deadline in the loop's zone, and the reader's own when it differs.
   const deadlineBoth = viewerTime
@@ -765,7 +783,7 @@ export function ReplySheet({
     const caption = sectionCaptions[issueSectionId] ?? "";
     const result = await postReply(
       token,
-      { action: "sectionMusic", issueSectionId, url, caption },
+      { action: "music", issueQuestionId: issueSectionId, url, caption },
       copy.reply.errors.sectionSaveFailed,
     );
     if (result.ok) {
@@ -797,30 +815,11 @@ export function ReplySheet({
           setSectionCaptions((current) => (current[section.id] ? current : { ...current, [section.id]: kept.caption }));
           setSectionSaveStates((current) => ({ ...current, [section.id]: "error" }));
           setSectionErrors((current) => ({ ...current, [section.id]: kept.error }));
-        } else if (section.kind === "standard") {
-          const kept = recall(extraKey(token, section.id));
-          if (kept === null) continue;
-          setSectionBodies((current) => ({ ...current, [section.id]: kept }));
-          setSectionSaveStates((current) => ({ ...current, [section.id]: "error" }));
-          setSectionErrors((current) => ({ ...current, [section.id]: copy.reply.errors.sectionSaveFailed }));
         }
       }
     });
     return () => cancelAnimationFrame(frame);
   }, [questions, sections, token]);
-
-  const saveSectionText = useCallback((issueSectionId: string) => {
-    setSectionSaveStates((current) => ({ ...current, [issueSectionId]: "saving" }));
-    setSectionErrors((current) => ({ ...current, [issueSectionId]: null }));
-    const body = sectionBodies[issueSectionId] ?? "";
-    trackSectionSave(writeSectionDraft(issueSectionId, body)
-      .then((result) => {
-        setSectionSaveStates((current) => ({ ...current, [issueSectionId]: result.ok ? "saved" : "error" }));
-        if (result.ok) letGo(extraKey(token, issueSectionId));
-        else keep(extraKey(token, issueSectionId), body);
-        if (!result.ok) setSectionErrors((current) => ({ ...current, [issueSectionId]: result.error }));
-      }));
-  }, [sectionBodies, token, trackSectionSave, writeSectionDraft]);
 
   const uploadSectionPhoto = useCallback(async (issueSectionId: string, kind: SheetSection["kind"], picked: File, caption: string, position: number) => {
     const lockKey = `${issueSectionId}:${position}`;
@@ -928,6 +927,30 @@ export function ReplySheet({
     [autosize, persist],
   );
 
+  // A sheet from before sections became questions kept a section's unsaved words on
+  // this device under its own key. That section is a question card now: its words
+  // come back into the card and save, once.
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => {
+      for (const question of questions) {
+        if (question.kind === "poll") continue;
+        const key = extraKey(token, question.id);
+        const kept = recall(key);
+        if (kept === null) continue;
+        letGo(key);
+        if (kept === question.body) continue;
+        revisions.current.set(question.id, (revisions.current.get(question.id) ?? 0) + 1);
+        dirty.current.add(question.id);
+        latestBodies.current[question.id] = kept;
+        setBodies((current) => ({ ...current, [question.id]: kept }));
+        void persist(question.id, kept);
+      }
+    });
+    return () => cancelAnimationFrame(frame);
+    // Once, as the sheet arrives.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   /** A tap saves straight away, in order, so the last tap always wins. */
   const choosePoll = useCallback(
     async (questionId: string, next: number[]) => {
@@ -1004,13 +1027,12 @@ export function ReplySheet({
       }
       for (const section of sections) {
         if (sectionSaveStates[section.id] !== "error") continue;
-        if (section.kind === "standard") saveSectionText(section.id);
-        else if (section.kind === "music" && sectionLinks[section.id]) void saveSection(section.id);
+        if (section.kind === "music" && sectionLinks[section.id]) void saveSection(section.id);
       }
     };
     window.addEventListener("online", retryAll);
     return () => window.removeEventListener("online", retryAll);
-  }, [audioStates, bodies, choosePoll, photoStates, pollPicks, pollStatuses, questionStatuses, questions, resendQuietly, retryAudio, retryPhoto, retryableAudio, retryablePhotos, saveSection, saveSectionText, sectionLinks, sectionSaveStates, sections]);
+  }, [audioStates, bodies, choosePoll, photoStates, pollPicks, pollStatuses, questionStatuses, questions, resendQuietly, retryAudio, retryPhoto, retryableAudio, retryablePhotos, saveSection, sectionLinks, sectionSaveStates, sections]);
 
   /**
    * Done presses nothing into the round: every answer is already in as it saves.
@@ -1116,9 +1138,7 @@ export function ReplySheet({
   const nudgeToFirstQuestion = useCallback(() => {
     setNudged(true);
     const fields = "textarea, input[type=radio], input[type=checkbox], input:not([type])";
-    const first =
-      questionList.current?.querySelector<HTMLElement>(fields) ??
-      sectionList.current?.querySelector<HTMLElement>(fields);
+    const first = questionList.current?.querySelector<HTMLElement>(fields);
     first?.focus({ preventScroll: true });
     nudgeMessage.current?.scrollIntoView({ block: "start", behavior: "smooth" });
   }, []);
@@ -1168,6 +1188,130 @@ export function ReplySheet({
     });
   }, []);
 
+  /** A photo wall or a music pick: its own card, in its place in the round. */
+  const renderSection = (section: SheetSection, index: number) => {
+              const media = sectionMediaLists[section.id] ?? [];
+              const saveState = sectionSaveStates[section.id] ?? "idle";
+              const cap = 6;
+              return (
+                <section key={section.id} id={`card-${section.id}`} data-paper="note" className="card paper ride-in block p-5 pt-6" data-number={index + 1}>
+                  <h2 className="m-0 font-display text-[22px] font-bold leading-tight text-ink">
+                    {section.emoji ? <span className="mr-2">{section.emoji}</span> : null}
+                    {section.title}
+                  </h2>
+                  {section.description ? (
+                    <p className="mt-1 text-[13.5px] leading-relaxed text-ink-soft">{section.description}</p>
+                  ) : null}
+
+                  {section.kind === "music" ? (
+                    <div
+                      className="mt-3 flex flex-col gap-3"
+                      onBlur={(event) => {
+                        // Leaving the pair of fields is the save: moving between them isn't.
+                        if (event.currentTarget.contains(event.relatedTarget as Node | null)) return;
+                        const link = (sectionLinks[section.id] ?? "").trim();
+                        if (link && link !== musicSaved.current[section.id]) {
+                          musicSaved.current[section.id] = link;
+                          void saveSection(section.id);
+                        }
+                      }}
+                    >
+                      <label className="block text-[13px] font-bold text-ink-soft">
+                        {copy.reply.sectionMusicLabel}
+                        <input
+                          id={`section-link-${section.id}`}
+                          value={sectionLinks[section.id] ?? ""}
+                          onChange={(event) => setSectionLinks((current) => ({ ...current, [section.id]: event.target.value }))}
+                          placeholder={copy.reply.sectionMusicPlaceholder}
+                          inputMode="url"
+                          maxLength={500}
+                          disabled={finishing}
+                          className="field mt-1 h-[46px] py-0"
+                        />
+                      </label>
+                      <label className="block text-[13px] font-bold text-ink-soft">
+                        {copy.reply.sectionMusicCaptionLabel}
+                        <input
+                          value={sectionCaptions[section.id] ?? ""}
+                          onChange={(event) => setSectionCaptions((current) => ({ ...current, [section.id]: event.target.value }))}
+                          placeholder={copy.reply.sectionCaptionPlaceholder}
+                          maxLength={120}
+                          disabled={finishing}
+                          className="field mt-1 h-[46px] py-0"
+                        />
+                      </label>
+                      <div className="flex flex-wrap items-center gap-x-3 empty:hidden">
+                        {(sectionLinks[section.id] ?? "") ? (
+                          <button
+                            type="button"
+                            className="link link--quiet cursor-pointer aria-disabled:cursor-not-allowed aria-disabled:opacity-45"
+                            aria-disabled={finishing ? true : undefined}
+                            onClick={() => {
+                              if (finishing) return;
+                              // This button leaves with the link; the field it cleared is where focus goes.
+                              pendingFocus.current = [`section-link-${section.id}`];
+                              musicSaved.current[section.id] = "";
+                              forgetPick(token, section.id);
+                              setSectionLinks((current) => ({ ...current, [section.id]: "" }));
+                              void saveSection(section.id, "");
+                            }}
+                          >
+                            {copy.reply.sectionMusicClear}
+                          </button>
+                        ) : null}
+                        <span aria-live="polite" className="text-[13px] text-ink-muted empty:hidden">
+                          {saveState === "saving" ? copy.reply.sectionSaving : saveState === "saved" && (sectionLinks[section.id] ?? "") ? copy.reply.sectionDraftSaved : null}
+                        </span>
+                      </div>
+                      {sectionErrors[section.id] ? <p role="alert" className="text-[13px] leading-relaxed text-danger">{sectionErrors[section.id]}</p> : null}
+                    </div>
+                  ) : null}
+
+                  {section.kind === "photo_wall" ? (
+                    <div className="mt-3">
+                      {media.map((item, index) => (
+                        <div key={item.id} className="mt-2 flex items-start gap-3">
+                          <img src={item.url} alt={item.caption || copy.reply.photoPreview} loading="lazy" decoding="async" className="h-16 w-16 flex-none rounded-md border border-line object-cover" />
+                          <div className="min-w-0 flex-1">
+                            {item.caption ? (
+                              <p className="wrap-any text-[13px] text-ink">{item.caption}</p>
+                            ) : null}
+                            <button
+                              type="button"
+                              className="mt-1 min-h-11 text-[13px] font-bold text-ink underline underline-offset-2 aria-disabled:cursor-not-allowed aria-disabled:opacity-45"
+                              aria-disabled={finishing ? true : undefined}
+                              onClick={() => {
+                                if (!finishing) void removeSectionPhoto(section.id, item.id, media.length - 1);
+                              }}
+                            >
+                              {copy.reply.sectionRemovePhoto}
+                            </button>
+                          </div>
+                          <span className="text-[13px] text-ink-muted numeric">{index + 1}/{cap}</span>
+                        </div>
+                      ))}
+                      {media.length < cap ? (
+                        <PhotoSlot
+                          sectionId={section.id}
+                          sectionTitle={section.title}
+                          kind={section.kind}
+                          position={media.length}
+                          disabled={finishing || Boolean(sectionUploading[section.id])}
+                          onPick={(file, caption) => void uploadSectionPhoto(section.id, section.kind, file, caption, media.length)}
+                        />
+                      ) : null}
+                      <p role="status" aria-live="polite" className={sectionNotices[section.id] ? "mt-2 text-[13px] text-ink-muted" : undefined}>
+                        {sectionNotices[section.id]}
+                      </p>
+                      <p role="alert" className={sectionErrors[section.id] ? "mt-2 text-[13px] leading-relaxed text-danger" : undefined}>
+                        {sectionErrors[section.id]}
+                      </p>
+                    </div>
+                  ) : null}
+                </section>
+              );
+  };
+
   return (
     <>
       <header className="reply-topbar stitched sticky top-0 z-20 border-b bg-page/85 backdrop-blur-md">
@@ -1187,44 +1331,21 @@ export function ReplySheet({
             <nav id="reply-jump-panel" className="reply-jump__panel" aria-label={copy.reply.jumpTitle}>
               <p className="reply-jump__title">{copy.reply.jumpTitle}</p>
               <ol>
-                {questions.map((question, index) => {
-                  const done = answeredIds.has(question.id);
+                {items.map((item, index) => {
+                  const done = isCard(item) ? cardDone(item.id) : answeredIds.has(item.id);
                   return (
-                    <li key={question.id}>
-                      <a href={`#card-${question.id}`} onClick={(event) => { event.preventDefault(); jumpToQuestion(question.id); }}>
+                    <li key={item.id}>
+                      <a href={`#card-${item.id}`} onClick={(event) => { event.preventDefault(); jumpToQuestion(item.id); }}>
                         <span className={`reply-jump__mark${done ? " is-done" : ""}`} aria-hidden="true">
                           {done ? <svg viewBox="0 0 20 20" className="h-3 w-3"><path d="m4 10 4 4 8-9" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" /></svg> : index + 1}
                         </span>
-                        <span className="min-w-0 wrap-any">{question.text}</span>
+                        <span className="min-w-0 wrap-any">{item.emoji ? `${item.emoji} ${item.text}` : item.text}</span>
                         <span className="sr-only">, {done ? copy.reply.jumpAnswered : copy.reply.jumpOpen}</span>
                       </a>
                     </li>
                   );
                 })}
               </ol>
-              {sections.length > 0 ? (
-                <>
-                  <p className="reply-jump__title mt-2">{copy.reply.sectionsHeading}</p>
-                  <ol>
-                    {sections.map((section) => {
-                      const done = (sectionBodies[section.id] ?? "").trim().length > 0
-                        || (sectionLinks[section.id] ?? "").trim().length > 0
-                        || (sectionMediaLists[section.id] ?? []).length > 0;
-                      return (
-                        <li key={section.id}>
-                          <a href={`#card-${section.id}`} onClick={(event) => { event.preventDefault(); jumpToQuestion(section.id); }}>
-                            <span className={`reply-jump__mark${done ? " is-done" : ""}`} aria-hidden="true">
-                              {done ? <svg viewBox="0 0 20 20" className="h-3 w-3"><path d="m4 10 4 4 8-9" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" /></svg> : (section.emoji ?? "·")}
-                            </span>
-                            <span className="min-w-0 wrap-any">{section.title}</span>
-                            <span className="sr-only">, {done ? copy.reply.jumpAnswered : copy.reply.jumpOpen}</span>
-                          </a>
-                        </li>
-                      );
-                    })}
-                  </ol>
-                </>
-              ) : null}
             </nav>
             ) : null}
           </div>
@@ -1346,7 +1467,10 @@ export function ReplySheet({
         </p>
 
         <div ref={questionList} className="mt-5 flex flex-col gap-6">
-          {questions.map((question, index) => {
+          {items.map((item, index) => {
+            const section = sections.find((candidate) => candidate.id === item.id);
+            if (section) return renderSection(section, index);
+            const question = item;
             if (question.kind === "poll") {
               return (
                 <PollCard
@@ -1420,9 +1544,13 @@ export function ReplySheet({
               {/* A heading, so a screen reader can move question to question; the label inside still names the field. */}
               <h2 className="m-0 text-ink">
                 <label htmlFor={`reply-${question.id}`} className="block font-display text-[26px] font-bold leading-[1.15] text-ink">
+                  {question.emoji ? <span className="mr-2">{question.emoji}</span> : null}
                   {question.text}
                 </label>
               </h2>
+              {question.description ? (
+                <p className="m-0 mt-1 text-[13.5px] leading-relaxed text-ink-soft">{question.description}</p>
+              ) : null}
               {questionStatuses[question.id] === "error" ? (
                 <p role="alert" className="m-0 mt-1 flex flex-wrap items-center gap-x-3 text-[13px] font-bold text-danger">
                   {conflicts[question.id] ?? copy.reply.questionStates.error}
@@ -1526,6 +1654,7 @@ export function ReplySheet({
                   ) : null}
                 </div>
 
+                {question.voice ? (
                 <div role="group" aria-label={forQuestion(copy.reply.voiceGroup)} className="contents">
                   {isRecordingHere ? (
                     // Visual only: a ticking live region would be read out every second.
@@ -1593,6 +1722,7 @@ export function ReplySheet({
                     </>
                   )}
                 </div>
+                ) : null}
               </div>
               {/* Said once, on the first question: the same note under every card is noise. */}
               {!canRecord && !audioUrl && !isRecordingHere && question.id === firstWrittenId ? (
@@ -1652,166 +1782,6 @@ export function ReplySheet({
           })}
         </div>
 
-        {sections.length > 0 ? (
-          <section ref={sectionList} className="mt-8" aria-label={copy.reply.sectionsHeading}>
-            <h2 className="font-display text-[25px] font-bold leading-[1.15] text-ink">{copy.reply.sectionsHeading}</h2>
-            {sections.map((section) => {
-              const media = sectionMediaLists[section.id] ?? [];
-              const saveState = sectionSaveStates[section.id] ?? "idle";
-              const cap = section.kind === "photo_wall" ? 6 : 1;
-              return (
-                <div key={section.id} id={`card-${section.id}`} data-paper="note" className="card paper ride-in mt-4 block p-5 pt-6">
-                  <h3 className="font-display text-[22px] font-bold leading-tight text-ink">
-                    {section.emoji ? <span className="mr-2">{section.emoji}</span> : null}
-                    {section.title}
-                  </h3>
-                  {section.description ? (
-                    <p className="mt-1 text-[13.5px] leading-relaxed text-ink-soft">{section.description}</p>
-                  ) : null}
-
-                  {section.kind === "music" ? (
-                    <div
-                      className="mt-3 flex flex-col gap-3"
-                      onBlur={(event) => {
-                        // Leaving the pair of fields is the save: moving between them isn't.
-                        if (event.currentTarget.contains(event.relatedTarget as Node | null)) return;
-                        const link = (sectionLinks[section.id] ?? "").trim();
-                        if (link && link !== musicSaved.current[section.id]) {
-                          musicSaved.current[section.id] = link;
-                          void saveSection(section.id);
-                        }
-                      }}
-                    >
-                      <label className="block text-[13px] font-bold text-ink-soft">
-                        {copy.reply.sectionMusicLabel}
-                        <input
-                          id={`section-link-${section.id}`}
-                          value={sectionLinks[section.id] ?? ""}
-                          onChange={(event) => setSectionLinks((current) => ({ ...current, [section.id]: event.target.value }))}
-                          placeholder={copy.reply.sectionMusicPlaceholder}
-                          inputMode="url"
-                          maxLength={500}
-                          disabled={finishing}
-                          className="field mt-1 h-[46px] py-0"
-                        />
-                      </label>
-                      <label className="block text-[13px] font-bold text-ink-soft">
-                        {copy.reply.sectionMusicCaptionLabel}
-                        <input
-                          value={sectionCaptions[section.id] ?? ""}
-                          onChange={(event) => setSectionCaptions((current) => ({ ...current, [section.id]: event.target.value }))}
-                          placeholder={copy.reply.sectionCaptionPlaceholder}
-                          maxLength={120}
-                          disabled={finishing}
-                          className="field mt-1 h-[46px] py-0"
-                        />
-                      </label>
-                      <div className="flex flex-wrap items-center gap-x-3 empty:hidden">
-                        {(sectionLinks[section.id] ?? "") ? (
-                          <button
-                            type="button"
-                            className="link link--quiet cursor-pointer aria-disabled:cursor-not-allowed aria-disabled:opacity-45"
-                            aria-disabled={finishing ? true : undefined}
-                            onClick={() => {
-                              if (finishing) return;
-                              // This button leaves with the link; the field it cleared is where focus goes.
-                              pendingFocus.current = [`section-link-${section.id}`];
-                              musicSaved.current[section.id] = "";
-                              forgetPick(token, section.id);
-                              setSectionLinks((current) => ({ ...current, [section.id]: "" }));
-                              void saveSection(section.id, "");
-                            }}
-                          >
-                            {copy.reply.sectionMusicClear}
-                          </button>
-                        ) : null}
-                        <span aria-live="polite" className="text-[13px] text-ink-muted empty:hidden">
-                          {saveState === "saving" ? copy.reply.sectionSaving : saveState === "saved" && (sectionLinks[section.id] ?? "") ? copy.reply.sectionDraftSaved : null}
-                        </span>
-                      </div>
-                      {sectionErrors[section.id] ? <p role="alert" className="text-[13px] leading-relaxed text-danger">{sectionErrors[section.id]}</p> : null}
-                    </div>
-                  ) : null}
-
-                  {section.kind === "standard" ? (
-                    <div className="mt-3">
-                      <textarea
-                        value={sectionBodies[section.id] ?? ""}
-                        onChange={(event) => {
-                          const typed = event.target.value;
-                          setSectionBodies((current) => ({ ...current, [section.id]: typed }));
-                          // On this device from the first keystroke, until the server has it.
-                          keep(extraKey(token, section.id), typed);
-                        }}
-                        onBlur={() => saveSectionText(section.id)}
-                        placeholder={copy.reply.placeholder}
-                        aria-label={section.title}
-                        rows={3}
-                        maxLength={2000}
-                        disabled={finishing}
-                        className="field lined-field w-full py-2"
-                      />
-                      <p aria-live="polite" className="mt-1 text-[13px] text-ink-muted">
-                        {saveState === "saving" ? copy.reply.sectionSaving : saveState === "saved" ? copy.reply.sectionDraftSaved : null}
-                      </p>
-                      <p role="alert" className={sectionErrors[section.id] ? "text-[13px] leading-relaxed text-danger" : undefined}>
-                        {sectionErrors[section.id]}
-                      </p>
-                      {saveState === "error" ? (
-                        <button type="button" className="link cursor-pointer" onClick={() => saveSectionText(section.id)}>{copy.reply.retryExtra}</button>
-                      ) : null}
-                    </div>
-                  ) : null}
-
-                  {(section.kind === "standard" || section.kind === "photo_wall") ? (
-                    <div className="mt-3">
-                      {media.map((item, index) => (
-                        <div key={item.id} className="mt-2 flex items-start gap-3">
-                          <img src={item.url} alt={item.caption || copy.reply.photoPreview} loading="lazy" decoding="async" className="h-16 w-16 flex-none rounded-md border border-line object-cover" />
-                          <div className="min-w-0 flex-1">
-                            {item.caption ? (
-                              <p className="wrap-any text-[13px] text-ink">{item.caption}</p>
-                            ) : null}
-                            <button
-                              type="button"
-                              className="mt-1 min-h-11 text-[13px] font-bold text-ink underline underline-offset-2 aria-disabled:cursor-not-allowed aria-disabled:opacity-45"
-                              aria-disabled={finishing ? true : undefined}
-                              onClick={() => {
-                                if (!finishing) void removeSectionPhoto(section.id, item.id, media.length - 1);
-                              }}
-                            >
-                              {copy.reply.sectionRemovePhoto}
-                            </button>
-                          </div>
-                          <span className="text-[13px] text-ink-muted numeric">{index + 1}/{cap}</span>
-                        </div>
-                      ))}
-                      {media.length < cap ? (
-                        <PhotoSlot
-                          sectionId={section.id}
-                          sectionTitle={section.title}
-                          kind={section.kind}
-                          position={media.length}
-                          disabled={finishing || Boolean(sectionUploading[section.id])}
-                          onPick={(file, caption) => void uploadSectionPhoto(section.id, section.kind, file, caption, media.length)}
-                        />
-                      ) : null}
-                      <p role="status" aria-live="polite" className={sectionNotices[section.id] ? "mt-2 text-[13px] text-ink-muted" : undefined}>
-                        {sectionNotices[section.id]}
-                      </p>
-                      {/* Standard sections already carry their one alert above the photos. */}
-                      {section.kind === "photo_wall" ? (
-                        <p role="alert" className={sectionErrors[section.id] ? "mt-2 text-[13px] leading-relaxed text-danger" : undefined}>
-                          {sectionErrors[section.id]}
-                        </p>
-                      ) : null}
-                    </div>
-                  ) : null}
-                </div>
-              );
-            })}
-          </section>
-        ) : null}
 
         <p role="alert" className={error ? "mt-4 text-[14px] leading-relaxed text-danger" : undefined}>
           {error}

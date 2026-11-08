@@ -9,6 +9,12 @@ test.beforeEach(async () => {
   await resetDatabase();
 });
 
+/** The queue: the pool's turn-takers in the order coming rounds take them. */
+function queue(groupId: string) {
+  return rows<{ text: string }>("select text from questions where group_id = $1 order by position", [groupId])
+    .then((result) => result.map((row) => row.text));
+}
+
 function questionsForRound(groupId: string, number: number) {
   return rows<{ text: string }>(
     `select iq.text from issue_questions iq
@@ -41,16 +47,16 @@ test("C5 · a question count rotates scheduled rounds and wraps", async ({ page 
   await runSweep(new Date(AFTER_FIRST_SLOT.getTime() + 14 * DAY));
   expect(await questionsForRound(loop.groupId, 3)).toEqual(["Q5", "Q1"]);
 
-  const [group] = await rows<{ question_cursor: number; questions_per_round: number }>(
-    "select question_cursor, questions_per_round from groups where id = $1",
-    [loop.groupId],
-  );
-  expect(group).toEqual({ question_cursor: 1, questions_per_round: 2 });
+  // What each round took went to the back: the queue is the order from here on.
+  expect(await queue(loop.groupId)).toEqual(["Q2", "Q3", "Q4", "Q5", "Q1"]);
+  const [group] = await rows<{ questions_per_round: number }>("select questions_per_round from groups where id = $1", [loop.groupId]);
+  expect(group.questions_per_round).toBe(2);
 });
 
-test("C5 · saving an unchanged count keeps the cursor", async ({ page }) => {
+test("C5 · saving an unchanged count keeps the queue", async ({ page }) => {
   const loop = await seedLoop({ questions: QUESTIONS });
-  await rows("update groups set questions_per_round = 2, question_cursor = 4 where id = $1", [loop.groupId]);
+  await rows("update groups set questions_per_round = 2 where id = $1", [loop.groupId]);
+  await rows("update questions set position = case text when 'Q4' then -1 when 'Q5' then -2 else position end where group_id = $1", [loop.groupId]);
   await signIn(page, "owner@friendloop.test");
 
   await page.goto(`/g/${loop.groupId}/questions`);
@@ -59,11 +65,7 @@ test("C5 · saving an unchanged count keeps the cursor", async ({ page }) => {
   await pickOption(page, "Questions per round", "2");
   await expect(page.getByText("Questions per round updated.")).toBeVisible();
 
-  const [group] = await rows<{ question_cursor: number }>(
-    "select question_cursor from groups where id = $1",
-    [loop.groupId],
-  );
-  expect(group.question_cursor).toBe(4);
+  expect(await queue(loop.groupId)).toEqual(["Q5", "Q4", "Q1", "Q2", "Q3"]);
 });
 
 test("C5 · send now uses the same rotation", async ({ page }) => {
@@ -80,9 +82,5 @@ test("C5 · send now uses the same rotation", async ({ page }) => {
   await expect(page.getByText(/Round 2 is open for answers/)).toBeVisible();
 
   expect(await questionsForRound(loop.groupId, 2)).toEqual(["Q3", "Q4"]);
-  const [group] = await rows<{ question_cursor: number }>(
-    "select question_cursor from groups where id = $1",
-    [loop.groupId],
-  );
-  expect(group.question_cursor).toBe(4);
+  expect(await queue(loop.groupId)).toEqual(["Q5", "Q1", "Q2", "Q3", "Q4"]);
 });

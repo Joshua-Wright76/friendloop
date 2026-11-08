@@ -1,8 +1,7 @@
 import { DEFAULT_REACTIONS, tallyReactions } from "./reaction-emoji.ts";
 import { and, asc, eq, isNull } from "drizzle-orm";
 import { db } from "@/db";
-import { replyHasContentCondition, sectionReplyHasContentCondition } from "./reply-query";
-import { legacyAskCondition, legacyReplyCondition } from "./legacy-ask";
+import { replyHasContentCondition } from "./reply-query";
 import {
   groups,
   issueQuestions,
@@ -10,12 +9,13 @@ import {
   memberships,
   reactions,
   replies,
+  replyMedia,
 } from "@/db/schema";
 import { copy } from "./copy.ts";
 import { loadComments, type IssueComment } from "./comment-view.ts";
 import { tallyPoll, type PollTallyRow } from "./poll.ts";
-import { musicCardsFor, type MusicProvider, type MusicTrack } from "./sections";
-import { issueSections, sectionMedia, sectionReplies } from "@/db/schema";
+import { musicCardsFor, type MusicProvider, type MusicTrack } from "./music";
+import { formatOf } from "./asks";
 
 export type IssueAnswer = {
   replyId: string;
@@ -37,6 +37,19 @@ export type IssueAnswer = {
   reactions: Array<{ emoji: string; count: number; mine: boolean }>;
   /** The thread on this one answer; always empty when comments are off or the page is shared. */
   comments: IssueComment[];
+  /** A music pick's card. Only on music answers, so other answers read exactly as they always have. */
+  link?: IssueLink;
+  /** A photo wall's photos. Only on photo-wall answers. */
+  media?: Array<{ url: string; caption: string | null }>;
+};
+
+export type IssueLink = {
+  url: string;
+  provider: string | null;
+  title: string | null;
+  artworkUrl: string | null;
+  tracks: MusicTrack[];
+  trackCount: number;
 };
 
 export type IssueSectionReplyBlock = {
@@ -57,6 +70,9 @@ export type IssueSectionReplyBlock = {
   linkTrackCount: number;
   addedLater: boolean;
   media: Array<{ url: string; caption: string | null }>;
+  /** Former section answers take reactions and comments like any other answer. */
+  reactions: Array<{ emoji: string; count: number; mine: boolean }>;
+  comments: IssueComment[];
 };
 
 export type IssueSectionBlock = {
@@ -83,6 +99,10 @@ export type IssueBlock = {
   suggestedBy: string | null;
   poll: IssuePoll | null;
   answers: IssueAnswer[];
+  /** Set for a photo wall or a music pick; a written or poll item leaves it out. */
+  format?: "photo_wall" | "music";
+  emoji?: string;
+  description?: string;
 };
 
 export type IssueView = {
@@ -143,12 +163,12 @@ export async function loadIssue(input: {
 
   // Everything below hangs off the issue alone, so it is asked for at once: one
   // round trip to the database instead of one per table.
-  const [questions, allRows, threads, reactionRows, sectionRows, allSectionReplyRows, allSectionMediaRows] = await Promise.all([
+  const [asked, allRows, threads, reactionRows, allMedia] = await Promise.all([
     db
       .select()
       .from(issueQuestions)
-      .where(and(eq(issueQuestions.issueId, issue.id), legacyAskCondition()))
-      .orderBy(asc(issueQuestions.position)),
+      .where(eq(issueQuestions.issueId, issue.id))
+      .orderBy(asc(issueQuestions.position), asc(issueQuestions.id)),
     db
       .select({
         replyId: replies.id,
@@ -158,7 +178,10 @@ export async function loadIssue(input: {
         audioUrl: replies.audioUrl,
         audioDurationMs: replies.audioDurationMs,
         pollChoices: replies.pollChoices,
+        linkUrl: replies.linkUrl,
+        linkProvider: replies.linkProvider,
         addedAfterDelivery: replies.addedAfterDelivery,
+        createdAt: replies.createdAt,
         membershipId: replies.membershipId,
         name: memberships.name,
         email: memberships.email,
@@ -168,7 +191,8 @@ export async function loadIssue(input: {
       })
       .from(replies)
       .innerJoin(memberships, eq(memberships.id, replies.membershipId))
-      .where(and(eq(replies.issueId, issue.id), replyHasContentCondition(), legacyReplyCondition())),
+      .where(and(eq(replies.issueId, issue.id), replyHasContentCondition()))
+      .orderBy(asc(replies.createdAt), asc(replies.id)),
     showComments
       ? loadComments({ issueId: issue.id, groupId: group.id, viewerMembershipId })
       : Promise.resolve({ top: [], byReply: new Map<string, IssueComment[]>(), mentionables: [] }),
@@ -178,144 +202,143 @@ export async function loadIssue(input: {
       .select({ replyId: reactions.replyId, membershipId: reactions.membershipId, emoji: reactions.emoji, createdAt: reactions.createdAt })
       .from(reactions)
       .innerJoin(replies, eq(replies.id, reactions.replyId))
-      .where(and(eq(replies.issueId, issue.id), legacyReplyCondition())),
+      .where(eq(replies.issueId, issue.id)),
     db
-      .select()
-      .from(issueSections)
-      .where(eq(issueSections.issueId, issue.id))
-      .orderBy(asc(issueSections.position)),
-    db
-      .select({
-        replyId: sectionReplies.id,
-        issueSectionId: sectionReplies.issueSectionId,
-        body: sectionReplies.body,
-        linkUrl: sectionReplies.linkUrl,
-        linkProvider: sectionReplies.linkProvider,
-        addedAfterDelivery: sectionReplies.addedAfterDelivery,
-        membershipId: sectionReplies.membershipId,
-        name: memberships.name,
-        email: memberships.email,
-        authorPhotoUrl: memberships.photoUrl,
-        authorCharm: memberships.charm,
-        authorFrame: memberships.avatarFrame,
-      })
-      .from(sectionReplies)
-      .innerJoin(memberships, eq(memberships.id, sectionReplies.membershipId))
-      .where(and(eq(sectionReplies.issueId, issue.id), sectionReplyHasContentCondition())),
-    db
-      .select({ sectionReplyId: sectionMedia.sectionReplyId, url: sectionMedia.url, caption: sectionMedia.caption })
-      .from(sectionMedia)
-      .innerJoin(sectionReplies, eq(sectionReplies.id, sectionMedia.sectionReplyId))
-      .where(and(eq(sectionReplies.issueId, issue.id), sectionReplyHasContentCondition()))
-      .orderBy(asc(sectionMedia.position)),
+      .select({ replyId: replyMedia.replyId, url: replyMedia.url, caption: replyMedia.caption })
+      .from(replyMedia)
+      .innerJoin(replies, eq(replies.id, replyMedia.replyId))
+      .where(eq(replies.issueId, issue.id))
+      .orderBy(asc(replyMedia.position), asc(replyMedia.createdAt), asc(replyMedia.id)),
   ]);
 
   // A round is a surprise until it goes out. Whatever someone has written counts
   // as their answer, half-finished sentences included, so before delivery the only
-  // answers anyone sees are their own; poll results wait the same way.
+  // answers anyone sees are their own; poll results wait the same way. Owners-only
+  // items are for the owner and admins.
   const delivered = issue.status === "delivered";
   const visibleNow = (membershipId: string) => delivered || membershipId === viewerMembershipId;
-  const rows = allRows.filter((row) => visibleNow(row.membershipId));
+  const shown = asked.filter((question) => !question.adminOnly || input.viewerIsAdmin);
+  const shownIds = new Set(shown.map((question) => question.id));
+  const rows = allRows.filter((row) => shownIds.has(row.issueQuestionId) && visibleNow(row.membershipId));
 
   const reactionsByReply = new Map<string, typeof reactionRows>();
   for (const reaction of reactionRows) {
     reactionsByReply.set(reaction.replyId, [...(reactionsByReply.get(reaction.replyId) ?? []), reaction]);
   }
+  const mediaByReply = new Map<string, Array<{ url: string; caption: string | null }>>();
+  for (const item of allMedia) {
+    mediaByReply.set(item.replyId, [...(mediaByReply.get(item.replyId) ?? []), { url: item.url, caption: item.caption }]);
+  }
+  const musicCards = await musicCardsFor(rows.flatMap((row) =>
+    row.linkUrl && row.linkProvider ? [{ provider: row.linkProvider as MusicProvider, url: row.linkUrl }] : []));
 
-  const blocks: IssueBlock[] = questions.map((question) => ({
-    questionId: question.id,
-    question: question.text,
-    suggestedBy: question.suggestedBy,
-    poll:
-      question.kind === "poll"
-        ? {
-            multiple: question.pollMultiple,
-            tally: delivered
-              ? tallyPoll(
-                  question.pollOptions ?? [],
-                  rows.filter((row) => row.issueQuestionId === question.id).map((row) => row.pollChoices),
-                )
-              : null,
-            voters: delivered ? rows.filter((row) => row.issueQuestionId === question.id).length : null,
-          }
-        : null,
-    answers: rows
-      .filter((row) => row.issueQuestionId === question.id)
-      .map((row) => {
-        const mine = viewerMembershipId === row.membershipId;
-        const forReply = reactionsByReply.get(row.replyId) ?? [];
+  const byline = (row: (typeof rows)[number]) => {
+    const mine = viewerMembershipId === row.membershipId;
+    return {
+      replyId: row.replyId,
+      authorId: row.membershipId,
+      authorName: row.name ?? row.email.split("@")[0],
+      author: mine ? copy.issue.you : (row.name ?? row.email.split("@")[0]),
+      authorPhotoUrl: row.authorPhotoUrl,
+      authorCharm: row.authorCharm,
+      authorFrame: row.authorFrame,
+      isYou: mine,
+    };
+  };
+  const conversation = (row: (typeof rows)[number]) => ({
+    reactions: tallyReactions(reactionsByReply.get(row.replyId) ?? [], viewerMembershipId),
+    comments: threads.byReply.get(row.replyId) ?? [],
+  });
+  const cardOf = (url: string) => musicCards.get(url);
+
+  // Copied from a section: it keeps a section's look, exactly as it always read.
+  const sectionRows = shown.filter((question) => question.fromSection);
+  const blockRows = shown.filter((question) => !question.fromSection);
+
+  const blocks: IssueBlock[] = blockRows.map((question) => {
+    const format = formatOf(question);
+    const answers = rows.filter((row) => row.issueQuestionId === question.id);
+    return {
+      questionId: question.id,
+      question: question.text,
+      suggestedBy: question.suggestedBy,
+      poll:
+        format === "poll"
+          ? {
+              multiple: question.pollMultiple,
+              tally: delivered ? tallyPoll(question.pollOptions ?? [], answers.map((row) => row.pollChoices)) : null,
+              voters: delivered ? answers.length : null,
+            }
+          : null,
+      answers: answers.map((row) => {
+        const { reactions: tally, comments: thread } = conversation(row);
+        const card = row.linkUrl ? cardOf(row.linkUrl) : undefined;
         return {
-          replyId: row.replyId,
-          authorId: row.membershipId,
-          authorName: row.name ?? row.email.split("@")[0],
-          author: mine ? copy.issue.you : (row.name ?? row.email.split("@")[0]),
-          authorPhotoUrl: row.authorPhotoUrl,
-          authorCharm: row.authorCharm,
-          authorFrame: row.authorFrame,
-          isYou: mine,
+          ...byline(row),
           body: row.body,
           photoUrl: row.photoUrl,
           audioUrl: row.audioUrl,
           audioDurationMs: row.audioDurationMs,
           choices: row.pollChoices.flatMap((index) => question.pollOptions?.[index] ?? []),
           addedLater: row.addedAfterDelivery,
-          comments: threads.byReply.get(row.replyId) ?? [],
-          reactions: tallyReactions(forReply, viewerMembershipId),
+          comments: thread,
+          reactions: tally,
+          ...(format === "music" && row.linkUrl
+            ? {
+                link: {
+                  url: row.linkUrl,
+                  provider: row.linkProvider,
+                  title: card?.title ?? null,
+                  artworkUrl: card?.artworkUrl ?? null,
+                  tracks: card?.tracks ?? [],
+                  trackCount: card?.trackCount ?? 0,
+                },
+              }
+            : {}),
+          ...(format === "photo_wall" ? { media: mediaByReply.get(row.replyId) ?? [] } : {}),
         };
       }),
-  }));
+      ...(format === "photo_wall" || format === "music" ? { format } : {}),
+      ...(question.emoji ? { emoji: question.emoji } : {}),
+      ...(question.description ? { description: question.description } : {}),
+    };
+  });
 
-  const visibleSections = sectionRows.filter((section) => !section.adminOnly || input.viewerIsAdmin);
-  const visibleIds = new Set(visibleSections.map((section) => section.id));
-  const sectionReplyRows = allSectionReplyRows.filter((row) => visibleIds.has(row.issueSectionId) && visibleNow(row.membershipId));
-  const shownReplies = new Set(sectionReplyRows.map((row) => row.replyId));
-  const sectionMediaRows = allSectionMediaRows.filter((row) => shownReplies.has(row.sectionReplyId));
-
-  const musicCards = await musicCardsFor(sectionReplyRows.flatMap((row) =>
-    row.linkUrl && row.linkProvider ? [{ provider: row.linkProvider as MusicProvider, url: row.linkUrl }] : []));
-
-  const sections: IssueSectionBlock[] = visibleSections.map((section) => ({
-    id: section.id,
-    kind: section.kind,
-    title: section.title,
-    emoji: section.emoji,
-    description: section.description,
-    replies: sectionReplyRows
-      .filter((row) => row.issueSectionId === section.id)
-      .map((row) => {
-        const mine = input.viewerMembershipId === row.membershipId;
-        const card = row.linkUrl ? musicCards.get(row.linkUrl) : undefined;
-        return {
-          replyId: row.replyId,
-          authorId: row.membershipId,
-          authorName: row.name ?? row.email.split("@")[0],
-          author: mine ? copy.issue.you : (row.name ?? row.email.split("@")[0]),
-          authorPhotoUrl: row.authorPhotoUrl,
-          authorCharm: row.authorCharm,
-          authorFrame: row.authorFrame,
-          isYou: mine,
-          body: row.body,
-          linkUrl: row.linkUrl,
-          linkProvider: row.linkProvider,
-          linkTitle: card?.title ?? null,
-          linkArtwork: card?.artworkUrl ?? null,
-          linkTracks: card?.tracks ?? [],
-          linkTrackCount: card?.trackCount ?? 0,
-          addedLater: row.addedAfterDelivery,
-          media: sectionMediaRows
-            .filter((item) => item.sectionReplyId === row.replyId)
-            .map((item) => ({ url: item.url, caption: item.caption })),
-        };
-      }),
-  }));
+  const sections: IssueSectionBlock[] = sectionRows.map((question) => {
+    const format = formatOf(question);
+    return {
+      id: question.id,
+      kind: format === "photo_wall" || format === "music" ? format : "standard",
+      title: question.text,
+      emoji: question.emoji,
+      description: question.description,
+      replies: rows
+        .filter((row) => row.issueQuestionId === question.id)
+        .map((row) => {
+          const card = row.linkUrl ? cardOf(row.linkUrl) : undefined;
+          return {
+            ...byline(row),
+            body: row.body,
+            linkUrl: row.linkUrl,
+            linkProvider: row.linkProvider,
+            linkTitle: card?.title ?? null,
+            linkArtwork: card?.artworkUrl ?? null,
+            linkTracks: card?.tracks ?? [],
+            linkTrackCount: card?.trackCount ?? 0,
+            addedLater: row.addedAfterDelivery,
+            media: [...(row.photoUrl ? [{ url: row.photoUrl, caption: null }] : []), ...(mediaByReply.get(row.replyId) ?? [])],
+            ...conversation(row),
+          };
+        }),
+    };
+  });
 
   return {
     issue,
     group,
     blocks,
     sections,
-    // Section replies are answers too: a photo wall or a birthday note counts.
-    answerCount: rows.length + sectionReplyRows.length,
+    answerCount: rows.length,
     comments: threads.top,
     commentsEnabled: group.commentsEnabled,
     mentionables: threads.mentionables,

@@ -1,6 +1,6 @@
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { db } from "@/db";
-import { memberships, questionSuggestions, questions } from "@/db/schema";
+import { memberships, questionSuggestions } from "@/db/schema";
 import { resolveToken } from "./reply";
 import { copy } from "./copy.ts";
 import { SUGGESTION_MAX_LENGTH, suggestionCredit, type AuthorDisplay } from "./suggestion-credit";
@@ -91,30 +91,25 @@ export async function acceptSuggestion(input: {
     return { ok: false, error: copy.suggest.errors.notPending };
   }
 
-  const [{ maxPosition }] = await db
-    .select({ maxPosition: sql<number>`coalesce(max(${questions.position}), -1)::int` })
-    .from(questions)
-    .where(eq(questions.groupId, input.groupId));
-
-  const [question] = await db
-    .insert(questions)
-    .values({
-      groupId: input.groupId,
-      text,
-      position: maxPosition + 1,
-      createdByMembershipId: suggestion.membershipId,
-      createdAt: input.at,
-    })
-    .returning({ id: questions.id });
+  // Imported here: round-questions reads suggestion credits from this module.
+  const { fillOpenRound, insertPoolItem, newQuestionFrequency } = await import("./round-questions");
+  const questionId = await insertPoolItem({
+    groupId: input.groupId,
+    text,
+    format: "written",
+    frequency: await newQuestionFrequency(input.groupId),
+    asQuestion: true,
+    createdByMembershipId: suggestion.membershipId,
+    at: input.at,
+  });
 
   await db
     .update(questionSuggestions)
-    .set({ status: "accepted", acceptedQuestionId: question.id, decidedAt: input.at })
+    .set({ status: "accepted", acceptedQuestionId: questionId, decidedAt: input.at })
     .where(eq(questionSuggestions.id, suggestion.id));
 
-  // Imported here: round-questions reads suggestion credits from this module.
-  const { syncOpenRoundQuestions } = await import("./round-questions");
-  await syncOpenRoundQuestions(input.groupId);
+  // Credited from here on, so the open round can take it now.
+  await fillOpenRound(input.groupId);
 
   return { ok: true };
 }

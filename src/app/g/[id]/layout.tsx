@@ -7,14 +7,13 @@ import { db } from "@/db";
 import { groups, issues, memberships, outbox, questions } from "@/db/schema";
 import { answeredCountSql } from "@/lib/reply-query";
 import { answeredMemberIds } from "@/lib/answered";
-import { legacyPoolCondition } from "@/lib/legacy-ask";
 import { pendingSuggestions } from "@/lib/suggestions";
 import { sectionsOf } from "@/lib/sections";
 import { eventsOf } from "@/lib/events";
 import { deliveredRoundsAnsweredByEveryone } from "@/lib/rounds-by-member";
 import { currentUser } from "@/lib/auth";
 import { getNow } from "@/lib/clock";
-import { membersOf } from "@/lib/manage";
+import { membersOf, poolQuestionCondition } from "@/lib/manage";
 import { describeDeadline, groupSchedule, nextSlot, weekdayName } from "@/lib/schedule";
 import { url } from "@/lib/urls";
 import { ownAnswerHref } from "@/lib/answer-link";
@@ -108,8 +107,8 @@ async function LoadedGroupLayout({ children, params }: Props) {
       pollOptions: questions.pollOptions,
     })
       .from(questions)
-      .where(and(eq(questions.groupId, group.id), legacyPoolCondition(), isNull(questions.archivedAt)))
-      .orderBy(asc(questions.position)),
+      .where(poolQuestionCondition(group.id))
+      .orderBy(asc(questions.position), asc(questions.createdAt), asc(questions.id)),
     db.select({
       id: issues.id,
       number: issues.number,
@@ -172,16 +171,7 @@ async function LoadedGroupLayout({ children, params }: Props) {
     user,
     people,
     questions: questionRows,
-    sections: sectionRows.map((section) => ({
-      id: section.id,
-      kind: section.kind,
-      title: section.title,
-      emoji: section.emoji,
-      description: section.description,
-      adminOnly: section.adminOnly,
-      active: section.active,
-      position: section.position,
-    })),
+    sections: sectionRows,
     events: eventRows,
     suggestions: suggestionRows.map((suggestion) => ({
       id: suggestion.id,

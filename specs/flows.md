@@ -44,11 +44,11 @@ Status: `todo` (not built) · `done` (built and covered).
 
 | ID | Flow | Acceptance criteria | Status |
 | --- | --- | --- | --- |
-| C1 | Add a custom question | A new question appears at the end of the pool, is active, and is available to the next issue. | done |
-| C2 | Reorder questions | Moving a question changes the order shown in the pool and the order used by the next issue. | done |
-| C3 | Archive a question | Archiving removes it from the pool's active list and from future issues, while past issues still render its original text. | done |
-| C4 | Choose the open round's questions | Skipping a question takes it out of the round that is open (unless someone has started answering it) until that round goes out; the question stays in the pool. | done |
-| C5 | Rotate questions | Setting a count of two selects questions 1–2, then 3–4, then wraps to 5 and 1. "Send now" uses the same cursor, while "All questions" preserves the original behavior. | done |
+| C1 | Add a custom question | A new question appears at the end of the list and joins the round that is open when that round has room for it (every round, in a loop that asks every question); otherwise it waits its turn in the queue. | done |
+| C2 | Reorder questions | The list is the queue: moving a question changes the order shown and the order coming rounds take their turns in. The round already open keeps its own order. | done |
+| C3 | Archive a question | Archiving stops asking it: it leaves the list and the open round (unless someone has written there), and the next in line takes its place, while past issues still render its original text. | done |
+| C4 | Choose the open round's questions | Skipping a question takes it out of the round that is open (unless someone has started answering it) and puts it first in line for the next round; the question stays in the list, and the next round asks it again. | done |
+| C5 | Rotate questions | Setting a count of two takes questions 1–2, then 3–4, then wraps to 5 and 1: each round takes the front of the queue and sends what it took to the back. "Send now" opens the next round the same way, while "All questions" asks every question each round. | done |
 | C6 | Add questions from packs | The library is browsable by pack; several packs can be filtered at once, questions can be picked across them or added a whole pack at a time, and questions already in the pool are skipped. | done |
 
 ## D · The issue cycle
@@ -63,7 +63,7 @@ Status: `todo` (not built) · `done` (built and covered).
 | D6 | Change or clear an answer | Before delivery, changing an answer updates its row in place without creating a duplicate; clearing it back to nothing takes it out of the round, the issue page and the progress count. | done |
 | D7 | Deliver the issue | With the clock past the delivery instant, the sweep sends one issue email per member containing every saved, non-empty answer, the issue's status becomes `delivered`, and the next round opens with its questions in each contributor's email. | done |
 | D8 | Nothing to deliver | An issue reaching its delivery instant with nothing written in it (or only answers cleared back to nothing) sends no email and is carried over to the next delivery; on its third empty delivery it is marked `skipped` and pauses the loop with an explanation to the owner. | done |
-| D9 | Nudge the stragglers | 48 hours before delivery, contributors with nothing written get exactly one reminder; anyone with a saved answer (a question or a section) gets none, and a second sweep sends no duplicate. | done |
+| D9 | Nudge the stragglers | 48 hours before delivery, contributors with nothing written get exactly one reminder; anyone with a saved answer (to anything the round asks) gets none, and a second sweep sends no duplicate. | done |
 | D10 | Nudge by hand | From the dashboard the owner sees who has nothing written yet and can send one more reminder; anyone with a saved answer gets none, and each nudge is its own email rather than a duplicate. | done |
 | D11 | Two triggers at once | When the two production triggers run the sweep concurrently, exactly one issue is created for the slot, one prompt per contributor is sent, and concurrent delivery and reminder passes never double-send. | done |
 | D12 | Provider rejects a send | A provider outage leaves the prompt `failed` with its attempt counted, the next sweep retries the same row instead of queueing a new one, a permanent rejection keeps the provider's reason, and a rate limit clears once the provider recovers. | done |
@@ -115,15 +115,17 @@ Status: `todo` (not built) · `done` (built and covered).
 
 ## K · Sections (and music picks)
 
+Sections are items asked every round in the one list of things to ask (`specs/architecture.md` §13), still managed on the "Sections and dates" tab until the Questions page replaces it. A standard section is a written item (text, one photo, a voice note); photo walls and music picks are their own answer formats.
+
 | ID | Flow | Acceptance criteria | Status |
 | --- | --- | --- | --- |
-| K1 | Manage sections | Owner creates, edits, reorders, and archives sections; archived sections leave future issues while past issues keep their snapshot. | done |
-| K2 | Sections reach an issue | The sweep snapshots active sections into the new issue alongside questions; the reply sheet shows them in position; readers see them in the delivered issue but are never asked to reply. The prompt counts and lists each section (an event too) as one more thing asked, so a round that holds only sections still sends every contributor its prompt. | done |
-| K3 | Standard section reply | Contributors answer a Standard section with text + one photo, under the same media rules and caps as question answers. | done |
-| K4 | Photo wall reply | Contributors add up to six photos to a Photo Wall section, each with an optional one-line caption; the delivered issue lays them edge-to-edge, each with its author and any caption, and tapping one opens it full size in the same viewer as the Album (previous/next, Escape returns focus) with a Download button. | done |
+| K1 | Manage sections | Owner creates, edits, reorders, and archives sections; a new section joins the open round, an archived one leaves future rounds (and the open round, unless someone wrote there) while past issues keep their snapshot. | done |
+| K2 | Sections reach an issue | A round opens with its questions, then every section, then its dated items, as one list; the reply sheet shows them in that order as one list with one jump list; readers see them in the delivered issue but are never asked to reply. The prompt counts and lists each section (an event too) as one more thing asked, so a round that holds only sections still sends every contributor its prompt, and a delivery email's "next round" list names them too. | done |
+| K3 | Standard section reply | Contributors answer a Standard section on a written card: text and one photo (and a voice note), under the same media rules and caps as any answer. A sheet loaded before the switch still saves through its old section endpoints. | done |
+| K4 | Photo wall reply | Contributors add up to six photos to a photo wall, each with an optional one-line caption; the delivered issue lays them edge-to-edge, each with its author and any caption, and tapping one opens it full size in the same viewer as the Album (previous/next, Escape returns focus) with a Download button. Each person's photos take reactions and comments, on past photo walls too. | done |
 | K5 | Paste a music link | A music section accepts a Spotify, Bandcamp, or Qobuz link, with an optional caption; a non-music URL gets the plain-language error and nothing is saved until it is fixed or cleared. | done |
-| K6 | Music renders | The delivered web issue renders every music pick as a card (artwork when the metadata provides it, title, provider badge) that opens the provider page; the delivery email renders title + link. Playable Spotify/Bandcamp embeds are stretch. | done |
-| K7 | Admin-only sections | A section can be restricted to owner/admin contributors; other members don't see it on the sheet, in prompts (nor in their count), or in the delivered issue. | done |
+| K6 | Music renders | The delivered web issue renders every music pick as a card (artwork when the metadata provides it, title, provider badge) that opens the provider page, and it takes reactions and comments like any answer; the delivery email renders title + link. Playable Spotify/Bandcamp embeds are stretch. | done |
+| K7 | Admin-only sections | A section can be restricted to owner/admin contributors; other members don't see it on the sheet, in prompts (nor in their count), in a delivery email, or in the delivered issue, and can't react to or comment on its answers. | done |
 | K8 | Sections follow the open round | Editing a section while a round is open changes that round, unless someone has started writing in it, in which case it keeps the words they answered; the next round carries the new wording. | done |
 
 ## J · Voice replies
@@ -171,15 +173,15 @@ Status: `todo` (not built) · `done` (built and covered).
 | ID | Flow | Acceptance criteria | Status |
 | --- | --- | --- | --- |
 | O1 | Add an event | The owner or an admin adds a one-time event (title, emoji, date) or an annual birthday tied to a member (emoji, date; the year is ignored); it lists under "Coming up" soonest first with its next date, can be edited or removed, and a date already gone by is refused with a plain message. Members never see the calendar. | done |
-| O2 | Event lands in the right round | The sweep puts an event whose local date falls in a round's window into that round as a section titled with the event (or "Maya's birthday"); contributors see it on the sheet, reply with a message and a photo, and it travels in the delivery email and on the web issue. An event outside the window is left for the round that holds it. | done |
-| O3 | Birthdays recur | A birthday places exactly one section per year, in the one round whose window holds the date (loop timezone), however many rounds open around it or however often the sweep runs; a window shorter than the cadence still catches a date between two rounds, a window crossing New Year catches both sides, and 29 February keeps to 28 February in years without one. | done |
-| O4 | Past truth | A round keeps the title, emoji and place of the event section it was given even if the event is later edited or deleted or the member is renamed; replies already written stay with it. | done |
+| O2 | Event lands in the right round | The sweep puts an event whose local date falls in a round's window into that round as a card titled with the event (or "Maya's birthday"), after the round's questions and sections; contributors other than the birthday person see it on the sheet, reply with a message and a photo, and it travels in the delivery email and on the web issue. An event outside the window is left for the round that holds it. | done |
+| O3 | Birthdays recur | A birthday places exactly one card per year, in the one round whose window holds the date (loop timezone), however many rounds open around it or however often the sweep runs; a window shorter than the cadence still catches a date between two rounds, a window crossing New Year catches both sides, and 29 February keeps to 28 February in years without one. | done |
+| O4 | Past truth | A round keeps the title, emoji and place of the event card it was given even if the event is later edited or deleted or the member is renamed; replies already written stay with it. | done |
 
 ## P · The Album
 
 | ID | Flow | Acceptance criteria | Status |
 | --- | --- | --- | --- |
-| P1 | Browse the album | A member opens the Album — a tab of the loop, or a link on any delivered round for people who read from their inbox — and sees every photo and voice note from delivered rounds (answers, photo walls and section photos), newest round first and grouped under the round's name; voice notes play in place, photos open in a keyboard-and-touch-usable fullscreen viewer that offers a download, and "view in the round" lands on that very answer. Nothing from an open round, a draft an old round went out without, or an admin-only section the viewer cannot read is shown. | done |
+| P1 | Browse the album | A member opens the Album — a tab of the loop, or a link on any delivered round for people who read from their inbox — and sees every photo and voice note from delivered rounds (answers and photo walls, past sections included), newest round first and grouped under the round's name; voice notes play in place, photos open in a keyboard-and-touch-usable fullscreen viewer that offers a download, and "view in the round" lands on that very answer. Nothing from an open round, a draft an old round went out without, or an admin-only section the viewer cannot read is shown. | done |
 | P2 | Filter and search | Choosing one person and searching a word (matched against answer text, photo captions, and the question or section it answered; every word must turn up) each narrow the Album, alone or together; the URL carries the filters, a long album grows a page at a time without losing them, and an empty result says so plainly with a way out. | done |
 | P3 | Privacy holds | Share-link visitors get no Album route, link or data; strangers, revoked members, other loops' members and bad tokens get the plain not-found page with nothing of the loop in it; the media addresses stay unguessable. | done |
 

@@ -134,15 +134,18 @@ test("opening a round twice returns the open one", async () => {
   assert.equal(await openRound({ groupId: "00000000-0000-4000-8000-000000000000", at: E2E_NOW, prompt: false }), null);
 });
 
-test("a question added, ordered or archived while a round is open changes that round", async () => {
+test("a question added or stopped while a round is open changes that round; reordering changes the queue", async () => {
   const { loop, round } = await openLoop(["One?", "Two?"]);
   assert.deepEqual(await askedIn(round.id), ["One?", "Two?"]);
 
   const threeId = await addQuestion(loop.groupId, "Three?", E2E_NOW);
   assert.deepEqual(await askedIn(round.id), ["One?", "Two?", "Three?"]);
 
+  // The list is the queue: the round people are answering keeps its order.
   await reorderQuestion(loop.groupId, threeId!, 0);
-  assert.deepEqual(await askedIn(round.id), ["Three?", "One?", "Two?"]);
+  assert.deepEqual(await askedIn(round.id), ["One?", "Two?", "Three?"]);
+  const queue = await rows<{ text: string }>("select text from questions where group_id = $1 order by position", [loop.groupId]);
+  assert.deepEqual(queue.map((row) => row.text), ["Three?", "One?", "Two?"]);
 
   await archiveQuestion(loop.groupId, threeId!, E2E_NOW);
   assert.deepEqual(await askedIn(round.id), ["One?", "Two?"]);
@@ -154,7 +157,7 @@ test("a question someone has started answering stays in the round when it leaves
   await seedReplies({ issueId: round.id, membershipId: alice.id, answers: [{ text: "One?", body: "Already written." }] });
 
   await archiveQuestion(loop.groupId, loop.questionIds[0], E2E_NOW);
-  assert.deepEqual(await askedIn(round.id), ["Two?", "One?"], "kept for its answer, after the rest");
+  assert.deepEqual(await askedIn(round.id), ["One?", "Two?"], "kept for its answer, in its place");
 });
 
 test("skipping a question takes it out of the open round until that round goes out", async () => {
@@ -176,12 +179,15 @@ test("skipping a question takes it out of the open round until that round goes o
 test("a section added, edited or archived while a round is open changes that round", async () => {
   const { loop, round } = await openLoop();
   const sectionsIn = async () =>
-    (await rows<{ title: string }>("select title from issue_sections where issue_id = $1 order by position", [round.id])).map((row) => row.title);
+    (await rows<{ text: string }>(
+      "select iq.text from issue_questions iq join questions q on q.id = iq.question_id where iq.issue_id = $1 and q.frequency = 'every_round' and not q.active order by iq.position",
+      [round.id],
+    )).map((row) => row.text);
 
   await createSection({ groupId: loop.groupId, kind: "standard", title: "Potluck", emoji: null, description: null, adminOnly: false, at: E2E_NOW });
   assert.deepEqual(await sectionsIn(), ["Potluck"]);
 
-  const [section] = await rows<{ id: string }>("select id from sections where group_id = $1", [loop.groupId]);
+  const [section] = await rows<{ id: string }>("select id from questions where group_id = $1 and frequency = 'every_round' and not active", [loop.groupId]);
   await updateSection({ groupId: loop.groupId, sectionId: section.id, title: "Potluck corner", emoji: "🥧", description: null, adminOnly: false, active: true });
   assert.deepEqual(await sectionsIn(), ["Potluck corner"]);
 
@@ -205,20 +211,20 @@ test("a paused loop takes no answers: its reply link opens on nothing", async ()
 test("a section someone has written in stays in the round when it is archived", async () => {
   const { loop, round } = await openLoop();
   await createSection({ groupId: loop.groupId, kind: "standard", title: "Potluck", emoji: null, description: null, adminOnly: false, at: E2E_NOW });
-  const [section] = await rows<{ id: string }>("select id from sections where group_id = $1", [loop.groupId]);
-  const [snapshot] = await rows<{ id: string }>("select id from issue_sections where issue_id = $1", [round.id]);
+  const [section] = await rows<{ id: string }>("select id from questions where group_id = $1 and text = 'Potluck'", [loop.groupId]);
+  const [snapshot] = await rows<{ id: string }>("select id from issue_questions where issue_id = $1 and question_id = $2", [round.id, section.id]);
   const alice = loop.members.find((member) => member.email.startsWith("alice"))!;
   await rows(
-    "insert into section_replies (issue_id, issue_section_id, membership_id, body, status) values ($1, $2, $3, 'Lasagna.', 'draft')",
+    "insert into replies (issue_id, issue_question_id, membership_id, body, status) values ($1, $2, $3, 'Lasagna.', 'submitted')",
     [round.id, snapshot.id, alice.id],
   );
 
   await archiveSection({ groupId: loop.groupId, sectionId: section.id, at: E2E_NOW });
-  const kept = await rows<{ title: string }>("select title from issue_sections where issue_id = $1", [round.id]);
-  assert.deepEqual(kept.map((row) => row.title), ["Potluck"]);
+  const kept = await rows<{ text: string }>("select text from issue_questions where question_id = $1", [section.id]);
+  assert.deepEqual(kept.map((row) => row.text), ["Potluck"]);
 });
 
-test("with a rotating pool, the open round re-picks from where it started", async () => {
+test("with a rotating pool, skipping takes the next in line and puts the skipped one first for the next round", async () => {
   const loop = await seedLoop({ questions: ["One?", "Two?", "Three?", "Four?"] });
   await rows("update groups set questions_per_round = 2 where id = $1", [loop.groupId]);
   await sweep({ at: AFTER_FIRST_SLOT });
@@ -227,8 +233,8 @@ test("with a rotating pool, the open round re-picks from where it started", asyn
 
   await toggleSkipNext(loop.groupId, loop.questionIds[1]);
   assert.deepEqual(await askedIn(round.id), ["One?", "Three?"]);
-  const [group] = await rows<{ question_cursor: number }>("select question_cursor from groups where id = $1", [loop.groupId]);
-  assert.equal(group.question_cursor, 3, "the next round starts after the last one this round now asks");
+  const queue = await rows<{ text: string }>("select text from questions where group_id = $1 order by position", [loop.groupId]);
+  assert.deepEqual(queue.map((row) => row.text), ["Two?", "Four?", "One?", "Three?"], "the skipped question is first in line");
 });
 
 test("an owner's nudge goes to everyone still owing an answer except the owner", async () => {

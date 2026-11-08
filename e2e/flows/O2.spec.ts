@@ -3,6 +3,7 @@ import { latestOutbox, resetDatabase, rows } from "../support/db";
 import { seedLoop } from "../support/seed";
 import { AFTER_FIRST_SLOT, DELIVERY_DAY, runSweep } from "../support/harness";
 import { makePng } from "../support/audio";
+import { chooseFile } from "../support/identity";
 
 test.beforeEach(async () => {
   await resetDatabase();
@@ -19,18 +20,18 @@ test("O2 · the sweep puts an event in the round whose window holds it, and the 
 
   await runSweep(AFTER_FIRST_SLOT);
   const snapshots = await rows<{ title: string; emoji: string; event_date: string }>(
-    "select title, emoji, event_date::text as event_date from issue_sections order by position",
+    "select text as title, emoji, occurrence_date::text as event_date from issue_questions where occurrence_date is not null order by position",
   );
   expect(snapshots).toEqual([{ title: "Alice's birthday", emoji: "🎂", event_date: "2026-01-06" }]);
 
   // Bob sees it on his sheet, writes a message and adds a photo.
   await page.goto(`/r/${bob.token}`);
-  const extras = page.getByRole("region", { name: "And a little extra" });
-  await expect(extras.getByText("Alice's birthday")).toBeVisible();
-  await expect(extras.getByText("Leave Alice a note or a photo.")).toBeVisible();
+  // A birthday is a written card in the round, after the questions.
+  const card = page.locator("section").filter({ has: page.getByRole("heading", { name: /Alice's birthday/ }) });
+  await expect(card.getByText("Leave Alice a note or a photo.")).toBeVisible();
   await page.getByRole("textbox", { name: "Alice's birthday" }).fill("Happy birthday, Alice. Cake is on me.");
-  await extras.getByLabel("Add a photo").first().setInputFiles({ name: "cake.png", mimeType: "image/png", buffer: makePng() });
-  await expect(page.getByText("Photo added.").first()).toBeVisible();
+  await chooseFile(page, "Add a photo", { name: "cake.png", mimeType: "image/png", buffer: makePng() }, card);
+  await expect(card.getByText("Photo saved").first()).toBeVisible();
   await page.getByRole("button", { name: "Done", exact: true }).click();
   await expect(page.getByRole("heading", { name: "All set", exact: true })).toBeVisible();
 

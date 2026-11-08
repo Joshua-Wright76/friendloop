@@ -16,8 +16,7 @@ import {
   questionSuggestions,
   rateLimits,
   replies,
-  sectionMedia,
-  sectionReplies,
+  replyMedia,
   users,
 } from "@/db/schema";
 import { purgeMedia, queueMediaDeletion, type Executor } from "./media-cleanup.ts";
@@ -58,13 +57,21 @@ function likeTerm(value: string): string {
   return `%${value.replace(/[\\%_]/g, (match) => `\\${match}`)}%`;
 }
 
-/** Every stored file a set of memberships put there, or that hangs from what they wrote. */
-async function membershipMedia(tx: Executor, membershipIds: string[], birthdayEventIds: string[]): Promise<string[]> {
-  const ownReplies = await tx
+/**
+ * Every stored file a set of memberships put there, or that hangs from what they
+ * wrote: their answers' photos, voice notes and photo-wall photos, comment photos,
+ * avatars, and every answer on a birthday card about them, which goes with them.
+ */
+async function membershipMedia(tx: Executor, membershipIds: string[]): Promise<string[]> {
+  const aboutThem = tx
+    .select({ id: issueQuestions.id })
+    .from(issueQuestions)
+    .where(inArray(issueQuestions.aboutMembershipId, membershipIds));
+  const doomed = await tx
     .select({ id: replies.id, photoUrl: replies.photoUrl, audioUrl: replies.audioUrl })
     .from(replies)
-    .where(inArray(replies.membershipId, membershipIds));
-  const replyIds = ownReplies.map((reply) => reply.id);
+    .where(or(inArray(replies.membershipId, membershipIds), inArray(replies.issueQuestionId, aboutThem)));
+  const replyIds = doomed.map((reply) => reply.id);
 
   const commentPhotos = await tx
     .select({ url: comments.photoUrl })
@@ -75,15 +82,9 @@ async function membershipMedia(tx: Executor, membershipIds: string[], birthdayEv
         : inArray(comments.membershipId, membershipIds),
     );
 
-  const sectionScope = birthdayEventIds.length > 0
-    ? or(inArray(sectionReplies.membershipId, membershipIds), inArray(issueSections.eventId, birthdayEventIds))
-    : inArray(sectionReplies.membershipId, membershipIds);
-  const sectionPhotos = await tx
-    .select({ url: sectionMedia.url })
-    .from(sectionMedia)
-    .innerJoin(sectionReplies, eq(sectionReplies.id, sectionMedia.sectionReplyId))
-    .innerJoin(issueSections, eq(issueSections.id, sectionReplies.issueSectionId))
-    .where(sectionScope);
+  const wallPhotos = replyIds.length > 0
+    ? await tx.select({ url: replyMedia.url }).from(replyMedia).where(inArray(replyMedia.replyId, replyIds))
+    : [];
 
   const avatars = await tx
     .select({ url: memberships.photoUrl })
@@ -91,9 +92,9 @@ async function membershipMedia(tx: Executor, membershipIds: string[], birthdayEv
     .where(inArray(memberships.id, membershipIds));
 
   return [
-    ...ownReplies.flatMap((reply) => [reply.photoUrl, reply.audioUrl]),
+    ...doomed.flatMap((reply) => [reply.photoUrl, reply.audioUrl]),
     ...commentPhotos.map((row) => row.url),
-    ...sectionPhotos.map((row) => row.url),
+    ...wallPhotos.map((row) => row.url),
     ...avatars.map((row) => row.url),
   ].filter((url): url is string => Boolean(url));
 }
@@ -102,10 +103,7 @@ async function membershipMedia(tx: Executor, membershipIds: string[], birthdayEv
 async function loopMedia(tx: Executor, groupId: string): Promise<string[]> {
   const [group] = await tx.select({ url: groups.headerImageUrl }).from(groups).where(eq(groups.id, groupId));
   const members = await tx.select({ id: memberships.id }).from(memberships).where(eq(memberships.groupId, groupId));
-  const birthdays = await tx.select({ id: events.id }).from(events).where(eq(events.groupId, groupId));
-  const files = members.length > 0
-    ? await membershipMedia(tx, members.map((member) => member.id), birthdays.map((event) => event.id))
-    : [];
+  const files = members.length > 0 ? await membershipMedia(tx, members.map((member) => member.id)) : [];
   return [group?.url ?? null, ...files].filter((url): url is string => Boolean(url));
 }
 
@@ -175,9 +173,7 @@ async function eraseMemberships(tx: Executor, membershipIds: string[], alsoKnown
     .select({ groupId: memberships.groupId, email: memberships.email, name: memberships.name })
     .from(memberships)
     .where(inArray(memberships.id, membershipIds));
-  const birthdays = await tx.select({ id: events.id }).from(events).where(inArray(events.membershipId, membershipIds));
-  const birthdayIds = birthdays.map((event) => event.id);
-  const files = await membershipMedia(tx, membershipIds, birthdayIds);
+  const files = await membershipMedia(tx, membershipIds);
 
   // A suggestion the owner accepted lives on as the loop's question; only the
   // credit that names its author goes.
@@ -190,7 +186,11 @@ async function eraseMemberships(tx: Executor, membershipIds: string[], alsoKnown
     await tx.update(issueQuestions).set({ suggestedBy: null }).where(inArray(issueQuestions.questionId, questionIds));
   }
 
-  // A birthday round section is titled with the person's name; it goes with them.
+  // A birthday card is titled with the person's name; it goes with them. The round's
+  // copy cascades from `about_membership_id`; the legacy copy kept until the contract
+  // release is keyed by its event, which goes with them too.
+  const birthdays = await tx.select({ id: events.id }).from(events).where(inArray(events.membershipId, membershipIds));
+  const birthdayIds = birthdays.map((event) => event.id);
   if (birthdayIds.length > 0) await tx.delete(issueSections).where(inArray(issueSections.eventId, birthdayIds));
 
   await tx.delete(feedback).where(inArray(feedback.membershipId, membershipIds));

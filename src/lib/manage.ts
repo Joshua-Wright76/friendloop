@@ -16,8 +16,13 @@ import { sendEmail } from "./email/send";
 import { replyUrl, unsubscribeUrl, url } from "./urls";
 import { groupSchedule, nextSlot } from "./schedule";
 import { openRound, rescheduleOpenRound, setLoopPaused } from "./rounds";
-import { syncOpenRoundQuestions } from "./round-questions";
-import { legacyPoolCondition } from "./legacy-ask";
+import {
+  addPoolQuestion,
+  addToOpenRound,
+  fillOpenRound,
+  removeFromOpenRound,
+  resizeOpenRound,
+} from "./round-questions";
 import { reorderIds } from "./question-order";
 import { newQuestionTexts } from "./question-packs";
 import { checkPoll } from "./poll";
@@ -420,26 +425,28 @@ export async function transferOwnership(groupId: string, fromId: string, toId: s
   }
 }
 
+/*
+ * The question list of the old Questions tab, on the unified pool
+ * (docs/questions-unify-design.md, PR B). Its questions are the pool's written
+ * and poll items marked `active`: turn-takers, or every-round items in a loop
+ * that asks every question each round. The Questions page that replaces the tab
+ * works on the whole list.
+ */
+
+/** The old tab's questions: written and poll items it treats as questions, not stopped. */
+export function poolQuestionCondition(groupId: string) {
+  return and(eq(questions.groupId, groupId), eq(questions.active, true), isNull(questions.archivedAt));
+}
+
 export async function addQuestion(groupId: string, text: string, at: Date) {
   const trimmed = text.trim();
   if (!trimmed) return null;
-
-  const [{ maxPosition }] = await db
-    .select({ maxPosition: sql<number>`coalesce(max(${questions.position}), -1)::int` })
-    .from(questions)
-    .where(eq(questions.groupId, groupId));
-
-  const [row] = await db
-    .insert(questions)
-    .values({ groupId, text: trimmed, position: maxPosition + 1, createdAt: at })
-    .returning({ id: questions.id });
-  await syncOpenRoundQuestions(groupId);
-  return row.id;
+  return addPoolQuestion({ groupId, text: trimmed, at });
 }
 
 /**
  * Add a poll to the pool. It is a question like any other, so ordering, rotation,
- * archiving and issue snapshots all treat it the same way.
+ * stopping and round snapshots all treat it the same way.
  */
 export async function addPoll(
   groupId: string,
@@ -448,26 +455,15 @@ export async function addPoll(
 ): Promise<{ ok: true; id: string } | { ok: false; error: string }> {
   const checked = checkPoll(input);
   if (!checked.ok) return checked;
-
-  const [{ maxPosition }] = await db
-    .select({ maxPosition: sql<number>`coalesce(max(${questions.position}), -1)::int` })
-    .from(questions)
-    .where(eq(questions.groupId, groupId));
-
-  const [row] = await db
-    .insert(questions)
-    .values({
-      groupId,
-      text: checked.poll.prompt,
-      kind: "poll",
-      pollMultiple: checked.poll.multiple,
-      pollOptions: checked.poll.options,
-      position: maxPosition + 1,
-      createdAt: at,
-    })
-    .returning({ id: questions.id });
-  await syncOpenRoundQuestions(groupId);
-  return { ok: true, id: row.id };
+  const id = await addPoolQuestion({
+    groupId,
+    text: checked.poll.prompt,
+    format: "poll",
+    pollMultiple: checked.poll.multiple,
+    pollOptions: checked.poll.options,
+    at,
+  });
+  return { ok: true, id };
 }
 
 /** Add several library questions at once, skipping any already in the pool. */
@@ -475,76 +471,94 @@ export async function addQuestionTexts(groupId: string, texts: string[], at: Dat
   const existing = await db
     .select({ text: questions.text })
     .from(questions)
-    .where(and(eq(questions.groupId, groupId), legacyPoolCondition(), isNull(questions.archivedAt)));
+    .where(poolQuestionCondition(groupId));
   const fresh = newQuestionTexts(texts, existing.map((row) => row.text));
-  if (fresh.length === 0) return 0;
-
-  const [{ maxPosition }] = await db
-    .select({ maxPosition: sql<number>`coalesce(max(${questions.position}), -1)::int` })
-    .from(questions)
-    .where(eq(questions.groupId, groupId));
-
-  await db.insert(questions).values(
-    fresh.map((question, index) => ({
-      groupId,
-      text: question,
-      position: maxPosition + 1 + index,
-      createdAt: at,
-    })),
-  );
-  await syncOpenRoundQuestions(groupId);
+  for (const text of fresh) await addPoolQuestion({ groupId, text, at });
   return fresh.length;
 }
 
+/**
+ * Move a question in the list. The list is the queue: its order is the order the
+ * coming rounds take their turns in. The round people are answering keeps its own.
+ */
 export async function reorderQuestion(groupId: string, questionId: string, targetIndex: number) {
-  const moved = await db.transaction(async (tx) => {
+  return db.transaction(async (tx) => {
     // Serialize reorder requests for this group so each one applies to the latest order.
     await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${groupId}, 0))`);
     const rows = await tx
-      .select({ id: questions.id })
+      .select({ id: questions.id, position: questions.position })
       .from(questions)
-      .where(and(eq(questions.groupId, groupId), legacyPoolCondition(), isNull(questions.archivedAt)))
-      .orderBy(questions.position);
+      .where(poolQuestionCondition(groupId))
+      .orderBy(questions.position, questions.createdAt, questions.id);
     const orderedIds = reorderIds(rows.map((row) => row.id), questionId, targetIndex);
     if (orderedIds.every((id, index) => id === rows[index]?.id)) return false;
 
-    const cases = orderedIds.map((id, position) => sql`when ${id} then ${position}`);
+    // The same positions, handed out in the new order: turn-takers and every-round
+    // items each keep their place among the rest of the pool.
+    const positions = rows.map((row) => row.position).sort((left, right) => left - right);
+    const cases = orderedIds.map((id, index) => sql`when ${id} then ${positions[index]}`);
     await tx.update(questions).set({
       position: sql`case ${questions.id} ${sql.join(cases, sql` `)} else ${questions.position} end`,
-    }).where(and(
-      eq(questions.groupId, groupId),
-      legacyPoolCondition(),
-      isNull(questions.archivedAt),
-      inArray(questions.id, orderedIds),
-    ));
+    }).where(and(poolQuestionCondition(groupId), inArray(questions.id, orderedIds)));
     return true;
   });
-  if (moved) await syncOpenRoundQuestions(groupId);
-  return moved;
 }
 
+/** Stop asking a question: it leaves the open round unless someone wrote there. */
 export async function archiveQuestion(groupId: string, questionId: string, at: Date) {
-  await db
+  const stopped = await db
     .update(questions)
-    .set({ archivedAt: at, active: false, skipNext: false })
-    .where(and(eq(questions.id, questionId), eq(questions.groupId, groupId), legacyPoolCondition()));
-  await syncOpenRoundQuestions(groupId);
+    .set({ archivedAt: at, skipNext: false })
+    .where(and(poolQuestionCondition(groupId), eq(questions.id, questionId)))
+    .returning({ id: questions.id });
+  if (stopped.length === 0) return;
+  await removeFromOpenRound(groupId, questionId);
+  // An "all questions" round, or one short of its count, takes the next in line.
+  await fillOpenRound(groupId);
 }
 
+/**
+ * The old "Skip this round": take the question out of the open round (unless
+ * someone has written there) and put it first in line for the next one. Asking
+ * again puts it back. `skip_next` only remembers the choice for the list; the
+ * next round clears it.
+ */
 export async function toggleSkipNext(groupId: string, questionId: string) {
   const [row] = await db
     .select()
     .from(questions)
-    .where(and(eq(questions.id, questionId), eq(questions.groupId, groupId), legacyPoolCondition()))
+    .where(and(poolQuestionCondition(groupId), eq(questions.id, questionId)))
     .limit(1);
   if (!row) return false;
 
+  if (row.skipNext) {
+    await db.update(questions).set({ skipNext: false }).where(eq(questions.id, questionId));
+    await addToOpenRound(groupId, questionId);
+    return true;
+  }
+  if ((await removeFromOpenRound(groupId, questionId)) === "written") return true;
+  await db.update(questions).set({ skipNext: true }).where(eq(questions.id, questionId));
+  // The round takes the next in line instead, as skipping always did.
+  await fillOpenRound(groupId);
+  return true;
+}
+
+/**
+ * The old "Each round asks" setting. A count makes the loop's questions take
+ * turns; "All questions" asks every one of them each round. The open round asks
+ * the new number at once.
+ */
+export async function setQuestionsPerRound(groupId: string, questionsPerRound: number | null) {
+  await db.update(groups).set({ questionsPerRound }).where(eq(groups.id, groupId));
   await db
     .update(questions)
-    .set({ skipNext: !row.skipNext })
-    .where(eq(questions.id, questionId));
-  await syncOpenRoundQuestions(groupId);
-  return true;
+    .set({ frequency: questionsPerRound === null ? "every_round" : "rotating" })
+    .where(and(
+      eq(questions.groupId, groupId),
+      eq(questions.active, true),
+      inArray(questions.frequency, questionsPerRound === null ? ["rotating"] : ["every_round"]),
+    ));
+  await resizeOpenRound(groupId);
 }
 
 export type LoopSettings = {

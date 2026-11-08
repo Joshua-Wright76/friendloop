@@ -1,18 +1,16 @@
-import { and, asc, eq, inArray, isNull, ne } from "drizzle-orm";
+import { and, asc, eq, inArray, isNotNull, isNull, ne, or, type SQL } from "drizzle-orm";
 import { db } from "@/db";
 import {
   comments,
   groups,
   issueQuestions,
-  issueSections,
   issues,
   memberships,
   questionSuggestions,
   questions,
   reactions,
   replies,
-  sectionMedia,
-  sectionReplies,
+  replyMedia,
   users,
   type Group,
   type Membership,
@@ -20,8 +18,8 @@ import {
 import { copy } from "./copy.ts";
 import { plainBody } from "./mentions.ts";
 import { appUrl } from "./urls.ts";
-import { replyHasContentCondition, sectionReplyHasContentCondition } from "./reply-query";
-import { legacyAskCondition, legacyPoolWithArchivedCondition, legacyReplyCondition } from "./legacy-ask";
+import { replyHasContentCondition } from "./reply-query";
+import { formatOf } from "./asks";
 
 /**
  * Taking your words with you.
@@ -36,6 +34,62 @@ import { legacyAskCondition, legacyPoolWithArchivedCondition, legacyReplyConditi
  */
 
 export const EXPORT_FORMAT = "friendloop-export/1";
+
+/*
+ * Rounds from before sections were questions keep their separate `sections` and
+ * `sectionAnswers` parts, exactly as they always exported: a round's item copied
+ * from a section (`from_section`) is listed there. Everything else is a question,
+ * with `format` added for a photo wall or a music pick.
+ */
+
+type QuestionRow = typeof issueQuestions.$inferSelect;
+type ReplyRow = typeof replies.$inferSelect;
+type MediaRow = { replyId: string; url: string; caption: string | null };
+
+/** A photo wall or music pick says so; written and poll items read as they always have. */
+function formatFields(question: QuestionRow) {
+  const format = formatOf(question);
+  return format === "photo_wall" || format === "music" ? { format } : {};
+}
+
+/** The photos an answer carries, as links: its one photo, then any photo-wall photos. */
+function photosOf(reply: ReplyRow, media: MediaRow[], includePhotoUrl: boolean) {
+  return [
+    ...(includePhotoUrl && reply.photoUrl ? [{ url: absolute(reply.photoUrl), caption: null }] : []),
+    ...media.filter((item) => item.replyId === reply.id).map((item) => ({ url: absolute(item.url), caption: item.caption })),
+  ];
+}
+
+/** What a photo wall or music answer adds to an exported answer. */
+function answerExtras(question: QuestionRow, reply: ReplyRow, media: MediaRow[]) {
+  const format = formatOf(question);
+  if (format === "music") return { linkUrl: reply.linkUrl };
+  if (format === "photo_wall") return { photos: photosOf(reply, media, false) };
+  return {};
+}
+
+async function mediaFor(replyIds: string[]): Promise<MediaRow[]> {
+  if (replyIds.length === 0) return [];
+  return db
+    .select({ replyId: replyMedia.replyId, url: replyMedia.url, caption: replyMedia.caption })
+    .from(replyMedia)
+    .where(inArray(replyMedia.replyId, replyIds))
+    .orderBy(asc(replyMedia.position), asc(replyMedia.createdAt));
+}
+
+/**
+ * The pool as exports have always listed it: the loop's written and poll
+ * questions, stopped ones included. Items asked every round as sections, dates,
+ * photo walls and music picks appear in the rounds that asked them.
+ */
+function exportPoolCondition(): SQL {
+  const condition = or(
+    eq(questions.active, true),
+    and(isNotNull(questions.archivedAt), eq(questions.frequency, "rotating"), inArray(questions.format, ["written", "poll"])),
+  );
+  if (!condition) throw new Error("Export pool condition is empty.");
+  return condition;
+}
 
 type Names = Map<string, string>;
 
@@ -114,26 +168,16 @@ export function exportFilename(subject: string, at: Date): string {
 async function contributionsOf(membership: Membership, group: Pick<Group, "id" | "name">) {
   const names = await namesIn(group.id);
 
-  const answers = await db
+  const everything = await db
     .select({ reply: replies, question: issueQuestions, issue: issues })
     .from(replies)
     .innerJoin(issueQuestions, eq(issueQuestions.id, replies.issueQuestionId))
     .innerJoin(issues, eq(issues.id, replies.issueId))
-    .where(and(eq(replies.membershipId, membership.id), legacyAskCondition()))
-    .orderBy(asc(issues.number), asc(issueQuestions.position));
-
-  const sectionAnswers = await db
-    .select({ reply: sectionReplies, section: issueSections, issue: issues })
-    .from(sectionReplies)
-    .innerJoin(issueSections, eq(issueSections.id, sectionReplies.issueSectionId))
-    .innerJoin(issues, eq(issues.id, sectionReplies.issueId))
-    .where(eq(sectionReplies.membershipId, membership.id))
-    .orderBy(asc(issues.number), asc(issueSections.position));
-  const media = sectionAnswers.length === 0 ? [] : await db
-    .select()
-    .from(sectionMedia)
-    .where(inArray(sectionMedia.sectionReplyId, sectionAnswers.map((row) => row.reply.id)))
-    .orderBy(asc(sectionMedia.position));
+    .where(eq(replies.membershipId, membership.id))
+    .orderBy(asc(issues.number), asc(issueQuestions.position), asc(replies.createdAt));
+  const answers = everything.filter((row) => !row.question.fromSection);
+  const sectionAnswers = everything.filter((row) => row.question.fromSection);
+  const media = await mediaFor(everything.map((row) => row.reply.id));
 
   const written = await db
     .select({ comment: comments, issue: issues })
@@ -148,7 +192,7 @@ async function contributionsOf(membership: Membership, group: Pick<Group, "id" |
     .innerJoin(replies, eq(replies.id, reactions.replyId))
     .innerJoin(issueQuestions, eq(issueQuestions.id, replies.issueQuestionId))
     .innerJoin(issues, eq(issues.id, replies.issueId))
-    .where(and(eq(reactions.membershipId, membership.id), legacyAskCondition()))
+    .where(eq(reactions.membershipId, membership.id))
     .orderBy(asc(reactions.createdAt));
 
   const suggested = await db
@@ -181,16 +225,16 @@ async function contributionsOf(membership: Membership, group: Pick<Group, "id" |
       // A draft from before answers saved straight into the round, in a round that went out without it.
       neverSent: reply.neverSent,
       updatedAt: reply.updatedAt,
+      ...formatFields(question),
+      ...answerExtras(question, reply, media),
     })),
-    sectionAnswers: sectionAnswers.map(({ reply, section, issue }) => ({
+    sectionAnswers: sectionAnswers.map(({ reply, question, issue }) => ({
       round: issue.number,
       roundName: issue.name,
-      section: section.title,
+      section: question.text,
       answer: reply.body,
       linkUrl: reply.linkUrl,
-      photos: media
-        .filter((item) => item.sectionReplyId === reply.id)
-        .map((item) => ({ url: absolute(item.url), caption: item.caption })),
+      photos: photosOf(reply, media, true),
       neverSent: reply.neverSent,
       updatedAt: reply.updatedAt,
     })),
@@ -266,33 +310,17 @@ export async function replyLinkExport(token: string, at: Date): Promise<{ groupN
 
 async function roundOf(issue: typeof issues.$inferSelect, names: Names) {
   // One round trip per round: everything here hangs off the issue id alone.
-  const [asked, answered, carried, sectionAnswers, media, thread, reacted] = await Promise.all([
+  const [all, answered, thread, reacted] = await Promise.all([
     db
       .select()
       .from(issueQuestions)
-      .where(and(eq(issueQuestions.issueId, issue.id), legacyAskCondition()))
-      .orderBy(asc(issueQuestions.position)),
+      .where(eq(issueQuestions.issueId, issue.id))
+      .orderBy(asc(issueQuestions.position), asc(issueQuestions.id)),
     db
       .select()
       .from(replies)
-      .where(and(eq(replies.issueId, issue.id), replyHasContentCondition(), legacyReplyCondition()))
-      .orderBy(asc(replies.createdAt)),
-    db
-      .select()
-      .from(issueSections)
-      .where(eq(issueSections.issueId, issue.id))
-      .orderBy(asc(issueSections.position)),
-    db
-      .select()
-      .from(sectionReplies)
-      .where(and(eq(sectionReplies.issueId, issue.id), sectionReplyHasContentCondition()))
-      .orderBy(asc(sectionReplies.createdAt)),
-    db
-      .select({ sectionReplyId: sectionMedia.sectionReplyId, url: sectionMedia.url, caption: sectionMedia.caption })
-      .from(sectionMedia)
-      .innerJoin(sectionReplies, eq(sectionReplies.id, sectionMedia.sectionReplyId))
-      .where(and(eq(sectionReplies.issueId, issue.id), sectionReplyHasContentCondition()))
-      .orderBy(asc(sectionMedia.position)),
+      .where(and(eq(replies.issueId, issue.id), replyHasContentCondition()))
+      .orderBy(asc(replies.createdAt), asc(replies.id)),
     db
       .select()
       .from(comments)
@@ -302,11 +330,17 @@ async function roundOf(issue: typeof issues.$inferSelect, names: Names) {
       .select({ replyId: reactions.replyId, membershipId: reactions.membershipId, emoji: reactions.emoji })
       .from(reactions)
       .innerJoin(replies, eq(replies.id, reactions.replyId))
-      .where(and(eq(replies.issueId, issue.id), replyHasContentCondition(), legacyReplyCondition()))
+      .where(and(eq(replies.issueId, issue.id), replyHasContentCondition()))
       .orderBy(asc(reactions.createdAt)),
   ]);
+  const asked = all.filter((question) => !question.fromSection);
+  const carried = all.filter((question) => question.fromSection);
+  const media = await mediaFor(answered.map((reply) => reply.id));
 
   const author = (membershipId: string) => names.get(membershipId) ?? copy.issue.unknownMention;
+  const reactionsOn = (replyId: string) => reacted
+    .filter((reaction) => reaction.replyId === replyId)
+    .map((reaction) => ({ by: author(reaction.membershipId), emoji: reaction.emoji }));
 
   return {
     round: issue.number,
@@ -320,6 +354,7 @@ async function roundOf(issue: typeof issues.$inferSelect, names: Names) {
       kind: question.kind,
       ...(question.kind === "poll" ? { options: question.pollOptions, multiple: question.pollMultiple } : {}),
       suggestedBy: question.suggestedBy,
+      ...formatFields(question),
       answers: answered
         .filter((reply) => reply.issueQuestionId === question.id)
         .map((reply) => ({
@@ -331,28 +366,33 @@ async function roundOf(issue: typeof issues.$inferSelect, names: Names) {
           audioUrl: absolute(reply.audioUrl),
           updatedAt: reply.updatedAt,
           addedLate: reply.addedAfterDelivery,
-          reactions: reacted
-            .filter((reaction) => reaction.replyId === reply.id)
-            .map((reaction) => ({ by: author(reaction.membershipId), emoji: reaction.emoji })),
+          reactions: reactionsOn(reply.id),
+          ...answerExtras(question, reply, media),
         })),
     })),
-    sections: carried.map((section) => ({
-      section: section.title,
-      kind: section.kind,
-      emoji: section.emoji,
-      description: section.description,
-      answers: sectionAnswers
-        .filter((reply) => reply.issueSectionId === section.id)
-        .map((reply) => ({
-          by: author(reply.membershipId),
-          answer: reply.body,
-          linkUrl: reply.linkUrl,
-          photos: media
-            .filter((item) => item.sectionReplyId === reply.id)
-            .map((item) => ({ url: absolute(item.url), caption: item.caption })),
-          addedLate: reply.addedAfterDelivery,
-        })),
-    })),
+    sections: carried.map((section) => {
+      const format = formatOf(section);
+      return {
+        section: section.text,
+        kind: format === "photo_wall" || format === "music" ? format : "standard",
+        emoji: section.emoji,
+        description: section.description,
+        answers: answered
+          .filter((reply) => reply.issueQuestionId === section.id)
+          .map((reply) => {
+            const conversation = reactionsOn(reply.id);
+            return {
+              by: author(reply.membershipId),
+              answer: reply.body,
+              linkUrl: reply.linkUrl,
+              photos: photosOf(reply, media, true),
+              addedLate: reply.addedAfterDelivery,
+              // Former section answers take reactions now; listed only where there are some.
+              ...(conversation.length > 0 ? { reactions: conversation } : {}),
+            };
+          }),
+      };
+    }),
     comments: thread.map((comment) => ({
       id: comment.id,
       by: author(comment.membershipId),
@@ -389,7 +429,7 @@ export async function loopArchive(groupId: string, at: Date): Promise<{ groupNam
   const pool = await db
     .select()
     .from(questions)
-    .where(and(eq(questions.groupId, groupId), legacyPoolWithArchivedCondition()))
+    .where(and(eq(questions.groupId, groupId), exportPoolCondition()))
     .orderBy(asc(questions.position));
   const names = await namesIn(groupId);
 

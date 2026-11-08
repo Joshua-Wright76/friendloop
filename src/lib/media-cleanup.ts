@@ -1,6 +1,6 @@
 import { asc, eq, lt, or, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { comments, groups, mediaDeletions, memberships, replies, sectionMedia } from "@/db/schema";
+import { comments, groups, mediaDeletions, memberships, replies, replyMedia, sectionMedia } from "@/db/schema";
 import { deleteStoredAudio } from "./media-storage.ts";
 import { deleteStoredPhoto } from "./photo-storage.ts";
 
@@ -35,6 +35,8 @@ export async function isMediaReferenced(url: string): Promise<boolean> {
   const checks = [
     db.select({ id: replies.id }).from(replies).where(or(eq(replies.photoUrl, url), eq(replies.audioUrl, url))).limit(1),
     db.select({ id: comments.id }).from(comments).where(eq(comments.photoUrl, url)).limit(1),
+    db.select({ id: replyMedia.id }).from(replyMedia).where(eq(replyMedia.url, url)).limit(1),
+    // The legacy copy until the contract release drops it: a rollback would show it.
     db.select({ id: sectionMedia.id }).from(sectionMedia).where(eq(sectionMedia.url, url)).limit(1),
     db.select({ id: memberships.id }).from(memberships).where(eq(memberships.photoUrl, url)).limit(1),
     db.select({ id: groups.id }).from(groups).where(eq(groups.headerImageUrl, url)).limit(1),

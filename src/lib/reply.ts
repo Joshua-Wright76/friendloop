@@ -1,17 +1,18 @@
-import { and, asc, desc, eq, isNull } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { groups, issueQuestions, issues, memberships, replies, users } from "@/db/schema";
+import { groups, issueQuestions, issues, memberships, replies, replyMedia, users } from "@/db/schema";
 import { getNow } from "./clock";
 import { copy } from "./copy.ts";
 import { cleanDisplayName } from "./names";
-import { deleteStoredPhoto } from "./photo-storage";
+import { deleteStoredPhoto, storePhoto } from "./photo-storage";
 import { deleteStoredAudio } from "./media-storage.ts";
-import { sectionReplies } from "@/db/schema";
-import { replyHasContentCondition } from "./reply-query";
+import { isMediaReferenced } from "./media-cleanup.ts";
 import { storedReminderPreference } from "./reminders.ts";
 import { checkPollChoices } from "./poll";
 import { log } from "./log";
-import { legacyAskCondition, legacyReplyCondition } from "./legacy-ask";
+import { askedOf, formatOf, type AnswerFormat } from "./asks";
+import { checkMusicLink, MUSIC_CAPTION_MAX, PHOTO_WALL_MAX } from "./music";
+import { validatePhoto } from "./photo-validation";
 
 export type TokenContext =
   | { state: "invalid" }
@@ -101,14 +102,15 @@ type WritableQuestion =
   | { ok: false; result: Extract<WriteResult, { ok: false }> };
 
 /**
- * A written answer (text, photo, voice) and a poll pick are different shapes of
- * the same row; each write path names the kind it accepts so a poll can never
- * grow a photo and a written question can never hold a pick.
+ * Each answer format is a different shape of the same row; every write path
+ * names the formats it accepts, so a poll can never grow a photo, a written
+ * answer can never hold a pick and a music pick never takes a voice note. An
+ * owners-only item refuses plain members, and a birthday card its own subject.
  */
 async function ensureWritableQuestion(
   token: string,
   issueQuestionId: string,
-  kind: "written" | "poll" = "written",
+  formats: AnswerFormat[] = ["written"],
 ): Promise<WritableQuestion> {
   const gate = await ensureWritable(token);
   if (!gate.ok) return gate;
@@ -121,9 +123,16 @@ async function ensureWritableQuestion(
   const [question] = await db
     .select()
     .from(issueQuestions)
-    .where(and(eq(issueQuestions.id, issueQuestionId), eq(issueQuestions.issueId, context.issue.id), legacyAskCondition()))
+    .where(and(eq(issueQuestions.id, issueQuestionId), eq(issueQuestions.issueId, context.issue.id)))
     .limit(1);
-  if (!question || question.kind !== kind) {
+  if (!question || !formats.includes(formatOf(question))) {
+    return { ok: false, result: { ok: false, status: 409, error: copy.reply.errors.wrongQuestion } };
+  }
+  if (question.adminOnly && context.membership.access === "member") {
+    return { ok: false, result: { ok: false, status: 403, error: copy.reply.errors.reader } };
+  }
+  if (!askedOf(question, context.membership)) {
+    // The birthday person never sees their own card, so they can't write to it.
     return { ok: false, result: { ok: false, status: 409, error: copy.reply.errors.wrongQuestion } };
   }
 
@@ -139,14 +148,9 @@ export async function authorizeQuestionForReply(
   return gate.ok ? { ok: true } : gate.result;
 }
 
-/** Delete a stored photo only after no reply row points at it. */
+/** Delete a stored photo only after no row points at it. */
 export async function deletePhotoIfUnreferenced(photoUrl: string): Promise<void> {
-  const [reference] = await db
-    .select({ issueQuestionId: replies.issueQuestionId })
-    .from(replies)
-    .where(eq(replies.photoUrl, photoUrl))
-    .limit(1);
-  if (!reference) await deleteStoredPhoto(photoUrl);
+  if (!(await isMediaReferenced(photoUrl))) await deleteStoredPhoto(photoUrl);
 }
 
 /** Save a photo without changing the existing text answer. */
@@ -315,7 +319,7 @@ export async function savePollChoicesFor(input: {
   issueQuestionId: string;
   choices: unknown;
 }): Promise<PollWriteResult> {
-  const gate = await ensureWritableQuestion(input.token, input.issueQuestionId, "poll");
+  const gate = await ensureWritableQuestion(input.token, input.issueQuestionId, ["poll"]);
   if (!gate.ok) return gate.result;
 
   const { context, question } = gate;
@@ -433,47 +437,67 @@ export async function saveReminderPreferenceFor(input: {
   return { ok: true, savedAt: at.toISOString() };
 }
 
-/** The sheet's payload: questions with this person's answers, in order. */
+/**
+ * The sheet's payload: one list, in round order, of everything this round asks
+ * this person, each with what they have written so far. Owners-only items are
+ * left out for plain members and a birthday card for the person it is about.
+ */
 export async function sheetFor(token: string) {
   const context = await resolveToken(token);
   if (context.state !== "ok" || !context.issue) return null;
 
-  const questions = await db
-    .select()
-    .from(issueQuestions)
-    .where(and(eq(issueQuestions.issueId, context.issue.id), legacyAskCondition()))
-    .orderBy(asc(issueQuestions.position));
-
-  const existing = await db
-    .select()
-    .from(replies)
-    .where(
-      and(
-        eq(replies.issueId, context.issue.id),
-        eq(replies.membershipId, context.membership.id),
-        legacyReplyCondition(),
-      ),
-    );
+  const [rows, existing] = await Promise.all([
+    db
+      .select()
+      .from(issueQuestions)
+      .where(eq(issueQuestions.issueId, context.issue.id))
+      .orderBy(asc(issueQuestions.position), asc(issueQuestions.id)),
+    db
+      .select()
+      .from(replies)
+      .where(and(eq(replies.issueId, context.issue.id), eq(replies.membershipId, context.membership.id))),
+  ]);
+  const media = existing.length === 0
+    ? []
+    : await db
+        .select()
+        .from(replyMedia)
+        .where(inArray(replyMedia.replyId, existing.map((reply) => reply.id)))
+        .orderBy(asc(replyMedia.position), asc(replyMedia.createdAt));
 
   return {
     context,
-    questions: questions.map((question) => {
-      const reply = existing.find((candidate) => candidate.issueQuestionId === question.id);
-      return {
-        id: question.id,
-        text: question.text,
-        body: reply?.body ?? "",
-        photoUrl: reply?.photoUrl ?? null,
-        audioUrl: reply?.audioUrl ?? null,
-        audioDurationMs: reply?.audioDurationMs ?? null,
-        kind: question.kind,
-        pollMultiple: question.pollMultiple,
-        pollOptions: question.pollOptions ?? [],
-        pollChoices: reply?.pollChoices ?? [],
-      };
-    }),
+    questions: rows
+      .filter((question) => askedOf(question, context.membership))
+      .map((question) => {
+        const reply = existing.find((candidate) => candidate.issueQuestionId === question.id);
+        return {
+          id: question.id,
+          text: question.text,
+          emoji: question.emoji,
+          description: question.description,
+          format: formatOf(question),
+          /** Copied from a section in the round open at the switch: written, but without voice notes. */
+          fromSection: question.fromSection,
+          body: reply?.body ?? "",
+          photoUrl: reply?.photoUrl ?? null,
+          audioUrl: reply?.audioUrl ?? null,
+          audioDurationMs: reply?.audioDurationMs ?? null,
+          kind: question.kind,
+          pollMultiple: question.pollMultiple,
+          pollOptions: question.pollOptions ?? [],
+          pollChoices: reply?.pollChoices ?? [],
+          linkUrl: reply?.linkUrl ?? "",
+          linkProvider: reply?.linkProvider ?? "",
+          media: media
+            .filter((item) => reply && item.replyId === reply.id)
+            .map((item) => ({ id: item.id, url: item.url, caption: item.caption })),
+        };
+      }),
   };
 }
+
+export type SheetItem = NonNullable<Awaited<ReturnType<typeof sheetFor>>>["questions"][number];
 
 export type AudioWriteResult =
   | { ok: true; savedAt: string; audioUrl: string; audioDurationMs: number }
@@ -498,6 +522,8 @@ export async function saveAudioFor(input: {
 }): Promise<AudioWriteResult> {
   const gate = await ensureWritableQuestion(input.token, input.issueQuestionId);
   if (!gate.ok) return gate.result;
+  // A card copied from a section never took voice notes, and its page has nowhere to play one.
+  if (gate.question.fromSection) return { ok: false, status: 409, error: copy.reply.errors.wrongQuestion };
 
   const { context, question } = gate;
   const audioOwners = await db
@@ -603,4 +629,218 @@ export async function removeAudioFor(input: {
 
   await markAccepted(context.membership.id, context.membership.acceptedAt, at);
   return { ok: true, savedAt: at.toISOString() };
+}
+
+/* ------------- music picks and photo walls, and the old section writes ------------- */
+
+async function touchReply(
+  gate: Extract<WritableQuestion, { ok: true }>,
+  patch: Partial<typeof replies.$inferInsert>,
+  at: Date,
+): Promise<string> {
+  const { context, question } = gate;
+  const [row] = await db
+    .insert(replies)
+    .values({
+      issueId: context.issue.id,
+      issueQuestionId: question.id,
+      membershipId: context.membership.id,
+      body: "",
+      ...patch,
+      ...inTheRound(at),
+      updatedAt: at,
+    })
+    .onConflictDoUpdate({
+      target: [replies.issueId, replies.issueQuestionId, replies.membershipId],
+      set: { ...patch, ...inTheRound(at), updatedAt: at },
+    })
+    .returning({ id: replies.id });
+  await markAccepted(context.membership.id, context.membership.acceptedAt, at);
+  return row.id;
+}
+
+export type MusicWriteResult = WriteResult | { ok: false; status: 400; error: string };
+
+/** Paste a music pick, with its one-line caption. Host-and-shape validation only, no third-party call. */
+export async function saveMusicFor(input: {
+  token: string;
+  issueQuestionId: string;
+  url: string;
+  caption: string;
+}): Promise<MusicWriteResult> {
+  const gate = await ensureWritableQuestion(input.token, input.issueQuestionId, ["music"]);
+  if (!gate.ok) return gate.result;
+
+  const url = input.url.trim();
+  const caption = input.caption.slice(0, MUSIC_CAPTION_MAX);
+  const check = url ? checkMusicLink(url) : null;
+  if (check && !check.ok) return { ok: false, status: 400, error: check.error };
+
+  const at = await getNow();
+  await touchReply(
+    gate,
+    check?.ok ? { linkUrl: url, linkProvider: check.provider, body: caption } : { linkUrl: null, linkProvider: null, body: caption },
+    at,
+  );
+  return { ok: true, savedAt: at.toISOString() };
+}
+
+export type WallPhotoWriteResult =
+  | { ok: true; savedAt: string; mediaId: string; url: string }
+  | { ok: false; status: 400 | 403 | 404 | 409 | 413 | 415 | 500; error: string };
+
+function refusedPhoto(validation: Extract<ReturnType<typeof validatePhoto>, { ok: false }>): Extract<WallPhotoWriteResult, { ok: false }> {
+  const tooLarge = validation.reason === "too-large";
+  return {
+    ok: false,
+    status: tooLarge ? 413 : 415,
+    error: tooLarge ? copy.reply.errors.photoTooLarge : copy.reply.errors.invalidPhoto,
+  };
+}
+
+/** Add one photo to a photo wall: up to six per person, each with an optional caption. */
+export async function saveWallPhotoFor(input: {
+  token: string;
+  issueQuestionId: string;
+  bytes: Uint8Array;
+  contentType?: string;
+  caption: string;
+  position: number;
+}): Promise<WallPhotoWriteResult> {
+  const gate = await ensureWritableQuestion(input.token, input.issueQuestionId, ["photo_wall"]);
+  if (!gate.ok) return gate.result;
+
+  const validation = validatePhoto(input.bytes, input.contentType);
+  if (!validation.ok) return refusedPhoto(validation);
+
+  const { context, question } = gate;
+  const [{ count }] = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(replyMedia)
+    .innerJoin(replies, eq(replies.id, replyMedia.replyId))
+    .where(and(
+      eq(replies.issueId, context.issue.id),
+      eq(replies.issueQuestionId, question.id),
+      eq(replies.membershipId, context.membership.id),
+    ));
+  if (count >= PHOTO_WALL_MAX) {
+    return { ok: false, status: 409, error: copy.reply.errors.sectionPhotoCap };
+  }
+
+  let url: string;
+  try {
+    url = await storePhoto(input.bytes, validation.format);
+  } catch {
+    return { ok: false, status: 500, error: copy.reply.errors.photoUploadFailed };
+  }
+
+  const at = await getNow();
+  const replyId = await touchReply(gate, {}, at);
+  const [media] = await db
+    .insert(replyMedia)
+    .values({
+      replyId,
+      url,
+      caption: input.caption.trim().slice(0, 200) || null,
+      position: Math.max(0, Math.min(PHOTO_WALL_MAX - 1, Math.round(input.position) || count)),
+      createdAt: at,
+    })
+    .returning({ id: replyMedia.id });
+  return { ok: true, savedAt: at.toISOString(), mediaId: media.id, url };
+}
+
+/** Take one photo off a photo wall. */
+export async function removeWallPhotoFor(input: {
+  token: string;
+  issueQuestionId: string;
+  mediaId: string;
+}): Promise<WriteResult> {
+  const gate = await ensureWritableQuestion(input.token, input.issueQuestionId, ["photo_wall", "written"]);
+  if (!gate.ok) return gate.result;
+
+  const { context, question } = gate;
+  const [media] = await db
+    .select({ id: replyMedia.id, url: replyMedia.url })
+    .from(replyMedia)
+    .innerJoin(replies, eq(replies.id, replyMedia.replyId))
+    .where(and(
+      eq(replyMedia.id, input.mediaId),
+      eq(replies.issueId, context.issue.id),
+      eq(replies.issueQuestionId, question.id),
+      eq(replies.membershipId, context.membership.id),
+    ))
+    .limit(1);
+  if (!media) return { ok: false, status: 404, error: copy.reply.errors.sectionSaveFailed };
+
+  const at = await getNow();
+  await db.delete(replyMedia).where(eq(replyMedia.id, media.id));
+  await deletePhotoIfUnreferenced(media.url).catch((error: unknown) => {
+    log.error("Unable to remove photo-wall photo", error);
+  });
+  await markAccepted(context.membership.id, context.membership.acceptedAt, at);
+  return { ok: true, savedAt: at.toISOString() };
+}
+
+/*
+ * A sheet loaded before sections became questions still posts `sectionDraft`,
+ * `sectionMusic` and `/section-media` with the ids it was given. Those ids are
+ * now `issue_questions` ids, so each old write lands on the same answer the new
+ * sheet edits. Removed with the contract release.
+ */
+
+/** `sectionDraft`: a standard section's text, now a written answer. */
+export async function saveSectionTextFor(input: { token: string; issueSectionId: string; body: string }): Promise<WriteResult | { ok: false; status: 400; error: string }> {
+  if (input.body.length > 2_000) return { ok: false, status: 400, error: copy.reply.errors.sectionSaveFailed };
+  return saveDraftFor({ token: input.token, issueQuestionId: input.issueSectionId, body: input.body });
+}
+
+/** `sectionMusic`: a music section's pick. */
+export async function saveSectionMusicFor(input: { token: string; issueSectionId: string; url: string; caption: string }): Promise<MusicWriteResult> {
+  return saveMusicFor({ token: input.token, issueQuestionId: input.issueSectionId, url: input.url, caption: input.caption });
+}
+
+/** `POST /section-media`: a photo wall's photo, or a standard section's one photo (now the answer's photo). */
+export async function saveSectionPhotoFor(input: {
+  token: string;
+  issueSectionId: string;
+  bytes: Uint8Array;
+  contentType?: string;
+  caption: string;
+  position: number;
+}): Promise<WallPhotoWriteResult> {
+  const wall = await saveWallPhotoFor({ ...input, issueQuestionId: input.issueSectionId });
+  if (wall.ok || wall.error !== copy.reply.errors.wrongQuestion) return wall;
+
+  const gate = await ensureWritableQuestion(input.token, input.issueSectionId, ["written"]);
+  if (!gate.ok) return gate.result;
+  const validation = validatePhoto(input.bytes, input.contentType);
+  if (!validation.ok) return refusedPhoto(validation);
+  const [existing] = await db
+    .select({ photoUrl: replies.photoUrl })
+    .from(replies)
+    .where(and(
+      eq(replies.issueId, gate.context.issue.id),
+      eq(replies.issueQuestionId, gate.question.id),
+      eq(replies.membershipId, gate.context.membership.id),
+    ))
+    .limit(1);
+  if (existing?.photoUrl) return { ok: false, status: 409, error: copy.reply.errors.sectionPhotoStandardCap };
+
+  let url: string;
+  try {
+    url = await storePhoto(input.bytes, validation.format);
+  } catch {
+    return { ok: false, status: 500, error: copy.reply.errors.photoUploadFailed };
+  }
+  const at = await getNow();
+  // The old sheet keeps this id to take the photo off again: the answer's own.
+  const replyId = await touchReply(gate, { photoUrl: url }, at);
+  return { ok: true, savedAt: at.toISOString(), mediaId: replyId, url };
+}
+
+/** `DELETE /section-media`: a photo-wall photo by its id, or a standard section's photo by its answer's. */
+export async function removeSectionMediaFor(input: { token: string; issueSectionId: string; mediaId: string }): Promise<WriteResult> {
+  const removed = await removeWallPhotoFor({ token: input.token, issueQuestionId: input.issueSectionId, mediaId: input.mediaId });
+  if (removed.ok || removed.status !== 404) return removed;
+  return removePhotoFor({ token: input.token, issueQuestionId: input.issueSectionId });
 }

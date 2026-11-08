@@ -1,8 +1,8 @@
 import { and, desc, eq, isNull, like, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { answeredMemberIds } from "./answered";
-import { groups, issueQuestions, issueSections, issues, memberships, outbox, users } from "@/db/schema";
-import { legacyAskCondition } from "./legacy-ask";
+import { groups, issueQuestions, issues, memberships, outbox, users } from "@/db/schema";
+import { askedOf, askLabel } from "./asks";
 import { atMoment, formatMoment, timezonePlace } from "./format";
 import { sendEmail } from "./email/send";
 import { emailThemeOf, promptEmail, reminderEmail } from "./email/templates";
@@ -14,32 +14,26 @@ export function mailDeadline(instant: Date, loopTimezone: string, readerTimezone
   return `${atMoment(formatMoment(instant, loopTimezone))} ${timezonePlace(loopTimezone)} time`;
 }
 
-type Access = (typeof memberships.$inferSelect)["access"];
+type Person = { id: string; access: (typeof memberships.$inferSelect)["access"] };
 
 /**
- * What a round asks, as one person sees it: its questions, then its sections
- * (an event is one too). Sections only admins answer are left out for everyone
- * else, so a member's count and list never mention them.
+ * What a round asks, as one person sees it: everything in it, in round order,
+ * minus owners-only items for plain members and a birthday card for the person
+ * it is about. Prompts, reminders, nudges and the next round's list in a
+ * delivery email all count and list the same things.
  */
-export async function roundAsks(issueId: string): Promise<(access: Access) => string[]> {
-  const [asked, carried] = await Promise.all([
-    db
-      .select({ text: issueQuestions.text })
-      .from(issueQuestions)
-      .where(and(eq(issueQuestions.issueId, issueId), legacyAskCondition()))
-      .orderBy(issueQuestions.position),
-    db
-      .select({ title: issueSections.title, emoji: issueSections.emoji, adminOnly: issueSections.adminOnly })
-      .from(issueSections)
-      .where(eq(issueSections.issueId, issueId))
-      .orderBy(issueSections.position),
-  ]);
-  return (access) => [
-    ...asked.map((question) => question.text),
-    ...carried
-      .filter((section) => !section.adminOnly || access !== "member")
-      .map((section) => (section.emoji ? `${section.emoji} ${section.title}` : section.title)),
-  ];
+export async function roundAsks(issueId: string): Promise<(person: Person) => string[]> {
+  const asked = await db
+    .select({
+      text: issueQuestions.text,
+      emoji: issueQuestions.emoji,
+      adminOnly: issueQuestions.adminOnly,
+      aboutMembershipId: issueQuestions.aboutMembershipId,
+    })
+    .from(issueQuestions)
+    .where(eq(issueQuestions.issueId, issueId))
+    .orderBy(issueQuestions.position, issueQuestions.id);
+  return (person) => asked.filter((row) => askedOf(row, person)).map(askLabel);
 }
 
 /** One prompt per contributor for a round that just opened, unless it asks them nothing. */
@@ -76,7 +70,7 @@ export async function sendPromptEmails(input: {
 
   let sent = 0;
   for (const recipient of recipients) {
-    const asked = asksFor(recipient.access);
+    const asked = asksFor(recipient);
     if (asked.length === 0) continue;
     const rendered = promptEmail({
       groupName: group.name,
@@ -152,7 +146,7 @@ export async function nudgeStragglers(groupId: string, fromMembershipId?: string
   for (const member of contributors) {
     // The person sending the nudge doesn't get one.
     if (done.has(member.id) || member.id === fromMembershipId) continue;
-    const remaining = asksFor(member.access).length;
+    const remaining = asksFor(member).length;
     if (remaining === 0) continue;
 
     const [previous] = await db

@@ -42,8 +42,10 @@ test("K2 · sections ride every issue; readers read but never answer", async ({ 
   await runSweep(new Date("2026-01-02T08:00:00Z"));
   const alice = loop.members.find((member) => member.email.startsWith("alice"))!;
   await page.goto(`/r/${alice.token}`);
-  await expect(page.getByText("And a little extra")).toBeVisible();
+  // One list: the section follows the round's questions.
   await expect(page.getByText("The potluck corner")).toBeVisible();
+  const cards = await page.getByRole("heading", { level: 2 }).allInnerTexts();
+  expect(cards.indexOf("The potluck corner")).toBeGreaterThan(cards.indexOf("What are you looking forward to?"));
 
   // A section answer is content; the round delivers it.
   await page.getByRole("textbox", { name: "The potluck corner" }).fill("Never too many dips.");

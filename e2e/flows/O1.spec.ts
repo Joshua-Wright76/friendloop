@@ -43,7 +43,7 @@ test("O1 · the owner adds a birthday and a one-time event and sees them coming 
   await expect(items.nth(1)).toContainText("Sat, Feb 14");
 
   const stored = await rows<{ kind: string; title: string | null; month: number; day: number; year: number | null; emoji: string | null }>(
-    "select kind, title, month, day, year, emoji from events order by month",
+    "select date_kind as kind, nullif(text, '') as title, month, day, year, emoji from questions where frequency = 'on_date' order by month",
   );
   expect(stored).toEqual([
     { kind: "birthday", title: null, month: 1, day: 6, year: null, emoji: "🎂" },

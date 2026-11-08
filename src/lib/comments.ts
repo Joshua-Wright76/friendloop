@@ -1,7 +1,6 @@
 import { and, eq, inArray, isNull } from "drizzle-orm";
 import { db } from "@/db";
 import { replyHasContentCondition } from "./reply-query";
-import { legacyAskCondition } from "./legacy-ask";
 import { comments, groups, issueQuestions, issues, memberships, replies } from "@/db/schema";
 import { currentUser } from "./auth";
 import { copy } from "./copy.ts";
@@ -83,16 +82,19 @@ export async function postComment(input: PostCommentInput): Promise<PostCommentR
 
   if (input.replyId) {
     const [answer] = await db
-      .select({ membershipId: replies.membershipId, kind: issueQuestions.kind })
+      .select({ membershipId: replies.membershipId, kind: issueQuestions.kind, adminOnly: issueQuestions.adminOnly })
       .from(replies)
       .innerJoin(issueQuestions, eq(issueQuestions.id, replies.issueQuestionId))
       .where(
-        and(eq(replies.id, input.replyId), eq(replies.issueId, issue.id), replyHasContentCondition(), legacyAskCondition()),
+        and(eq(replies.id, input.replyId), eq(replies.issueId, issue.id), replyHasContentCondition()),
       )
       .limit(1);
     // Nobody sees another person's poll pick until the round is delivered, so
     // there is nothing for them to comment on yet.
-    const hidden = answer?.kind === "poll" && issue.status !== "delivered" && answer.membershipId !== author.id;
+    // An owners-only answer isn't there for a plain member to comment on.
+    const hidden =
+      (answer?.kind === "poll" && issue.status !== "delivered" && answer.membershipId !== author.id) ||
+      (answer?.adminOnly && author.access === "member");
     if (!answer || hidden) return fail(404, copy.issue.errors.answerGone);
   }
 

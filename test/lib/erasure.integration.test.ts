@@ -345,7 +345,8 @@ test("a reply link removes its person from that loop only, with everything they 
   assert.equal((await rows("select key from rate_limits where key = $1", [limitKey.comment(world.alice.id)])).length, 0);
   // Wren is untouched, in this loop and the others.
   assert.equal((await rows("select key from rate_limits where key = $1", [limitKey.comment(world.wren.id)])).length, 1);
-  assert.equal((await rows("select id from replies where membership_id = $1", [world.wren.id])).length, 1);
+  // Their answer and their photo-wall answer, now one table.
+  assert.equal((await rows("select id from replies where membership_id = $1", [world.wren.id])).length, 2);
   assert.equal((await rows("select id from users where id = $1", [world.userId])).length, 1);
 
   // The link is spent, and an owner cannot leave through theirs.

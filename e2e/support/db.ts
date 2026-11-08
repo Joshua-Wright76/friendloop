@@ -108,6 +108,23 @@ export async function migrate(url = testDatabaseUrl()): Promise<void> {
   await client.end({ timeout: 5 });
 }
 
+/**
+ * Run one migration file the way the deploy does: its statements, split where
+ * drizzle splits them, in a single transaction.
+ */
+export async function runMigrationFile(file: string): Promise<void> {
+  const { readFileSync } = await import("node:fs");
+  const statements = readFileSync(file, "utf8").split("--> statement-breakpoint").map((part) => part.trim()).filter(Boolean);
+  const sql = postgres(testDatabaseUrl(), { prepare: false, max: 1, onnotice: () => undefined });
+  try {
+    await sql.begin(async (tx) => {
+      for (const statement of statements) await tx.unsafe(statement);
+    });
+  } finally {
+    await sql.end({ timeout: 5 });
+  }
+}
+
 /** Escape hatch for assertions that the UI does not expose. */
 export async function rows<T = Record<string, unknown>>(
   text: string,

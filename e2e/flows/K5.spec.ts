@@ -29,7 +29,7 @@ test("K5 · a music link is validated warmly, then saved", async ({ page }) => {
 
   // Nothing is stored while the link is invalid.
   const nothing = await rows<{ count: number }>(
-    "select count(*)::int as count from section_replies where link_url is not null",
+    "select count(*)::int as count from replies where link_url is not null",
   );
   expect(nothing[0].count).toBe(0);
 
@@ -40,7 +40,7 @@ test("K5 · a music link is validated warmly, then saved", async ({ page }) => {
   await expect(page.getByText("Saved.").first()).toBeVisible();
 
   const saved = await rows<{ link_url: string; link_provider: string }>(
-    "select link_url, link_provider from section_replies where link_url is not null limit 1",
+    "select link_url, link_provider from replies where link_url is not null limit 1",
   );
   expect(saved[0].link_provider).toBe("spotify");
 });

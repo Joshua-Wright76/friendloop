@@ -344,7 +344,7 @@ test("the preview rebuilds itself when an older seed left rows it cannot top up"
   // current seed's insert, and the comments that hang from its fixed id have no parent.
   await rows("delete from comments");
   await rows("delete from reactions");
-  await rows("update replies set id = gen_random_uuid()");
+  await rows("update replies set id = gen_random_uuid() where id not in (select reply_id from reply_media)");
 
   await enableUiPreview();
 
@@ -362,7 +362,7 @@ test("rebuilding the preview leaves other loops and the demo user's place in the
   await rows("update memberships set user_id = $1 where group_id = $2 and access = 'owner'", [UI_PREVIEW.userId, other.groupId]);
   await rows("delete from comments");
   await rows("delete from reactions");
-  await rows("update replies set id = gen_random_uuid()");
+  await rows("update replies set id = gen_random_uuid() where id not in (select reply_id from reply_media)");
 
   await enableUiPreview();
 

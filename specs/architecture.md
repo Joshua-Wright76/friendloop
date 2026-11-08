@@ -38,10 +38,11 @@ Instead every run of `/api/cron/sweep` reconciles state:
    the loop.
 2. For any running loop with no open issue, open one due at the next slot and
    queue the prompt emails. (Creating a loop and resuming one open it directly.)
-   A prompt, reminder or nudge counts and lists every question and section that
-   person can answer (`roundAsks` in `src/lib/notify.ts`; admin-only sections only
-   for owner and admins), so a round of sections alone still asks, and someone it
-   asks nothing gets no email.
+   A prompt, reminder or nudge counts and lists everything the round asks that
+   person (`roundAsks` in `src/lib/notify.ts`): owners-only items only for owner
+   and admins, and never a birthday card to the person it is about. Someone a
+   round asks nothing gets no email. A delivery email's "next round" list is the
+   same list.
 3. Remind contributors who owe an answer 48 hours before `deliversAt`.
 4. Retry `outbox` rows still `pending`.
 
@@ -70,9 +71,9 @@ frozen `slot_at`/`delivers_at`.
 A round runs from one delivery to the next: `opens_at` is when the previous one
 went out (or the loop was created), `delivers_at` the next slot after it, however
 close that is. `slot_at` is the slot it was opened for, so `slot_at` to
-`delivers_at` counts how often an empty round was carried over. Editing the
-question pool or the sections while a round is open changes that round, except
-that anything someone has started answering stays. "Send now" delivers the open
+`delivers_at` counts how often an empty round was carried over. Adding, removing
+or rewording an item while a round is open changes that round (§13), except that
+anything someone has started answering stays. "Send now" delivers the open
 round early and the next one is due at the slot after the one it replaced.
 
 Every human-facing deadline renders twice: the loop's time and the reader's own.
@@ -193,35 +194,69 @@ re-inviting a removed address revives the membership with a fresh token.
 credential, and management actions never accept it. GET only renders — every write
 is a Server Action, because mail scanners prefetch every URL in an email.
 
-## 13 · Question rotation uses one cursor
+## 13 · One list of things to ask, and the queue is its order
 
-> Questions and sections are becoming one list (`docs/questions-unify-design.md`, four PRs).
-> PR A added the unified columns, `reply_media` and a trigger that fills `format` from `kind`,
-> with no data in them yet. Until the code switches over, **every read of `issue_questions` and
-> `replies` goes through `legacyAskCondition()`** (`src/lib/legacy-ask.ts`: not `from_section`,
-> format written or poll) **and pool reads add `active = true`**, so rows the next release copies
-> in are invisible here. Only "is this file still used?" and erasure's file list read every row.
-> `test/golden/` holds the snapshots of a past round that the switch must leave unchanged.
+Questions, sections and events are one list (`docs/questions-unify-design.md`).
+Every item is a `questions` row with an **answer format** (`written`, `poll`,
+`photo_wall`, `music`) and a **frequency**: `rotating` (takes turns),
+`every_round`, or `on_date` (a one-time date or a birthday, with
+`about_membership_id`). A round's items are `issue_questions` snapshots, and every
+answer, whatever its format, is one `replies` row (photo-wall photos are
+`reply_media` rows under it). Stopped is `archived_at`.
 
-`groups.questions_per_round` is nullable. Null preserves the original behavior:
-every active, unskipped question goes into the issue. A positive count rotates
-through the ordered pool, wrapping at the end. `groups.question_cursor` points to
-the next pool position after the last selected question. Skipped questions do not
-count toward the round's total.
+**The queue is the order.** Turn-taking items ordered by `position` are the
+queue. Opening a round, inside the transaction that locks the loop
+(`snapshotRound` in `src/lib/round-questions.ts`), takes the first N of them
+(`questions_per_round`; null means all), moves them to the back (`position = max
++ 1`), then adds every every-round item in order, then each dated occurrence in the
+round's days (§17). There is no cursor: `groups.question_cursor` stays 0 and goes
+with the contract release. Scheduled rounds and "Send now" share the one path, so
+they cannot drift.
 
-`src/lib/round-questions.ts` is the only code that snapshots questions and advances
-the cursor. Scheduled rounds and "Send now" both call it, so the two paths cannot
-drift. Changing the count resets the cursor to the top. Issue question snapshots
-remain unchanged when the pool or rotation setting changes later.
+Once a round is open, edits are direct operations on it: add an item (a turn-taker
+goes to the back of the queue), remove one (refused once anyone has a row there;
+a turn-taker goes **first in line** for the next round, a dated occurrence goes
+into `skipped_dates` so carry-over doesn't put it back), carry new wording into
+its snapshot unless someone wrote there (the K8 rule), or top the round up from
+the queue. Snapshots never change once anyone has written in them.
+
+**Until the Questions page ships, the old owner tab runs on adapters**
+(`src/lib/manage.ts`, `src/lib/sections.ts`, `src/lib/events.ts`). Its
+"questions" are the written and poll items marked `active`; its "sections" are
+every-round items that aren't (numbered from 1000, so they follow the
+questions); its "dates" are `on_date` items. "Each round asks N" makes the
+loop's questions take turns and "All questions" asks them every round; "Skip
+this round" removes the question from the open round, puts it first in line and
+marks `skip_next` for the list until the next round opens; reordering the list
+reorders the queue, not the open round. `active` keeps one meaning until the
+contract release: "code from before the switch may ask this as a question", so
+a rollback never asks a photo wall.
+
+**The switch (PR B, migration `0023`).** Sections, events, round sections,
+section answers and section photos were copied into the unified tables keeping
+their UUIDs, by one upsert function per legacy table that the migration and the
+mirror triggers share. A sheet loaded before the deploy still saves (its
+`issueSectionId` is now an `issueQuestionId`; the `sectionDraft`,
+`sectionMusic` and `/section-media` writes are aliases until the contract
+release), and anchors, Album keys and comment targets stay put. Copied round
+items are `from_section`: they render as sections always did (§17, §18), and past
+issues read as before (`test/golden/`). The migration takes `SHARE ROW EXCLUSIVE`
+locks on the legacy tables, so a legacy write from the release still serving
+waits a moment and is then mirrored; the triggers stay until the contract
+release, so a rollback keeps mirroring too (it just doesn't see what the new code
+wrote meanwhile). All reads and writes go to the unified tables only, except
+erasure, which also deletes the legacy birthday snapshot that names the person,
+and "is this file still used?", which also looks at `section_media` until it is
+dropped.
 
 ## 14 · A poll is a question, and a pick is a reply
 
 Polls ride the same machinery as written questions rather than a parallel
-pipeline. `questions` and `issue_questions` carry `kind` (`written` | `poll`),
-`poll_multiple`, and `poll_options` (a JSON array of two to six strings); the issue
-snapshot copies all three, so editing the pool never rewrites an issue that is
-already out. Pool order, rotation, skip-next, archiving, and `snapshotQuestionsForIssue`
-treat a poll exactly like any other question.
+pipeline. A poll is an item of format `poll` (`kind` still says `poll` until the
+contract release), with `poll_multiple` and `poll_options` (a JSON array of two to
+six strings); the round snapshot copies all three, so editing the pool never
+rewrites an issue that is already out. The queue, stopping and `snapshotRound`
+treat a poll exactly like any other item.
 
 A pick lives on the person's `replies` row as `poll_choices`, a JSON array of
 indexes into the snapshotted options. The existing unique key
@@ -233,8 +268,9 @@ empty polls out, so a cleared pick is never shown, counted, or delivered.
 
 Writes go through `savePollChoicesFor` (`action: "pollChoice"` on the reply POST).
 `checkPollChoices` validates whole — in range, no repeats, one pick unless the poll
-is multiple-choice — and `ensureWritableQuestion` keeps the kinds apart: text,
-photo, and voice are refused on a poll, and a pick is refused on a written question.
+is multiple-choice — and `ensureWritableQuestion` keeps the formats apart: each
+write names the formats it accepts, so text, photo and voice are refused on a poll,
+a pick on a written item, and a link lands only on a music pick.
 
 **Results are a delivery-time fact.** `loadIssue` returns a poll's tally only once the
 issue is `delivered`; before that the tally is `null` and the only pick returned is
@@ -281,29 +317,31 @@ and a refusal on either side rolls both back. The founder becomes an admin who s
 writes; the new owner becomes a contributor if they only read. `issues.name` and `memberships.photo_url` are
 plain nullable columns; the unnamed and photo-less forms are the original rendering.
 
-## 17 · An event is a date; a section is what it leaves behind
+## 17 · An event is an item asked on a date
 
-`events` holds what the owner typed: a one-time event (title, emoji, full date) or a
-birthday (a membership, month and day, no year). Nothing reads it at delivery time. At
-the moment a round opens, `snapshotEventsForIssue` turns each event whose local date
-falls in the round's coverage into an `issue_sections` row of kind `standard` (so the
-sheet, the web issue and the email already know how to show it) with its title,
-emoji and description frozen, and `event_id` / `event_date` recording where it came
-from. Editing or deleting the event, or renaming the member, can never reach back
-into a round: the snapshot is the only copy that matters, and `event_id` simply goes
-null if its event is deleted.
+A one-time event or a birthday is a pool item with `frequency = 'on_date'`
+(`date_kind`, `month`, `day`, `year`; a birthday has `about_membership_id` and an
+empty text). Nothing reads it at delivery time. When a round opens,
+`placeDatedItems` (`src/lib/events.ts`) turns each occurrence in the round's
+coverage into an `issue_questions` snapshot, of any format, with its title, emoji
+and description frozen ("Maya's birthday" is titled from her name at that moment)
+and `occurrence_date` recording which day it is. The snapshot also freezes
+`about_membership_id`, so the birthday person never sees their card on the sheet,
+in prompts or in the next round's list, even after the item is deleted. Editing or
+deleting the item, or renaming the member, never reaches back into a round.
 
 Coverage is calendar dates in the loop's timezone, never instants: the round's
 opening day through its delivery day, stretched to the day before the next slot when
 the window is shorter than the cadence, so no date between two rounds is lost
 (`issueCoverage` in `src/lib/event-dates.ts`). It lands in the round that is open
 when the date approaches, not the one that opens after. A unique index on
-`(event_id, event_date)` makes an occurrence claimable once, which is what keeps a
-retried sweep, an overlapping window, and a manual "send now" from doubling a section,
-and it is also why a birthday is exactly one section a year: next year is a different
-`event_date`. A 29 February birthday keeps to 28 February in years without one.
+`(question_id, occurrence_date)` makes an occurrence claimable once, which is what
+keeps a retried sweep, an overlapping window, and a manual "send now" from doubling a
+card, and it is also why a birthday is exactly one card a year: next year is a
+different date. Taking an occurrence out of the open round records it in
+`skipped_dates`, so carrying the round over doesn't put it back. A 29 February birthday keeps to 28 February in years without one.
 
-An event added or moved while a round is open is placed into that round at once if its
+A dated item added or moved while a round is open is placed into that round at once if its
 date is inside the window; otherwise it waits for the round that holds it. Dates that
 fall before a loop's first round, or in rounds the sweep skipped over after a pause or
 an outage, are not backfilled: the sweep only ever materializes the latest missed
@@ -312,8 +350,9 @@ slot. A birthday whose person has left the loop places nothing.
 ## 18 · The Album is a query, not a table
 
 Nothing is copied to build the Album. `loadAlbum` (`src/lib/album.ts`) unions three
-selects — answer photos, answer voice notes, section media — each joined to its
-delivered issue, question or section, and author, then filters and orders the union
+selects — answer photos, answer voice notes, photo-wall photos (`reply_media`) —
+each joined to its delivered issue, round item and author (an item copied from a
+section keeps a section's place in the order and its `section-reply-` anchor), then filters and orders the union
 once: newest round first, then the order the round reads in, with a stable key as the
 last tie-break so a longer page is always a strict extension of a shorter one. A page
 is `ALBUM_PAGE_SIZE × pages` rows (URL-driven, capped), and a count and the "from" list
@@ -322,7 +361,7 @@ of anything to fall out of date: a late photo, a removed photo or a deleted ques
 shows up on the next load.
 
 What the Album may show is decided in the query, not the page: `status = 'delivered'`
-keeps out open rounds and `never_sent` the drafts an old round went out without (§24); `admin_only` sections are
+keeps out open rounds and `never_sent` the drafts an old round went out without (§24); `admin_only` items are
 joined only for owner and admins; the loop id is a bound parameter, so another loop's
 media cannot appear. Search words and the member id reach SQL only as parameters
 (`ILIKE` patterns are escaped; a member id that is not a UUID is no filter).
@@ -461,7 +500,9 @@ reply-link leave, and the settings "Delete forever"). Each path runs one
 transaction that collects every stored file the doomed rows point at, deletes the
 rows (most of it is `on delete cascade` from `memberships`; the module adds what a
 foreign key cannot say — the email trail keyed by address, the name frozen into a
-suggestion credit or a birthday section, stored copies of sent mail that name the
+suggestion credit or the legacy copy of a birthday section (the round's own
+birthday card cascades from `about_membership_id`, with every answer on it),
+stored copies of sent mail that name the
 person, the §21 abuse counters keyed by their address, account, or membership,
 spelled by `limitKey` in `src/lib/rate-limit-policy.ts`), and writes the file URLs to `media_deletions` in the same commit. Only
 then are the files removed, three quick tries each; anything storage refused stays
@@ -496,16 +537,16 @@ holds the one definition, used by delivery and the empty-round check, the issue
 page, progress, reminders and nudges (`answeredMemberIds` in `src/lib/answered.ts`),
 comment anchors, the Album, the rounds filter and exports:
 
-- a question answer is text with something other than spaces in it, a photo, a
-  voice note or a poll pick;
-- a section answer is text, a music link, or at least one photo;
+- an answer, whatever its format, is text with something other than spaces in
+  it, a photo, a voice note, a poll pick, a music link, or at least one
+  photo-wall photo;
 - an answer cleared back to nothing is not one, though its row stays.
 
 The sheet has one mode. The deadline line says that everything written goes out
 then, finished or not, and that clearing an answer leaves it out; "Done" waits for
 the last words to save and confirms it, but nothing needs pressing to count.
 
-`replies.status` / `section_replies.status` and `submitted_at` are legacy: every
+`replies.status` and `submitted_at` are legacy: every
 save writes `submitted` so code from before this rule, still running for the few
 minutes between the migration and the release, counts the same rows, but nothing
 reads them. Migration `0021` flipped drafts in open rounds to `submitted` and set
