@@ -1067,7 +1067,7 @@
     "voicePick": "Choose an audio file",
     "voiceNoRecorder": "This browser can't record here. If you opened the link inside another app, open it in Safari or Chrome instead, or attach an audio file.",
     "voiceInsecure": "Recording only works on a secure (https) page, and this one isn't. You can attach an audio file instead.",
-    "voiceBlocked": "This browser is blocking the microphone for this page. Allow it in the site settings and try again, or attach an audio file instead.",
+    "voiceBlocked": "The microphone is blocked for this page. Turn it on and try again, or attach an audio file instead.",
     "voiceNoMic": "We couldn't find a microphone. You can attach an audio file instead.",
     "voiceMicBusy": "Another app is using the microphone. Close it and try again, or attach an audio file instead.",
     "voiceDurationLabel": "Voice note, {duration}",
@@ -1120,7 +1120,8 @@
     "sectionAddPhotoTo": "Add a photo to {section}",
     "addAttachment": "Add a photo or sound",
     "pausedTitle": "Paused for now",
-    "pausedBody": "{groupName} is paused, so it isn't taking answers right now. Your link will work again as soon as it's resumed."
+    "pausedBody": "{groupName} is paused, so it isn't taking answers right now. Your link will work again as soon as it's resumed.",
+    "voiceBlockedHelp": "Show me how"
   },
   "issue": {
     "eyebrow": "Fresh from the loop",
@@ -2135,5 +2136,47 @@
     "down": "Down",
     "upLabel": "Move up: {item}",
     "downLabel": "Move down: {item}"
+  },
+  "micHelp": {
+    "title": "Turn on the microphone",
+    "intro": {
+      "ios": "{app} on this {device} isn't allowed to use the microphone yet. It only takes a minute in the Settings app.",
+      "android": "This page isn't allowed to use the microphone yet. You can turn it on right from the address bar.",
+      "macSafari": "Safari isn't letting this page use the microphone yet. You can change that in Safari's menu.",
+      "desktop": "This page isn't allowed to use the microphone yet. You can turn it on right from the address bar."
+    },
+    "steps": {
+      "openSettings": "Open the Settings app.",
+      "tapApps": "Scroll down and tap Apps.",
+      "findApp": "Find {app} in the list and tap it.",
+      "turnOn": "Turn on Microphone.",
+      "safariMicrophone": "Scroll down to Settings for Websites and tap Microphone.",
+      "chooseAllow": "Choose Allow.",
+      "safariMenu": "In the Safari menu, choose Settings for {host}.",
+      "tapSiteIcon": "Tap the icon just left of the address.",
+      "tapPermissions": "Tap Permissions.",
+      "retry": "Come back here and tap Try again."
+    },
+    "notes": {
+      "iosApp": "On an older iPhone, {app} is near the bottom of Settings itself. If Microphone is already on, tap the icon left of the address in {app} and allow the microphone there.",
+      "iosSafari": "Still blocked? In Safari, tap the page menu in the address bar, then Website Settings, and set Microphone to Allow."
+    },
+    "screens": {
+      "settings": "Settings",
+      "apps": "Apps",
+      "microphone": "Microphone",
+      "permissions": "Permissions",
+      "settingsFor": "Settings for {host}…",
+      "choices": [
+        "Ask",
+        "Deny",
+        "Allow"
+      ],
+      "voiceNote": "Voice note"
+    },
+    "pause": "Pause the animation",
+    "play": "Play the animation",
+    "retry": "Try again",
+    "close": "Close"
   }
 }

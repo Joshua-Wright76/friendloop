@@ -1225,3 +1225,63 @@ html[data-theme="dark"] .toast { background: var(--card); color: var(--ink); box
   .member-list > li:not(:first-child) { grid-column: 2; }
   .member-list > li:only-child { grid-column: 1 / -1; }
 }
+
+/* "Show me how" for a refused microphone: a pretend screen that plays each step.
+   Base styles are each step's finished state; the animations start from before
+   it, so with reduced motion every screen simply shows how it should end up. */
+.wizard-dialog.mic-help { width: min(420px, calc(100vw - 28px)); }
+.mic-help__target { position: relative; }
+.mic-help__stage { position: relative; display: flex; justify-content: center; margin-top: 14px; }
+.mic-help__phone { position: relative; width: 188px; height: 172px; overflow: hidden; padding: 10px; border: 2px solid var(--line-strong); border-radius: 24px; background: var(--page); box-shadow: var(--shadow); }
+.mic-help__play { position: absolute; right: 0; bottom: 0; display: grid; width: 44px; height: 44px; place-items: center; border-radius: 50%; background: var(--card); color: var(--ink-soft); box-shadow: inset 0 0 0 1.5px var(--line-strong); }
+.mic-help__play svg { width: 16px; height: 16px; }
+.mic-help__play:hover { background: var(--accent-soft); color: var(--ink); }
+.mic-help__screen { display: grid; gap: 6px; animation: mic-help-in 260ms ease-out both; font-size: 13px; color: var(--ink); }
+.mic-help__header { display: flex; align-items: center; gap: 6px; min-height: 26px; padding: 0 4px; font-weight: 800; font-size: 14px; }
+.mic-help__back { width: 9px; height: 15px; color: var(--accent-ink); }
+.mic-help__row { position: relative; display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 30px; padding: 0 10px; border-radius: 8px; background: var(--card); }
+.mic-help__row--hit { background: var(--accent-soft); animation: mic-help-hit 1.6s ease both; font-weight: 700; }
+.mic-help__bar { display: block; height: 8px; border-radius: 4px; background: var(--line); }
+.mic-help__chevron { width: 7px; height: 12px; color: var(--ink-muted); }
+.mic-help__check { width: 16px; height: 16px; color: var(--accent-ink); animation: mic-help-show 1.6s ease both; }
+.mic-help__home { grid-template-columns: repeat(4, 1fr); gap: 12px 10px; padding: 8px 4px; }
+.mic-help__app { position: relative; aspect-ratio: 1; border-radius: 10px; background: var(--line); }
+.mic-help__app--settings { display: grid; place-items: center; background: linear-gradient(#a3a3ad, #6e6e78); color: #f4f4f6; }
+.mic-help__app--settings svg { width: 72%; height: 72%; }
+.mic-help__app-label { position: absolute; top: calc(100% + 2px); left: 50%; translate: -50% 0; font-size: 9px; font-weight: 700; color: var(--ink); white-space: nowrap; }
+.mic-help__switch { position: relative; width: 38px; height: 22px; flex: none; border-radius: 11px; background: #34c759; animation: mic-help-switch 1.6s ease both; }
+.mic-help__knob { position: absolute; top: 2px; left: 18px; width: 18px; height: 18px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgb(0 0 0 / .3); animation: mic-help-knob 1.6s ease both; }
+.mic-help__address { display: flex; align-items: center; gap: 6px; min-height: 34px; margin-bottom: 6px; padding: 0 8px; border-radius: 17px; background: var(--card); box-shadow: inset 0 0 0 1px var(--line-strong); }
+.mic-help__site { position: relative; display: grid; width: 24px; height: 24px; flex: none; place-items: center; border-radius: 50%; color: var(--ink-soft); }
+.mic-help__site svg { width: 16px; height: 16px; }
+.mic-help__host { overflow: hidden; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; color: var(--ink-soft); }
+.mic-help__retry { gap: 10px; padding: 14px 10px; border-radius: 12px; background: var(--card); }
+.mic-help__pill { position: relative; display: inline-flex; width: fit-content; align-items: center; gap: 6px; margin-top: 6px; padding: 8px 14px; border-radius: 999px; background: var(--success-soft); box-shadow: inset 0 0 0 1.5px var(--line-strong); font-weight: 700; }
+.mic-help__pill svg { width: 16px; height: 16px; }
+.mic-help__tap { position: absolute; top: 50%; left: 50%; width: 26px; height: 26px; margin: -13px 0 0 -13px; border: 2px solid #fff; border-radius: 50%; background: color-mix(in srgb, var(--accent) 55%, transparent); box-shadow: 0 2px 8px rgb(0 0 0 / .25); pointer-events: none; animation: mic-help-tap 1.6s ease both; }
+.mic-help__row .mic-help__tap { left: 70%; }
+.mic-help__tap::after { content: ""; position: absolute; inset: -2px; border-radius: 50%; border: 2px solid var(--accent); opacity: 0; animation: mic-help-ripple 1.6s ease-out both; }
+.mic-help__steps { display: grid; gap: 0; margin: 12px 0 0; padding: 0; list-style: none; }
+.mic-help__step { display: flex; width: 100%; min-height: 36px; align-items: flex-start; gap: 10px; padding: 6px 10px; border-radius: 8px; color: var(--ink-soft); font-size: 14px; line-height: 1.4; text-align: left; }
+.mic-help__step:hover { background: var(--accent-soft); color: var(--ink); }
+.mic-help__step[aria-current="step"] { background: var(--accent-soft); color: var(--ink); font-weight: 700; }
+.mic-help__number { display: grid; width: 22px; height: 22px; flex: none; place-items: center; border-radius: 50%; background: var(--line); color: var(--ink); font-size: 12px; font-weight: 800; }
+.mic-help__step[aria-current="step"] .mic-help__number { background: var(--accent); color: var(--on-accent); }
+.mic-help__actions { position: sticky; bottom: calc(-1 * clamp(18px, 4vw, 26px)); margin: 14px calc(-1 * clamp(18px, 4vw, 26px)) calc(-1 * clamp(18px, 4vw, 26px)); padding: 12px clamp(18px, 4vw, 26px); border-top: 1px solid var(--line); background: var(--card); }
+@media (max-width: 520px) { .mic-help__actions { bottom: -18px; margin: 14px -18px -18px; padding: 12px 18px; } }
+@keyframes mic-help-in { from { opacity: 0; transform: translateX(18px); } }
+@keyframes mic-help-tap {
+  0%, 15% { opacity: 0; transform: translate(26px, 34px); }
+  45% { opacity: 1; transform: none; }
+  55% { transform: scale(.78); }
+  68% { opacity: 1; transform: none; }
+  100% { opacity: 0; transform: translate(20px, 26px); }
+}
+@keyframes mic-help-ripple { 0%, 52% { opacity: 0; transform: none; } 56% { opacity: .9; } 90%, 100% { opacity: 0; transform: scale(2.2); } }
+@keyframes mic-help-hit { 0%, 54% { background: var(--card); } }
+@keyframes mic-help-show { 0%, 56% { opacity: 0; transform: scale(.5); } }
+@keyframes mic-help-switch { 0%, 56% { background: var(--line-strong); } }
+@keyframes mic-help-knob { 0%, 56% { left: 2px; } }
+@media (prefers-reduced-motion: reduce) {
+  .mic-help :is(.mic-help__screen, .mic-help__row--hit, .mic-help__check, .mic-help__switch, .mic-help__knob, .mic-help__tap, .mic-help__tap::after) { animation: none; }
+}
