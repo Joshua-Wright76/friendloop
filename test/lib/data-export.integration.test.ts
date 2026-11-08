@@ -10,7 +10,8 @@ import {
   toStream,
 } from "../../src/lib/data-export.ts";
 import { exportResponse } from "../../src/lib/export-response.ts";
-import { addMember, rows, seedDeliveredIssue, seedLoop, setupDatabase } from "../support/app.ts";
+import { addMember, rows, seedDeliveredIssue, seedLoop, seedOpenIssue, seedReplies, setupDatabase } from "../support/app.ts";
+import { AFTER_FIRST_SLOT } from "../../e2e/support/clock.ts";
 import { seedPoll } from "../../e2e/support/polls.ts";
 import { E2E_NOW } from "../../e2e/support/clock.ts";
 import { clearRequest, setRequestHeaders } from "../stubs/request.mjs";
@@ -178,4 +179,18 @@ test("the stream, the filename and the response headers", async () => {
   assert.equal(response.headers.get("content-disposition"), 'attachment; filename="friendloop-my-data-2026-01-02.json"');
   assert.equal(response.headers.get("cache-control"), "private, no-store");
   assert.deepEqual(await response.json(), { format: "x", items: [{ a: 1 }, { b: [2] }] });
+});
+
+test("the loop archive leaves out the round that is still open", async () => {
+  const loop = await seedLoop();
+  await seedDeliveredIssue(loop, { deliveredAt: E2E_NOW, answers: [{ email: "alice@friendloop.test", body: "Sent and read." }] });
+  const open = await seedOpenIssue(loop, { openedAt: AFTER_FIRST_SLOT });
+  const bob = loop.members.find((member) => member.email.startsWith("bob"))!;
+  await seedReplies({ issueId: open.issueId, membershipId: bob.id, answers: [{ text: "What made you laugh this week?", body: "Still writing" }] });
+
+  const text = await collect((await loopArchive(loop.groupId, E2E_NOW))!.chunks);
+  const data = JSON.parse(text);
+  assert.equal(data.rounds.length, 1);
+  assert.equal(data.rounds[0].status, "delivered");
+  assert.ok(!text.includes("Still writing"));
 });

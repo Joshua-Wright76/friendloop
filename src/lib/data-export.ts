@@ -1,4 +1,4 @@
-import { and, asc, eq, inArray, isNull } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull, ne } from "drizzle-orm";
 import { db } from "@/db";
 import {
   comments,
@@ -365,7 +365,13 @@ async function roundOf(issue: typeof issues.$inferSelect, names: Names) {
 }
 
 async function* eachRound(groupId: string, names: Names) {
-  const rounds = await db.select().from(issues).where(eq(issues.groupId, groupId)).orderBy(asc(issues.number));
+  // The open round stays a surprise until it goes out, here as on its page: everyone's
+  // half-written answers are theirs until then.
+  const rounds = await db
+    .select()
+    .from(issues)
+    .where(and(eq(issues.groupId, groupId), ne(issues.status, "open")))
+    .orderBy(asc(issues.number));
   for (const issue of rounds) yield await roundOf(issue, names);
 }
 

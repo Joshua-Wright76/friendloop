@@ -500,3 +500,8 @@ reads them. Migration `0021` flipped drafts in open rounds to `submitted` and se
 `never_sent` on drafts in rounds that had already gone out or been dropped, so they
 don't appear in those rounds now that drafts are answers. `never_sent` is the only
 thing that keeps them out; the status columns can be dropped in a later release.
+
+Because a half-finished sentence is an answer, a round stays a surprise until it
+goes out: before delivery, the round's page shows each member only their own
+answers (as polls already did), and the owner's loop archive leaves the open round
+out. Everyone sees everything once it is delivered.

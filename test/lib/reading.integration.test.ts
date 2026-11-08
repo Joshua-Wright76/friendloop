@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { atLeast, requireViewer, viewerFor } from "../../src/lib/permissions.ts";
 import { loadIssue, membershipForViewer, reactionChoices } from "../../src/lib/issue-view.ts";
 import { snapshotQuestionsForIssue } from "../../src/lib/round-questions.ts";
-import { groupOf, resetDatabase, rows, seedDeliveredIssue, seedLoop, seedOpenIssue, setupDatabase } from "../support/app.ts";
+import { groupOf, resetDatabase, rows, seedDeliveredIssue, seedLoop, seedOpenIssue, seedReplies, setupDatabase } from "../support/app.ts";
 import { requestMagicLink, confirmMagicLink } from "../../src/lib/auth.ts";
 import { latestOutbox } from "../support/app.ts";
 import { AFTER_FIRST_SLOT, E2E_NOW } from "../../e2e/support/clock.ts";
@@ -246,4 +246,22 @@ test("the viewer is found by session first, then by delivery token", async () =>
 
 test("the reaction choices are the three the UI ships", () => {
   assert.deepEqual(reactionChoices(), ["❤️", "😄", "👏"]);
+});
+
+test("before a round goes out, its page shows each person only their own answers", async () => {
+  const loop = await seedLoop();
+  const open = await seedOpenIssue(loop, { openedAt: AFTER_FIRST_SLOT });
+  const alice = loop.members.find((member) => member.email.startsWith("alice"))!;
+  const bob = loop.members.find((member) => member.email.startsWith("bob"))!;
+  await seedReplies({ issueId: open.issueId, membershipId: alice.id, answers: [{ text: "What made you laugh this week?", body: "Half a thought" }] });
+  await seedReplies({ issueId: open.issueId, membershipId: bob.id, answers: [{ text: "What made you laugh this week?", body: "Bob's line" }] });
+
+  const asAlice = await loadIssue({ issueId: open.issueId, viewerMembershipId: alice.id });
+  const seen = asAlice!.blocks.flatMap((block) => block.answers.map((answer) => answer.body));
+  assert.deepEqual(seen, ["Half a thought"], "Bob's answer waits for the round to go out");
+  assert.equal(asAlice!.answerCount, 1);
+
+  await rows("update issues set status = 'delivered', delivered_at = now() where id = $1", [open.issueId]);
+  const afterwards = await loadIssue({ issueId: open.issueId, viewerMembershipId: alice.id });
+  assert.equal(afterwards!.blocks.flatMap((block) => block.answers).length, 2);
 });

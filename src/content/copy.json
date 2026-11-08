@@ -1925,7 +1925,7 @@
     "contactBody": "Write to",
     "export": {
       "personalNote": "Everything you wrote on Friendloop, as of exportedAt. Photos and voice notes are links; they keep working until you delete your account or leave the loop, or the loop is deleted, so save any you want to keep first.",
-      "loopNote": "The whole loop as of exportedAt: every round with its questions, answers, sections, comments, and reactions, and the open round as it stands. Photos and voice notes are links; they stop working once the loop or the person who added them is deleted, so save any you want to keep first. Drafts a past round went out without are not included."
+      "loopNote": "The whole loop as of exportedAt: every round that has gone out, with its questions, answers, sections, comments, and reactions. Photos and voice notes are links; they stop working once the loop or the person who added them is deleted, so save any you want to keep first. Drafts a past round went out without are not included. The round that's open now isn't included: its answers stay private until it goes out."
     },
     "privacy": {
       "metadataTitle": "Privacy",
@@ -1948,7 +1948,7 @@
         {
           "heading": "Who can see it",
           "paragraphs": [
-            "The people in your loop see the answers you write, your name and photo, your comments and reactions. An answer is part of the round as soon as it saves: the loop's members can read the round while it is open, and everyone gets it when it goes out. Clear an answer before then to take it out. The owner and admins also see members' email addresses and who has answered so far.",
+            "The people in your loop see the answers you write, your name and photo, your comments and reactions. An answer is part of the round as soon as it saves: nobody else sees it until the round goes out, and then everyone gets it. Clear an answer before then to take it out. The owner and admins also see members' email addresses and who has answered so far.",
             "If you reply to a loop's email, your reply goes straight to the loop's owner, since their address is set as the reply-to. So members can see the owner's address when they reply.",
             "If the loop's owner turns on share links, anyone holding a round's share link can read that round. They are off unless the owner turns them on, and the owner can replace them at any time.",
             "Photos and voice notes are stored at long, unguessable web addresses. Anyone given one of those addresses can open that file."
