@@ -70,6 +70,8 @@ export type LoopData = {
   weekdayLabel: string;
   /** Membership id to the ids of the delivered rounds they answered in. */
   roundsAnsweredBy: Record<string, string[]>;
+  /** The viewer's own answer page while a round takes their answers; null for readers and paused loops. */
+  answerHref: string | null;
 };
 
 const LoopDataContext = createContext<LoopData | null>(null);

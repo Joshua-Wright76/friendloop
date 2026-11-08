@@ -602,6 +602,8 @@
     "pausedDescription": "Nothing goes out and nobody can answer until you resume it.",
     "viewerTimezone": "That's {time} where you are.",
     "sendNow": "Send now",
+    "answerRound": "Answer round {number}",
+    "editAnswers": "Edit your answers",
     "resume": "Resume",
     "pause": "Pause",
     "welcome": "Loop created.",

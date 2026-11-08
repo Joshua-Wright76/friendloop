@@ -66,6 +66,7 @@ Status: `todo` (not built) · `done` (built and covered).
 | D10 | Nudge by hand | From the dashboard the owner sees who has not answered and can send one more reminder; anyone who already answered gets none, and each nudge is its own email rather than a duplicate. | done |
 | D11 | Two triggers at once | When the two production triggers run the sweep concurrently, exactly one issue is created for the slot, one prompt per contributor is sent, and concurrent delivery and reminder passes never double-send. | done |
 | D12 | Provider rejects a send | A provider outage leaves the prompt `failed` with its attempt counted, the next sweep retries the same row instead of queueing a new one, a permanent rejection keeps the provider's reason, and a rate limit clears once the provider recovers. | done |
+| D13 | Answer from the app | A signed-in member who answers in the loop sees a primary "Answer round N" button on the overview's open-round card, and the same link on that loop's card on `/you`; both go to their own reply link and the page carries nobody else's. Once they are among the round's "in" people it reads "Edit your answers" and steps back to a quiet button. A reader, or anyone in a paused loop, sees neither and is sent no reply link. | done |
 
 ## E · Reading and reacting
 

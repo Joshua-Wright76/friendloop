@@ -14,6 +14,7 @@ import { getNow } from "@/lib/clock";
 import { membersOf } from "@/lib/manage";
 import { describeDeadline, groupSchedule, nextSlot, weekdayName } from "@/lib/schedule";
 import { url } from "@/lib/urls";
+import { ownAnswerHref } from "@/lib/answer-link";
 import LoopLoading from "./loading";
 import { LoopTheme } from "@/components/loop-theme";
 import { formatMoment, timezonePlace } from "@/lib/format";
@@ -72,6 +73,9 @@ async function LoadedGroupLayout({ children, params }: Props) {
         invitedAt: memberships.invitedAt,
         acceptedAt: memberships.acceptedAt,
       },
+      // The viewer's own reply link, kept apart from `membership` so that only the
+      // ready-made href below (never the token on its own) travels to the client.
+      replyToken: memberships.replyToken,
     })
     .from(memberships)
     .innerJoin(groups, eq(groups.id, memberships.groupId))
@@ -84,7 +88,7 @@ async function LoadedGroupLayout({ children, params }: Props) {
 
   if (!row) notFound();
 
-  const { group, membership } = row;
+  const { group, membership, replyToken } = row;
   // "Now" belongs to this request, never to a prerender.
   await connection();
   const at = await getNow();
@@ -204,6 +208,12 @@ async function LoadedGroupLayout({ children, params }: Props) {
     openMoment: openIssue ? momentsOf(openIssue.deliversAt, group.timezone, user.timezone) : null,
     weekdayLabel: weekdayName(group.promptWeekday),
     roundsAnsweredBy: Object.fromEntries(answeredIn),
+    answerHref: ownAnswerHref({
+      participation: membership.participation,
+      replyToken,
+      pausedAt: group.pausedAt,
+      hasOpenRound: openIssue !== null,
+    }),
   };
 
   return (
