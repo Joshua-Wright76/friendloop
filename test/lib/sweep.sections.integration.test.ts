@@ -165,3 +165,30 @@ function makeBytes() {
   const body = Buffer.alloc(56, 0);
   return Buffer.concat([header, body]);
 }
+
+test("an admin-only section reaches the owner's delivery email and no member's", async () => {
+  const loop = await seedLoop();
+  await db.insert(sections).values({
+    groupId: loop.groupId,
+    kind: "standard",
+    title: "Notes for the organisers",
+    emoji: null,
+    description: null,
+    adminOnly: true,
+    position: 0,
+    createdAt: new Date(),
+  });
+  await sweep({ at: AFTER_FIRST_SLOT });
+  const [issueSection] = await rows<{ id: string }>("select id from issue_sections limit 1");
+  assert.equal((await saveSectionTextFor({ token: loop.ownerToken, issueSectionId: issueSection.id, body: "Venue is booked." })).ok, true);
+  await submitFor(loop.ownerToken);
+
+  assert.equal((await sweep({ at: new Date(DELIVERY_DAY.getTime() + 60000) })).delivered, 1);
+  const mail = await rows<{ to: string; html: string; text: string }>("select \"to\", html, text from outbox where kind = 'delivery'");
+  const owner = mail.find((row) => row.to === "owner@friendloop.test")!;
+  assert.ok(owner.html.includes("Venue is booked."));
+  for (const row of mail.filter((candidate) => candidate.to !== "owner@friendloop.test")) {
+    assert.ok(!row.html.includes("Venue is booked.") && !row.html.includes("Notes for the organisers"), `${row.to} must not see it`);
+    assert.ok(!row.text.includes("Venue is booked."), `${row.to} must not see it in plain text either`);
+  }
+});

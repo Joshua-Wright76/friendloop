@@ -245,6 +245,7 @@ export async function deliverRound(input: { issue: IssueRow; at: Date; early?: b
     }
   }
   const sections = sectionRows.map((section) => ({
+    adminOnly: section.adminOnly,
     title: section.title,
     emoji: section.emoji,
     answers: sectionReplyRows
@@ -288,6 +289,7 @@ export async function deliverRound(input: { issue: IssueRow; at: Date; early?: b
       email: memberships.email,
       name: memberships.name,
       participation: memberships.participation,
+      access: memberships.access,
       replyToken: memberships.replyToken,
       unsubscribeToken: memberships.unsubscribeToken,
       timezone: users.timezone,
@@ -304,7 +306,10 @@ export async function deliverRound(input: { issue: IssueRow; at: Date; early?: b
       issueName: issue.name,
       url: issueUrl(issue.id, member.replyToken),
       answers,
-      sections,
+      // Admin-only sections are for the owner and admins, here as on the issue page.
+      sections: sections
+        .filter((section) => !section.adminOnly || member.access !== "member")
+        .map((section) => ({ title: section.title, emoji: section.emoji, answers: section.answers })),
       shareUrl: shareToken ? url(`/s/${shareToken}`) : null,
       next:
         next && member.participation === "contributor" && nextQuestions.length > 0
