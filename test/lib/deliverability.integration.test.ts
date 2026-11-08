@@ -348,7 +348,7 @@ test("a muted member gets no prompt; it is recorded as suppressed, and everyone 
   await setMutedByToken(alice.unsubscribe, true);
 
   const sent = await sendPromptEmails({
-    group, issueId: issue.issueId, issueNumber: issue.number, deliversAt: DELIVERY_DAY, questionCount: 1,
+    group, issueId: issue.issueId, issueNumber: issue.number, deliversAt: DELIVERY_DAY,
   });
   assert.equal(sent, 2, "owner and bob");
   const mail = await rows<{ to: string; status: string; suppressed_reason: string | null; html: string; text: string }>(

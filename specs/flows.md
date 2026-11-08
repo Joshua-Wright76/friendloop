@@ -118,12 +118,12 @@ Status: `todo` (not built) · `done` (built and covered).
 | ID | Flow | Acceptance criteria | Status |
 | --- | --- | --- | --- |
 | K1 | Manage sections | Owner creates, edits, reorders, and archives sections; archived sections leave future issues while past issues keep their snapshot. | done |
-| K2 | Sections reach an issue | The sweep snapshots active sections into the new issue alongside questions; the reply sheet shows them in position; readers see them in the delivered issue but are never asked to reply. | done |
+| K2 | Sections reach an issue | The sweep snapshots active sections into the new issue alongside questions; the reply sheet shows them in position; readers see them in the delivered issue but are never asked to reply. The prompt counts and lists each section (an event too) as one more thing asked, so a round that holds only sections still sends every contributor its prompt. | done |
 | K3 | Standard section reply | Contributors answer a Standard section with text + one photo, under the same media rules and caps as question answers. | done |
 | K4 | Photo wall reply | Contributors add up to six photos to a Photo Wall section, each with an optional one-line caption; the delivered issue lays them edge-to-edge, each with its author and any caption, and tapping one opens it full size in the same viewer as the Album (previous/next, Escape returns focus) with a Download button. | done |
 | K5 | Paste a music link | A music section accepts a Spotify, Bandcamp, or Qobuz link, with an optional caption; a non-music URL gets the plain-language error and nothing is saved until it is fixed or cleared. | done |
 | K6 | Music renders | The delivered web issue renders every music pick as a card (artwork when the metadata provides it, title, provider badge) that opens the provider page; the delivery email renders title + link. Playable Spotify/Bandcamp embeds are stretch. | done |
-| K7 | Admin-only sections | A section can be restricted to owner/admin contributors; other members don't see it on the sheet, in prompts, or in the delivered issue. | done |
+| K7 | Admin-only sections | A section can be restricted to owner/admin contributors; other members don't see it on the sheet, in prompts (nor in their count), or in the delivered issue. | done |
 | K8 | Sections follow the open round | Editing a section while a round is open changes that round, unless someone has started writing in it, in which case it keeps the words they answered; the next round carries the new wording. | done |
 
 ## J · Voice replies

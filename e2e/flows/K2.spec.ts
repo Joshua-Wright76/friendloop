@@ -63,3 +63,20 @@ test("K2 · sections ride every issue; readers read but never answer", async ({ 
   const email = await latestOutbox("delivery:");
   expect(email.html).toContain("The potluck corner");
 });
+
+test("K2 · a round that holds only sections still sends every contributor its prompt", async () => {
+  const loop = await seedLoop({ questions: [] });
+  await addReader(loop.groupId);
+  await rows("insert into sections (group_id, kind, title, emoji) values ($1, 'photo_wall', 'Photo wall', '📸')", [loop.groupId]);
+
+  await runSweep(new Date("2026-01-02T08:00:00Z"));
+  const prompts = await rows<{ to: string; subject: string; text: string }>(
+    "select \"to\", subject, text from outbox where kind = 'prompt' order by \"to\"",
+  );
+  // The three contributors, not the reader, each asked the one thing the round holds.
+  expect(prompts.map((row) => row.to)).toEqual(["alice@friendloop.test", "bob@friendloop.test", "owner@friendloop.test"]);
+  for (const prompt of prompts) {
+    expect(prompt.subject).toContain("1 question for Friday Loop");
+    expect(prompt.text).toContain("- 📸 Photo wall");
+  }
+});
