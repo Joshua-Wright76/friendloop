@@ -24,6 +24,11 @@ export const participationEnum = pgEnum("participation", ["contributor", "reader
  * longer schedule later needs no data change. Manual owner nudges ignore it.
  */
 export const reminderPreferenceEnum = pgEnum("reminder_preference", ["all", "last", "none"]);
+/**
+ * Unused. "from_you" (only the owner writes) was never choosable and its code is
+ * gone; every loop is "group". The column stays so a deploy never has to drop it
+ * under code that still reads it; nothing reads it now.
+ */
 export const modeEnum = pgEnum("mode", ["group", "from_you"]);
 export const issueStatusEnum = pgEnum("issue_status", ["open", "delivered", "skipped"]);
 export const replyStatusEnum = pgEnum("reply_status", ["draft", "submitted"]);
@@ -119,6 +124,7 @@ export const groups = pgTable("groups", {
   name: text("name").notNull(),
   /** Shown as the email display name: "The Friday Loop <hello@friendloop.dev>". */
   displayName: text("display_name"),
+  /** Unused; see `modeEnum`. */
   mode: modeEnum("mode").default("group").notNull(),
   /** IANA zone the schedule is written in. */
   timezone: text("timezone").default("UTC").notNull(),

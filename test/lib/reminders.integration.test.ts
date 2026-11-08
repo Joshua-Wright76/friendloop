@@ -22,7 +22,7 @@ async function reminderRecipients(): Promise<string[]> {
   return mail.map((row) => row.to);
 }
 
-test("everyone starts on all reminders", async () => {
+test("everyone starts with reminders on", async () => {
   const loop = await seedLoop();
   const people = await rows<{ reminder_preference: string }>(
     "select reminder_preference from memberships where group_id = $1",
@@ -32,7 +32,7 @@ test("everyone starts on all reminders", async () => {
   assert.ok(people.every((person) => person.reminder_preference === "all"));
 });
 
-test("the loop's reminder honours none and treats all and last-only alike", async () => {
+test("the loop's reminder skips anyone switched off; an old 'last only' choice counts as on", async () => {
   const loop = await seedLoop();
   await seedOpenIssue(loop, { openedAt: AFTER_FIRST_SLOT });
   const alice = loop.members.find((member) => member.email.startsWith("alice"))!;
@@ -42,10 +42,10 @@ test("the loop's reminder honours none and treats all and last-only alike", asyn
     ok: true,
     savedAt: AFTER_FIRST_SLOT.toISOString(),
   });
-  assert.equal((await saveReminderPreferenceFor({ token: bob.token, preference: "last" })).ok, true);
+  await rows("update memberships set reminder_preference = 'last' where id = $1", [bob.id]);
 
   const report = await sweep({ at: REMINDER_TIME });
-  assert.equal(report.reminded, 2, "owner (all) and bob (last only); alice asked for none");
+  assert.equal(report.reminded, 2, "owner (on) and bob (stored 'last', which is on); alice switched hers off");
   assert.deepEqual(await reminderRecipients(), ["bob@friendloop.test", "owner@friendloop.test"]);
 
   // Rerunning, or running later, never sends another — for anyone.
@@ -99,7 +99,7 @@ test("prompt and delivery emails ignore the preference", async () => {
   assert.ok(prompts.some((row) => row.to === "bob@friendloop.test"));
 });
 
-test("only a live contributor can set it, and only to a real choice", async () => {
+test("only a live contributor can set it, and only to on or off", async () => {
   const loop = await seedLoop();
   await seedOpenIssue(loop, { openedAt: AFTER_FIRST_SLOT });
   const alice = loop.members.find((member) => member.email.startsWith("alice"))!;
@@ -109,6 +109,8 @@ test("only a live contributor can set it, and only to a real choice", async () =
   assert.deepEqual(bad.ok === false && bad.status, 400);
   const missing = await saveReminderPreferenceFor({ token: alice.token, preference: undefined });
   assert.equal(missing.ok, false);
+  const boolean = await saveReminderPreferenceFor({ token: alice.token, preference: false });
+  assert.equal(boolean.ok === false && boolean.status, 400);
 
   const stranger = await saveReminderPreferenceFor({ token: "nobody", preference: "none" });
   assert.equal(stranger.ok === false && stranger.status, 404);
@@ -128,12 +130,17 @@ test("only a live contributor can set it, and only to a real choice", async () =
   assert.ok(stored.every((row) => row.reminder_preference === "all"), "nothing was written");
 });
 
-test("the preference is read back by the sheet", async () => {
+test("the switch writes only on or off, and is read back by the sheet", async () => {
   const loop = await seedLoop();
   await seedOpenIssue(loop, { openedAt: AFTER_FIRST_SLOT });
   const alice = loop.members.find((member) => member.email.startsWith("alice"))!;
-  await saveReminderPreferenceFor({ token: alice.token, preference: "last" });
 
-  const context = await resolveToken(alice.token);
-  assert.equal(context.state === "ok" && context.membership.reminderPreference, "last");
+  await saveReminderPreferenceFor({ token: alice.token, preference: "none" });
+  let context = await resolveToken(alice.token);
+  assert.equal(context.state === "ok" && context.membership.reminderPreference, "none");
+
+  // A page opened before the switch replaced the three choices may still send "last": it means on.
+  assert.equal((await saveReminderPreferenceFor({ token: alice.token, preference: "last" })).ok, true);
+  context = await resolveToken(alice.token);
+  assert.equal(context.state === "ok" && context.membership.reminderPreference, "all");
 });

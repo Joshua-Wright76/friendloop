@@ -12,7 +12,6 @@ import { E2E_NOW } from "./clock";
  */
 export type SeedLoopInput = {
   name?: string;
-  mode?: "group" | "from_you";
   timezone?: string;
   promptWeekday?: number;
   promptHour?: number;
@@ -42,7 +41,6 @@ export async function seedLoop(input: SeedLoopInput = {}): Promise<SeededLoop> {
     .values({
       name,
       displayName: name,
-      mode: input.mode ?? "group",
       timezone: input.timezone ?? "Europe/Amsterdam",
       promptWeekday: input.promptWeekday ?? 5,
       promptHour: input.promptHour ?? 9,

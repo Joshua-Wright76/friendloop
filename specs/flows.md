@@ -30,13 +30,14 @@ Status: `todo` (not built) · `done` (built and covered).
 
 | ID | Flow | Acceptance criteria | Status |
 | --- | --- | --- | --- |
-| B1 | Create a loop | Owner picks name, mode, cadence, timezone and hour; the loop is created with them as owner+contributor, and lands on the loop dashboard. | done |
+| B1 | Create a loop | Owner picks name, cadence, timezone and hour; the loop is created with them as owner+contributor, and lands on the loop dashboard. | done |
 | B2 | Pick starting questions | During creation the owner selects at least one question from the preset bank; those questions exist on the loop in the chosen order. | done |
-| B3 | Invite several members | Pasting three addresses creates three pending memberships with distinct reply tokens and three `invite` rows in the outbox; each email names the loop and contains that member's own link. | done |
+| B3 | Invite several members | Pasting three addresses creates three memberships with distinct reply tokens and three `invite` rows in the outbox; each email names the loop and contains that member's own link. | done |
 | B4 | Accept an invitation | A contributor opening their invite link lands on the reply form for the current issue with their name shown, without signing in. | done |
-| B5 | Resend an invitation | Resending re-sends to a pending member, does not rotate the token, and does not create a duplicate membership. | done |
-| B6 | Expired invitation | An invite older than its TTL renders an "ask the owner for a new link" screen and creates no session. | done |
+| B5 | Resend an invitation | Resending re-sends the same link to someone who has not answered or signed in yet, does not rotate the token, and does not create a duplicate membership. | done |
+| B6 | Links never expire | A reply link works for as long as its membership is not removed: one sent months ago and never opened still opens the sheet and saves an answer, which counts as having joined. Removing the person is what ends it ("this link doesn't work anymore"). The people tab shows no invitation state: a contributor who has never answered or signed in reads "Hasn't answered yet", a reader shows nothing, and "Resend invite" sends the same link again. | done |
 | B8 | Invitation limits | One person sends at most 50 invitations a day and a loop holds at most 50 people. Past either, the form says so plainly and nothing else is sent. | done |
+| B9 | Invite to answer or to read | The invite form on the people tab, and the new-loop wizard's people step, ask how the people take part: "Answer and read" (the default) or "Just read". A reader's membership is created as a reader and their invitation says "Have a look" with nothing to answer, never "Answer the first round"; on the people tab they show as "Reads only" with no "Hasn't answered yet". | done |
 | B7 | Choose a look while creating | The wizard's optional "paper and picture" step offers the same papers, accent and live light-and-dark preview as the settings, plus a header picture; the choices survive moving between steps and are saved with the loop, so its first page already wears them. A made-up accent holds the step with a plain message, a picture over the cap is refused before anything is sent, and skipping the step stores nothing (Gingham, no picture). | done |
 
 ## C · Questions
@@ -95,7 +96,6 @@ Status: `todo` (not built) · `done` (built and covered).
 | --- | --- | --- | --- |
 | G3 | Promote to admin | Promoting a member to admin lets them manage questions and members, while the owner-only actions stay unavailable to them; the promotion reaches that person's already-signed-in session. | done |
 | G4 | Reader cannot reply | A direct POST to the reply endpoint from a reader is rejected with 403 and writes nothing. | done |
-| G6 | `from_you` mode | In `from_you`, every non-owner is forced to reader on invite and cannot be made a contributor. | done |
 
 ## H · Preview
 
@@ -110,8 +110,7 @@ Status: `todo` (not built) · `done` (built and covered).
 | I1 | Suggest a question | A contributor sees a "suggest a question" affordance on the reply sheet, writes a question, picks how their name shows ("asked by Maya" or anonymously), submits, and sees a quiet confirmation. The suggestion is web-only: no email is sent. | done |
 | I2 | Owner reviews the queue | The loop dashboard shows pending suggestions with author display and text; accept turns it into an active pool question attributed to that membership; decline removes it from the queue; edit-then-accept stores the edited text. | done |
 | I3 | Suggested question in an issue | When an accepted suggestion is selected for an issue, the delivered issue credits it ("asked by Maya") unless the author chose anonymity; past issues keep their original credit. | done |
-| I4 | Readers are walled off | A reader has no suggest link, and a suggest URL reached by a reader (or a revoked/expired token) shows the standard no-access screen with no data leak. | done |
-| I5 | from_you stays quiet | No suggest affordance appears in prompt email, reply sheet, or dashboard in `from_you` mode. | done |
+| I4 | Readers are walled off | A reader has no suggest link, and a suggest URL reached by a reader (or a revoked token) shows the standard no-access screen with no data leak. | done |
 
 ## K · Sections (and music picks)
 
@@ -160,7 +159,7 @@ Status: `todo` (not built) · `done` (built and covered).
 | --- | --- | --- | --- |
 | N1 | Choose a theme | The owner picks one of the curated papers (and optionally an accent colour and a header picture) in settings, with a live light-and-dark preview; the dashboard, reply sheet, web issue, share view and every email header render it from one token set; an accent that would be hard to read is nudged to pass WCAG AA, and every preset passes the axe audit in both schemes. Only the owner can set the picture. | done |
 | N2 | Default stays Gingham | A loop that never chose a theme renders exactly as before — no stationery rule injected, no banner, the original colours in light and dark and in email; choosing Gingham again stores nothing; the sign-in surface never wears a loop's paper. | done |
-| N3 | Transfer ownership | The owner hands the loop to an admin who has joined, through a confirmation that names the new owner and what they give up; the founder becomes an admin, owner-only actions move, sessions and reply tokens are untouched, and the old owner cannot hand it back without the new owner. The role menu no longer offers "Owner", and a handover that has gone stale changes nothing. (Supersedes G5.) | done |
+| N3 | Transfer ownership | The owner hands the loop in one step to anyone in it who has joined (answered or signed in), admin or not, through a confirmation that names the new owner and what they give up; someone who never answered or signed in is not offered. The founder becomes an admin who still writes, the new owner writes too (a reader becomes a contributor), owner-only actions move, sessions and reply tokens are untouched, and the old owner cannot hand it back without the new owner. The role menu no longer offers "Owner", and a handover that has gone stale changes nothing. (Supersedes G5.) | done |
 | N4 | Rename an issue | The owner names a round (before or after delivery); the name shows in the rounds list, the dashboard, the reply sheet, the web issue and share view, and the delivery email's subject and heading; clearing it brings "Round N" back; only the owner is offered the control. (Ticket 3's R1 is this flow.) | done |
 | N5 | Profile photos | A member sets and removes their own photo — straight from their invitation link (on the reply sheet, or on the quiet page a reader or a not-yet-open loop lands on), or on the people page when signed in; it renders in the member list, on their answers and in comments, falling back to the initial; it belongs to that loop's membership only, and the photo routes answer only the person they belong to. | done |
 | N6 | Dress the loop | The owner picks a page background, a pack of paper textures, a separate pack of washi tape and a mascot in settings, each saved as it's chosen and previewed in place. They reach the dashboard, reply sheet, web issue and share view in light and dark and pass the accessibility audit; the mascot also reaches every email header as an image. The originals are stored as nothing and add no CSS, and only the owner can change any of it. | done |
@@ -197,7 +196,7 @@ Round names (Ticket 3's R1) ship as N4; R4 (one-by-one delivery) is a documented
 | ID | Flow | Acceptance criteria | Status |
 | --- | --- | --- | --- |
 | R2 | Find one member's answers | The rounds list can be narrowed to the delivered rounds one person answered in (open rounds are not listed while filtering, a person with none gets a plain empty message and a way out, a made-up id is no filter), and "Read it" opens that round already isolated to them. Inside a round, a row of plain links isolates one person's answers (their name carries a check and `aria-current`), or reads the round by person — one card per author in name order, each answer under the question or section it answered — with a link back to everyone. A person who wrote nothing in the round, or a bad address, reads as everyone; the print view and the share link always show the whole round. | done |
-| R3 | Reminder preferences | Each contributor picks all / only the last / none on their own answer page; it saves as they choose, belongs to that loop's membership, and only they (by their token) can set it — a reader, a stranger or a bad value writes nothing, and opening the page or the email changes nothing. The loop's automatic reminder skips anyone on none and reaches the rest exactly once however often the sweep runs; prompt and delivery emails ignore it, and the owner's nudge by hand still reaches everyone who has not submitted. The loop sends one reminder, so "all" and "last" read the same today and the user-facing copy promises no second one. | done |
+| R3 | Reminder switch | Each contributor has one on/off switch, "Remind me before it goes out", on their own answer page (on by default); it saves as they flip it, belongs to that loop's membership, and only they (by their token) can set it — a reader, a stranger or a bad value writes nothing, and opening the page or the email changes nothing. It stores "all" or "none"; a stored "last" from the old three-way choice reads as on, and an old page sending "last" stores on. The loop's automatic reminder skips anyone switched off and reaches the rest exactly once however often the sweep runs; prompt and delivery emails ignore it, and the owner's nudge by hand still reaches everyone who has not submitted. | done |
 
 ## S · Feedback
 
@@ -221,7 +220,7 @@ rather than renumbering the rest.
 
 ---
 
-**104 flows.** A flow is only `done` when its spec passes locally and in CI.
+**103 flows.** A flow is only `done` when its spec passes locally and in CI.
 
 ## T · Photos
 

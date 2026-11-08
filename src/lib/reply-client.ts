@@ -91,10 +91,10 @@ export async function saveReplyName(
   return postReply(token, { action: "name", name }, genericError, fetcher);
 }
 
-/** How many of the loop's automatic reminders this person wants. */
+/** Turn the loop's automatic reminder on ("all") or off ("none") for this person. */
 export async function saveReminderPreference(
   token: string,
-  preference: string,
+  preference: "all" | "none",
   genericError: string,
   fetcher: typeof fetch = fetch,
 ): Promise<SaveResult> {

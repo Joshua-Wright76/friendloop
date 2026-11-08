@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { resolveToken } from "@/lib/reply";
-import { copy, text } from "@/lib/copy";
+import { copy } from "@/lib/copy";
 import { SuggestForm } from "./suggest-form";
 import { LoopTheme } from "@/components/loop-theme";
 import { Cherries, Tape } from "@/components/stationery";
@@ -42,16 +42,7 @@ export default async function SuggestPage({ params }: { params: Promise<{ token:
     return <Closed title={copy.reply.invalidTitle} body={copy.reply.invalidBody} />;
   }
 
-  if (context.state === "expired") {
-    return (
-      <Closed
-        title={copy.reply.expiredTitle}
-        body={text(copy.reply.expiredBody, { groupName: context.groupName })}
-      />
-    );
-  }
-
-  if (context.state === "reader" || context.group.mode === "from_you") {
+  if (context.state === "reader") {
     return <Closed title={copy.suggest.unavailableTitle} body={copy.suggest.unavailableBody} />;
   }
 

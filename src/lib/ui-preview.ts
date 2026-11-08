@@ -343,7 +343,6 @@ async function seedUiPreview(now: Date, { deleteGroup, deleteUser }: { deleteGro
       id: UI_PREVIEW.groupId,
       name: "Saturday Club",
       displayName: "Saturday Club",
-      mode: "group",
       timezone: "Europe/Amsterdam",
       promptWeekday: 5,
       promptHour: 9,

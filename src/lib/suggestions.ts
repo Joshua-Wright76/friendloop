@@ -33,10 +33,7 @@ export async function createSuggestion(input: {
   if (context.state === "invalid") {
     return { ok: false, status: 404, error: copy.suggest.errors.invalidLink };
   }
-  if (context.state === "expired") {
-    return { ok: false, status: 403, error: copy.suggest.errors.expired };
-  }
-  if (context.state === "reader" || context.group.mode === "from_you") {
+  if (context.state === "reader") {
     return { ok: false, status: 403, error: copy.suggest.errors.reader };
   }
 

@@ -11,17 +11,20 @@ const roles = (groupId: string) =>
   rows<{ email: string; access: string }>("select email, access from memberships where group_id = $1 order by email", [groupId]);
 
 test("N3 · the owner hands the loop to an admin, names them in the confirmation, and can no longer hand it back", async ({ page, browser }) => {
-  const loop = await seedLoop();
+  const loop = await seedLoop({ members: [] });
   await addMember(loop, { email: "heir@friendloop.test", access: "admin" });
+  await addMember(loop, { email: "alice@friendloop.test", name: "Alice" });
   await addMember(loop, { email: "pending@friendloop.test", access: "admin", accepted: false });
   const tokensBefore = await rows("select email, reply_token from memberships where group_id = $1 order by email", [loop.groupId]);
 
   await signIn(page, "owner@friendloop.test");
   await page.goto(`/g/${loop.groupId}/members`);
 
-  // Only an admin who has joined can inherit: members and pending admins have no handover.
-  await expect(page.getByRole("button", { name: /Make .* the owner/ })).toHaveCount(1);
+  // Anyone who has joined can inherit, admin or not; someone who never answered or signed in cannot.
+  await expect(page.getByRole("button", { name: /Make .* the owner/ })).toHaveCount(2);
   await expect(page.getByRole("button", { name: "Make heir the owner" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Make Alice the owner" })).toBeVisible();
+  await expect(page.getByText(/Make someone an admin first/)).toHaveCount(0);
   // And the role menu no longer offers "Owner" as just another role.
   await page.locator(".card").filter({ hasText: "alice@friendloop.test" }).getByRole("button", { name: /Role for/ }).click();
   await expect(page.getByRole("option", { name: "Owner", exact: true })).toHaveCount(0);
@@ -43,7 +46,6 @@ test("N3 · the owner hands the loop to an admin, names them in the confirmation
 
   expect(await roles(loop.groupId)).toEqual([
     { email: "alice@friendloop.test", access: "member" },
-    { email: "bob@friendloop.test", access: "member" },
     { email: "heir@friendloop.test", access: "owner" },
     { email: "owner@friendloop.test", access: "admin" },
     { email: "pending@friendloop.test", access: "admin" },
@@ -86,4 +88,25 @@ test("N3 · a handover that is no longer valid says so and changes nothing", asy
   await expect(page).toHaveURL(/transferError=1/);
   await expect(page.getByText(/That didn't go through/)).toBeVisible();
   expect((await roles(loop.groupId)).find((row) => row.email.startsWith("owner"))!.access).toBe("owner");
+});
+
+test("N3 · the owner hands the loop straight to a member who reads, with no admin step in between", async ({ page }) => {
+  const loop = await seedLoop({ members: [{ email: "rae@friendloop.test", name: "Rae", participation: "reader" }] });
+  await signIn(page, "owner@friendloop.test");
+  await page.goto(`/g/${loop.groupId}/members`);
+
+  await page.getByRole("button", { name: "Make Rae the owner" }).click();
+  await expect(page.getByRole("group", { name: /Hand .* to Rae\?/ })).toContainText("Rae becomes the owner and you become an admin.");
+  await page.getByRole("button", { name: "Yes, make Rae the owner" }).click();
+  await expect(page).toHaveURL(/transferred=1/);
+
+  const people = await rows<{ email: string; access: string; participation: string }>(
+    "select email, access, participation from memberships where group_id = $1 order by email",
+    [loop.groupId],
+  );
+  expect(people).toEqual([
+    { email: "owner@friendloop.test", access: "admin", participation: "contributor" },
+    // An owner always writes, so the new owner now answers too.
+    { email: "rae@friendloop.test", access: "owner", participation: "contributor" },
+  ]);
 });

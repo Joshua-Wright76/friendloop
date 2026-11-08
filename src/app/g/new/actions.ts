@@ -32,7 +32,6 @@ export async function createLoopAction(
   const promptWeekday = Number(formData.get("weekday") ?? 5);
   const promptHour = Number(formData.get("hour") ?? 9);
   const cadenceWeeks = Number(formData.get("cadence") ?? 1);
-  const mode = "group";
   const participation = formData.get("participation") === "reader" ? "reader" : "contributor";
   const validCadences = [1, 2, 4, 13];
   if (!validCadences.includes(cadenceWeeks)) return { error: copy.newLoop.errors.cadence };
@@ -83,7 +82,6 @@ export async function createLoopAction(
     ownerEmail: user.email,
     ownerName: user.name,
     name,
-    mode,
     timezone,
     promptWeekday: Number.isFinite(promptWeekday) ? promptWeekday : 5,
     promptHour: Number.isFinite(promptHour) ? promptHour : 9,

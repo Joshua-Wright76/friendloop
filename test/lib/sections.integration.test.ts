@@ -349,21 +349,18 @@ test("metadata fetches fill the cache wall-clock style", async (t) => {
   assert.equal(offline.title, "trs quiet night");
 });
 
-test("gates cover expired links, readers, cap-sized bodies, and fresh accepts", async () => {
+test("gates cover readers, cap-sized bodies, and an old unopened link's first write", async () => {
   const base = await openSection();
 
   await rows("update memberships set participation = 'reader' where reply_token = $1", [base.token]);
   const reader = await saveSectionTextFor({ token: base.token, issueSectionId: base.issueSectionId, body: "x" });
   assert.equal(reader.ok === false && reader.status === 403, true);
 
-  await rows("update memberships set participation = 'contributor', accepted_at = null, invited_at = $1 where reply_token = $2", ["2025-12-01T00:00:00Z", base.token]);
-  const expired = await saveSectionTextFor({ token: base.token, issueSectionId: base.issueSectionId, body: "x" });
-  assert.equal(expired.ok === false && expired.status === 403, true);
-
-  await rows("update memberships set participation = 'contributor', accepted_at = null, invited_at = $1 where reply_token = $2", [new Date().toISOString(), base.token]);
+  // Invited long ago and never opened: the link still works, and the first write counts as joining.
+  await rows("update memberships set participation = 'contributor', accepted_at = null, invited_at = $1 where reply_token = $2", ["2025-01-01T00:00:00Z", base.token]);
   assert.equal((await saveSectionTextFor({ token: base.token, issueSectionId: base.issueSectionId, body: "First write here." })).ok, true);
   const [accepted] = await rows<{ accepted_at: string }>("select accepted_at from memberships where reply_token = $1", [base.token]);
-  assert.ok(accepted.accepted_at, "a first write accepts the invite");
+  assert.ok(accepted.accepted_at, "a first write marks them as having joined");
 
   const oversized = await saveSectionTextFor({ token: base.token, issueSectionId: base.issueSectionId, body: "a".repeat(2001) });
   assert.equal(oversized.ok === false && oversized.status === 400, true);

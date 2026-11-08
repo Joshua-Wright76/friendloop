@@ -313,9 +313,6 @@ async function ensureWritableSection(token: string, issueSectionId: string): Pro
   if (context.state === "invalid") {
     return { ok: false, result: { ok: false, status: 404, error: copy.reply.errors.invalidLink } };
   }
-  if (context.state === "expired") {
-    return { ok: false, result: { ok: false, status: 403, error: copy.reply.errors.expired } };
-  }
   if (context.state === "reader") {
     return { ok: false, result: { ok: false, status: 403, error: copy.reply.errors.reader } };
   }

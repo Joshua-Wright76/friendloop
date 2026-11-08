@@ -86,7 +86,7 @@ Every human-facing deadline renders twice: the loop's time and the reader's own.
   that person signs in. Roles are two independent axes — `access`
   (`owner|admin|member`) and `participation` (`contributor|reader`) — because
   "admin who only reads" is a real state. Invariant: the owner is always a
-  contributor; in `from_you` mode every non-owner is a reader.
+  contributor. (`groups.mode` is a leftover column: every loop is a group loop.)
 
 **GET never mutates.** Mail scanners pre-fetch every URL in an email, so the token
 link renders and sets a cookie but never writes product state. Every state change
@@ -151,7 +151,7 @@ available to Playwright without a second data path.
 ## 9 · Writes go through one POST, not a Server Action
 
 `POST /api/reply/<token>` handles both autosave and submit. A Server Action would
-work, but a reader or an expired invitation has to be refused with a real HTTP
+work, but a reader or a removed member has to be refused with a real HTTP
 status, and a status is the only thing a test can assert on directly. The same rule
 covers the issue view: reactions are Server Actions because they are only ever
 reachable from a page that already resolved who you are. Comments are a route
@@ -165,12 +165,17 @@ owner only, and a non-owner visiting it is redirected back to the loop rather th
 shown a 403 — a loop they cannot manage should not advertise a door. `owner` is the
 only role that can delete, transfer, or change the schedule.
 
-## 11 · Invitations expire, reply links do not
+## 11 · There are no invitations, only memberships
 
-An unopened invitation is good for 14 days (`INVITE_DAYS`); a reply link is a
-standing credential for someone in the loop. Ageing out a link that still works
-would break "the link in your inbox is the front door", so only *pending* invites
-expire, and re-inviting resurrects the membership with a fresh token.
+An invitation is just the first email a membership gets. A reply link is a standing
+credential for someone in the loop, from the day they are added until they are
+removed (`revoked_at`); nothing about it ages. An earlier version let an unopened
+invitation lapse after 14 days while the same person kept receiving every prompt,
+reminder and issue, which taught people an "accepted" state they could not see and
+readers could never reach. `accepted_at` survives only as "has answered or signed in
+at least once": the people tab uses it for a quiet "Hasn't answered yet" on a
+contributor, and a handover requires it. "Resend invite" re-sends the same link, and
+re-inviting a removed address revives the membership with a fresh token.
 
 ## 12 · The reply sheet is a credential page
 
@@ -253,8 +258,10 @@ a theme-less loop is untouched by this feature. Accents pass through `deriveAcce
 which moves lightness until every text pairing clears WCAG AA, so the owner chooses
 a hue, not a contrast ratio.
 
-Ownership moves in `transferOwnership`: one transaction, two guarded updates, and a
-refusal on either side rolls both back. `issues.name` and `memberships.photo_url` are
+Ownership moves in `transferOwnership`, in one step to anyone in the loop who has
+joined (answered or signed in), admin or not: one transaction, two guarded updates,
+and a refusal on either side rolls both back. The founder becomes an admin who still
+writes; the new owner becomes a contributor if they only read. `issues.name` and `memberships.photo_url` are
 plain nullable columns; the unnamed and photo-less forms are the original rendering.
 
 ## 17 · An event is a date; a section is what it leaves behind
@@ -283,8 +290,7 @@ An event added or moved while a round is open is placed into that round at once 
 date is inside the window; otherwise it waits for the round that holds it. Dates that
 fall before a loop's first round, or in rounds the sweep skipped over after a pause or
 an outage, are not backfilled: the sweep only ever materializes the latest missed
-slot. A birthday whose person has left the loop places nothing. Events work the same in
-`from_you` mode (the owner is the only writer there).
+slot. A birthday whose person has left the loop places nothing.
 
 ## 18 · The Album is a query, not a table
 

@@ -5,7 +5,6 @@ import path from "node:path";
 import {
   authorizeQuestionForReply,
   deletePhotoIfUnreferenced,
-  INVITE_DAYS,
   removePhotoFor,
   resolveToken,
   saveDraftFor,
@@ -49,7 +48,7 @@ async function openLoop() {
 
 setupDatabase();
 
-test("a token resolves to the open round, a reader, an expired invite, or nothing", async () => {
+test("a token resolves to the open round, a reader, or nothing, and an old unopened link still works", async () => {
   const { alice } = await openLoop();
 
   const ok = await resolveToken(alice.token);
@@ -60,14 +59,13 @@ test("a token resolves to the open round, a reader, an expired invite, or nothin
   await rows("update memberships set participation = 'reader' where id = $1", [alice.id]);
   assert.equal((await resolveToken(alice.token)).state, "reader");
 
-  const stale = new Date(E2E_NOW.getTime() - (INVITE_DAYS + 1) * 24 * 60 * 60 * 1000);
+  // Invited a year ago and never opened: the link still opens their sheet.
+  const longAgo = new Date(E2E_NOW.getTime() - 365 * 24 * 60 * 60 * 1000);
   await rows(
     "update memberships set participation = 'contributor', accepted_at = null, invited_at = $1 where id = $2",
-    [stale.toISOString(), alice.id],
+    [longAgo.toISOString(), alice.id],
   );
-  const expired = await resolveToken(alice.token);
-  assert.equal(expired.state, "expired");
-  assert.ok(expired.state === "expired" && expired.groupName.length > 0);
+  assert.equal((await resolveToken(alice.token)).state, "ok");
 
   await rows("update memberships set revoked_at = $1 where id = $2", [E2E_NOW.toISOString(), alice.id]);
   assert.deepEqual(await resolveToken(alice.token), { state: "invalid" });
@@ -311,7 +309,7 @@ test("an unaccepted invite becomes accepted when the person writes", async () =>
   assert.equal(new Date(membership.accepted_at!).toISOString(), AFTER_FIRST_SLOT.toISOString());
 });
 
-test("the write gates refuse readers, expired invites, and unknown links", async () => {
+test("the write gates refuse readers and unknown links, never an old unopened one", async () => {
   const { loop, alice, question } = await openLoop();
 
   assert.deepEqual(
@@ -327,16 +325,13 @@ test("the write gates refuse readers, expired invites, and unknown links", async
   assert.equal(reader.ok, false);
   if (!reader.ok) assert.equal(reader.status, 403);
 
-  const stale = new Date(E2E_NOW.getTime() - (INVITE_DAYS + 1) * 24 * 60 * 60 * 1000);
+  const longAgo = new Date(E2E_NOW.getTime() - 365 * 24 * 60 * 60 * 1000);
   await rows(
     "update memberships set participation = 'contributor', accepted_at = null, invited_at = $1 where id = $2",
-    [stale.toISOString(), alice.id],
+    [longAgo.toISOString(), alice.id],
   );
-  const expired = await authorizeQuestionForReply(alice.token, question.id);
-  assert.equal(expired.ok, false);
-  if (!expired.ok) assert.equal(expired.status, 403);
+  assert.deepEqual(await authorizeQuestionForReply(alice.token, question.id), { ok: true }, "a link never expires");
 
-  await rows("update memberships set accepted_at = $1 where id = $2", [E2E_NOW.toISOString(), alice.id]);
   const wrongQuestion = await authorizeQuestionForReply(alice.token, "00000000-0000-4000-8000-000000000000");
   assert.equal(wrongQuestion.ok, false);
   if (!wrongQuestion.ok) assert.equal(wrongQuestion.status, 409);

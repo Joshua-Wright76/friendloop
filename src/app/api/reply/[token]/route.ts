@@ -5,7 +5,7 @@ import { copy } from "@/lib/copy";
 
 /**
  * Writes live behind one POST endpoint rather than a Server Action so the rules
- * are testable over HTTP: a reader or an expired invite gets a real 403.
+ * are testable over HTTP: a reader gets a real 403.
  */
 export async function POST(request: Request, { params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;

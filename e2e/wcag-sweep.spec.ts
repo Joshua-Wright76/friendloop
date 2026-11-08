@@ -81,7 +81,6 @@ async function settle(page: Page) {
 const NOT_THE_SCREEN = [
   copy.common.notFound.title,
   copy.reply.invalidTitle,
-  copy.reply.expiredTitle,
   copy.reply.nothingOpenTitle,
   copy.pageTitles.signIn,
 ].map((title) => title.toLowerCase());

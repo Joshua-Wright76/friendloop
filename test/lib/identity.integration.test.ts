@@ -335,18 +335,19 @@ test("the owner hands the loop to an admin; the founder becomes an admin and the
   assert.equal((await accessOf(loop.groupId)).owner, "owner/contributor");
 });
 
-test("only an admin who has opened their invitation can inherit, and a refusal leaves everything as it was", async () => {
+test("only someone who has joined can inherit, and a refusal leaves everything as it was", async () => {
   const loop = await seedLoop();
   const owner = loop.members.find((member) => member.access === "owner")!;
   const alice = loop.members.find((member) => member.email.startsWith("alice"))!;
   const pending = await addMember(loop, { email: "pending@friendloop.test", access: "admin", accepted: false });
+  const quiet = await addMember(loop, { email: "quiet@friendloop.test", accepted: false });
   const gone = await addMember(loop, { email: "gone@friendloop.test", access: "admin" });
   await rows("update memberships set revoked_at = now() where id = $1", [gone.id]);
   const stranger = await seedLoop({ name: "Another loop" });
   const outsider = stranger.members.find((member) => member.access === "admin") ?? stranger.members[0];
 
   const before = await accessOf(loop.groupId);
-  for (const target of [alice.id, pending.id, gone.id, outsider.id, "00000000-0000-4000-8000-000000000000"]) {
+  for (const target of [pending.id, quiet.id, gone.id, outsider.id, "00000000-0000-4000-8000-000000000000"]) {
     assert.equal(await transferOwnership(loop.groupId, owner.id, target), false, target);
   }
   assert.deepEqual(await accessOf(loop.groupId), before, "the demotion rolled back with the refused promotion");
@@ -375,15 +376,15 @@ test("two simultaneous handovers leave exactly one owner", async () => {
   assert.notEqual(owners[0].email, "owner@friendloop.test");
 });
 
-test("in a from_you loop the founder stops writing when the loop moves on", async () => {
-  const loop = await seedLoop({ mode: "from_you" });
+test("the owner hands the loop straight to a member who isn't an admin, even one who only reads", async () => {
+  const loop = await seedLoop();
   const owner = loop.members.find((member) => member.access === "owner")!;
-  const heir = await addMember(loop, { email: "heir@friendloop.test", access: "admin", participation: "reader" });
+  const heir = await addMember(loop, { email: "heir@friendloop.test", participation: "reader" });
 
   assert.equal(await transferOwnership(loop.groupId, owner.id, heir.id), true);
   const access = await accessOf(loop.groupId);
-  assert.equal(access.heir, "owner/contributor");
-  assert.equal(access.owner, "admin/reader");
+  assert.equal(access.heir, "owner/contributor", "an owner always writes");
+  assert.equal(access.owner, "admin/contributor", "the founder keeps writing, now as an admin");
 });
 
 /* ---------------------------- more stationery --------------------------- */
