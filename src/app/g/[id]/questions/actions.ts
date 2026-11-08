@@ -2,192 +2,35 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { asc, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { db } from "@/db";
-import { groups, questions } from "@/db/schema";
+import { groups } from "@/db/schema";
 import { getNow } from "@/lib/clock";
 import {
-  addPoll,
-  addQuestion,
   addQuestionTexts,
-  archiveQuestion,
-  poolQuestionCondition,
-  reorderQuestion,
+  askAgain,
+  askThisRound,
+  createItem,
+  itemInputFrom,
   setQuestionsPerRound,
-  toggleSkipNext,
-} from "@/lib/manage";
+  stopAsking,
+  updateItem,
+} from "@/lib/ask-items";
+import { removeSnapshot, reorderOpenRound, reorderPool } from "@/lib/round-questions";
 import { acceptSuggestion, declineSuggestion } from "@/lib/suggestions";
-import { archiveSection, createSection, moveSection, updateSection, type SectionKind } from "@/lib/sections";
-import { createEvent, deleteEvent, updateEvent } from "@/lib/events";
 import { viewerFor } from "@/lib/permissions";
+
+/*
+ * The Questions page's Server Actions. Each form action finishes by sending the
+ * owner back to the page with a notice in the URL (`done`, or `problem` for
+ * something to fix); the reorder actions return the saved order instead, for the
+ * list that asked.
+ */
 
 async function requireManager(groupId: string) {
   const viewer = await viewerFor(groupId);
   if (!viewer || viewer.membership.access === "member") redirect(`/g/${groupId}`);
   return viewer;
-}
-
-export async function rotationAction(formData: FormData) {
-  const groupId = String(formData.get("groupId") ?? "");
-  await requireManager(groupId);
-
-  const raw = String(formData.get("questionsPerRound") ?? "");
-  const questionsPerRound = raw === "" ? null : Number(raw);
-  if (questionsPerRound !== null && (!Number.isInteger(questionsPerRound) || questionsPerRound < 1 || questionsPerRound > 20)) {
-    redirect(`/g/${groupId}/questions?rotation=invalid`);
-  }
-
-  // The round people are answering now asks the new number of questions.
-  await setQuestionsPerRound(groupId, questionsPerRound);
-  revalidatePath(`/g/${groupId}`, "layout");
-  redirect(`/g/${groupId}/questions?rotation=1`);
-}
-
-export async function addFromPacksAction(formData: FormData) {
-  const groupId = String(formData.get("groupId") ?? "");
-  await requireManager(groupId);
-
-  const texts = formData.getAll("question").map((value) => String(value));
-  const added = await addQuestionTexts(groupId, texts, await getNow());
-  revalidatePath(`/g/${groupId}`, "layout");
-  redirect(`/g/${groupId}/questions?fromPacks=${added}`);
-}
-
-export async function addAction(formData: FormData) {
-  const groupId = String(formData.get("groupId") ?? "");
-  await requireManager(groupId);
-
-  const text = String(formData.get("text") ?? "");
-  await addQuestion(groupId, text, await getNow());
-  revalidatePath(`/g/${groupId}`, "layout");
-  redirect(`/g/${groupId}/questions?added=1`);
-}
-
-export async function addPollAction(formData: FormData) {
-  const groupId = String(formData.get("groupId") ?? "");
-  await requireManager(groupId);
-
-  const result = await addPoll(
-    groupId,
-    {
-      prompt: String(formData.get("prompt") ?? ""),
-      options: formData.getAll("option").map((value) => String(value)),
-      multiple: formData.get("multiple") === "on",
-    },
-    await getNow(),
-  );
-  revalidatePath(`/g/${groupId}`, "layout");
-  redirect(`/g/${groupId}/questions?poll=${result.ok ? "added" : "invalid"}`);
-}
-
-export async function reorderQuestions(groupId: string, questionId: string, targetIndex: number): Promise<Array<{ id: string; text: string; skipNext: boolean }>> {
-  await requireManager(groupId);
-  await reorderQuestion(groupId, questionId, targetIndex);
-  revalidatePath(`/g/${groupId}`, "layout");
-  const after = await db.select({ id: questions.id, text: questions.text, skipNext: questions.skipNext }).from(questions)
-    .where(poolQuestionCondition(groupId)).orderBy(asc(questions.position), asc(questions.createdAt), asc(questions.id));
-  return after;
-}
-
-export async function archiveAction(formData: FormData) {
-  const groupId = String(formData.get("groupId") ?? "");
-  await requireManager(groupId);
-
-  const questionId = String(formData.get("questionId") ?? "");
-  await archiveQuestion(groupId, questionId, await getNow());
-  revalidatePath(`/g/${groupId}`, "layout");
-  redirect(`/g/${groupId}/questions?archived=${Date.now()}`);
-}
-
-export async function skipNextAction(formData: FormData) {
-  const groupId = String(formData.get("groupId") ?? "");
-  await requireManager(groupId);
-
-  const questionId = String(formData.get("questionId") ?? "");
-  await toggleSkipNext(groupId, questionId);
-  revalidatePath(`/g/${groupId}`, "layout");
-  redirect(`/g/${groupId}/questions?skip=${Date.now()}`);
-}
-
-export async function acceptSuggestionAction(formData: FormData) {
-  const groupId = String(formData.get("groupId") ?? "");
-  await requireManager(groupId);
-
-  const suggestionId = String(formData.get("suggestionId") ?? "");
-  const text = String(formData.get("text") ?? "");
-  const result = await acceptSuggestion({ groupId, suggestionId, text, at: await getNow() });
-  revalidatePath(`/g/${groupId}`, "layout");
-  redirect(`/g/${groupId}/questions?suggestion=${result.ok ? "added" : "gone"}`);
-}
-
-export async function declineSuggestionAction(formData: FormData) {
-  const groupId = String(formData.get("groupId") ?? "");
-  await requireManager(groupId);
-
-  const suggestionId = String(formData.get("suggestionId") ?? "");
-  const result = await declineSuggestion({ groupId, suggestionId, at: await getNow() });
-  revalidatePath(`/g/${groupId}`, "layout");
-  redirect(`/g/${groupId}/questions?suggestion=${result.ok ? "declined" : "gone"}`);
-}
-
-
-export async function createSectionAction(formData: FormData) {
-  const groupId = String(formData.get("groupId") ?? "");
-  await requireManager(groupId);
-
-  const kindRaw = String(formData.get("kind") ?? "standard");
-  const kind: SectionKind = kindRaw === "photo_wall" || kindRaw === "music" ? kindRaw : "standard";
-  const result = await createSection({
-    groupId,
-    kind,
-    title: String(formData.get("title") ?? ""),
-    emoji: String(formData.get("emoji") ?? ""),
-    description: String(formData.get("description") ?? ""),
-    adminOnly: formData.get("adminOnly") === "on",
-    at: await getNow(),
-  });
-  revalidatePath(`/g/${groupId}`, "layout");
-  redirect(`/g/${groupId}/questions?section=${result.ok ? "created" : "invalid"}`);
-}
-
-export async function updateSectionAction(formData: FormData) {
-  const groupId = String(formData.get("groupId") ?? "");
-  await requireManager(groupId);
-
-  const result = await updateSection({
-    at: await getNow(),
-    groupId,
-    sectionId: String(formData.get("sectionId") ?? ""),
-    title: String(formData.get("title") ?? ""),
-    emoji: String(formData.get("emoji") ?? ""),
-    description: String(formData.get("description") ?? ""),
-    adminOnly: formData.get("adminOnly") === "on",
-    active: formData.get("active") === "on",
-  });
-  revalidatePath(`/g/${groupId}`, "layout");
-  redirect(`/g/${groupId}/questions?section=${result.ok ? "saved" : "invalid"}`);
-}
-
-export async function moveSectionAction(formData: FormData) {
-  const groupId = String(formData.get("groupId") ?? "");
-  await requireManager(groupId);
-
-  await moveSection({
-    groupId,
-    sectionId: String(formData.get("sectionId") ?? ""),
-    targetIndex: Number(formData.get("targetIndex") ?? 0),
-  });
-  revalidatePath(`/g/${groupId}`, "layout");
-  redirect(`/g/${groupId}/questions?section=moved`);
-}
-
-export async function archiveSectionAction(formData: FormData) {
-  const groupId = String(formData.get("groupId") ?? "");
-  await requireManager(groupId);
-
-  await archiveSection({ groupId, sectionId: String(formData.get("sectionId") ?? ""), at: await getNow() });
-  revalidatePath(`/g/${groupId}`, "layout");
-  redirect(`/g/${groupId}/questions?section=archived`);
 }
 
 async function groupOf(groupId: string) {
@@ -196,48 +39,117 @@ async function groupOf(groupId: string) {
   return group;
 }
 
-function eventFields(formData: FormData) {
-  return {
-    title: String(formData.get("title") ?? ""),
-    emoji: String(formData.get("emoji") ?? ""),
-    date: String(formData.get("date") ?? ""),
-    membershipId: String(formData.get("membershipId") ?? "") || null,
-  };
+function field(formData: FormData, name: string): string {
+  return String(formData.get(name) ?? "");
 }
 
-export async function createEventAction(formData: FormData) {
-  const groupId = String(formData.get("groupId") ?? "");
-  await requireManager(groupId);
+/** Back to the page with a notice. `n` makes each return new, so the page starts its forms afresh. */
+function back(groupId: string, notice: Record<string, string>): never {
+  revalidatePath(`/g/${groupId}`, "layout");
+  redirect(`/g/${groupId}/questions?${new URLSearchParams({ ...notice, n: Date.now().toString(36) })}`);
+}
 
-  const result = await createEvent({
-    ...eventFields(formData),
-    kind: formData.get("kind") === "birthday" ? "birthday" : "once",
+export async function addItemAction(formData: FormData) {
+  const groupId = field(formData, "groupId");
+  const viewer = await requireManager(groupId);
+  const thisRound = formData.get("thisRound") === "on";
+  const result = await createItem({
     group: await groupOf(groupId),
+    item: itemInputFrom(formData),
+    thisRound,
+    at: await getNow(),
+    createdByMembershipId: viewer.membership.id,
+  });
+  back(groupId, result.ok ? { done: thisRound ? "addedNow" : "added" } : { problem: result.code });
+}
+
+export async function updateItemAction(formData: FormData) {
+  const groupId = field(formData, "groupId");
+  await requireManager(groupId);
+  const result = await updateItem({
+    group: await groupOf(groupId),
+    questionId: field(formData, "questionId"),
+    item: itemInputFrom(formData),
     at: await getNow(),
   });
-  revalidatePath(`/g/${groupId}`, "layout");
-  redirect(`/g/${groupId}/questions?event=${result.ok ? "added" : result.code}`);
+  back(groupId, result.ok ? { done: "saved" } : { problem: result.code });
 }
 
-export async function updateEventAction(formData: FormData) {
-  const groupId = String(formData.get("groupId") ?? "");
+export async function stopAskingAction(formData: FormData) {
+  const groupId = field(formData, "groupId");
   await requireManager(groupId);
+  const result = await stopAsking(groupId, field(formData, "questionId"), await getNow());
+  back(groupId, { done: result === "written" ? "stoppedStays" : "stopped" });
+}
 
-  const result = await updateEvent({
-    ...eventFields(formData),
-    eventId: String(formData.get("eventId") ?? ""),
-    group: await groupOf(groupId),
+export async function askAgainAction(formData: FormData) {
+  const groupId = field(formData, "groupId");
+  await requireManager(groupId);
+  await askAgain(groupId, field(formData, "questionId"));
+  back(groupId, { done: "again" });
+}
+
+export async function askThisRoundAction(formData: FormData) {
+  const groupId = field(formData, "groupId");
+  await requireManager(groupId);
+  const added = await askThisRound(groupId, field(formData, "questionId"));
+  back(groupId, { done: added ? "addedNow" : "alreadyAsked" });
+}
+
+export async function removeFromRoundAction(formData: FormData) {
+  const groupId = field(formData, "groupId");
+  await requireManager(groupId);
+  const result = await removeSnapshot(groupId, field(formData, "snapshotId"));
+  back(groupId, { done: result === "written" ? "stays" : formData.get("turn") === "1" ? "removedTurn" : "removed" });
+}
+
+export async function rotationAction(formData: FormData) {
+  const groupId = field(formData, "groupId");
+  await requireManager(groupId);
+  const raw = field(formData, "questionsPerRound");
+  const saved = await setQuestionsPerRound(groupId, raw === "" ? null : Number(raw));
+  back(groupId, saved ? { done: "count" } : { problem: "count" });
+}
+
+export async function addFromPacksAction(formData: FormData) {
+  const groupId = field(formData, "groupId");
+  await requireManager(groupId);
+  const texts = formData.getAll("question").map((value) => String(value));
+  const added = await addQuestionTexts(groupId, texts, await getNow());
+  back(groupId, { fromPacks: String(added) });
+}
+
+export async function acceptSuggestionAction(formData: FormData) {
+  const groupId = field(formData, "groupId");
+  await requireManager(groupId);
+  const result = await acceptSuggestion({
+    groupId,
+    suggestionId: field(formData, "suggestionId"),
+    text: field(formData, "text"),
     at: await getNow(),
   });
-  revalidatePath(`/g/${groupId}`, "layout");
-  redirect(`/g/${groupId}/questions?event=${result.ok ? "saved" : result.code}`);
+  back(groupId, { suggestion: result.ok ? "added" : "gone" });
 }
 
-export async function deleteEventAction(formData: FormData) {
-  const groupId = String(formData.get("groupId") ?? "");
+export async function declineSuggestionAction(formData: FormData) {
+  const groupId = field(formData, "groupId");
   await requireManager(groupId);
+  const result = await declineSuggestion({ groupId, suggestionId: field(formData, "suggestionId"), at: await getNow() });
+  back(groupId, { suggestion: result.ok ? "declined" : "gone" });
+}
 
-  await deleteEvent({ groupId, eventId: String(formData.get("eventId") ?? "") });
+/** Move one of this round's items; returns the round's order as saved. */
+export async function reorderRoundAction(groupId: string, snapshotId: string, targetIndex: number): Promise<string[]> {
+  await requireManager(groupId);
+  const saved = await reorderOpenRound(groupId, snapshotId, targetIndex);
   revalidatePath(`/g/${groupId}`, "layout");
-  redirect(`/g/${groupId}/questions?event=removed`);
+  return saved;
+}
+
+/** Move an item in the queue or the every-round list; returns that list's order as saved. */
+export async function reorderListAction(groupId: string, list: "rotating" | "every_round", questionId: string, targetIndex: number): Promise<string[]> {
+  await requireManager(groupId);
+  const saved = await reorderPool(groupId, list === "every_round" ? "every_round" : "rotating", questionId, targetIndex);
+  revalidatePath(`/g/${groupId}`, "layout");
+  return saved;
 }

@@ -33,7 +33,8 @@ export function LoopTabContent(props: Props) {
     case "members":
       return <MembersTab notices={read("limited", "addressChanged", "invited", "resent", "removed", "transferred", "transferError")} />;
     case "questions":
-      return <QuestionsTab notices={read("added", "archived", "skip", "rotation", "fromPacks", "suggestion", "section", "poll", "event")} />;
+      // Each return from a form is a fresh page: forms empty, editors closed.
+      return <QuestionsTab key={params.get("n") ?? ""} notices={read("done", "problem", "fromPacks", "suggestion")} />;
     case "issues": {
       const member = parseMemberFilter(params.get("member"));
       const filter = member ? { memberId: member, roundIds: roundsAnsweredBy[member] ?? [] } : null;

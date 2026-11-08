@@ -1,19 +1,18 @@
 import { Suspense, type ReactNode } from "react";
 import type { Metadata } from "next";
-import { and, asc, desc, eq, isNull, like } from "drizzle-orm";
+import { and, desc, eq, isNull, like } from "drizzle-orm";
 import { notFound, redirect } from "next/navigation";
 import { connection } from "next/server";
 import { db } from "@/db";
-import { groups, issues, memberships, outbox, questions } from "@/db/schema";
+import { groups, issues, memberships, outbox } from "@/db/schema";
 import { answeredCountSql } from "@/lib/reply-query";
 import { answeredMemberIds } from "@/lib/answered";
 import { pendingSuggestions } from "@/lib/suggestions";
-import { sectionsOf } from "@/lib/sections";
-import { eventsOf } from "@/lib/events";
+import { questionsPageOf } from "@/lib/questions-page";
 import { deliveredRoundsAnsweredByEveryone } from "@/lib/rounds-by-member";
 import { currentUser } from "@/lib/auth";
 import { getNow } from "@/lib/clock";
-import { membersOf, poolQuestionCondition } from "@/lib/manage";
+import { membersOf } from "@/lib/manage";
 import { describeDeadline, groupSchedule, nextSlot, weekdayName } from "@/lib/schedule";
 import { url } from "@/lib/urls";
 import { ownAnswerHref } from "@/lib/answer-link";
@@ -94,21 +93,9 @@ async function LoadedGroupLayout({ children, params }: Props) {
   // "Now" belongs to this request, never to a prerender.
   await connection();
   const at = await getNow();
-  const [people, questionRows, roundRows, answerRows, suggestionRows, sectionRows, eventRows, answeredIn] = await Promise.all([
+  const [people, questionsPage, roundRows, answerRows, suggestionRows, answeredIn] = await Promise.all([
     membersOf(group.id),
-    db.select({
-      id: questions.id,
-      text: questions.text,
-      active: questions.active,
-      skipNext: questions.skipNext,
-      position: questions.position,
-      kind: questions.kind,
-      pollMultiple: questions.pollMultiple,
-      pollOptions: questions.pollOptions,
-    })
-      .from(questions)
-      .where(poolQuestionCondition(group.id))
-      .orderBy(asc(questions.position), asc(questions.createdAt), asc(questions.id)),
+    questionsPageOf({ group, viewer: membership, at }),
     db.select({
       id: issues.id,
       number: issues.number,
@@ -127,8 +114,6 @@ async function LoadedGroupLayout({ children, params }: Props) {
       .from(issues)
       .where(eq(issues.groupId, group.id)),
     pendingSuggestions(group.id),
-    sectionsOf(group.id),
-    membership.access === "member" ? Promise.resolve([]) : eventsOf(group, at),
     // For the rounds list's "who answered" filter, so it filters without a request.
     deliveredRoundsAnsweredByEveryone({ groupId: group.id, includeAdminOnly: membership.access !== "member" }),
   ]);
@@ -170,9 +155,7 @@ async function LoadedGroupLayout({ children, params }: Props) {
     membership,
     user,
     people,
-    questions: questionRows,
-    sections: sectionRows,
-    events: eventRows,
+    questionsPage,
     suggestions: suggestionRows.map((suggestion) => ({
       id: suggestion.id,
       text: suggestion.text,

@@ -15,10 +15,11 @@ import { useLoopData } from "./loop-data";
 import { SubmitButton } from "@/components/submit-button";
 
 export default function OverviewTab({ welcome, nudged }: { welcome?: string; nudged?: string }) {
-  const { group, membership, people, questions, rounds, suggestions, openIssue, openProgress, openWaiting, nextMoment, openMoment, weekdayLabel, lastNudge, answerHref } = useLoopData();
+  const { group, membership, people, questionsPage, rounds, suggestions, openIssue, openProgress, openWaiting, nextMoment, openMoment, weekdayLabel, lastNudge, answerHref } = useLoopData();
   const manages = membership.access !== "member";
   const writers = people.filter((person) => person.participation === "contributor").length;
-  const pool = questions.filter((question) => question.active);
+  // Everything still asked: turn-takers, every-round items, and dates still to come.
+  const asked = questionsPage.queue.length + questionsPage.everyRound.length + questionsPage.dated.filter((item) => item.nextDate).length;
   const firstRun = manages && people.length <= 1 && !rounds.some((round) => round.status === "delivered");
   // A paused loop holds its round: nobody can answer it, so it isn't shown as open.
   const liveIssue = group.pausedAt ? null : openIssue;
@@ -207,7 +208,7 @@ export default function OverviewTab({ welcome, nudged }: { welcome?: string; nud
         <p className="mt-4 border-t border-dashed border-line pt-3 text-[14px] leading-relaxed text-ink-soft numeric">
           <Link href={`/g/${group.id}/members`} className="link link--inline">{text(copy.loop.peopleCount, { count: people.length })}</Link>
           {" · "}
-          <Link href={`/g/${group.id}/questions`} className="link link--inline">{text(copy.loop.questionsCount, { count: pool.length })}</Link>
+          <Link href={`/g/${group.id}/questions`} className="link link--inline">{text(copy.loop.questionsCount, { count: asked })}</Link>
         </p>
       </section>
       </div>
