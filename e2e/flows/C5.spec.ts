@@ -69,16 +69,20 @@ test("C5 · saving an unchanged count keeps the cursor", async ({ page }) => {
 test("C5 · send now uses the same rotation", async ({ page }) => {
   const loop = await seedLoop({ questions: QUESTIONS });
   await rows("update groups set questions_per_round = 2 where id = $1", [loop.groupId]);
-  await signIn(page, "owner@friendloop.test");
+  await runSweep(AFTER_FIRST_SLOT);
+  expect(await questionsForRound(loop.groupId, 1)).toEqual(["Q1", "Q2"]);
+  const [first] = await rows<{ id: string }>("select id from issues where group_id = $1 and number = 1", [loop.groupId]);
+  await seedReplies({ issueId: first.id, membershipId: loop.members[1].id, answers: [{ text: "Q1", body: "Answer" }] });
 
+  await signIn(page, "owner@friendloop.test");
   await page.goto(`/g/${loop.groupId}`);
   await sendNow(page);
-  await expect(page.getByText(/Round 1 is open and everyone/)).toBeVisible();
+  await expect(page.getByText(/Round 2 is open for answers/)).toBeVisible();
 
-  expect(await questionsForRound(loop.groupId, 1)).toEqual(["Q1", "Q2"]);
+  expect(await questionsForRound(loop.groupId, 2)).toEqual(["Q3", "Q4"]);
   const [group] = await rows<{ question_cursor: number }>(
     "select question_cursor from groups where id = $1",
     [loop.groupId],
   );
-  expect(group.question_cursor).toBe(2);
+  expect(group.question_cursor).toBe(4);
 });

@@ -13,7 +13,6 @@ import {
   loopUrl,
   membersOf,
   normalizeEmail,
-  openIssueNow,
   parseEmails,
   removeMember,
   reorderQuestion,
@@ -28,7 +27,7 @@ import {
   userById,
 } from "../../src/lib/manage.ts";
 import { outboxCount, rows, seedDeliveredIssue, seedLoop, setupDatabase } from "../support/app.ts";
-import { AFTER_FIRST_SLOT, BEFORE_FIRST_SLOT, E2E_NOW } from "../../e2e/support/clock.ts";
+import { AFTER_FIRST_SLOT, E2E_NOW } from "../../e2e/support/clock.ts";
 import { sweep } from "../../src/lib/sweep.ts";
 import { clearRequest, setRequestHeaders } from "../stubs/request.mjs";
 
@@ -502,21 +501,62 @@ test("backfill and rotate only touch delivered rounds", async () => {
   assert.notEqual(issue.share_token, "old-token");
 });
 
-test("pausing stops the schedule; resuming starts it from that moment", async () => {
+test("pausing holds the open round; resuming after its delivery moves it to the next one", async () => {
   const loop = await seedLoop();
+  await sweep({ at: AFTER_FIRST_SLOT });
+  const [open] = await rows<{ id: string; delivers_at: Date }>("select id, delivers_at from issues where group_id = $1", [loop.groupId]);
+  assert.equal(new Date(open.delivers_at).toISOString(), "2026-01-09T08:00:00.000Z");
 
   await setPaused(loop.groupId, true, E2E_NOW);
   const [paused] = await rows<{ paused_at: Date | null }>("select paused_at from groups where id = $1", [loop.groupId]);
   assert.equal(new Date(paused.paused_at!).toISOString(), E2E_NOW.toISOString());
 
-  const resumedAt = new Date(E2E_NOW.getTime() + 5 * 24 * 60 * 60 * 1000);
-  await setPaused(loop.groupId, false, resumedAt);
-  const [resumed] = await rows<{ paused_at: Date | null; last_slot_at: Date | null }>(
-    "select paused_at, last_slot_at from groups where id = $1",
+  // A short pause changes nothing about when it goes out.
+  await setPaused(loop.groupId, false, new Date(E2E_NOW.getTime() + 24 * 60 * 60 * 1000));
+  let [round] = await rows<{ id: string; delivers_at: Date }>("select id, delivers_at from issues where group_id = $1", [loop.groupId]);
+  assert.equal(new Date(round.delivers_at).toISOString(), "2026-01-09T08:00:00.000Z");
+
+  // A pause across its delivery day: the same round, going out on the next one.
+  await setPaused(loop.groupId, true, E2E_NOW);
+  await setPaused(loop.groupId, false, new Date("2026-01-12T12:00:00Z"));
+  [round] = await rows<{ id: string; delivers_at: Date }>("select id, delivers_at from issues where group_id = $1", [loop.groupId]);
+  assert.equal(round.id, open.id);
+  assert.equal(new Date(round.delivers_at).toISOString(), "2026-01-16T08:00:00.000Z");
+  const [resumed] = await rows<{ paused_at: Date | null }>("select paused_at from groups where id = $1", [loop.groupId]);
+  assert.equal(resumed.paused_at, null);
+});
+
+test("resuming a loop that paused itself opens a fresh round and tells everyone", async () => {
+  const loop = await seedLoop();
+  await rows("update groups set paused_at = $1 where id = $2", [E2E_NOW.toISOString(), loop.groupId]);
+
+  await setPaused(loop.groupId, false, E2E_NOW);
+  const [round] = await rows<{ number: number; status: string; delivers_at: Date }>(
+    "select number, status, delivers_at from issues where group_id = $1",
     [loop.groupId],
   );
-  assert.equal(resumed.paused_at, null);
-  assert.equal(new Date(resumed.last_slot_at!).toISOString(), resumedAt.toISOString());
+  assert.equal(round.status, "open");
+  assert.equal(new Date(round.delivers_at).toISOString(), "2026-01-09T08:00:00.000Z");
+  assert.equal(await outboxCount("prompt:"), 3);
+});
+
+test("changing the schedule moves the open round to the new delivery", async () => {
+  const loop = await seedLoop();
+  await sweep({ at: AFTER_FIRST_SLOT });
+
+  await updateLoopSettings(loop.groupId, {
+    name: "Friday Loop",
+    timezone: "Europe/Amsterdam",
+    promptWeekday: 0,
+    promptHour: 18,
+    cadenceWeeks: 1,
+    shareEnabled: false,
+  }, AFTER_FIRST_SLOT);
+
+  const [round] = await rows<{ delivers_at: Date; slot_at: Date }>("select delivers_at, slot_at from issues where group_id = $1", [loop.groupId]);
+  // Sunday 18:00 Amsterdam, two days away instead of next Friday.
+  assert.equal(new Date(round.delivers_at).toISOString(), "2026-01-04T17:00:00.000Z");
+  assert.equal(new Date(round.slot_at).toISOString(), "2026-01-04T17:00:00.000Z");
 });
 
 test("deleting a loop takes its issues, replies, and questions with it", async () => {
@@ -543,44 +583,6 @@ test("deleting a loop takes its issues, replies, and questions with it", async (
     ]);
     assert.equal(row.count, 0, `${table} should be gone`);
   }
-});
-
-test("starting a round by hand opens it once", async () => {
-  const loop = await seedLoop();
-
-  const first = await openIssueNow(loop.groupId, E2E_NOW);
-  assert.ok(first);
-  assert.equal(first.number, 1);
-
-  const [issue] = await rows<{ opens_at: Date; delivers_at: Date; status: string }>(
-    "select opens_at, delivers_at, status from issues where id = $1",
-    [first.issueId],
-  );
-  assert.equal(issue.status, "open");
-  assert.equal(new Date(issue.delivers_at).getTime(), E2E_NOW.getTime() + 7 * 24 * 60 * 60 * 1000);
-
-  assert.equal(await outboxCount("prompt:"), 3, "contributors are told");
-
-  const again = await openIssueNow(loop.groupId, new Date(E2E_NOW.getTime() + 60_000));
-  assert.equal(first.created, true);
-  assert.deepEqual(
-    again,
-    { ...first, created: false },
-    "the open round is returned, not a second one, and nothing new was sent",
-  );
-});
-
-test("starting a round by hand is refused when it cannot be created", async () => {
-  const loop = await seedLoop();
-  assert.equal(await openIssueNow("00000000-0000-4000-8000-000000000000", E2E_NOW), null);
-
-  // Same slot twice: the second insert conflicts and is reported as null.
-  await rows(
-    `insert into issues (group_id, number, status, slot_at, opens_at, delivers_at)
-     values ($1, 50, 'delivered', $2, $2, $2)`,
-    [loop.groupId, E2E_NOW.toISOString()],
-  );
-  assert.equal(await openIssueNow(loop.groupId, E2E_NOW), null);
 });
 
 test("members are listed owner-first and without the removed", async () => {
@@ -623,29 +625,3 @@ test("the loop url and a user's loops are readable", async () => {
 });
 
 
-test("send now takes the place of the next slot, and resuming doesn't bring it back", async () => {
-  const loop = await seedLoop();
-  const before = new Date(BEFORE_FIRST_SLOT);
-  await openIssueNow(loop.groupId, before);
-
-  const [group] = await rows<{ last_slot_at: string }>("select last_slot_at from groups where id = $1", [loop.groupId]);
-  assert.ok(new Date(group.last_slot_at) > before, "the next slot is used up");
-
-  await setPaused(loop.groupId, true, before);
-  await setPaused(loop.groupId, false, before);
-  const [resumed] = await rows<{ last_slot_at: string }>("select last_slot_at from groups where id = $1", [loop.groupId]);
-  assert.equal(new Date(resumed.last_slot_at).getTime(), new Date(group.last_slot_at).getTime());
-
-  assert.equal((await sweep({ at: AFTER_FIRST_SLOT })).opened, 0);
-  const issues = await rows("select id from issues where group_id = $1", [loop.groupId]);
-  assert.equal(issues.length, 1);
-});
-
-test("send now brings the loop's sections into the round", async () => {
-  const loop = await seedLoop();
-  await rows("insert into sections (group_id, kind, title, position) values ($1, 'standard', 'The potluck corner', 0)", [loop.groupId]);
-
-  const opened = await openIssueNow(loop.groupId, E2E_NOW);
-  const sections = await rows<{ title: string }>("select title from issue_sections where issue_id = $1", [opened!.issueId]);
-  assert.deepEqual(sections.map((section) => section.title), ["The potluck corner"]);
-});

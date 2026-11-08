@@ -33,6 +33,17 @@ type LayoutInput = {
   questions?: { label: string; items: string[] };
   /** A sign-in code, big under the button, with a quiet line after it. */
   code?: { label: string; value: string; note: string };
+  /** Under a delivered issue: the round that opened as it went out. */
+  next?: NextRoundBlock;
+};
+
+/** The round that opens as an issue goes out, for one contributor. */
+export type NextRoundBlock = {
+  issueNumber: number;
+  /** Their own reply link. */
+  url: string;
+  deadlineLabel: string;
+  questions: string[];
 };
 
 export type EmailTheme = { palette: EmailPalette; headerImageUrl?: string | null; mascot?: string | null };
@@ -243,7 +254,17 @@ function questionList(questions: LayoutInput["questions"], c: EmailPalette): str
   return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 20px"><tr><td style="padding:0 0 8px;font:800 14px/1.4 ${BODY_FONT};color:${c.soft}">${escapeHtml(questions.label)}</td></tr>${rows}</table>`;
 }
 
-export function layout({ preheader, heading, body, cta, footer, answers, sections, answersUrl, theme, unsubscribeUrl, sender, questions, replyHint, code }: LayoutInput): string {
+/** The round that just opened, under a delivered issue: its questions and the way in. */
+function nextRoundHtml(next: NextRoundBlock, c: EmailPalette): string {
+  const content = copy.emails.delivery;
+  const values = { issueHeading: text(copy.emails.issueHeading, { number: next.issueNumber }), deadlineLabel: next.deadlineLabel };
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${c.card};border:1px solid ${c.line};border-radius:6px;box-shadow:${c.shadow}"><tr><td style="padding:24px 30px 26px">
+<h2 style="margin:0 0 8px;font:700 24px/1.2 ${DISPLAY_FONT};color:${c.ink}">${escapeHtml(text(content.nextHeading, values))}</h2>
+${paragraphs([text(content.nextBody, values)], c)}${questionList({ label: copy.emails.promptQuestionsLabel, items: next.questions }, c)}<table role="presentation" cellpadding="0" cellspacing="0" style="margin:4px 0 0"><tr><td style="border-radius:999px;background:${c.accent}"><a href="${escapeHtml(next.url)}" style="display:inline-block;padding:15px 26px;font:700 16px/1 ${BODY_FONT};color:${c.onAccent};text-decoration:none;border-radius:999px">${escapeHtml(content.nextCta)}</a></td></tr></table>
+</td></tr></table>`;
+}
+
+export function layout({ preheader, heading, body, cta, footer, answers, sections, answersUrl, theme, unsubscribeUrl, sender, questions, replyHint, code, next }: LayoutInput): string {
   const c = theme?.palette ?? GINGHAM_EMAIL;
   const GINGHAM = gingham(c);
   const ctaHtml = cta
@@ -270,6 +291,7 @@ ${paragraphs(body, c)}${questionList(questions, c)}${ctaHtml}${codeBlock(code, c
 </td></tr>
 ${answers ? `<tr><td style="padding-top:20px">${answersHtml(answers, answersUrl ?? "#", c)}</td></tr>` : ""}
 ${sections && sections.length > 0 ? `<tr><td style="padding-top:20px">${sectionsHtml(sections, c)}</td></tr>` : ""}
+${next ? `<tr><td style="padding-top:20px">${nextRoundHtml(next, c)}</td></tr>` : ""}
 <tr><td align="center" style="padding:20px 0 0"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${c.card};border:1px solid ${c.line};border-radius:6px"><tr><td align="center" style="padding:14px 18px"><p style="margin:0;font:400 13px/1.6 ${BODY_FONT};color:${c.soft};text-align:center">${escapeHtml(
     footer ?? copy.emails.defaultFooter,
   )}${
@@ -451,10 +473,12 @@ export function deliveryEmail(input: {
   answers: AnswerBlock[];
   sections?: SectionEmailBlock[];
   shareUrl?: string | null;
+  /** Contributors only: the next round's questions ride along under the issue. */
+  next?: NextRoundBlock;
   theme?: EmailTheme;
   unsubscribeUrl?: string;
 }): RenderedEmail {
-  const { groupName, issueNumber, issueName, url, answers, sections, shareUrl, theme, unsubscribeUrl } = input;
+  const { groupName, issueNumber, issueName, url, answers, sections, shareUrl, next, theme, unsubscribeUrl } = input;
   const content = copy.emails.delivery;
   const values = {
     groupName,
@@ -485,13 +509,25 @@ export function deliveryEmail(input: {
       sections,
       answersUrl: url,
       cta: { label: content.cta, url },
+      next,
       footer: text(shareUrl ? content.shareFooter : content.replyFooter, values),
       sender: groupName,
       theme,
       unsubscribeUrl,
     }),
-    text: withStopLine(text(content.text, { ...values, answers: answerText }), unsubscribeUrl),
+    text: withStopLine(`${text(content.text, { ...values, answers: answerText })}${next ? `\n\n${nextRoundText(next)}` : ""}`, unsubscribeUrl),
   };
+}
+
+function nextRoundText(next: NextRoundBlock): string {
+  const content = copy.emails.delivery;
+  const values = { issueHeading: text(copy.emails.issueHeading, { number: next.issueNumber }), deadlineLabel: next.deadlineLabel };
+  return [
+    text(content.nextHeading, values),
+    text(content.nextBody, values),
+    `${copy.emails.promptQuestionsLabel}:\n${next.questions.map((question) => `- ${question}`).join("\n")}`,
+    next.url,
+  ].join("\n\n");
 }
 
 export function pausedEmail(input: { groupName: string; url: string; theme?: EmailTheme; unsubscribeUrl?: string }): RenderedEmail {

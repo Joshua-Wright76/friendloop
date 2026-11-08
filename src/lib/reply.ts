@@ -59,6 +59,11 @@ export async function resolveToken(token: string): Promise<TokenContext> {
     return { state: "reader", groupName: group.name, groupId: group.id, membership, group };
   }
 
+  // A paused loop takes no answers: its open round waits for the resume.
+  if (group.pausedAt) return { state: "ok", membership, group, issue: null };
+
+  // A running loop always has a round open, so this is it. A delivered round only
+  // shows up here for a loop from before rounds ran back to back.
   const [issue] = await db
     .select()
     .from(issues)

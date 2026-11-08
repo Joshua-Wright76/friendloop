@@ -79,7 +79,7 @@ test("a round snapshots its questions in order and advances the cursor", async (
   const [second] = await rows<{ id: string }>(
     `insert into issues (group_id, number, status, slot_at, opens_at, delivers_at)
      values ($1, 9, 'open', $2, $2, $2) returning id`,
-    [loop.groupId, new Date(E2E_NOW.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString()],
+    [loop.groupId, new Date(E2E_NOW.getTime() + 8 * 24 * 60 * 60 * 1000).toISOString()],
   );
 
   const count = await snapshotQuestionsForIssue({ group, issueId: second.id });
@@ -111,14 +111,15 @@ test("questions that are archived, inactive, or skipped stay out of the round", 
   const [fresh] = await rows<{ id: string }>(
     `insert into issues (group_id, number, status, slot_at, opens_at, delivers_at)
      values ($1, 9, 'open', $2, $2, $2) returning id`,
-    [loop.groupId, new Date(E2E_NOW.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString()],
+    [loop.groupId, new Date(E2E_NOW.getTime() + 8 * 24 * 60 * 60 * 1000).toISOString()],
   );
 
-  // "Skip next round" excludes the question from this round, and only this one.
+  // "Skip this round" keeps the question out; the skip lasts until that round goes out.
   assert.equal(await snapshotQuestionsForIssue({ group, issueId: fresh.id }), 0);
   const [question] = await rows<{ skip_next: boolean }>("select skip_next from questions where id = $1", [keep.id]);
-  assert.equal(question.skip_next, false, "the skip is consumed by the round it skipped");
+  assert.equal(question.skip_next, true);
 
+  await rows("update questions set skip_next = false where id = $1", [keep.id]);
   const [nextRound] = await rows<{ id: string }>(
     `insert into issues (group_id, number, status, slot_at, opens_at, delivers_at)
      values ($1, 10, 'open', $2, $2, $2) returning id`,

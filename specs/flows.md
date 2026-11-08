@@ -46,7 +46,7 @@ Status: `todo` (not built) · `done` (built and covered).
 | C1 | Add a custom question | A new question appears at the end of the pool, is active, and is available to the next issue. | done |
 | C2 | Reorder questions | Moving a question changes the order shown in the pool and the order used by the next issue. | done |
 | C3 | Archive a question | Archiving removes it from the pool's active list and from future issues, while past issues still render its original text. | done |
-| C4 | Choose the next issue's questions | Deselecting a question excludes it from the next issue only; the question stays in the pool. | done |
+| C4 | Choose the open round's questions | Skipping a question takes it out of the round that is open (unless someone has started answering it) until that round goes out; the question stays in the pool. | done |
 | C5 | Rotate questions | Setting a count of two selects questions 1–2, then 3–4, then wraps to 5 and 1. "Send now" uses the same cursor, while "All questions" preserves the original behavior. | done |
 | C6 | Add questions from packs | The library is browsable by pack; several packs can be filtered at once, questions can be picked across them or added a whole pack at a time, and questions already in the pool are skipped. | done |
 
@@ -54,14 +54,14 @@ Status: `todo` (not built) · `done` (built and covered).
 
 | ID | Flow | Acceptance criteria | Status |
 | --- | --- | --- | --- |
-| D1 | Open an issue on schedule | With the clock past the loop's slot, the sweep creates exactly one issue with a snapshot of the selected questions and one `prompt` outbox row per contributor. | done |
-| D2 | Do not open early or twice | Running the sweep before the slot creates nothing; running it twice for the same slot creates no second issue and no duplicate email. | done |
-| D3 | Start an issue manually | "Send now" opens an issue immediately with the loop's questions, sections and events, emails contributors, and takes the place of the next scheduled slot: that slot opens no second round, and the dashboard shows the one after it as next. | done |
+| D1 | Always a round open | A running loop without an open issue gets one at once from the sweep, due at the next delivery, with one `prompt` outbox row per contributor; creating a loop opens round 1 the same way. | done |
+| D2 | Do not open twice | A second sweep, or two at once, opens no second round and sends no duplicate email. | done |
+| D3 | Send now | "Send now" delivers the open round with the answers in so far, opens the next round straight away, and that round is due at the delivery after the one it replaced. With nothing in the round it sends nothing. | done |
 | D4 | Draft autosaves | Typing an answer persists it as a draft; reloading the reply page restores every draft. | done |
 | D5 | Submit answers | Submitting marks replies submitted with a timestamp and replaces the sheet with a confirmation screen (focus on its heading) that names the round, repeats when it goes out, and offers "Edit my answers", which brings the sheet back with every answer intact and "Save changes"; the owner's progress count increases. A later visit opens the sheet itself with its "Sent" note. | done |
 | D6 | Edit a submitted answer | Before delivery, editing and re-submitting updates the reply and its timestamp without creating a duplicate row. | done |
-| D7 | Deliver the issue | With the clock past the delivery instant, the sweep sends one issue email per member containing every submitted answer and that member's own link, the issue's status becomes `delivered`, and no loop's email contains another loop's answers. | done |
-| D8 | Nothing to deliver | An issue reaching its delivery instant with zero submitted replies is marked `skipped`, sends no delivery email, pauses the loop with an explanation to the owner, and opens no new round in the same sweep. | done |
+| D7 | Deliver the issue | With the clock past the delivery instant, the sweep sends one issue email per member containing every submitted answer, the issue's status becomes `delivered`, and the next round opens with its questions in each contributor's email. | done |
+| D8 | Nothing to deliver | An issue reaching its delivery instant with zero submitted replies sends no email and is carried over to the next delivery; on its third empty delivery it is marked `skipped` and pauses the loop with an explanation to the owner. | done |
 | D9 | Nudge the stragglers | 48 hours before delivery, contributors with nothing submitted get exactly one reminder; anyone who submitted gets none, and a second sweep sends no duplicate. | done |
 | D10 | Nudge by hand | From the dashboard the owner sees who has not answered and can send one more reminder; anyone who already answered gets none, and each nudge is its own email rather than a duplicate. | done |
 | D11 | Two triggers at once | When the two production triggers run the sweep concurrently, exactly one issue is created for the slot, one prompt per contributor is sent, and concurrent delivery and reminder passes never double-send. | done |
@@ -81,8 +81,8 @@ Status: `todo` (not built) · `done` (built and covered).
 
 | ID | Flow | Acceptance criteria | Status |
 | --- | --- | --- | --- |
-| F1 | Change cadence or timezone | Saving a new weekday, hour, cadence or timezone changes the next send time shown to the owner and does not move an already-open issue's deadline. | done |
-| F2 | Pause and resume | Pausing stops new issues from opening and says so on the dashboard; resuming schedules the next slot from the resume moment. | done |
+| F1 | Change cadence or timezone | Saving a new weekday, hour, cadence or timezone changes when the issue goes out, shown to the owner, and moves the open round to the new delivery. | done |
+| F2 | Pause and resume | Pausing holds the open round (no delivery, no answers) and says so on the dashboard; resuming picks it up again, due at the next delivery if its own has passed. | done |
 | F3 | Remove a member | Removing a member stops their emails and revokes their links; their past answers remain in delivered issues. | done |
 | F4 | Delete a loop | The owner confirms by typing the loop name; the loop, its issues, replies and outbox rows disappear and `/g/<id>` 404s. | done |
 | F5 | Non-owner is refused | A plain member visiting an owner route gets a 404/403 page, and the same request as a POST is rejected server-side. | done |
@@ -124,7 +124,7 @@ Status: `todo` (not built) · `done` (built and covered).
 | K5 | Paste a music link | A music section accepts a Spotify, Bandcamp, or Qobuz link, with an optional caption; a non-music URL gets the plain-language error and nothing is saved until it is fixed or cleared. | done |
 | K6 | Music renders | The delivered web issue renders every music pick as a card (artwork when the metadata provides it, title, provider badge) that opens the provider page; the delivery email renders title + link. Playable Spotify/Bandcamp embeds are stretch. | done |
 | K7 | Admin-only sections | A section can be restricted to owner/admin contributors; other members don't see it on the sheet, in prompts, or in the delivered issue. | done |
-| K8 | Snapshot truth | Editing a section after an issue opens changes future issues only; the open issue keeps its copy, mirroring question behavior (C3). | done |
+| K8 | Sections follow the open round | Editing a section while a round is open changes that round, unless someone has started writing in it, in which case it keeps the words they answered; the next round carries the new wording. | done |
 
 ## J · Voice replies
 

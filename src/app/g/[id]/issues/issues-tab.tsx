@@ -19,10 +19,12 @@ export default function IssuesTab({
   notices,
   filter,
 }: {
-  notices: { opened?: string; alreadyOpen?: string; named?: string };
+  notices: { sent?: string; next?: string; nothingToSend?: string; named?: string };
   filter: { memberId: string; roundIds: string[] } | null;
 }) {
-  const { group, membership, rounds: allRounds, openIssue: open, people, openProgress, openWaiting } = useLoopData();
+  const { group, membership, rounds: allRounds, openIssue, people, openProgress, openWaiting } = useLoopData();
+  // A paused loop holds its round, but nobody can answer it.
+  const open = group.pausedAt ? null : openIssue;
   const display = (person: { name: string | null; email: string }) => person.name ?? person.email.split("@")[0];
   const id = group.id;
   const isOwner = membership.access === "owner";
@@ -73,8 +75,8 @@ export default function IssuesTab({
         ) : null}
       </LoopNav>
 
-      {notices.opened ? <NoticeFocus>{text(copy.rounds.openedNotice, { number: notices.opened })}</NoticeFocus> : null}
-      {notices.alreadyOpen ? <NoticeFocus>{text(copy.rounds.alreadyOpenNotice, { number: notices.alreadyOpen })}</NoticeFocus> : null}
+      {notices.sent ? <NoticeFocus>{text(copy.rounds.sentNotice, { number: notices.sent, next: notices.next ?? Number(notices.sent) + 1 })}</NoticeFocus> : null}
+      {notices.nothingToSend ? <NoticeFocus>{text(copy.rounds.nothingToSendNotice, { number: notices.nothingToSend })}</NoticeFocus> : null}
       {notices.named === "1" ? <NoticeFocus>{copy.rounds.nameSaved}</NoticeFocus> : null}
       {notices.named === "0" ? <NoticeFocus>{copy.rounds.nameCleared}</NoticeFocus> : null}
 
@@ -84,12 +86,13 @@ export default function IssuesTab({
             <div className="flex items-start justify-between gap-3">
               <h2 className="text-ink"><DisplayDigits>{issueTitle(copy.rounds.round, round.number, round.name)}</DisplayDigits></h2>
               <span className={`chip flex-none border px-2.5 py-1 text-[13px] font-bold capitalize ${round.status === "open" ? "bg-accent-soft text-accent-ink" : "bg-card text-ink-soft"}`}>
-                {copy.common.issueStatus[round.status]}
+                {round.status === "open" && group.pausedAt ? copy.loop.paused : copy.common.issueStatus[round.status]}
               </span>
             </div>
             <p className="mt-1 text-[14px] text-ink-soft numeric">
               {round.answers === 1 ? copy.rounds.answer : text(copy.rounds.answers, { count: round.answers })}
               {round.status !== "open" ? ` · ${formatDate(round.deliveredAt ?? round.deliversAt, group.timezone)}` : null}
+              {round.status === "open" && !group.pausedAt ? ` · ${text(copy.rounds.goesOut, { date: formatDate(round.deliversAt, group.timezone) })}` : null}
             </p>
             {round.status === "open" ? (
               <div className="mt-2 text-[14px] leading-relaxed text-ink-soft">

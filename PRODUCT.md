@@ -40,8 +40,9 @@ attributed to a person the group already knows.
 - Most replies happen on a phone, inside a mail client, within a day of the prompt.
 - The owner is the only person who manages anything, and does it in short bursts:
   set questions, invite someone, nudge stragglers.
-- The loop is weekly or biweekly, opens a seven-day reply window, and closes on a
-  fixed weekday and local hour in the loop's own timezone.
+- The loop goes out on a fixed weekday and local hour in the loop's own timezone,
+  weekly or less often. A round is open for answers from one delivery to the next,
+  so there is always one to answer.
 - Members live in different timezones; every deadline is shown in the loop's time
   and the reader's own.
 - Email is the entire delivery surface: prompts, reminders, issues, and sign-in
@@ -64,9 +65,11 @@ Confirmed for v1:
 - A loop can wear its owner's choice of stationery: a page background, one of a few curated colour schemes, an accent colour (nudged to stay readable), a pack of paper textures, a separate pack of washi tape, a mascot and a header picture. Colours, the mascot and the header picture reach the emails as well as the web pages; backgrounds, paper and tape stay on the web, where they can be relied on. Gingham Picnic stays the default, and the brand frame (voice, type, card conventions) is not editable.
 - The owner can name a round ("Camping weekend"), and can hand the loop to an admin, who becomes the owner. Members can set a profile photo, a name charm and an avatar frame per loop.
 - A delivered issue can be shared by secret link, off by default.
-- Weekly or biweekly cadence, seven-day reply window, per-loop timezone.
-- Late replies are never lost: answers stay editable after delivery, and the web
-  issue is canonical while the email is a snapshot.
+- Weekly, biweekly, monthly or quarterly cadence, per-loop timezone. The schedule is
+  when the issue goes out; answering is open the whole time between deliveries.
+- Nobody misses the window: a round is open right up to its delivery, the next one
+  opens as it goes out, and a round with nothing in it carries over rather than
+  going out empty. The web issue is canonical while the email is a snapshot.
 - Runs on free tiers: Vercel Hobby, Neon, Resend.
 
 Explicitly undecided: whether a loop can be public/discoverable, native apps,

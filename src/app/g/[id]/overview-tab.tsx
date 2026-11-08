@@ -15,14 +15,18 @@ import { useLoopData } from "./loop-data";
 import { SubmitButton } from "@/components/submit-button";
 
 export default function OverviewTab({ welcome, nudged }: { welcome?: string; nudged?: string }) {
-  const { group, membership, people, questions, rounds, suggestions, openIssue, openProgress, openWaiting, nextMoment, openMoment, weekdayLabel, lastNudge, nextWhenThisCloses } = useLoopData();
+  const { group, membership, people, questions, rounds, suggestions, openIssue, openProgress, openWaiting, nextMoment, openMoment, weekdayLabel, lastNudge } = useLoopData();
   const manages = membership.access !== "member";
   const writers = people.filter((person) => person.participation === "contributor").length;
   const pool = questions.filter((question) => question.active);
-  const firstRun = manages && people.length <= 1 && rounds.length === 0;
+  const firstRun = manages && people.length <= 1 && !rounds.some((round) => round.status === "delivered");
+  // A paused loop holds its round: nobody can answer it, so it isn't shown as open.
+  const liveIssue = group.pausedAt ? null : openIssue;
   const display = (person: { name: string | null; email: string }) => person.name ?? person.email.split("@")[0];
   const inPeople = openProgress.map((person) => people.find((candidate) => candidate.id === person.id) ?? { ...person, photoUrl: null, avatarFrame: null });
-  const waitingNames = listNames(openWaiting.map(display));
+  // Nobody nudges themselves: the person looking is left out of the reminder.
+  const nudgeable = openWaiting.filter((person) => person.id !== membership.id);
+  const waitingNames = listNames(nudgeable.map(display));
 
   return (
     <main className="loop-page mx-auto w-full max-w-[680px] px-4 pb-16 pt-5 sm:px-6 lg:max-w-[1040px]">
@@ -61,10 +65,10 @@ export default function OverviewTab({ welcome, nudged }: { welcome?: string; nud
 
       <div className="overview-grid">
       <div className="overview-grid__main">
-      {openIssue ? (
+      {liveIssue ? (
         <section className="card ride-in mt-5 p-5 pt-7" aria-labelledby="this-round">
           <Tape tone="dots" position="left" />
-          <p className="text-[14px] font-extrabold text-ink-soft">{issueTitle(copy.loop.round, openIssue.number, openIssue.name)}</p>
+          <p className="text-[14px] font-extrabold text-ink-soft">{issueTitle(copy.loop.round, liveIssue.number, liveIssue.name)}</p>
           <h2 id="this-round" className="status-count mt-0.5 text-ink numeric">
             {text(copy.loop.progress, { answered: openProgress.length, writers })}
           </h2>
@@ -107,7 +111,27 @@ export default function OverviewTab({ welcome, nudged }: { welcome?: string; nud
           </div>
 
           <div className="mt-4 flex flex-wrap items-start gap-x-4 gap-y-2">
-            {manages && openWaiting.length > 0 ? (
+            {/* "Send now" sends this round as it stands, so it needs something in it. */}
+            {manages && openProgress.length > 0 ? (
+              <ConfirmAction
+                className="w-full sm:w-auto"
+                action={sendNowAction}
+                fields={{ groupId: group.id }}
+                label={copy.loop.sendNow}
+                triggerLabel={copy.loop.sendNow}
+                tone="primary"
+                triggerTone={nudgeable.length > 0 ? "quiet" : "primary"}
+                question={text(copy.loop.sendNowQuestion, { number: liveIssue.number })}
+                body={text(openProgress.length === 1 ? copy.loop.sendNowBodyOne : copy.loop.sendNowBody, {
+                  count: openProgress.length,
+                  next: liveIssue.number + 1,
+                  when: atMoment(nextMoment.primary),
+                })}
+                confirmLabel={copy.loop.sendNowConfirm}
+                cancelLabel={copy.a11yLabels.confirmCancel}
+              />
+            ) : null}
+            {manages && nudgeable.length > 0 ? (
               <>
                 <ConfirmAction
                   className="w-full sm:w-auto"
@@ -118,7 +142,7 @@ export default function OverviewTab({ welcome, nudged }: { welcome?: string; nud
                   tone="primary"
                   triggerTone={lastNudge ? "quiet" : "primary"}
                   question={text(copy.loop.nudgeQuestion, { names: waitingNames })}
-                  body={openWaiting.length === 1 ? copy.loop.nudgeBodyOne : copy.loop.nudgeBody}
+                  body={nudgeable.length === 1 ? copy.loop.nudgeBodyOne : copy.loop.nudgeBody}
                   confirmLabel={copy.loop.nudgeConfirm}
                   cancelLabel={copy.a11yLabels.confirmCancel}
                 />
@@ -140,10 +164,20 @@ export default function OverviewTab({ welcome, nudged }: { welcome?: string; nud
         <h2 id="next-round" className="text-ink">
           {group.pausedAt ? copy.loop.paused : copy.loop.nextRoundTitle}
         </h2>
-        {group.pausedAt ? null : <p className="m-0 mt-1 text-[16px] font-extrabold leading-snug text-ink numeric first-letter:uppercase">{nextMoment.primary}</p>}
-        <p className="m-0 mt-1 text-[15px] leading-relaxed text-ink-soft">
-          {group.pausedAt ? copy.loop.pausedDescription : nextWhenThisCloses ? copy.loop.nextAsThisCloses : nextMoment.loop ?? copy.loop.opensForAnswers}
+        <p className="m-0 mt-1 text-[16px] font-extrabold leading-snug text-ink numeric">
+          {text(copy.loop.schedule, {
+            cadence: group.cadenceWeeks === 1 ? copy.loop.cadenceWeek : text(copy.loop.cadenceWeeks, { count: group.cadenceWeeks }),
+            weekday: weekdayLabel,
+            hour: formatHour(group.promptHour),
+            timezone: timezonePlace(group.timezone),
+          })}
         </p>
+        <p className="m-0 mt-1 text-[15px] leading-relaxed text-ink-soft">
+          {group.pausedAt ? copy.loop.pausedDescription : copy.loop.nextAsThisCloses}
+        </p>
+        {manages && liveIssue && openProgress.length === 0 ? (
+          <p className="m-0 mt-2 text-[13px] leading-relaxed text-ink-muted">{copy.loop.sendNowHint}</p>
+        ) : null}
 
         {manages ? (
           <div className="mt-3.5 flex flex-wrap items-start gap-2.5">
@@ -154,35 +188,10 @@ export default function OverviewTab({ welcome, nudged }: { welcome?: string; nud
                 {group.pausedAt ? copy.loop.resume : copy.loop.pause}
               </SubmitButton>
             </SafeForm>
-            {/* One round at a time: while one is open, "Send now" would only return it, so it isn't offered. */}
-            {openIssue ? null : (
-              <ConfirmAction
-                className="w-full sm:w-auto"
-                action={sendNowAction}
-                fields={{ groupId: group.id }}
-                label={copy.loop.sendNow}
-                triggerLabel={copy.loop.sendNow}
-                tone="primary"
-                triggerTone="quiet"
-                question={copy.loop.sendNowQuestion}
-                body={people.length <= 1 ? copy.loop.sendNowBodyAlone : copy.loop.sendNowBody}
-                confirmLabel={copy.loop.sendNowConfirm}
-                cancelLabel={copy.a11yLabels.confirmCancel}
-              />
-            )}
           </div>
-        ) : null}
-        {manages && !openIssue && !group.pausedAt ? (
-          <p className="m-0 mt-2 text-[13px] leading-relaxed text-ink-muted numeric">{text(copy.loop.sendNowHint, { when: nextMoment.primary })}</p>
         ) : null}
 
         <p className="mt-4 border-t border-dashed border-line pt-3 text-[14px] leading-relaxed text-ink-soft numeric">
-          {text(copy.loop.schedule, {
-            cadence: group.cadenceWeeks === 1 ? copy.loop.cadenceWeek : text(copy.loop.cadenceWeeks, { count: group.cadenceWeeks }),
-            weekday: weekdayLabel,
-            hour: formatHour(group.promptHour),
-            timezone: timezonePlace(group.timezone),
-          })}{" "}
           <Link href={`/g/${group.id}/members`} className="link link--inline">{text(copy.loop.peopleCount, { count: people.length })}</Link>
           {" · "}
           <Link href={`/g/${group.id}/questions`} className="link link--inline">{text(copy.loop.questionsCount, { count: pool.length })}</Link>

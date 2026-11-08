@@ -2,7 +2,7 @@ import { test, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import { pendingWork, sweep } from "../../src/lib/sweep.ts";
 import { outboxCount, resetDatabase, rows, seedLoop, seedOpenIssue, seedReplies, setupDatabase } from "../support/app.ts";
-import { AFTER_FIRST_SLOT, BEFORE_FIRST_SLOT, DELIVERY_DAY, E2E_NOW, HOUR } from "../../e2e/support/clock.ts";
+import { AFTER_FIRST_SLOT, BEFORE_FIRST_SLOT, DAY, DELIVERY_DAY, E2E_NOW, HOUR } from "../../e2e/support/clock.ts";
 import { clearRequest, setRequestHeaders } from "../stubs/request.mjs";
 
 beforeEach(async () => {
@@ -13,6 +13,14 @@ beforeEach(async () => {
 
 const ALICE_QUESTION = "What made you laugh this week?";
 
+type IssueRow = { id: string; number: number; status: string; opens_at: Date; delivers_at: Date; slot_at: Date };
+
+async function issuesOf(groupId: string): Promise<IssueRow[]> {
+  return rows<IssueRow>(
+    "select id, number, status, opens_at, delivers_at, slot_at from issues where group_id = $1 order by number",
+    [groupId],
+  );
+}
 
 setupDatabase();
 
@@ -25,46 +33,39 @@ test("a paused loop opens nothing", async () => {
   assert.equal(await outboxCount("prompt:"), 0);
 });
 
+test("a running loop without a round gets one at once, due at the next delivery", async () => {
+  const loop = await seedLoop();
+  const report = await sweep({ at: BEFORE_FIRST_SLOT });
+
+  assert.equal(report.opened, 1);
+  const [issue] = await issuesOf(loop.groupId);
+  assert.equal(issue.number, 1);
+  assert.equal(issue.status, "open");
+  assert.equal(new Date(issue.opens_at).toISOString(), BEFORE_FIRST_SLOT.toISOString());
+  // Friday 09:00 Amsterdam, a day away: answers are welcome up to the last moment.
+  assert.equal(new Date(issue.delivers_at).toISOString(), "2026-01-02T08:00:00.000Z");
+  assert.equal(await outboxCount("prompt:"), 3, "every contributor gets the questions");
+
+  // It opened inside the reminder window, so the prompt it just sent is enough.
+  assert.equal((await sweep({ at: new Date(BEFORE_FIRST_SLOT.getTime() + HOUR) })).reminded, 0);
+});
+
 test("a loop with no questions opens a round and sends nothing", async () => {
   const loop = await seedLoop({ questions: [] });
   const report = await sweep({ at: AFTER_FIRST_SLOT });
 
   assert.equal(report.opened, 1);
   assert.equal(await outboxCount("prompt:"), 0);
-
-  const [issue] = await rows<{ number: number; status: string }>("select number, status from issues where group_id = $1", [
-    loop.groupId,
-  ]);
-  assert.equal(issue.number, 1);
+  const [issue] = await issuesOf(loop.groupId);
   assert.equal(issue.status, "open");
 });
 
-test("a second sweep for the same slot records the slot and opens nothing", async () => {
+test("a second sweep opens nothing more", async () => {
   const loop = await seedLoop();
-  await sweep({ at: AFTER_FIRST_SLOT });
-
-  // Simulate a trigger that lost the race: the slot row already exists but the
-  // loop still looks un-slotted.
-  await rows("update groups set last_slot_at = null where id = $1", [loop.groupId]);
-  const second = await sweep({ at: AFTER_FIRST_SLOT });
-  assert.equal(second.opened, 0);
-
-  const [group] = await rows<{ last_slot_at: Date | null }>("select last_slot_at from groups where id = $1", [
-    loop.groupId,
-  ]);
-  assert.equal(new Date(group.last_slot_at!).toISOString(), AFTER_FIRST_SLOT.toISOString().replace("08:05", "08:00"));
-});
-
-test("an outage collapses to one round, not a backlog", async () => {
-  const loop = await seedLoop();
-  const weeksLater = new Date("2026-02-20T09:00:00Z");
-  const report = await sweep({ at: weeksLater });
-
-  assert.equal(report.opened, 1);
-  const issues = await rows<{ count: number }>("select count(*)::int as count from issues where group_id = $1", [
-    loop.groupId,
-  ]);
-  assert.equal(issues[0].count, 1);
+  assert.equal((await sweep({ at: AFTER_FIRST_SLOT })).opened, 1);
+  assert.equal((await sweep({ at: AFTER_FIRST_SLOT })).opened, 0);
+  assert.equal((await issuesOf(loop.groupId)).length, 1);
+  assert.equal(await outboxCount("prompt:"), 3);
 });
 
 test("delivery sends one issue email per member with their own link", async () => {
@@ -104,6 +105,38 @@ test("delivery sends one issue email per member with their own link", async () =
   assert.match(mail[0].html, /added|late|later/i);
 });
 
+test("delivery opens the next round, and its questions ride along in each writer's email", async () => {
+  const loop = await seedLoop();
+  const issue = await seedOpenIssue(loop, { openedAt: AFTER_FIRST_SLOT });
+  const alice = loop.members.find((member) => member.email.startsWith("alice"))!;
+  const bob = loop.members.find((member) => member.email.startsWith("bob"))!;
+  await rows("update memberships set participation = 'reader' where id = $1", [bob.id]);
+  await seedReplies({ issueId: issue.issueId, membershipId: alice.id, answers: [{ text: ALICE_QUESTION, body: "Yes." }] });
+
+  const report = await sweep({ at: DELIVERY_DAY });
+  assert.equal(report.delivered, 1);
+  assert.equal(report.opened, 1);
+
+  const [, next] = await issuesOf(loop.groupId);
+  assert.equal(next.number, 2);
+  assert.equal(next.status, "open");
+  assert.equal(new Date(next.opens_at).toISOString(), DELIVERY_DAY.toISOString());
+  // The Friday after this one: a round runs from one delivery to the next.
+  assert.equal(new Date(next.delivers_at).toISOString(), "2026-01-16T08:00:00.000Z");
+
+  // No separate prompt: the delivery carries the next round's questions instead.
+  assert.equal(await outboxCount("prompt:"), 0);
+  const mail = await rows<{ to: string; html: string; text: string }>(
+    "select \"to\", html, text from outbox where kind = 'delivery' order by \"to\"",
+  );
+  const forAlice = mail.find((row) => row.to === alice.email)!;
+  assert.match(forAlice.html, /Next up: Issue 2/);
+  assert.ok(forAlice.html.includes(`/r/${alice.token}`), "alice's own reply link");
+  assert.ok(forAlice.text.includes(`/r/${alice.token}`));
+  const forBob = mail.find((row) => row.to === bob.email)!;
+  assert.doesNotMatch(forBob.html, /Next up/, "a reader has nothing to answer");
+});
+
 test("delivery is idempotent: a second sweep sends nothing more", async () => {
   const loop = await seedLoop();
   const issue = await seedOpenIssue(loop, { openedAt: AFTER_FIRST_SLOT });
@@ -118,6 +151,7 @@ test("delivery is idempotent: a second sweep sends nothing more", async () => {
   assert.equal((await sweep({ at: DELIVERY_DAY })).delivered, 1);
   assert.equal((await sweep({ at: DELIVERY_DAY })).delivered, 0);
   assert.equal(await outboxCount("delivery:"), 3);
+  assert.equal((await issuesOf(loop.groupId)).length, 2, "one next round, not two");
 });
 
 test("a shared round gets a share token only when sharing is on", async () => {
@@ -140,35 +174,62 @@ test("a shared round gets a share token only when sharing is on", async () => {
   assert.ok(mail[0].html.includes(`/s/${row.share_token}`));
 });
 
-test("an empty round is skipped and pauses the loop with one note to the owner", async () => {
+test("an empty round carries over to the next delivery, twice, then pauses the loop", async () => {
   const loop = await seedLoop();
   const issue = await seedOpenIssue(loop, { openedAt: AFTER_FIRST_SLOT });
 
-  const report = await sweep({ at: DELIVERY_DAY });
-  assert.equal(report.skipped, 1);
-  assert.equal(report.delivered, 0);
-  assert.equal(await outboxCount("delivery:"), 0);
+  const first = await sweep({ at: DELIVERY_DAY });
+  assert.equal(first.carried, 1);
+  assert.equal(first.skipped, 0);
+  assert.equal(first.opened, 0);
+  let [row] = await issuesOf(loop.groupId);
+  assert.equal(row.status, "open");
+  assert.equal(new Date(row.delivers_at).toISOString(), "2026-01-16T08:00:00.000Z");
 
-  const [row] = await rows<{ status: string; skipped_at: Date | null }>(
+  const second = await sweep({ at: new Date("2026-01-16T08:05:00Z") });
+  assert.equal(second.carried, 1);
+  [row] = await issuesOf(loop.groupId);
+  assert.equal(new Date(row.delivers_at).toISOString(), "2026-01-23T08:00:00.000Z");
+  assert.equal(await outboxCount("delivery:"), 0);
+  assert.equal(await outboxCount("skipped:"), 0);
+
+  const third = await sweep({ at: new Date("2026-01-23T08:05:00Z") });
+  assert.equal(third.skipped, 1);
+  assert.equal(third.opened, 0, "a loop that pauses itself opens nothing in the same sweep");
+
+  const [skipped] = await rows<{ status: string; skipped_at: Date | null }>(
     "select status, skipped_at from issues where id = $1",
     [issue.issueId],
   );
-  assert.equal(row.status, "skipped");
-  assert.ok(row.skipped_at);
-
+  assert.equal(skipped.status, "skipped");
+  assert.ok(skipped.skipped_at);
   const [group] = await rows<{ paused_at: Date | null }>("select paused_at from groups where id = $1", [loop.groupId]);
   assert.ok(group.paused_at);
+  const notes = await rows<{ to: string }>("select \"to\" from outbox where kind = 'nudge'");
+  assert.deepEqual(notes.map((note) => note.to), ["owner@friendloop.test"], "only the owner is told");
+  assert.equal((await issuesOf(loop.groupId)).length, 1);
+});
 
-  const notes = await rows<{ to: string; kind: string }>("select \"to\", kind from outbox where kind = 'nudge'");
-  assert.equal(notes.length, 1, "only the owner is told");
-  assert.equal(notes[0].to, "owner@friendloop.test");
+test("an answer that arrives after a carry-over goes out at the new delivery", async () => {
+  const loop = await seedLoop();
+  const issue = await seedOpenIssue(loop, { openedAt: AFTER_FIRST_SLOT });
+  const alice = loop.members.find((member) => member.email.startsWith("alice"))!;
+
+  assert.equal((await sweep({ at: DELIVERY_DAY })).carried, 1);
+  await seedReplies({ issueId: issue.issueId, membershipId: alice.id, answers: [{ text: ALICE_QUESTION, body: "Late but here." }] });
+
+  const report = await sweep({ at: new Date("2026-01-16T08:05:00Z") });
+  assert.equal(report.delivered, 1);
+  assert.equal(await outboxCount("delivery:"), 3);
 });
 
 test("skipping is idempotent and never re-pauses", async () => {
   const loop = await seedLoop();
-  await seedOpenIssue(loop, { openedAt: AFTER_FIRST_SLOT });
+  const issue = await seedOpenIssue(loop, { openedAt: AFTER_FIRST_SLOT });
+  // Already carried over twice: this delivery is its third empty one.
+  await rows("update issues set slot_at = delivers_at - interval '14 days' where id = $1", [issue.issueId]);
 
-  await sweep({ at: DELIVERY_DAY });
+  assert.equal((await sweep({ at: DELIVERY_DAY })).skipped, 1);
   const second = await sweep({ at: DELIVERY_DAY });
   assert.equal(second.skipped, 0);
   assert.equal(await outboxCount("skipped:"), 1);
@@ -202,6 +263,16 @@ test("the reminder window is 48 hours, and only reaches people who owe an answer
   assert.equal((await sweep({ at: new Date(DELIVERY_DAY.getTime() - 23 * HOUR) })).reminded, 0);
 });
 
+test("a round carried over earns one more reminder before its new delivery", async () => {
+  const loop = await seedLoop();
+  await seedOpenIssue(loop, { openedAt: AFTER_FIRST_SLOT });
+
+  assert.equal((await sweep({ at: new Date(DELIVERY_DAY.getTime() - 24 * HOUR) })).reminded, 3);
+  assert.equal((await sweep({ at: DELIVERY_DAY })).carried, 1);
+  assert.equal((await sweep({ at: new Date(DELIVERY_DAY.getTime() + 6 * DAY) })).reminded, 3);
+  assert.equal((await sweep({ at: new Date(DELIVERY_DAY.getTime() + 6 * DAY + HOUR) })).reminded, 0);
+});
+
 test("a reader and a removed member are never reminded", async () => {
   const loop = await seedLoop();
   await seedOpenIssue(loop, { openedAt: AFTER_FIRST_SLOT });
@@ -223,6 +294,21 @@ test("a round with no questions produces no reminder", async () => {
   assert.equal((await sweep({ at: new Date(DELIVERY_DAY.getTime() - 24 * HOUR) })).reminded, 0);
 });
 
+test("a paused loop holds its round: no delivery, no reminder", async () => {
+  const loop = await seedLoop();
+  const issue = await seedOpenIssue(loop, { openedAt: AFTER_FIRST_SLOT });
+  const alice = loop.members.find((member) => member.email.startsWith("alice"))!;
+  await seedReplies({ issueId: issue.issueId, membershipId: alice.id, answers: [{ text: ALICE_QUESTION, body: "Held." }] });
+  await rows("update groups set paused_at = $1 where id = $2", [AFTER_FIRST_SLOT.toISOString(), loop.groupId]);
+
+  assert.equal((await sweep({ at: new Date(DELIVERY_DAY.getTime() - 24 * HOUR) })).reminded, 0);
+  const report = await sweep({ at: DELIVERY_DAY });
+  assert.equal(report.delivered, 0);
+  assert.equal(report.carried, 0);
+  const [row] = await issuesOf(loop.groupId);
+  assert.equal(row.status, "open");
+});
+
 test("the sweep reports how much of the outbox it retried", async () => {
   await rows(
     `insert into outbox ("to", subject, html, text, kind, dedupe_key, status)
@@ -238,17 +324,19 @@ test("the sweep reports how much of the outbox it retried", async () => {
 
 test("pendingWork describes what a sweep at this instant would act on", async () => {
   const loop = await seedLoop();
-  const quiet = await sweep({ at: BEFORE_FIRST_SLOT });
-  assert.equal(quiet.opened, 0);
 
   const before = await pendingWork(BEFORE_FIRST_SLOT);
   assert.equal(before.loops, 1);
-  assert.equal(before.dueSlots, 0);
+  assert.equal(before.dueSlots, 1, "a loop without a round");
   assert.equal(before.openIssues, 0);
 
-  await sweep({ at: AFTER_FIRST_SLOT });
+  await sweep({ at: BEFORE_FIRST_SLOT });
+  const quiet = await pendingWork(BEFORE_FIRST_SLOT);
+  assert.equal(quiet.dueSlots, 0);
+  assert.equal(quiet.openIssues, 1);
+
   const due = await pendingWork(AFTER_FIRST_SLOT);
-  assert.equal(due.openIssues, 1);
+  assert.equal(due.dueSlots, 1, "its delivery has come");
   assert.equal(loop.groupId.length, 36);
 });
 
@@ -275,32 +363,5 @@ test("two triggers at the same instant open one round between them", async () =>
   const loop = await seedLoop();
   const [a, b] = await Promise.all([sweep({ at: AFTER_FIRST_SLOT }), sweep({ at: AFTER_FIRST_SLOT })]);
   assert.equal(a.opened + b.opened, 1);
-
-  const issues = await rows<{ count: number }>("select count(*)::int as count from issues where group_id = $1", [
-    loop.groupId,
-  ]);
-  assert.equal(issues[0].count, 1);
-});
-
-
-test("a loop that pauses itself opens no round in the same sweep", async () => {
-  const loop = await seedLoop();
-  const issue = await seedOpenIssue(loop, { openedAt: AFTER_FIRST_SLOT });
-  // The next weekly slot falls due at the instant this round closes.
-  const report = await sweep({ at: issue.deliversAt });
-
-  assert.equal(report.skipped, 1);
-  assert.equal(report.opened, 0);
-  assert.equal(await outboxCount("prompt:"), 0);
-});
-
-test("a healthy round going out still opens the next one", async () => {
-  const loop = await seedLoop();
-  const issue = await seedOpenIssue(loop, { openedAt: AFTER_FIRST_SLOT });
-  const alice = loop.members.find((member) => member.email.startsWith("alice"))!;
-  await seedReplies({ issueId: issue.issueId, membershipId: alice.id, answers: [{ text: ALICE_QUESTION, body: "Yes." }] });
-
-  const report = await sweep({ at: issue.deliversAt });
-  assert.equal(report.delivered, 1);
-  assert.equal(report.opened, 1);
+  assert.equal((await issuesOf(loop.groupId)).length, 1);
 });

@@ -54,8 +54,9 @@ attributed to a person the group already knows.
 - Most replies happen on a phone, inside a mail client, within a day of the prompt.
 - The owner is the only person who manages anything, and does it in short bursts:
   set questions, invite someone, nudge stragglers.
-- The loop is weekly or biweekly, opens a seven-day reply window, and closes on a
-  fixed weekday and local hour in the loop's own timezone.
+- The loop goes out on a fixed weekday and local hour in the loop's own timezone,
+  weekly or less often. A round is open for answers from one delivery to the next,
+  so there is always one to answer.
 - Members live in different timezones; every deadline is shown in the loop's time
   and the reader's own.
 - Email is the entire delivery surface: prompts, reminders, issues, and sign-in
@@ -76,9 +77,11 @@ Confirmed for v1:
 - Delivered issues have comments and reactions. Comments can be hung from a single answer, quote another comment, carry one photo, and @mention any member (readers included, who get an email). The owner can turn commenting off for the loop; nothing is deleted.
 - Polls are a kind of question: two to six options, single or multiple choice. Contributors tap to answer, and the tally appears only once the issue is delivered.
 - A delivered issue can be shared by secret link, off by default.
-- Weekly or biweekly cadence, seven-day reply window, per-loop timezone.
-- Late replies are never lost: answers stay editable after delivery, and the web
-  issue is canonical while the email is a snapshot.
+- Weekly, biweekly, monthly or quarterly cadence, per-loop timezone. Answering is
+  open the whole time between deliveries.
+- Nobody misses the window: a round is open right up to its delivery, the next one
+  opens as it goes out, and a round with nothing in it carries over rather than
+  going out empty. The web issue is canonical while the email is a snapshot.
 - Runs on free tiers: Vercel Hobby, Neon, Resend.
 
 Explicitly undecided: whether a loop can be public/discoverable, native apps,
@@ -157,11 +160,14 @@ be wrong most of the time.
 
 Instead every run of `/api/cron/sweep` reconciles state:
 
-1. For each active loop, compute the scheduled slots whose instant has passed
-   (`schedule.dueSlots`).
-2. For any slot with no issue, create the issue, snapshot the questions, queue the
-   prompt emails.
-3. For any `open` issue past `deliversAt`, deliver or skip it.
+1. For any `open` issue past `deliversAt` (in a loop that isn't paused), deliver
+   it and open the next round in the same step; the delivery email carries the
+   new round's questions. An issue with nothing in it moves its `deliversAt` to
+   the next slot instead, and on its third empty delivery is `skipped` and pauses
+   the loop.
+2. For any running loop with no open issue, open one due at the next slot and
+   queue the prompt emails. (Creating a loop and resuming one open it directly.)
+3. Remind contributors who owe an answer 48 hours before `deliversAt`.
 4. Retry `outbox` rows still `pending`.
 
 `unique(group_id, slot_at)` plus `dedupe_key` make every step idempotent, so a late
@@ -175,14 +181,20 @@ run self-heals and a doubled run is a no-op. Triggers:
 
 ## 3 · Schedules are local wall-clock, resolved on demand
 
-A loop stores `timezone`, `prompt_weekday`, `prompt_hour`, `cadence_weeks`. It
-never stores a precomputed future instant, because a DST transition would silently
-shift it. Instants are resolved with `Temporal.ZonedDateTime` from
-`temporal-polyfill` at the moment they are needed, and only an issue that actually
-opened keeps a frozen `slot_at`/`delivers_at`.
+A loop stores `timezone`, `prompt_weekday`, `prompt_hour`, `cadence_weeks`: the
+moment its issue goes out (the `prompt_*` names are left from when they opened a
+round). It never stores a precomputed future instant, because a DST transition
+would silently shift it. Instants are resolved with `Temporal.ZonedDateTime` from
+`temporal-polyfill` at the moment they are needed, and only the open issue keeps a
+frozen `slot_at`/`delivers_at`.
 
-The reply window is a fixed 7 days (`window_days`), so delivery is the same
-weekday and hour, one week later, in the loop's timezone.
+A round runs from one delivery to the next: `opens_at` is when the previous one
+went out (or the loop was created), `delivers_at` the next slot after it, however
+close that is. `slot_at` is the slot it was opened for, so `slot_at` to
+`delivers_at` counts how often an empty round was carried over. Editing the
+question pool or the sections while a round is open changes that round, except
+that anything someone has started answering stays. "Send now" delivers the open
+round early and the next one is due at the slot after the one it replaced.
 
 Every human-facing deadline renders twice: the loop's time and the reader's own.
 
@@ -207,12 +219,15 @@ is a POST (server action or route handler) behind a confirm.
 
 ## 5 · Email is a snapshot, the permalink is canonical
 
-Delivery compiles the submitted replies into (a) an email and (b) a live page.
-Replies stay editable after delivery and appear on the page marked "added later";
-comments and reactions live on the page. This removes the "missed it by three
-hours" failure mode instead of papering over it with timezone cleverness.
+Delivery compiles the submitted replies into (a) an email and (b) a live page;
+comments and reactions live on the page. The reply link always points at the round
+that is open, so once an issue goes out, the link moves on to the next one. (Late
+replies to a delivered issue, marked "added later", remain for loops whose next
+round never opened.) The "missed it by three hours" failure mode is removed by
+there always being a round to answer, not by timezone cleverness.
 
-An issue with zero submitted replies is `skipped`, not sent, and pauses the loop.
+An issue with zero submitted replies is carried over to the next delivery; on its
+third empty delivery it is `skipped`, not sent, and pauses the loop.
 
 ## 6 · Release safety
 
@@ -338,20 +353,20 @@ Status: `todo` (not built) · `done` (built and covered).
 | C1 | Add a custom question | A new question appears at the end of the pool, is active, and is available to the next issue. | done |
 | C2 | Reorder questions | Moving a question changes the order shown in the pool and the order used by the next issue. | done |
 | C3 | Archive a question | Archiving removes it from the pool's active list and from future issues, while past issues still render its original text. | done |
-| C4 | Choose the next issue's questions | Deselecting a question excludes it from the next issue only; the question stays in the pool. | done |
+| C4 | Choose the open round's questions | Skipping a question takes it out of the round that is open (unless someone has started answering it) until that round goes out; the question stays in the pool. | done |
 
 ## D · The issue cycle
 
 | ID | Flow | Acceptance criteria | Status |
 | --- | --- | --- | --- |
-| D1 | Open an issue on schedule | With the clock past the loop's slot, the sweep creates exactly one issue with a snapshot of the selected questions and one `prompt` outbox row per contributor. | done |
-| D2 | Do not open early or twice | Running the sweep before the slot creates nothing; running it twice for the same slot creates no second issue and no duplicate email. | done |
-| D3 | Start an issue manually | "Send now" opens an issue immediately, emails contributors, and does not create a duplicate when the scheduled slot later arrives. | done |
+| D1 | Always a round open | A running loop without an open issue gets one at once from the sweep, due at the next delivery, with one `prompt` outbox row per contributor; creating a loop opens round 1 the same way. | done |
+| D2 | Do not open twice | A second sweep, or two at once, opens no second round and sends no duplicate email. | done |
+| D3 | Send now | "Send now" delivers the open round with the answers in so far, opens the next round straight away, and that round is due at the delivery after the one it replaced. With nothing in the round it sends nothing. | done |
 | D4 | Draft autosaves | Typing an answer persists it as a draft; reloading the reply page restores every draft. | done |
 | D5 | Submit answers | Submitting marks replies submitted with a timestamp, the bar shows "sent", and the owner's progress count increases. | done |
 | D6 | Edit a submitted answer | Before delivery, editing and re-submitting updates the reply and its timestamp without creating a duplicate row. | done |
-| D7 | Deliver the issue | With the clock past the delivery instant, the sweep sends one issue email per member containing every submitted answer, and the issue's status becomes `delivered`. | done |
-| D8 | Nothing to deliver | An issue reaching its delivery instant with zero submitted replies is marked `skipped`, sends no delivery email, and pauses the loop with an explanation to the owner. | done |
+| D7 | Deliver the issue | With the clock past the delivery instant, the sweep sends one issue email per member containing every submitted answer, the issue's status becomes `delivered`, and the next round opens with its questions in each contributor's email. | done |
+| D8 | Nothing to deliver | An issue reaching its delivery instant with zero submitted replies sends no email and is carried over to the next delivery; on its third empty delivery it is marked `skipped` and pauses the loop with an explanation to the owner. | done |
 | D9 | Nudge the stragglers | 48 hours before delivery, contributors with nothing submitted get exactly one reminder; anyone who submitted gets none, and a second sweep sends no duplicate. | done |
 
 ## E · Reading and reacting
@@ -368,8 +383,8 @@ Status: `todo` (not built) · `done` (built and covered).
 
 | ID | Flow | Acceptance criteria | Status |
 | --- | --- | --- | --- |
-| F1 | Change cadence or timezone | Saving a new weekday, hour, cadence or timezone changes the next send time shown to the owner and does not move an already-open issue's deadline. | done |
-| F2 | Pause and resume | Pausing stops new issues from opening and says so on the dashboard; resuming schedules the next slot from the resume moment. | done |
+| F1 | Change cadence or timezone | Saving a new weekday, hour, cadence or timezone changes when the issue goes out, shown to the owner, and moves the open round to the new delivery. | done |
+| F2 | Pause and resume | Pausing holds the open round (no delivery, no answers) and says so on the dashboard; resuming picks it up again, due at the next delivery if its own has passed. | done |
 | F3 | Remove a member | Removing a member stops their emails and revokes their links; their past answers remain in delivered issues. | done |
 | F4 | Delete a loop | The owner confirms by typing the loop name; the loop, its issues, replies and outbox rows disappear and `/g/<id>` 404s. | done |
 | F5 | Non-owner is refused | A plain member visiting an owner route gets a 404/403 page, and the same request as a POST is rejected server-side. | done |

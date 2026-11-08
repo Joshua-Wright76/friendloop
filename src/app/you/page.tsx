@@ -9,7 +9,7 @@ import { db } from "@/db";
 import { currentUser } from "@/lib/auth";
 import { getNow } from "@/lib/clock";
 import { formatDate, atMoment, formatMoment } from "@/lib/format";
-import { groupSchedule, upcomingSlot } from "@/lib/schedule";
+import { groupSchedule, nextSlot } from "@/lib/schedule";
 import { Brand, Cherries, Tape } from "@/components/stationery";
 import { NoticeFocus } from "@/components/notice-focus";
 import { copy, text } from "@/lib/copy";
@@ -123,9 +123,7 @@ type LoopCard = {
   promptWeekday: number;
   promptHour: number;
   cadenceWeeks: number;
-  windowDays: number;
   createdAt: Date;
-  lastSlotAt: Date | null;
   pausedAt: Date | null;
   issueNumber: number | null;
   issueStatus: "open" | "delivered" | null;
@@ -143,8 +141,8 @@ type LoopCard = {
 async function loopCards(userId: string): Promise<LoopCard[]> {
   const rows = await db.execute<Record<string, unknown>>(sql`
     select g.id, g.name, m.access, g.timezone,
-      g.prompt_weekday, g.prompt_hour, g.cadence_weeks, g.window_days,
-      g.created_at, g.last_slot_at, g.paused_at, g.theme_mascot,
+      g.prompt_weekday, g.prompt_hour, g.cadence_weeks,
+      g.created_at, g.paused_at, g.theme_mascot,
       li.number as issue_number, li.status as issue_status, li.delivers_at, li.delivered_at,
       coalesce(li.answered, 0)::int as answered,
       (select count(*)::int from memberships w
@@ -173,9 +171,7 @@ async function loopCards(userId: string): Promise<LoopCard[]> {
     promptWeekday: Number(row.prompt_weekday),
     promptHour: Number(row.prompt_hour),
     cadenceWeeks: Number(row.cadence_weeks),
-    windowDays: Number(row.window_days),
     createdAt: date(row.created_at)!,
-    lastSlotAt: date(row.last_slot_at),
     pausedAt: date(row.paused_at),
     issueNumber: row.issue_number == null ? null : Number(row.issue_number),
     issueStatus: (row.issue_status ?? null) as LoopCard["issueStatus"],
@@ -188,6 +184,7 @@ async function loopCards(userId: string): Promise<LoopCard[]> {
 
 /** One line of where the loop stands, in the reader's own zone. */
 function statusLine(loop: LoopCard, at: Date, timezone: string): string {
+  if (loop.pausedAt) return copy.you.status.paused;
   if (loop.issueStatus === "open" && loop.issueNumber != null && loop.deliversAt) {
     return text(copy.you.status.open, {
       number: loop.issueNumber,
@@ -196,9 +193,8 @@ function statusLine(loop: LoopCard, at: Date, timezone: string): string {
       writers: loop.writers,
     });
   }
-  if (loop.pausedAt) return copy.you.status.paused;
   if (loop.issueStatus === "delivered" && loop.deliveredAt) {
     return text(copy.you.status.delivered, { date: formatDate(loop.deliveredAt, timezone) });
   }
-  return text(copy.you.status.first, { date: formatDate(upcomingSlot(groupSchedule(loop), at), timezone) });
+  return text(copy.you.status.first, { date: formatDate(nextSlot(groupSchedule(loop), at), timezone) });
 }

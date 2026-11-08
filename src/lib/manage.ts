@@ -13,15 +13,13 @@ import { consume, LIMITS, MAX_MEMBERS_PER_LOOP, limitKey } from "./rate-limit";
 import { newToken } from "./tokens";
 import { emailThemeOf, inviteEmail } from "./email/templates";
 import { sendEmail } from "./email/send";
-import { sendPromptEmails } from "./notify";
 import { replyUrl, unsubscribeUrl, url } from "./urls";
-import { deliveryInstant, groupSchedule, nextSlot } from "./schedule";
+import { groupSchedule, nextSlot } from "./schedule";
+import { openRound, rescheduleOpenRound, setLoopPaused } from "./rounds";
+import { syncOpenRoundQuestions } from "./round-questions";
 import { INVITE_DAYS } from "./reply";
 import { reorderIds } from "./question-order";
 import { newQuestionTexts } from "./question-packs";
-import { snapshotQuestionsForIssue } from "./round-questions";
-import { snapshotEventsForIssue } from "./events";
-import { snapshotSectionsForIssue } from "./sections";
 import { checkPoll } from "./poll";
 import { eraseLoop } from "./erasure";
 
@@ -92,6 +90,9 @@ export async function createLoop(input: CreateLoopInput): Promise<string> {
       texts.map((text, index) => ({ groupId: group.id, text, position: index })),
     );
   }
+
+  // Round 1 takes answers from the start, so whoever joins can write straight away.
+  await openRound({ groupId: group.id, at: input.at, prompt: true });
 
   return group.id;
 }
@@ -444,6 +445,7 @@ export async function addQuestion(groupId: string, text: string, at: Date) {
     .insert(questions)
     .values({ groupId, text: trimmed, position: maxPosition + 1, createdAt: at })
     .returning({ id: questions.id });
+  await syncOpenRoundQuestions(groupId);
   return row.id;
 }
 
@@ -476,6 +478,7 @@ export async function addPoll(
       createdAt: at,
     })
     .returning({ id: questions.id });
+  await syncOpenRoundQuestions(groupId);
   return { ok: true, id: row.id };
 }
 
@@ -501,11 +504,12 @@ export async function addQuestionTexts(groupId: string, texts: string[], at: Dat
       createdAt: at,
     })),
   );
+  await syncOpenRoundQuestions(groupId);
   return fresh.length;
 }
 
 export async function reorderQuestion(groupId: string, questionId: string, targetIndex: number) {
-  return db.transaction(async (tx) => {
+  const moved = await db.transaction(async (tx) => {
     // Serialize reorder requests for this group so each one applies to the latest order.
     await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${groupId}, 0))`);
     const rows = await tx
@@ -526,6 +530,8 @@ export async function reorderQuestion(groupId: string, questionId: string, targe
     ));
     return true;
   });
+  if (moved) await syncOpenRoundQuestions(groupId);
+  return moved;
 }
 
 export async function archiveQuestion(groupId: string, questionId: string, at: Date) {
@@ -533,6 +539,7 @@ export async function archiveQuestion(groupId: string, questionId: string, at: D
     .update(questions)
     .set({ archivedAt: at, active: false, skipNext: false })
     .where(and(eq(questions.id, questionId), eq(questions.groupId, groupId)));
+  await syncOpenRoundQuestions(groupId);
 }
 
 export async function toggleSkipNext(groupId: string, questionId: string) {
@@ -547,6 +554,7 @@ export async function toggleSkipNext(groupId: string, questionId: string) {
     .update(questions)
     .set({ skipNext: !row.skipNext })
     .where(eq(questions.id, questionId));
+  await syncOpenRoundQuestions(groupId);
   return true;
 }
 
@@ -561,9 +569,9 @@ export type LoopSettings = {
   commentsEnabled?: boolean;
 };
 
-export async function updateLoopSettings(groupId: string, settings: LoopSettings) {
+export async function updateLoopSettings(groupId: string, settings: LoopSettings, at?: Date) {
   const [before] = await db
-    .select({ shareEnabled: groups.shareEnabled })
+    .select()
     .from(groups)
     .where(eq(groups.id, groupId))
     .limit(1);
@@ -586,6 +594,19 @@ export async function updateLoopSettings(groupId: string, settings: LoopSettings
   // setting only ever applies to the next delivery.
   if (settings.shareEnabled && !before?.shareEnabled) {
     await backfillShareTokens(groupId);
+  }
+
+  // The schedule is when the issue goes out, so a new one moves the open round's
+  // delivery with it: the round people are writing goes out on the new day.
+  const moved =
+    before &&
+    (before.timezone !== settings.timezone ||
+      before.promptWeekday !== settings.promptWeekday ||
+      before.promptHour !== settings.promptHour ||
+      before.cadenceWeeks !== settings.cadenceWeeks);
+  if (moved && at) {
+    const [group] = await db.select().from(groups).where(eq(groups.id, groupId)).limit(1);
+    if (group) await rescheduleOpenRound(group, nextSlot(groupSchedule(group), at));
   }
 }
 
@@ -621,90 +642,12 @@ export async function rotateShareLinks(groupId: string): Promise<number> {
 }
 
 export async function setPaused(groupId: string, paused: boolean, at: Date) {
-  await db
-    .update(groups)
-    .set(
-      paused
-        ? { pausedAt: at }
-        : // Resuming starts the rhythm from now, so a long pause never backfills.
-          // A slot already used up by "Send now" stays used.
-          { pausedAt: null, lastSlotAt: sql`greatest(${groups.lastSlotAt}, ${at.toISOString()}::timestamptz)` },
-    )
-    .where(eq(groups.id, groupId));
+  await setLoopPaused(groupId, paused, at);
 }
 
 /** Every round, answer and comment goes, and so does every photo and voice note. */
 export async function deleteLoop(groupId: string) {
   await eraseLoop(groupId);
-}
-
-/** Start a round by hand, without waiting for the schedule. */
-/**
- * `created` is false when a round was already open: nothing new was sent, so the
- * caller must not claim everyone was emailed.
- */
-export async function openIssueNow(
-  groupId: string,
-  at: Date,
-): Promise<{ issueId: string; number: number; created: boolean } | null> {
-  const [group] = await db.select().from(groups).where(eq(groups.id, groupId)).limit(1);
-  if (!group) return null;
-
-  const [open] = await db
-    .select({ id: issues.id, number: issues.number })
-    .from(issues)
-    .where(and(eq(issues.groupId, groupId), eq(issues.status, "open")))
-    .limit(1);
-  if (open) return { issueId: open.id, number: open.number, created: false };
-
-  const deliversAt = deliveryInstant(at, group);
-
-  // Same race as the scheduled sweep: two "Send now" clicks can compute the same
-  // number, and only the slot conflict is ignored. Lock the loop first.
-  const issue = await db.transaction(async (tx) => {
-    await tx.execute(sql`select id from ${groups} where ${groups.id} = ${groupId} for update`);
-
-    const [{ maxNumber }] = await tx
-      .select({ maxNumber: sql<number>`coalesce(max(${issues.number}), 0)::int` })
-      .from(issues)
-      .where(eq(issues.groupId, groupId));
-
-    const [created] = await tx
-      .insert(issues)
-      .values({ groupId, number: maxNumber + 1, slotAt: at, opensAt: at, deliversAt })
-      .onConflictDoNothing({ target: [issues.groupId, issues.slotAt] })
-      .returning({ id: issues.id, number: issues.number });
-    return created ?? null;
-  });
-
-  if (!issue) return null;
-
-  const questionCount = await snapshotQuestionsForIssue({ group, issueId: issue.id });
-  await snapshotSectionsForIssue({ group, issueId: issue.id });
-  await snapshotEventsForIssue({
-    group,
-    issueId: issue.id,
-    opensAt: at,
-    deliversAt,
-    nextSlotAt: nextSlot(groupSchedule(group), at),
-  });
-
-  // This round takes the place of the next scheduled one, so that slot must not
-  // open a second round beside it. The rhythm picks up again at the slot after.
-  await db
-    .update(groups)
-    .set({ lastSlotAt: nextSlot(groupSchedule(group), at) })
-    .where(eq(groups.id, groupId));
-
-  await sendPromptEmails({
-    group,
-    issueId: issue.id,
-    issueNumber: issue.number,
-    deliversAt,
-    questionCount,
-  });
-
-  return { issueId: issue.id, number: issue.number, created: true };
 }
 
 export async function membersOf(groupId: string) {

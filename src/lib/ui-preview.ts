@@ -348,7 +348,6 @@ async function seedUiPreview(now: Date, { deleteGroup, deleteUser }: { deleteGro
       promptWeekday: 5,
       promptHour: 9,
       cadenceWeeks: 1,
-      windowDays: 7,
       shareEnabled: true,
       isSynthetic: true,
       createdAt: new Date(now.getTime() - 30 * 86400000),
@@ -399,16 +398,17 @@ async function seedUiPreview(now: Date, { deleteGroup, deleteUser }: { deleteGro
       pollOptions: POLLS[index]?.options ?? null,
     }))).onConflictDoNothing();
 
+    const previewDelivery = nextSlot({ timezone: "Europe/Amsterdam", promptWeekday: 5, promptHour: 9, cadenceWeeks: 1, createdAt: new Date(now.getTime() - 30 * 86400000) }, now);
     await tx.insert(issues).values([
       {
         id: UI_PREVIEW.openIssueId,
         groupId: UI_PREVIEW.groupId,
         number: 12,
         status: "open",
-        slotAt: now,
-        opensAt: now,
-        // As in a real weekly loop: this round closes when the next one opens.
-        deliversAt: nextSlot({ timezone: "Europe/Amsterdam", promptWeekday: 5, promptHour: 9, cadenceWeeks: 1, windowDays: 7, createdAt: new Date(now.getTime() - 30 * 86400000), lastSlotAt: null }, now),
+        slotAt: previewDelivery,
+        opensAt: new Date(now.getTime() - 86400000),
+        // As in a real weekly loop: open since the last issue went out, due at the next delivery.
+        deliversAt: previewDelivery,
       },
       {
         id: UI_PREVIEW.deliveredIssueId,

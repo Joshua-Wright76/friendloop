@@ -2,7 +2,7 @@ import { db } from "@/db";
 import { groups, issues, memberships, questions, users, replies, issueQuestions } from "@/db/schema";
 import { and, asc, eq, sql } from "drizzle-orm";
 import { newToken } from "@/lib/tokens";
-import { deliveryInstant } from "@/lib/schedule";
+import { Temporal } from "temporal-polyfill";
 import { E2E_NOW } from "./clock";
 
 /**
@@ -112,16 +112,19 @@ export async function seedLoop(input: SeedLoopInput = {}): Promise<SeededLoop> {
   return { groupId: group.id, ownerToken: created[0]?.token ?? "", members: created, questionIds };
 }
 
-/** Create an already-open issue, as the sweep would have. */
+/** The same local wall clock `days` later: a round open for that long. */
+function daysLater(at: Date, days: number, timezone: string): Date {
+  const zoned = Temporal.Instant.from(at.toISOString()).toZonedDateTimeISO(timezone);
+  return new Date(zoned.add({ days }).toInstant().epochMilliseconds);
+}
+
+/** Create an already-open issue, as the sweep would have: open `windowDays` (7) before it goes out. */
 export async function seedOpenIssue(
   loop: SeededLoop,
   input: { openedAt: Date; windowDays?: number; timezone?: string },
 ): Promise<{ issueId: string; number: number; deliversAt: Date }> {
   const [group] = await db.select().from(groups).where(eq(groups.id, loop.groupId)).limit(1);
-  const deliversAt = deliveryInstant(input.openedAt, {
-    timezone: input.timezone ?? group.timezone,
-    windowDays: input.windowDays ?? 7,
-  });
+  const deliversAt = daysLater(input.openedAt, input.windowDays ?? 7, input.timezone ?? group.timezone);
 
   const [{ maxNumber }] = await db
     .select({ maxNumber: sql<number>`coalesce(max(${issues.number}), 0)::int` })
@@ -133,7 +136,7 @@ export async function seedOpenIssue(
     .values({
       groupId: loop.groupId,
       number: maxNumber + 1,
-      slotAt: input.openedAt,
+      slotAt: deliversAt,
       opensAt: input.openedAt,
       deliversAt,
     })
@@ -153,8 +156,6 @@ export async function seedOpenIssue(
       })),
     );
   }
-
-  await db.update(groups).set({ lastSlotAt: input.openedAt }).where(eq(groups.id, loop.groupId));
 
   return { issueId: issue.id, number: issue.number, deliversAt };
 }

@@ -3,8 +3,9 @@ import assert from "node:assert/strict";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { events, groups, issues, memberships, sections } from "@/db/schema";
-import { createEvent, deleteEvent, eventsOf, snapshotEventsForIssue, updateEvent } from "../../src/lib/events.ts";
-import { openIssueNow, removeMember } from "../../src/lib/manage.ts";
+import { createEvent, deleteEvent, eventsOf, placeEventsInRound, updateEvent } from "../../src/lib/events.ts";
+import { removeMember } from "../../src/lib/manage.ts";
+import { openRound } from "../../src/lib/rounds.ts";
 import { sectionsForSheet, saveSectionTextFor } from "../../src/lib/sections.ts";
 import { submitFor } from "../../src/lib/reply.ts";
 import { sweep } from "../../src/lib/sweep.ts";
@@ -86,12 +87,12 @@ test("a birthday lands in exactly one issue a year, however many weekly issues o
   const loop = await seedLoop();
   await addBirthday(loop, "1990-01-20");
   for (let week = 0; week < 8; week += 1) {
-    // Nobody answers, so each round is skipped and pauses the loop; keep it going.
+    // Nobody answers, so the round carries over and, in time, pauses the loop; keep it going.
     await db.update(groups).set({ pausedAt: null }).where(eq(groups.id, loop.groupId));
     await sweep({ at: new Date(AFTER_FIRST_SLOT.getTime() + week * 7 * 24 * 3600 * 1000) });
   }
   const found = await eventSections();
-  assert.equal((await rows<{ count: number }>("select count(*)::int as count from issues"))[0].count >= 4, true);
+  assert.equal((await rows<{ count: number }>("select count(*)::int as count from issues"))[0].count >= 2, true);
   assert.equal(found.length, 1);
   assert.equal(found[0].event_date, "2026-01-20");
 });
@@ -101,12 +102,11 @@ test("repeating the snapshot for the same issue never doubles a section", async 
   await addBirthday(loop, "1990-01-06");
   await sweep({ at: AFTER_FIRST_SLOT });
   const [issue] = await rows<{ id: string; opens_at: Date; delivers_at: Date }>("select id, opens_at, delivers_at from issues");
-  const again = await snapshotEventsForIssue({
+  const again = await placeEventsInRound({
     group: await groupOf(loop.groupId),
     issueId: issue.id,
     opensAt: issue.opens_at,
     deliversAt: issue.delivers_at,
-    nextSlotAt: issue.delivers_at,
   });
   assert.equal(again, 0);
   assert.equal((await eventSections()).length, 1);
@@ -191,7 +191,7 @@ test("a paused loop opens nothing, so nothing is placed", async () => {
 test("a manual round picks up events in its window too", async () => {
   const loop = await seedLoop();
   await addBirthday(loop, "1990-01-04");
-  const opened = await openIssueNow(loop.groupId, AFTER_FIRST_SLOT);
+  const opened = await openRound({ groupId: loop.groupId, at: AFTER_FIRST_SLOT, prompt: false });
   assert.ok(opened);
   assert.equal((await eventSections()).length, 1);
 });
@@ -361,7 +361,7 @@ test("the same birthday comes back the next year as a new section in a new issue
     .insert(issues)
     .values({ groupId: group.id, number: 2, slotAt: opensAt, opensAt, deliversAt })
     .returning({ id: issues.id });
-  const placed = await snapshotEventsForIssue({ group, issueId: next.id, opensAt, deliversAt, nextSlotAt: deliversAt });
+  const placed = await placeEventsInRound({ group, issueId: next.id, opensAt, deliversAt });
   assert.equal(placed, 1);
   const found = await eventSections();
   assert.deepEqual(found.map((row) => row.event_date), ["2026-01-06", "2027-01-06"]);

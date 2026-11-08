@@ -4,6 +4,7 @@ import {
   events,
   groups,
   issueSections,
+  issues,
   memberships,
   musicLinks,
   sectionMedia,
@@ -176,6 +177,87 @@ async function fetchWithTimeout(url: string): Promise<Response> {
   }
 }
 
+/**
+ * Keep the open round's sections in step with the loop's. A round is open from
+ * one delivery to the next, so a section the owner adds, edits, moves or turns off
+ * is meant for the round people are answering now. A section someone has started
+ * writing in stays, words and all, so nobody's answer loses its question.
+ */
+export async function syncOpenRoundSections(groupId: string): Promise<void> {
+  const [open] = await db
+    .select({ id: issues.id })
+    .from(issues)
+    .where(and(eq(issues.groupId, groupId), eq(issues.status, "open")))
+    .limit(1);
+  if (!open) return;
+
+  const pool = await db
+    .select()
+    .from(sections)
+    .where(and(eq(sections.groupId, groupId), eq(sections.active, true), isNull(sections.archivedAt)))
+    .orderBy(asc(sections.position));
+  const wanted = new Map(pool.map((section) => [section.id, section]));
+
+  const current = (await db.select().from(issueSections).where(eq(issueSections.issueId, open.id)))
+    .filter((row) => row.sectionId !== null);
+  const started = new Set(
+    current.length === 0
+      ? []
+      : (
+          await db
+            .selectDistinct({ id: sectionReplies.issueSectionId })
+            .from(sectionReplies)
+            .where(and(eq(sectionReplies.issueId, open.id), inArray(sectionReplies.issueSectionId, current.map((row) => row.id))))
+        ).map((row) => row.id),
+  );
+
+  const dropped = current.filter((row) => !wanted.has(row.sectionId!) && !started.has(row.id));
+  if (dropped.length > 0) {
+    await db.delete(issueSections).where(inArray(issueSections.id, dropped.map((row) => row.id)));
+  }
+
+  for (const row of current) {
+    const section = wanted.get(row.sectionId!);
+    if (!section) continue;
+    // Once someone has written under a title, the title they answered stays.
+    const words = started.has(row.id)
+      ? {}
+      : { title: section.title, emoji: section.emoji, description: section.description, adminOnly: section.adminOnly };
+    const next = { ...row, ...words, position: section.position };
+    const same =
+      row.title === next.title &&
+      row.emoji === next.emoji &&
+      row.description === next.description &&
+      row.adminOnly === next.adminOnly &&
+      row.position === next.position;
+    if (same) continue;
+    await db
+      .update(issueSections)
+      .set({ ...words, position: section.position })
+      .where(eq(issueSections.id, row.id));
+  }
+
+  const have = new Set(current.map((row) => row.sectionId));
+  const added = pool.filter((section) => !have.has(section.id));
+  if (added.length > 0) {
+    await db
+      .insert(issueSections)
+      .values(
+        added.map((section) => ({
+          issueId: open.id,
+          sectionId: section.id,
+          kind: section.kind,
+          title: section.title,
+          emoji: section.emoji,
+          description: section.description,
+          adminOnly: section.adminOnly,
+          position: section.position,
+        })),
+      )
+      .onConflictDoNothing({ target: [issueSections.issueId, issueSections.sectionId] });
+  }
+}
+
 /** Snapshot the loop's active sections into a fresh issue, after the questions. */
 export async function snapshotSectionsForIssue(input: {
   group: typeof groups.$inferSelect;
@@ -195,18 +277,22 @@ export async function snapshotSectionsForIssue(input: {
 
   if (pool.length === 0) return 0;
 
-  await db.insert(issueSections).values(
-    pool.map((section) => ({
-      issueId: input.issueId,
-      sectionId: section.id,
-      kind: section.kind,
-      title: section.title,
-      emoji: section.emoji,
-      description: section.description,
-      adminOnly: section.adminOnly,
-      position: section.position,
-    })),
-  );
+  // A section added at the same moment may already have been synced in.
+  await db
+    .insert(issueSections)
+    .values(
+      pool.map((section) => ({
+        issueId: input.issueId,
+        sectionId: section.id,
+        kind: section.kind,
+        title: section.title,
+        emoji: section.emoji,
+        description: section.description,
+        adminOnly: section.adminOnly,
+        position: section.position,
+      })),
+    )
+    .onConflictDoNothing({ target: [issueSections.issueId, issueSections.sectionId] });
   return pool.length;
 }
 
@@ -641,6 +727,7 @@ export async function createSection(input: {
     position: maxPosition + 1,
     createdAt: input.at,
   });
+  await syncOpenRoundSections(input.groupId);
   return { ok: true };
 }
 
@@ -667,6 +754,7 @@ export async function updateSection(input: {
       active: input.active,
     })
     .where(and(eq(sections.id, input.sectionId), eq(sections.groupId, input.groupId)));
+  await syncOpenRoundSections(input.groupId);
   return { ok: true };
 }
 
@@ -687,6 +775,7 @@ export async function moveSection(input: {
     }
     position += 1;
   }
+  await syncOpenRoundSections(input.groupId);
 }
 
 export async function archiveSection(input: { groupId: string; sectionId: string; at: Date }): Promise<void> {
@@ -694,4 +783,5 @@ export async function archiveSection(input: { groupId: string; sectionId: string
     .update(sections)
     .set({ archivedAt: input.at, active: false })
     .where(and(eq(sections.id, input.sectionId), eq(sections.groupId, input.groupId)));
+  await syncOpenRoundSections(input.groupId);
 }

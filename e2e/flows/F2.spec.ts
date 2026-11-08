@@ -1,34 +1,42 @@
 import { test, expect } from "@playwright/test";
 import { resetDatabase, rows } from "../support/db";
 import { seedLoop } from "../support/seed";
-import { AFTER_FIRST_SLOT, openPart, runSweep, signIn } from "../support/harness";
+import { AFTER_FIRST_SLOT, clockHeaders, openPart, runSweep, signIn } from "../support/harness";
 
 test.beforeEach(async () => {
   await resetDatabase();
 });
 
-test("F2 · paused loops open nothing; resuming starts from now", async ({ page }) => {
+test("F2 · a paused loop holds its round; resuming picks it back up", async ({ page }) => {
   const loop = await seedLoop();
+  await runSweep(AFTER_FIRST_SLOT);
   await signIn(page, "owner@friendloop.test");
+  await page.setExtraHTTPHeaders(clockHeaders(AFTER_FIRST_SLOT));
 
   await page.goto(`/g/${loop.groupId}`);
   await page.getByRole("button", { name: "Pause" }).click();
-  await expect(page.getByText("Nothing goes out until you resume it.")).toBeVisible();
+  await expect(page.getByText("Nothing goes out and nobody can answer until you resume it.")).toBeVisible();
 
-  const paused = await runSweep(AFTER_FIRST_SLOT);
-  expect(paused.opened).toBe(0);
+  // Its delivery comes and goes, and nothing is sent or carried.
+  const paused = await runSweep(new Date("2026-01-09T08:05:00Z"));
+  expect(paused.delivered + paused.carried + paused.opened).toBe(0);
 
+  // Resumed after the day it was due: the same round, going out on the next one.
+  await page.setExtraHTTPHeaders(clockHeaders(new Date("2026-01-12T12:00:00Z")));
   await page.goto(`/g/${loop.groupId}/settings`);
   await openPart(page, "Pause and export");
   await page.getByRole("button", { name: "Resume" }).click();
   await expect(page.getByRole("button", { name: "Pause" })).toBeVisible();
 
   // The button changes before the write behind it lands, so wait for that.
-  const groupRow = async () =>
-    (await rows<{ paused_at: string | null; last_slot_at: string | null }>(
-      "select paused_at, last_slot_at from groups where id = $1",
+  const state = async () =>
+    (await rows<{ paused_at: string | null; delivers_at: string; count: number }>(
+      `select g.paused_at, i.delivers_at, (select count(*)::int from issues where group_id = g.id) as count
+       from groups g join issues i on i.group_id = g.id and i.status = 'open' where g.id = $1`,
       [loop.groupId],
     ))[0];
-  await expect.poll(async () => (await groupRow()).paused_at).toBeNull();
-  expect((await groupRow()).last_slot_at).not.toBeNull();
+  // Unpausing and rescheduling are two writes, so wait for the second.
+  await expect.poll(async () => new Date((await state()).delivers_at).toISOString()).toBe("2026-01-16T08:00:00.000Z");
+  expect((await state()).paused_at).toBeNull();
+  expect((await state()).count).toBe(1);
 });

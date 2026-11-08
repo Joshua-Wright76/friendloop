@@ -29,6 +29,7 @@ export async function runSweep(
 ): Promise<{
   opened: number;
   delivered: number;
+  carried: number;
   skipped: number;
   reminded: number;
   retried: number;
@@ -44,6 +45,7 @@ export async function runSweep(
   return (await response.json()) as {
     opened: number;
     delivered: number;
+    carried: number;
     skipped: number;
     reminded: number;
     retried: number;

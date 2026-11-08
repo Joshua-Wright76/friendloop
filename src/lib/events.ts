@@ -12,7 +12,6 @@ import {
   parseDateInput,
   type EventRule,
 } from "./event-dates.ts";
-import { groupSchedule, nextSlot } from "./schedule";
 
 type GroupRow = typeof groups.$inferSelect;
 type EventRow = typeof events.$inferSelect;
@@ -104,13 +103,17 @@ async function placeEvents(input: {
   return inserted.length;
 }
 
-/** The sweep's step: snapshot this issue's events right after its questions and sections. */
-export async function snapshotEventsForIssue(input: {
+/**
+ * Put a round's events into it: every occurrence from the day it opened through
+ * the day it goes out. Rounds meet at a delivery date, and an occurrence on that
+ * day goes to whichever round claims it first: the one going out. Repeatable, so
+ * a round carried over to a later delivery just picks up the extra days.
+ */
+export async function placeEventsInRound(input: {
   group: GroupRow;
   issueId: string;
   opensAt: Date;
   deliversAt: Date;
-  nextSlotAt: Date;
 }): Promise<number> {
   const rows = await loadEvents(input.group.id);
   if (rows.length === 0) return 0;
@@ -119,7 +122,6 @@ export async function snapshotEventsForIssue(input: {
     window: issueCoverage({
       opensAt: input.opensAt,
       deliversAt: input.deliversAt,
-      nextSlotAt: input.nextSlotAt,
       timezone: input.group.timezone,
     }),
     rows,
@@ -144,7 +146,6 @@ async function placeInOpenIssue(group: GroupRow, eventId: string): Promise<void>
     window: issueCoverage({
       opensAt: open.opensAt,
       deliversAt: open.deliversAt,
-      nextSlotAt: nextSlot(groupSchedule(group), open.opensAt),
       timezone: group.timezone,
     }),
     rows: await loadEvents(group.id, eventId),

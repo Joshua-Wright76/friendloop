@@ -98,6 +98,7 @@ export default function SettingsTab({ notices }: { notices: { saved?: string; er
             <TimezoneField defaultValue={group.timezone} />
           </div>
         </div>
+        <p className="m-0 mt-2 text-[13px] leading-relaxed text-ink-muted">{copy.settings.scheduleHint}</p>
 
         <h2 className="mt-5 border-t border-dashed border-line pt-4 text-ink">{copy.settings.readersGroup}</h2>
         <label className="mt-2 flex items-start gap-2.5 text-[14px] leading-relaxed text-ink-soft">

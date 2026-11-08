@@ -34,7 +34,7 @@ export async function settingsAction(formData: FormData) {
       : 1,
     shareEnabled: formData.get("shareEnabled") === "on",
     commentsEnabled: formData.get("commentsEnabled") === "on",
-  });
+  }, await getNow());
 
   revalidatePath(`/g/${groupId}`, "layout");
   redirect(`/g/${groupId}/settings?saved=1`);

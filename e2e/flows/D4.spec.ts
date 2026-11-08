@@ -21,10 +21,10 @@ async function openSheet(page: import("@playwright/test").Page) {
 test("D4 · the sheet names the deadline in the loop's own clock", async ({ page }) => {
   await openSheet(page);
 
-  // The seeded round closes on the Friday after it opened, at the same local
+  // The seeded round goes out on the Friday after it opened, at the same local
   // wall clock (9:05 Amsterdam here). The person answering is always told that,
   // and their own time first when their device is somewhere else.
-  await expect(page.getByText(/^Closes on (.+ your time \()?Fri 9 Jan, 9:05 AM( in Amsterdam\))?$/)).toBeVisible();
+  await expect(page.getByText(/^Goes out on (.+ your time \()?Fri 9 Jan, 9:05 AM( in Amsterdam\))?$/)).toBeVisible();
 });
 
 test("D4 · typing is saved as a draft and survives a reload", async ({ page }) => {

@@ -102,8 +102,8 @@ export default async function ReplyPage({ params }: { params: Promise<{ token: s
       <>
         <LoopTheme group={context.group} />
         <Closed
-          title={copy.reply.nothingOpenTitle}
-          body={text(copy.reply.nothingOpenBody, { groupName: context.group.name })}
+          title={context.group.pausedAt ? copy.reply.pausedTitle : copy.reply.nothingOpenTitle}
+          body={text(context.group.pausedAt ? copy.reply.pausedBody : copy.reply.nothingOpenBody, { groupName: context.group.name })}
           person={personOf(token, context.membership)}
           leaveHref={`/r/${token}/leave`}
         >

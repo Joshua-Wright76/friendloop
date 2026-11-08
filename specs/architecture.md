@@ -31,11 +31,14 @@ be wrong most of the time.
 
 Instead every run of `/api/cron/sweep` reconciles state:
 
-1. For each active loop, compute the scheduled slots whose instant has passed
-   (`schedule.dueSlots`).
-2. For any slot with no issue, create the issue, snapshot the questions, queue the
-   prompt emails.
-3. For any `open` issue past `deliversAt`, deliver or skip it.
+1. For any `open` issue past `deliversAt` (in a loop that isn't paused), deliver
+   it and open the next round in the same step; the delivery email carries the
+   new round's questions. An issue with nothing in it moves its `deliversAt` to
+   the next slot instead, and on its third empty delivery is `skipped` and pauses
+   the loop.
+2. For any running loop with no open issue, open one due at the next slot and
+   queue the prompt emails. (Creating a loop and resuming one open it directly.)
+3. Remind contributors who owe an answer 48 hours before `deliversAt`.
 4. Retry `outbox` rows still `pending`.
 
 `unique(group_id, slot_at)` plus `dedupe_key` make every step idempotent, so a late
@@ -43,23 +46,30 @@ run self-heals and a doubled run is a no-op. Triggers:
 
 - Vercel Schedule, every 15 minutes (`vercel.json`) — cannot be disabled for inactivity.
 - GitHub Actions every 15 minutes — fine granularity, free.
-- Both hit the same endpoint. Concurrency is handled per loop: `openDueIssues`
-  takes `select … for update` on the loop row before computing the next issue
-  number, so the loser collides on `unique(group_id, slot_at)` and is ignored —
+- Both hit the same endpoint. Concurrency is handled per loop: `openRound`
+  (`src/lib/rounds.ts`) takes `select … for update` on the loop row and checks for
+  an open round before computing the next issue number, so a second trigger finds
+  the first one's round, or collides on `unique(group_id, slot_at)` and is ignored —
   without the lock the loser would instead trip `unique(group_id, number)` and
   return a 500. `e2e/flows/D11.spec.ts` runs two sweeps at the same instant and
   asserts one round, one prompt per contributor.
 
 ## 3 · Schedules are local wall-clock, resolved on demand
 
-A loop stores `timezone`, `prompt_weekday`, `prompt_hour`, `cadence_weeks`. It
-never stores a precomputed future instant, because a DST transition would silently
-shift it. Instants are resolved with `Temporal.ZonedDateTime` from
-`temporal-polyfill` at the moment they are needed, and only an issue that actually
-opened keeps a frozen `slot_at`/`delivers_at`.
+A loop stores `timezone`, `prompt_weekday`, `prompt_hour`, `cadence_weeks`: the
+moment its issue goes out (the `prompt_*` names are left from when they opened a
+round). It never stores a precomputed future instant, because a DST transition
+would silently shift it. Instants are resolved with `Temporal.ZonedDateTime` from
+`temporal-polyfill` at the moment they are needed, and only the open issue keeps a
+frozen `slot_at`/`delivers_at`.
 
-The reply window is a fixed 7 days (`window_days`), so delivery is the same
-weekday and hour, one week later, in the loop's timezone.
+A round runs from one delivery to the next: `opens_at` is when the previous one
+went out (or the loop was created), `delivers_at` the next slot after it, however
+close that is. `slot_at` is the slot it was opened for, so `slot_at` to
+`delivers_at` counts how often an empty round was carried over. Editing the
+question pool or the sections while a round is open changes that round, except
+that anything someone has started answering stays. "Send now" delivers the open
+round early and the next one is due at the slot after the one it replaced.
 
 Every human-facing deadline renders twice: the loop's time and the reader's own.
 
@@ -84,12 +94,15 @@ is a POST (server action or route handler) behind a confirm.
 
 ## 5 · Email is a snapshot, the permalink is canonical
 
-Delivery compiles the submitted replies into (a) an email and (b) a live page.
-Replies stay editable after delivery and appear on the page marked "added later";
-comments and reactions live on the page. This removes the "missed it by three
-hours" failure mode instead of papering over it with timezone cleverness.
+Delivery compiles the submitted replies into (a) an email and (b) a live page;
+comments and reactions live on the page. The reply link always points at the round
+that is open, so once an issue goes out, the link moves on to the next one. (Late
+replies to a delivered issue, marked "added later", remain for loops whose next
+round never opened.) The "missed it by three hours" failure mode is removed by
+there always being a round to answer, not by timezone cleverness.
 
-An issue with zero submitted replies is `skipped`, not sent, and pauses the loop.
+An issue with zero submitted replies is carried over to the next delivery; on its
+third empty delivery it is `skipped`, not sent, and pauses the loop.
 
 ## 6 · Release safety
 

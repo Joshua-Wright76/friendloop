@@ -48,12 +48,13 @@ test("N5 · a contributor sets a photo on their reply sheet and it follows their
   await expect(page.locator(".avatar img")).toHaveCount(0);
 });
 
-test("N5 · an invitee can set a photo straight from the link, before any round is open and as a reader", async ({ page }) => {
-  // A brand-new loop has no open round, so the invitation lands on the quiet page.
+test("N5 · an invitee can set a photo straight from the link, while the loop is paused and as a reader", async ({ page }) => {
+  // A paused loop takes no answers, so the invitation lands on the quiet page.
   const loop = await seedLoop();
+  await rows("update groups set paused_at = now() where id = $1", [loop.groupId]);
   const alice = loop.members.find((member) => member.email.startsWith("alice"))!;
   await page.goto(`/r/${alice.token}`);
-  await expect(page.getByRole("heading", { name: "Nothing open right now" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Paused for now" })).toBeVisible();
   await chooseFile(page, "Choose a photo of yourself", { name: "me.png", mimeType: "image/png", buffer: TINY_PNG });
   await expect(page.getByText("Photo saved.")).toBeVisible();
   const url = await photoOf("alice@friendloop.test", loop.groupId);
