@@ -1,0 +1,35 @@
+Subject: Golden Loop · issue 1
+
+Golden Loop · issue 1
+
+<app>/i/00000000-0000-4000-8000-000000000010?m=golden-token-bob
+
+What made you laugh this week?
+Sam: The goose on the towpath.
+Alice: My nephew's knock-knock jokes.
+Bob: A late one: the cat in the bread bin.
+
+What are you looking forward to?
+Cleo: The first frost.
+
+Which weekends work?
+Results: June: 1 · July: 1 · August: 1
+Sam: Chose: June, August
+Alice: Chose: July
+
+Next up: Issue 2
+
+It's open now. Answer any time before it goes out on Fri 6 Nov, 9:00 AM Amsterdam time.
+
+This round asks:
+- What made you laugh this week?
+- What are you looking forward to?
+- Which weekends work?
+- What did you cook?
+
+<app>/r/golden-token-bob
+
+Stop emails from this loop: <app>/u/cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+
+Privacy: <app>/privacy
+Terms: <app>/terms

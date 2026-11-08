@@ -1,0 +1,141 @@
+{
+  "groups": [
+    {
+      "issueId": "00000000-0000-4000-8000-000000000010",
+      "number": 1,
+      "name": null,
+      "deliveredAt": "2026-10-30T08:00:00.000Z",
+      "items": [
+        {
+          "key": "photo-00000000-0000-4000-8000-000000000070",
+          "kind": "photo",
+          "url": "/uploads/golden-goose.png",
+          "durationMs": null,
+          "caption": null,
+          "body": "The goose on the towpath.",
+          "context": "What made you laugh this week?",
+          "author": "Sam",
+          "authorPhotoUrl": null,
+          "authorCharm": null,
+          "authorFrame": null,
+          "isYou": false,
+          "issueHref": "/i/00000000-0000-4000-8000-000000000010#answer-00000000-0000-4000-8000-000000000070",
+          "issueId": "00000000-0000-4000-8000-000000000010"
+        },
+        {
+          "key": "voice-00000000-0000-4000-8000-000000000070",
+          "kind": "voice",
+          "url": "/uploads/golden-honk.webm",
+          "durationMs": 4000,
+          "caption": null,
+          "body": "The goose on the towpath.",
+          "context": "What made you laugh this week?",
+          "author": "Sam",
+          "authorPhotoUrl": null,
+          "authorCharm": null,
+          "authorFrame": null,
+          "isYou": false,
+          "issueHref": "/i/00000000-0000-4000-8000-000000000010#answer-00000000-0000-4000-8000-000000000070",
+          "issueId": "00000000-0000-4000-8000-000000000010"
+        },
+        {
+          "key": "media-00000000-0000-4000-8000-000000000090",
+          "kind": "photo",
+          "url": "/uploads/golden-quilt.png",
+          "durationMs": null,
+          "caption": null,
+          "body": "Finished the quilt.",
+          "context": "This week",
+          "author": "Alice",
+          "authorPhotoUrl": null,
+          "authorCharm": null,
+          "authorFrame": null,
+          "isYou": false,
+          "issueHref": "/i/00000000-0000-4000-8000-000000000010#section-reply-00000000-0000-4000-8000-000000000080",
+          "issueId": "00000000-0000-4000-8000-000000000010"
+        },
+        {
+          "key": "media-00000000-0000-4000-8000-000000000091",
+          "kind": "photo",
+          "url": "/uploads/golden-lake.png",
+          "durationMs": null,
+          "caption": "The lake at dawn",
+          "body": "",
+          "context": "Photo wall",
+          "author": "You",
+          "authorPhotoUrl": null,
+          "authorCharm": null,
+          "authorFrame": null,
+          "isYou": true,
+          "issueHref": "/i/00000000-0000-4000-8000-000000000010#section-reply-00000000-0000-4000-8000-000000000082",
+          "issueId": "00000000-0000-4000-8000-000000000010"
+        },
+        {
+          "key": "media-00000000-0000-4000-8000-000000000092",
+          "kind": "photo",
+          "url": "/uploads/golden-tent.png",
+          "durationMs": null,
+          "caption": "Tent, mostly up",
+          "body": "",
+          "context": "Photo wall",
+          "author": "You",
+          "authorPhotoUrl": null,
+          "authorCharm": null,
+          "authorFrame": null,
+          "isYou": true,
+          "issueHref": "/i/00000000-0000-4000-8000-000000000010#section-reply-00000000-0000-4000-8000-000000000082",
+          "issueId": "00000000-0000-4000-8000-000000000010"
+        },
+        {
+          "key": "media-00000000-0000-4000-8000-000000000093",
+          "kind": "photo",
+          "url": "/uploads/golden-fire.png",
+          "durationMs": null,
+          "caption": null,
+          "body": "",
+          "context": "Photo wall",
+          "author": "Sam",
+          "authorPhotoUrl": null,
+          "authorCharm": null,
+          "authorFrame": null,
+          "isYou": false,
+          "issueHref": "/i/00000000-0000-4000-8000-000000000010#section-reply-00000000-0000-4000-8000-000000000083",
+          "issueId": "00000000-0000-4000-8000-000000000010"
+        },
+        {
+          "key": "media-00000000-0000-4000-8000-000000000094",
+          "kind": "photo",
+          "url": "/uploads/golden-cake.png",
+          "durationMs": null,
+          "caption": null,
+          "body": "Happy birthday, Alice!",
+          "context": "Alice's birthday",
+          "author": "Sam",
+          "authorPhotoUrl": null,
+          "authorCharm": null,
+          "authorFrame": null,
+          "isYou": false,
+          "issueHref": "/i/00000000-0000-4000-8000-000000000010#section-reply-00000000-0000-4000-8000-000000000087",
+          "issueId": "00000000-0000-4000-8000-000000000010"
+        }
+      ]
+    }
+  ],
+  "total": 7,
+  "shown": 7,
+  "hasMore": false,
+  "people": [
+    {
+      "id": "00000000-0000-4000-8000-000000000003",
+      "name": "Alice"
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000004",
+      "name": "Bob"
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000002",
+      "name": "Sam"
+    }
+  ]
+}

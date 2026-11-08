@@ -38,6 +38,13 @@ export const sectionKindEnum = pgEnum("section_kind", ["standard", "photo_wall",
 export const questionKindEnum = pgEnum("question_kind", ["written", "poll"]);
 /** A one-time milestone, or a birthday that comes back every year. */
 export const eventKindEnum = pgEnum("event_kind", ["once", "birthday"]);
+/**
+ * How an ask is answered, once questions and sections are one list
+ * (`docs/questions-unify-design.md`). Filled from `kind` by a trigger until then.
+ */
+export const answerFormatEnum = pgEnum("answer_format", ["written", "poll", "photo_wall", "music"]);
+/** How often an ask comes round: every round, in turn from the queue, or on a date. */
+export const askFrequencyEnum = pgEnum("ask_frequency", ["every_round", "rotating", "on_date"]);
 /** `suppressed` is recorded, never sent: the member muted the loop or the address bounced. */
 export const outboxStatusEnum = pgEnum("outbox_status", ["pending", "sent", "failed", "suppressed"]);
 /** Why an address stopped receiving loop mail: the provider reported a hard bounce or a spam complaint. */
@@ -235,6 +242,26 @@ export const questions = pgTable(
     createdByMembershipId: uuid("created_by_membership_id").references(() => memberships.id, {
       onDelete: "set null",
     }),
+    /*
+     * The unified model, added ahead of the code that uses it
+     * (`docs/questions-unify-design.md`). Until that ships, rows that aren't
+     * `active` written or poll questions are someone else's: see `legacy-ask.ts`.
+     */
+    /** Filled from `kind` by a database trigger when an insert leaves it out. */
+    format: answerFormatEnum("format"),
+    frequency: askFrequencyEnum("frequency").default("rotating").notNull(),
+    emoji: text("emoji"),
+    description: text("description"),
+    adminOnly: boolean("admin_only").default(false).notNull(),
+    /** `on_date` only: a one-time date or a birthday. */
+    dateKind: eventKindEnum("date_kind"),
+    month: integer("month"),
+    day: integer("day"),
+    year: integer("year"),
+    /** The birthday person. */
+    aboutMembershipId: uuid("about_membership_id").references(() => memberships.id, { onDelete: "cascade" }),
+    /** Occurrences the owner took out of a round, so carrying it over doesn't put them back. */
+    skippedDates: date("skipped_dates", { mode: "string" }).array().default(sql`'{}'::date[]`).notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => [index("questions_group_idx").on(t.groupId)],
@@ -294,8 +321,21 @@ export const issueQuestions = pgTable(
     kind: questionKindEnum("kind").default("written").notNull(),
     pollMultiple: boolean("poll_multiple").default(false).notNull(),
     pollOptions: jsonb("poll_options").$type<string[]>(),
+    /** The unified model, ahead of its code: see `questions` and `legacy-ask.ts`. */
+    format: answerFormatEnum("format"),
+    emoji: text("emoji"),
+    description: text("description"),
+    adminOnly: boolean("admin_only").default(false).notNull(),
+    occurrenceDate: date("occurrence_date", { mode: "string" }),
+    /** Frozen with the snapshot: the person a birthday card is about, who never sees it. */
+    aboutMembershipId: uuid("about_membership_id").references(() => memberships.id, { onDelete: "cascade" }),
+    /** History marker: copied from a section, so it keeps a section's look. */
+    fromSection: boolean("from_section").default(false).notNull(),
   },
-  (t) => [uniqueIndex("issue_questions_issue_question_idx").on(t.issueId, t.questionId)],
+  (t) => [
+    uniqueIndex("issue_questions_issue_question_idx").on(t.issueId, t.questionId),
+    uniqueIndex("issue_questions_occurrence_idx").on(t.questionId, t.occurrenceDate),
+  ],
 );
 
 /** How a suggested question credits its author on the delivered issue. */
@@ -348,6 +388,9 @@ export const replies = pgTable(
     audioDurationMs: integer("audio_duration_ms"),
     /** A poll answer: indexes into the snapshotted `pollOptions`. Empty on written answers. */
     pollChoices: jsonb("poll_choices").$type<number[]>().default([]).notNull(),
+    /** A music answer's link, ahead of the code that writes it (`docs/questions-unify-design.md`). */
+    linkUrl: text("link_url"),
+    linkProvider: text("link_provider"),
     /**
      * Legacy: answers used to wait as drafts until sent. Every save now writes
      * `submitted`, and nothing reads it (see `src/lib/reply-query.ts`).
@@ -362,6 +405,22 @@ export const replies = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => [uniqueIndex("replies_unique_idx").on(t.issueId, t.issueQuestionId, t.membershipId)],
+);
+
+/** A photo-wall answer's photos, ahead of the code that writes them (`docs/questions-unify-design.md`). */
+export const replyMedia = pgTable(
+  "reply_media",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    replyId: uuid("reply_id")
+      .references(() => replies.id, { onDelete: "cascade" })
+      .notNull(),
+    url: text("url").notNull(),
+    caption: text("caption"),
+    position: integer("position").default(0).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [index("reply_media_reply_idx").on(t.replyId)],
 );
 
 export const comments = pgTable(

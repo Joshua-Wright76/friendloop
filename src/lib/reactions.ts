@@ -2,6 +2,7 @@ import { and, count, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { reactions, replies } from "@/db/schema";
 import { MAX_REACTIONS_PER_PERSON, isReactionEmoji } from "./reaction-emoji.ts";
+import { legacyReplyCondition } from "./legacy-ask";
 
 export type ReactionResult = { ok: true } | { ok: false; reason: "emoji" | "answer" | "limit" };
 
@@ -21,7 +22,7 @@ export async function toggleReactionFor(input: {
   const [reply] = await db
     .select({ id: replies.id })
     .from(replies)
-    .where(and(eq(replies.id, input.replyId), eq(replies.issueId, input.issueId)))
+    .where(and(eq(replies.id, input.replyId), eq(replies.issueId, input.issueId), legacyReplyCondition()))
     .limit(1);
   if (!reply) return { ok: false, reason: "answer" };
 

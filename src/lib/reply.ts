@@ -11,6 +11,7 @@ import { replyHasContentCondition } from "./reply-query";
 import { storedReminderPreference } from "./reminders.ts";
 import { checkPollChoices } from "./poll";
 import { log } from "./log";
+import { legacyAskCondition, legacyReplyCondition } from "./legacy-ask";
 
 export type TokenContext =
   | { state: "invalid" }
@@ -120,7 +121,7 @@ async function ensureWritableQuestion(
   const [question] = await db
     .select()
     .from(issueQuestions)
-    .where(and(eq(issueQuestions.id, issueQuestionId), eq(issueQuestions.issueId, context.issue.id)))
+    .where(and(eq(issueQuestions.id, issueQuestionId), eq(issueQuestions.issueId, context.issue.id), legacyAskCondition()))
     .limit(1);
   if (!question || question.kind !== kind) {
     return { ok: false, result: { ok: false, status: 409, error: copy.reply.errors.wrongQuestion } };
@@ -440,7 +441,7 @@ export async function sheetFor(token: string) {
   const questions = await db
     .select()
     .from(issueQuestions)
-    .where(eq(issueQuestions.issueId, context.issue.id))
+    .where(and(eq(issueQuestions.issueId, context.issue.id), legacyAskCondition()))
     .orderBy(asc(issueQuestions.position));
 
   const existing = await db
@@ -450,6 +451,7 @@ export async function sheetFor(token: string) {
       and(
         eq(replies.issueId, context.issue.id),
         eq(replies.membershipId, context.membership.id),
+        legacyReplyCondition(),
       ),
     );
 

@@ -1,6 +1,6 @@
 # Questions, unified: design
 
-Status: design only, not built. Branch `questions-unify`, on top of PR #53 (answers autosave).
+Status: PR A (expand and tolerate) built; B, C and D not started. Branch `questions-unify`, on top of PR #53 (answers autosave).
 
 ## The idea
 
@@ -196,13 +196,30 @@ UPDATE issues i SET question_cursor = ((i.question_cursor - g.question_cursor) %
 UPDATE groups SET question_cursor = 0;
 ```
 
+**What PR A built.** `drizzle/0022_questions_expand.sql` adds the types, columns and `reply_media`,
+plus `fill_format_from_kind()` as a `BEFORE INSERT` trigger on `questions` and `issue_questions`, and
+backfills `format` on existing rows from `kind` (so the tolerate rule below sees them; `kind` never
+changes after insert). `src/lib/legacy-ask.ts` holds the tolerate rule: `legacyAskCondition()` /
+`legacyAskSql()` over `issue_questions`, `legacyReplyCondition()` over `replies`, and
+`legacyPoolCondition()` (`active`) for the pool, with `legacyPoolWithArchivedCondition()` for the
+loop export's archived questions (copied sections ask every round and events on a date, so they stay
+out). Reads that ask whether a file is still used, or which files a person leaves behind, look at
+every row on purpose. `copyLikeUnify()` in `e2e/support/golden.ts` approximates `0023` so the golden
+test can prove A ignores the copy; B should swap it for the real migration. A also fixed the second
+bug below: prompts, reminders and nudges count every question and section the person can see
+(`roundAsks` in `notify.ts`), so a round holding only sections is no longer silent.
+
 Before merging B, run on a production branch: standard-section replies with more than one media row
 (expected 0), and row counts of legacy vs unified after a dry run of `0023` on a Neon branch.
 
 **Past issues stay exact** through a golden test PR-A adds first: it seeds every legacy shape
 (standard section with photo, photo wall, music, once event, birthday, admin-only, added late,
 `never_sent`, poll, suggestion credit) and snapshots `loadIssue` as member, admin and share, the
-print view, the album and both exports. PR-B must pass it unchanged.
+print view, the album and both exports. PR-B must pass it unchanged. It lives in
+`test/lib/golden-past-issues.integration.test.ts` (data, Album, exports, delivery emails) and
+`e2e/golden-past-issues.spec.ts` (page, share page and print views as text), seeded by
+`e2e/support/golden.ts`, with the snapshots in `test/golden/`. Each check runs as seeded and again
+with the copy alongside; `UPDATE_GOLDEN=1` rewrites the snapshots when a change means to.
 
 ## Events and birthdays
 
@@ -273,8 +290,8 @@ Questions
 emoji and description; the body follows the format (written: text plus photo or voice, so former
 standard sections gain voice; poll; photo wall; music). Admin-only cards are hidden from members and
 a birthday card from its subject, on the sheet, in prompts and in the delivery email. **Two existing
-bugs get fixed:** admin-only section answers go into every member's delivery email today, and a
-round holding only sections sends no prompt (`questionCount === 0`).
+bugs, both fixed ahead of B:** admin-only section answers went into every member's delivery email
+(PR #54), and a round holding only sections sent no prompt (`questionCount === 0`; PR A).
 
 ## What changes, by file
 
@@ -311,17 +328,17 @@ round holding only sections sends no prompt (`questionCount === 0`).
 - Reordering This round doesn't carry forward; every-round order lives in Up next.
 - Up next is a projection: later edits or a carried-over round move it.
 
-## Open questions for you
+## Open questions (decided)
+
+The user accepted all four recommendations on 2026-11-08:
 
 1. **Reactions and comments on former section answers.** Photo walls, music picks and birthday notes
-   become `replies`, so they can take reactions and comments, past ones included. Should that apply
-   everywhere (recommended), or only from new rounds on?
-2. **Empty every-round items in new rounds.** Should they be hidden like unanswered questions
-   (recommended), or keep the "Nobody added anything" card? Past issues keep their look either way.
-3. **Data export.** Keep `sections` / `sectionAnswers` for history and add `format` to `questions`
-   (recommended, since past rounds export exactly as before), or use one shape for everything?
-4. **Where a removed turn-taker goes.** First in line (recommended, it's what skip did), or the back
-   of the queue?
+   become `replies`, so they take reactions and comments everywhere, past issues included.
+2. **Empty every-round items in new rounds** are hidden like unanswered questions. Past issues keep
+   their look (an empty section from before still shows "Nobody added anything").
+3. **Data export.** Past rounds keep their separate `sections` / `sectionAnswers` part, exactly as
+   before; new items are listed under `questions`, with `format` added.
+4. **A turn-taker removed from This round** goes first in line for the next one (what skip did).
 
 ## PR split
 

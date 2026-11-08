@@ -119,6 +119,16 @@ async function seedWorld() {
   );
   const [wishes] = await rows<{ id: string }>("insert into section_replies (issue_id, issue_section_id, membership_id, body, status) values ($1, $2, $3, 'Happy birthday', 'submitted') returning id", [issue.issueId, birthdaySection.id, alice.id]);
   await rows("insert into section_media (section_reply_id, url) values ($1, $2)", [wishes.id, blob("photo", "alice-birthday")]);
+  // The same birthday in the unified shape (docs/questions-unify-design.md): an ask
+  // about Wren in the pool, and its snapshot in the round. Both go with them.
+  const [birthdayAsk] = await rows<{ id: string }>(
+    "insert into questions (group_id, text, position, active, format, frequency, date_kind, month, day, about_membership_id) values ($1, '', 0, false, 'written', 'on_date', 'birthday', 3, 4, $2) returning id",
+    [loop.groupId, wren.id],
+  );
+  await rows(
+    "insert into issue_questions (issue_id, question_id, text, position, format, occurrence_date, about_membership_id, from_section) values ($1, $2, $3, 1000, 'written', '2026-03-04', $4, true)",
+    [issue.issueId, birthdayAsk.id, `${WREN.name}'s birthday`, wren.id],
+  );
 
   // A regular section with Wren's photo wall entry.
   const [section] = await rows<{ id: string }>("insert into sections (group_id, kind, title) values ($1, 'photo_wall', 'Wall') returning id", [loop.groupId]);

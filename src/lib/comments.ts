@@ -1,6 +1,7 @@
 import { and, eq, inArray, isNull } from "drizzle-orm";
 import { db } from "@/db";
 import { replyHasContentCondition } from "./reply-query";
+import { legacyAskCondition } from "./legacy-ask";
 import { comments, groups, issueQuestions, issues, memberships, replies } from "@/db/schema";
 import { currentUser } from "./auth";
 import { copy } from "./copy.ts";
@@ -86,7 +87,7 @@ export async function postComment(input: PostCommentInput): Promise<PostCommentR
       .from(replies)
       .innerJoin(issueQuestions, eq(issueQuestions.id, replies.issueQuestionId))
       .where(
-        and(eq(replies.id, input.replyId), eq(replies.issueId, issue.id), replyHasContentCondition()),
+        and(eq(replies.id, input.replyId), eq(replies.issueId, issue.id), replyHasContentCondition(), legacyAskCondition()),
       )
       .limit(1);
     // Nobody sees another person's poll pick until the round is delivered, so

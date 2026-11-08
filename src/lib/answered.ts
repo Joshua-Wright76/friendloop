@@ -2,6 +2,7 @@ import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { replies, sectionReplies } from "@/db/schema";
 import { replyHasContentCondition, sectionReplyHasContentCondition } from "./reply-query";
+import { legacyReplyCondition } from "./legacy-ask";
 
 /**
  * Everyone who has written something in a round: an answer to a question or to a
@@ -13,7 +14,7 @@ export async function answeredMemberIds(issueId: string): Promise<Set<string>> {
     db
       .selectDistinct({ membershipId: replies.membershipId })
       .from(replies)
-      .where(and(eq(replies.issueId, issueId), replyHasContentCondition())),
+      .where(and(eq(replies.issueId, issueId), replyHasContentCondition(), legacyReplyCondition())),
     db
       .selectDistinct({ membershipId: sectionReplies.membershipId })
       .from(sectionReplies)

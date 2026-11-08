@@ -1,0 +1,100 @@
+{
+  "format": "friendloop-export/1",
+  "exportedAt": "2026-11-06T09:00:00.000Z",
+  "about": "Everything you wrote on Friendloop, as of exportedAt. Photos and voice notes are links; they keep working until you delete your account or leave the loop, or the loop is deleted, so save any you want to keep first.",
+  "loops": [
+    {
+      "loop": "Golden Loop",
+      "you": {
+        "name": "Alice",
+        "email": "alice@golden.test",
+        "access": "member",
+        "participation": "contributor",
+        "photoUrl": null,
+        "charm": null,
+        "avatarFrame": null,
+        "invitedAt": "2026-01-01T00:01:00.000Z",
+        "acceptedAt": "2026-01-01T00:01:00.000Z"
+      },
+      "answers": [
+        {
+          "round": 1,
+          "roundName": null,
+          "question": "What made you laugh this week?",
+          "answer": "My nephew's knock-knock jokes.",
+          "pollChoices": [],
+          "photoUrl": null,
+          "audioUrl": null,
+          "neverSent": false,
+          "updatedAt": "2026-10-23T08:20:00.000Z"
+        },
+        {
+          "round": 1,
+          "roundName": null,
+          "question": "Which weekends work?",
+          "answer": "",
+          "pollChoices": [
+            "July"
+          ],
+          "photoUrl": null,
+          "audioUrl": null,
+          "neverSent": false,
+          "updatedAt": "2026-10-23T09:10:00.000Z"
+        },
+        {
+          "round": 1,
+          "roundName": null,
+          "question": "What did you cook?",
+          "answer": "   ",
+          "pollChoices": [],
+          "photoUrl": null,
+          "audioUrl": null,
+          "neverSent": false,
+          "updatedAt": "2026-10-23T09:20:00.000Z"
+        }
+      ],
+      "sectionAnswers": [
+        {
+          "round": 1,
+          "roundName": null,
+          "section": "This week",
+          "answer": "Finished the quilt.",
+          "linkUrl": null,
+          "photos": [
+            {
+              "url": "<app>/uploads/golden-quilt.png",
+              "caption": null
+            }
+          ],
+          "neverSent": false,
+          "updatedAt": "2026-10-23T09:30:00.000Z"
+        }
+      ],
+      "comments": [
+        {
+          "round": 1,
+          "comment": "Best goose, @Sam",
+          "photoUrl": null,
+          "createdAt": "2026-10-30T08:00:00.000Z",
+          "removedAt": null
+        }
+      ],
+      "reactions": [
+        {
+          "round": 1,
+          "question": "What made you laugh this week?",
+          "answerBy": "Sam",
+          "emoji": "❤️"
+        }
+      ],
+      "suggestions": [
+        {
+          "question": "What are you looking forward to?",
+          "status": "accepted",
+          "credit": "name",
+          "createdAt": "2026-01-01T12:00:00.000Z"
+        }
+      ]
+    }
+  ]
+}

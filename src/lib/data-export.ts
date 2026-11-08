@@ -21,6 +21,7 @@ import { copy } from "./copy.ts";
 import { plainBody } from "./mentions.ts";
 import { appUrl } from "./urls.ts";
 import { replyHasContentCondition, sectionReplyHasContentCondition } from "./reply-query";
+import { legacyAskCondition, legacyPoolWithArchivedCondition, legacyReplyCondition } from "./legacy-ask";
 
 /**
  * Taking your words with you.
@@ -118,7 +119,7 @@ async function contributionsOf(membership: Membership, group: Pick<Group, "id" |
     .from(replies)
     .innerJoin(issueQuestions, eq(issueQuestions.id, replies.issueQuestionId))
     .innerJoin(issues, eq(issues.id, replies.issueId))
-    .where(eq(replies.membershipId, membership.id))
+    .where(and(eq(replies.membershipId, membership.id), legacyAskCondition()))
     .orderBy(asc(issues.number), asc(issueQuestions.position));
 
   const sectionAnswers = await db
@@ -147,7 +148,7 @@ async function contributionsOf(membership: Membership, group: Pick<Group, "id" |
     .innerJoin(replies, eq(replies.id, reactions.replyId))
     .innerJoin(issueQuestions, eq(issueQuestions.id, replies.issueQuestionId))
     .innerJoin(issues, eq(issues.id, replies.issueId))
-    .where(eq(reactions.membershipId, membership.id))
+    .where(and(eq(reactions.membershipId, membership.id), legacyAskCondition()))
     .orderBy(asc(reactions.createdAt));
 
   const suggested = await db
@@ -269,12 +270,12 @@ async function roundOf(issue: typeof issues.$inferSelect, names: Names) {
     db
       .select()
       .from(issueQuestions)
-      .where(eq(issueQuestions.issueId, issue.id))
+      .where(and(eq(issueQuestions.issueId, issue.id), legacyAskCondition()))
       .orderBy(asc(issueQuestions.position)),
     db
       .select()
       .from(replies)
-      .where(and(eq(replies.issueId, issue.id), replyHasContentCondition()))
+      .where(and(eq(replies.issueId, issue.id), replyHasContentCondition(), legacyReplyCondition()))
       .orderBy(asc(replies.createdAt)),
     db
       .select()
@@ -301,7 +302,7 @@ async function roundOf(issue: typeof issues.$inferSelect, names: Names) {
       .select({ replyId: reactions.replyId, membershipId: reactions.membershipId, emoji: reactions.emoji })
       .from(reactions)
       .innerJoin(replies, eq(replies.id, reactions.replyId))
-      .where(and(eq(replies.issueId, issue.id), replyHasContentCondition()))
+      .where(and(eq(replies.issueId, issue.id), replyHasContentCondition(), legacyReplyCondition()))
       .orderBy(asc(reactions.createdAt)),
   ]);
 
@@ -385,7 +386,11 @@ export async function loopArchive(groupId: string, at: Date): Promise<{ groupNam
     .from(memberships)
     .where(and(eq(memberships.groupId, groupId), isNull(memberships.revokedAt)))
     .orderBy(asc(memberships.invitedAt));
-  const pool = await db.select().from(questions).where(eq(questions.groupId, groupId)).orderBy(asc(questions.position));
+  const pool = await db
+    .select()
+    .from(questions)
+    .where(and(eq(questions.groupId, groupId), legacyPoolWithArchivedCondition()))
+    .orderBy(asc(questions.position));
   const names = await namesIn(groupId);
 
   const head = {

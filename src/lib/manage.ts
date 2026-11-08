@@ -17,6 +17,7 @@ import { replyUrl, unsubscribeUrl, url } from "./urls";
 import { groupSchedule, nextSlot } from "./schedule";
 import { openRound, rescheduleOpenRound, setLoopPaused } from "./rounds";
 import { syncOpenRoundQuestions } from "./round-questions";
+import { legacyPoolCondition } from "./legacy-ask";
 import { reorderIds } from "./question-order";
 import { newQuestionTexts } from "./question-packs";
 import { checkPoll } from "./poll";
@@ -474,7 +475,7 @@ export async function addQuestionTexts(groupId: string, texts: string[], at: Dat
   const existing = await db
     .select({ text: questions.text })
     .from(questions)
-    .where(and(eq(questions.groupId, groupId), isNull(questions.archivedAt)));
+    .where(and(eq(questions.groupId, groupId), legacyPoolCondition(), isNull(questions.archivedAt)));
   const fresh = newQuestionTexts(texts, existing.map((row) => row.text));
   if (fresh.length === 0) return 0;
 
@@ -502,7 +503,7 @@ export async function reorderQuestion(groupId: string, questionId: string, targe
     const rows = await tx
       .select({ id: questions.id })
       .from(questions)
-      .where(and(eq(questions.groupId, groupId), isNull(questions.archivedAt)))
+      .where(and(eq(questions.groupId, groupId), legacyPoolCondition(), isNull(questions.archivedAt)))
       .orderBy(questions.position);
     const orderedIds = reorderIds(rows.map((row) => row.id), questionId, targetIndex);
     if (orderedIds.every((id, index) => id === rows[index]?.id)) return false;
@@ -512,6 +513,7 @@ export async function reorderQuestion(groupId: string, questionId: string, targe
       position: sql`case ${questions.id} ${sql.join(cases, sql` `)} else ${questions.position} end`,
     }).where(and(
       eq(questions.groupId, groupId),
+      legacyPoolCondition(),
       isNull(questions.archivedAt),
       inArray(questions.id, orderedIds),
     ));
@@ -525,7 +527,7 @@ export async function archiveQuestion(groupId: string, questionId: string, at: D
   await db
     .update(questions)
     .set({ archivedAt: at, active: false, skipNext: false })
-    .where(and(eq(questions.id, questionId), eq(questions.groupId, groupId)));
+    .where(and(eq(questions.id, questionId), eq(questions.groupId, groupId), legacyPoolCondition()));
   await syncOpenRoundQuestions(groupId);
 }
 
@@ -533,7 +535,7 @@ export async function toggleSkipNext(groupId: string, questionId: string) {
   const [row] = await db
     .select()
     .from(questions)
-    .where(and(eq(questions.id, questionId), eq(questions.groupId, groupId)))
+    .where(and(eq(questions.id, questionId), eq(questions.groupId, groupId), legacyPoolCondition()))
     .limit(1);
   if (!row) return false;
 

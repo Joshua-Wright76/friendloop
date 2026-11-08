@@ -12,6 +12,7 @@ import { archiveSection, createSection, moveSection, updateSection, type Section
 import { createEvent, deleteEvent, updateEvent } from "@/lib/events";
 import { viewerFor } from "@/lib/permissions";
 import { syncOpenRoundQuestions } from "@/lib/round-questions";
+import { legacyPoolCondition } from "@/lib/legacy-ask";
 
 async function requireManager(groupId: string) {
   const viewer = await viewerFor(groupId);
@@ -84,7 +85,7 @@ export async function reorderQuestions(groupId: string, questionId: string, targ
   await reorderQuestion(groupId, questionId, targetIndex);
   revalidatePath(`/g/${groupId}`, "layout");
   const after = await db.select({ id: questions.id, text: questions.text, skipNext: questions.skipNext }).from(questions)
-    .where(and(eq(questions.groupId, groupId), isNull(questions.archivedAt))).orderBy(asc(questions.position));
+    .where(and(eq(questions.groupId, groupId), legacyPoolCondition(), isNull(questions.archivedAt))).orderBy(asc(questions.position));
   return after;
 }
 

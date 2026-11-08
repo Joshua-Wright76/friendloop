@@ -1,5 +1,6 @@
 import { and, eq, isNotNull, or, sql, type SQL } from "drizzle-orm";
 import { replies, sectionMedia, sectionReplies } from "../db/schema.ts";
+import { legacyAskSql } from "./legacy-ask.ts";
 
 /*
  * What someone has written is in. A saved answer that isn't empty goes out with
@@ -55,7 +56,8 @@ export function sectionReplyHasContentSql(alias: string): SQL {
 export function answeredCountSql(issueAlias: string): SQL<number> {
   const i = sql.raw(issueAlias);
   return sql<number>`(select count(*)::int from (
-    select r.membership_id from replies r where r.issue_id = ${i}.id and ${replyHasContentSql("r")}
+    select r.membership_id from replies r join issue_questions rq on rq.id = r.issue_question_id
+      where r.issue_id = ${i}.id and ${replyHasContentSql("r")} and ${legacyAskSql("rq")}
     union
     select sr.membership_id from section_replies sr where sr.issue_id = ${i}.id and ${sectionReplyHasContentSql("sr")}
   ) as answered_people)`.mapWith(Number);

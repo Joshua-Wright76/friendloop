@@ -2,6 +2,7 @@ import { DEFAULT_REACTIONS, tallyReactions } from "./reaction-emoji.ts";
 import { and, asc, eq, isNull } from "drizzle-orm";
 import { db } from "@/db";
 import { replyHasContentCondition, sectionReplyHasContentCondition } from "./reply-query";
+import { legacyAskCondition, legacyReplyCondition } from "./legacy-ask";
 import {
   groups,
   issueQuestions,
@@ -146,7 +147,7 @@ export async function loadIssue(input: {
     db
       .select()
       .from(issueQuestions)
-      .where(eq(issueQuestions.issueId, issue.id))
+      .where(and(eq(issueQuestions.issueId, issue.id), legacyAskCondition()))
       .orderBy(asc(issueQuestions.position)),
     db
       .select({
@@ -167,7 +168,7 @@ export async function loadIssue(input: {
       })
       .from(replies)
       .innerJoin(memberships, eq(memberships.id, replies.membershipId))
-      .where(and(eq(replies.issueId, issue.id), replyHasContentCondition())),
+      .where(and(eq(replies.issueId, issue.id), replyHasContentCondition(), legacyReplyCondition())),
     showComments
       ? loadComments({ issueId: issue.id, groupId: group.id, viewerMembershipId })
       : Promise.resolve({ top: [], byReply: new Map<string, IssueComment[]>(), mentionables: [] }),
@@ -177,7 +178,7 @@ export async function loadIssue(input: {
       .select({ replyId: reactions.replyId, membershipId: reactions.membershipId, emoji: reactions.emoji, createdAt: reactions.createdAt })
       .from(reactions)
       .innerJoin(replies, eq(replies.id, reactions.replyId))
-      .where(eq(replies.issueId, issue.id)),
+      .where(and(eq(replies.issueId, issue.id), legacyReplyCondition())),
     db
       .select()
       .from(issueSections)
