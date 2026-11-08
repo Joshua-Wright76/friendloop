@@ -9,6 +9,7 @@ import { formatAudioDuration } from "../audio-validation.ts";
 import { issueHeading, issueRef } from "../issue-name.ts";
 import { DEFAULT_MASCOT, isCharmKey, isMascotKey, stickerPng } from "../stickers.ts";
 import { emailPalette, GINGHAM_EMAIL, type EmailPalette } from "../theme.ts";
+import { emailPatternTile, type EmailPatternTile } from "../stationery.ts";
 import { appUrl } from "../urls.ts";
 
 type LayoutInput = {
@@ -35,12 +36,20 @@ type LayoutInput = {
   code?: { label: string; value: string; note: string };
 };
 
-export type EmailTheme = { palette: EmailPalette; headerImageUrl?: string | null; mascot?: string | null };
+export type EmailTheme = {
+  palette: EmailPalette;
+  headerImageUrl?: string | null;
+  mascot?: string | null;
+  /** The loop's page pattern as a PNG tile; absent means gingham's stripes. */
+  pattern?: EmailPatternTile | null;
+};
 
 /** What an email needs from a loop to wear its stationery. */
 export function emailThemeOf(group: {
   themePreset: string | null;
   themeAccent: string | null;
+  /** Required, so a caller that selects only some columns can't quietly fall back to gingham. */
+  themeBackground: string | null;
   headerImageUrl: string | null;
   themeMascot?: string | null;
 }): EmailTheme {
@@ -48,6 +57,7 @@ export function emailThemeOf(group: {
     palette: emailPalette({ preset: group.themePreset, accent: group.themeAccent }),
     headerImageUrl: group.headerImageUrl,
     mascot: group.themeMascot,
+    pattern: emailPatternTile(group.themeBackground, group.themePreset),
   };
 }
 
@@ -117,7 +127,15 @@ const BODY_FONT = "Nunito,-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helve
 // already ships (Comic Sans is deliberately not on the list) and lands on a rounded
 // sans anywhere that has none. No image, no remote font, and it reads with both off.
 const DISPLAY_FONT = "'Noteworthy','Chalkboard SE','Segoe Print','Bradley Hand',ui-rounded,'Arial Rounded MT Bold','Varela Round',Nunito,'Trebuchet MS',sans-serif";
-function gingham(c: EmailPalette): string {
+/**
+ * The loop's page behind the letter. A pattern is a PNG tile from the app's own
+ * address; gingham is two gradients. Either way, a client that shows neither (or has
+ * images off) still gets the loop's page colour.
+ */
+function pageBackground(c: EmailPalette, pattern: EmailPatternTile | null | undefined): string {
+  if (pattern) {
+    return `background-color:${c.page};background-image:url('${appUrl()}${pattern.path}');background-size:${pattern.width}px ${pattern.height}px;background-repeat:repeat`;
+  }
   return `background-color:${c.page};background-image:linear-gradient(90deg,${c.check} 50%,transparent 0),linear-gradient(${c.check} 50%,transparent 0);background-size:32px 32px`;
 }
 
@@ -245,7 +263,7 @@ function questionList(questions: LayoutInput["questions"], c: EmailPalette): str
 
 export function layout({ preheader, heading, body, cta, footer, answers, sections, answersUrl, theme, unsubscribeUrl, sender, questions, replyHint, code }: LayoutInput): string {
   const c = theme?.palette ?? GINGHAM_EMAIL;
-  const GINGHAM = gingham(c);
+  const PAGE = pageBackground(c, theme?.pattern);
   const ctaHtml = cta
     ? `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:8px 0 8px"><tr><td style="border-radius:999px;background:${c.accent}"><a href="${escapeHtml(
         cta.url,
@@ -256,9 +274,9 @@ export function layout({ preheader, heading, body, cta, footer, answers, section
 
   return `<!doctype html>
 <html lang="en"><head><meta charset="utf-8" /><meta name="viewport" content="width=device-width,initial-scale=1" /><title>${escapeHtml(heading)}</title></head>
-<body style="margin:0;padding:0;${GINGHAM}">
+<body style="margin:0;padding:0;${PAGE}">
 <div style="display:none;max-height:0;overflow:hidden;opacity:0">${escapeHtml(preheader)}</div>
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="${GINGHAM}"><tr><td align="center" style="padding:36px 14px 40px">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="${PAGE}"><tr><td align="center" style="padding:36px 14px 40px">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px">
 ${headerImage(theme?.headerImageUrl, c)}<tr><td style="padding:0 8px 20px;font:700 22px/1.2 ${DISPLAY_FONT};color:${c.ink}">${mascotMark(theme?.mascot)} ${escapeHtml(sender ?? copy.common.brand)}</td></tr>
 <tr><td>

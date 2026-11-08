@@ -1422,6 +1422,7 @@
       "signIn": "Sign-in link",
       "inviteContributor": "Invitation, as a contributor",
       "inviteReader": "Invitation, as a reader",
+      "inviteThemed": "Invitation from a loop with its own stationery",
       "prompt": "Round prompt",
       "reminder": "Reminder",
       "mention": "Someone mentioned you",

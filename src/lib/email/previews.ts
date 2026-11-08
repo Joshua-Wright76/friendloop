@@ -85,12 +85,15 @@ const PREVIEW_STOP_URL = "https://friendloop.dev/u/preview-unsubscribe-token";
 
 /**
  * Previews render in sandboxed frames, whose images must be https or data. A deployed
- * app's stickers already are; on plain-http localhost they go in as data.
+ * app's stickers and pattern tiles already are; on plain-http localhost they go in as data.
  */
 function withLocalStickers<T extends { html: string }>(email: T): T {
   if (!appUrl().startsWith("http:")) return email;
-  const html = email.html.replace(/src="[^"]*\/stickers\/png\/([a-z]+)\.png"/g, (_, key: string) =>
-    `src="data:image/png;base64,${readFileSync(path.join(process.cwd(), "public/stickers/png", `${key}.png`)).toString("base64")}"`);
+  const inline = (dir: string, file: string) =>
+    `data:image/png;base64,${readFileSync(path.join(process.cwd(), "public", dir, file)).toString("base64")}`;
+  const html = email.html
+    .replace(/src="[^"]*\/stickers\/png\/([a-z]+\.png)"/g, (_, file: string) => `src="${inline("stickers/png", file)}"`)
+    .replace(/url\('[^']*\/patterns\/email\/([a-z]+-[a-z]+\.png)'\)/g, (_, file: string) => `url('${inline("patterns/email", file)}')`);
   return { ...email, html };
 }
 
@@ -110,6 +113,24 @@ export function emailPreviews(): EmailPreview[] {
         isReader: false,
         personalNote: "We're giving this a go. Answer whatever feels easy.",
       }),
+    },
+    {
+      // A loop in its own stationery: the page pattern, colours and mascot all carry over.
+      id: "inviteThemed",
+      email: withLocalStickers(inviteEmail({
+        groupName: "Notes from the neighborhood",
+        inviterName: "Alex",
+        url: "https://friendloop.dev/r/preview-token",
+        unsubscribeUrl: PREVIEW_STOP_URL,
+        isReader: false,
+        theme: emailThemeOf({
+          themePreset: "lilac",
+          themeAccent: null,
+          themeBackground: "hearts",
+          headerImageUrl: null,
+          themeMascot: "mushroom",
+        }),
+      })),
     },
     {
       id: "inviteReader",
@@ -194,6 +215,7 @@ export function emailPreviews(): EmailPreview[] {
         theme: emailThemeOf({
           themePreset: "bluebell",
           themeAccent: null,
+          themeBackground: "daisies",
           headerImageUrl: "https://friendloop.dev/dev-preview/header.svg",
           themeMascot: "duck",
         }),

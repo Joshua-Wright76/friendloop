@@ -1,5 +1,5 @@
 import { DEFAULT_MASCOT, isMascotKey, stickerSrc } from "./stickers.ts";
-import { previewTheme, resolveTheme, themeCss, type SchemeTokens, type ThemeName } from "./theme.ts";
+import { DEFAULT_PRESET, isPresetKey, previewTheme, resolveTheme, themeCss, THEME_PRESET_KEYS, type SchemeTokens, type ThemeName } from "./theme.ts";
 
 /**
  * What a loop's owner can dress it in besides colour: the page behind everything,
@@ -104,6 +104,31 @@ export function pageLayers(key: string, tokens: Pick<SchemeTokens, "check">): { 
     image: svgUrl(pattern.width, pattern.height, `<g ${paint} opacity='${motif.opacity}'>${pattern.art}</g>`),
     size: `${pattern.width}px ${pattern.height}px`,
   };
+}
+
+/**
+ * Email can't show the SVG patterns, so each one also ships as a PNG tile per preset
+ * (`scripts/render-email-patterns.mjs`), drawn on the preset's light page. A pattern's
+ * colour comes from the preset's paper alone, never the accent, so the set is finite.
+ * Gingham needs no tile: email draws its stripes with gradients, as before.
+ */
+export type EmailPatternTile = { path: string; width: number; height: number };
+
+export function emailPatternTile(background: string | null | undefined, preset: string | null | undefined): EmailPatternTile | null {
+  if (!isBackgroundKey(background) || background === DEFAULT_BACKGROUND) return null;
+  const pattern = PATTERNS[background];
+  const paper = isPresetKey(preset) ? preset : DEFAULT_PRESET;
+  return { path: `/patterns/email/${background}-${paper}.png`, width: pattern.width, height: pattern.height };
+}
+
+/** Every tile email can ask for, with what to draw in it. For the render script. */
+export function emailPatternTiles(): Array<EmailPatternTile & { page: string; image: string }> {
+  return Object.keys(PATTERNS).flatMap((background) =>
+    THEME_PRESET_KEYS.map((preset) => {
+      const { light } = previewTheme({ preset, accent: null });
+      return { ...emailPatternTile(background, preset)!, page: light.page, image: pageLayers(background, light).image };
+    }),
+  );
 }
 
 /* ------------------------------ paper packs ------------------------------ */
