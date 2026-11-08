@@ -19,15 +19,16 @@ async function replyFor(issueId: string, questionText: string, membershipId: str
   body?: string;
   photoUrl?: string;
   audioUrl?: string;
-  status?: "draft" | "submitted";
+  /** A draft the round went out without, from before answers saved straight into the round. */
+  neverSent?: boolean;
 }): Promise<string> {
   const [question] = await rows<{ id: string }>(
     "select id from issue_questions where issue_id = $1 and text = $2",
     [issueId, questionText],
   );
   const [reply] = await rows<{ id: string }>(
-    `insert into replies (issue_id, issue_question_id, membership_id, body, photo_url, audio_url, audio_duration_ms, status, submitted_at)
-     values ($1, $2, $3, $4, $5, $6, $7, $8, now()) returning id`,
+    `insert into replies (issue_id, issue_question_id, membership_id, body, photo_url, audio_url, audio_duration_ms, status, submitted_at, never_sent)
+     values ($1, $2, $3, $4, $5, $6, $7, case when $8 then 'draft'::reply_status else 'submitted'::reply_status end, now(), $8) returning id`,
     [
       issueId,
       question.id,
@@ -36,7 +37,7 @@ async function replyFor(issueId: string, questionText: string, membershipId: str
       input.photoUrl ?? null,
       input.audioUrl ?? null,
       input.audioUrl ? 4_000 : null,
-      input.status ?? "submitted",
+      input.neverSent ?? false,
     ],
   );
   return reply.id;
@@ -77,7 +78,7 @@ export const Q2 = "What are you looking forward to?";
  *                    a photo wall with two captioned photos; an admin-only
  *                    section with a photo from Sam
  *   Round 3 (open)   Alice photo that must NOT show: nothing is in the album until delivery
- * plus a draft photo in round 2 that never shows either.
+ * plus a never-sent draft photo in round 2 (left from before autosave) that never shows either.
  */
 export async function seedAlbum(): Promise<{
   loop: SeededLoop;
@@ -108,7 +109,7 @@ export async function seedAlbum(): Promise<{
     photoUrl: await writeUpload("lake", "png"),
     audioUrl: await writeUpload("lake", "webm"),
   });
-  await replyFor(second.issueId, Q1, sam.id, { body: "Never submitted", photoUrl: await writeUpload("draft", "png"), status: "draft" });
+  await replyFor(second.issueId, Q1, sam.id, { body: "Never submitted", photoUrl: await writeUpload("draft", "png"), neverSent: true });
   await snapshotSection(second.issueId, { kind: "photo_wall", title: "Photo wall", position: 0 });
   await snapshotSection(second.issueId, { kind: "standard", title: "Owners only", adminOnly: true, position: 1 });
   await sectionReplyFor(second.issueId, "Photo wall", alice.id, [

@@ -17,8 +17,8 @@ test("O4 · a round keeps the event section it was given, whatever happens to th
   // Bob writes his message while the event still exists.
   await page.goto(`/r/${bob.token}`);
   await page.getByRole("textbox", { name: "Alice's birthday" }).fill("Many happy returns.");
-  await page.getByRole("button", { name: "Send answers" }).click();
-  await expect(page.getByRole("heading", { name: "Sent", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Done", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "All set", exact: true })).toBeVisible();
 
   // Alice is renamed, then the owner edits the event to someone else's date and deletes it.
   await rows("update memberships set name = 'Alicia' where id = $1", [alice.id]);

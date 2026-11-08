@@ -94,15 +94,19 @@ is a POST (server action or route handler) behind a confirm.
 
 ## 5 · Email is a snapshot, the permalink is canonical
 
-Delivery compiles the submitted replies into (a) an email and (b) a live page;
-comments and reactions live on the page. The reply link always points at the round
-that is open, so once an issue goes out, the link moves on to the next one. (Late
-replies to a delivered issue, marked "added later", remain for loops whose next
-round never opened.) The "missed it by three hours" failure mode is removed by
-there always being a round to answer, not by timezone cleverness.
+Delivery compiles every answer in the round into (a) an email and (b) a live page;
+comments and reactions live on the page. An answer is whatever someone has saved
+that isn't empty (§24): there is no send step, so a person who writes and closes the
+tab is in. The reply link only ever reaches the round that is open, so once an issue
+goes out the link moves on to the next one, and a delivered round takes no more
+writes (a paused loop's link reaches none). Answers marked "added later"
+(`added_after_delivery`) are history from before that rule and are still shown;
+nothing writes the flag any more. The "missed it by three hours" failure mode is
+removed by there always being a round to answer, not by timezone cleverness.
 
-An issue with zero submitted replies is carried over to the next delivery; on its
-third empty delivery it is `skipped`, not sent, and pauses the loop.
+An issue with no answers in it (nothing written, or only answers cleared back to
+nothing) is carried over to the next delivery; on its third empty delivery it is
+`skipped`, not sent, and pauses the loop.
 
 ## 6 · Release safety
 
@@ -150,7 +154,9 @@ available to Playwright without a second data path.
 
 ## 9 · Writes go through one POST, not a Server Action
 
-`POST /api/reply/<token>` handles both autosave and submit. A Server Action would
+`POST /api/reply/<token>` handles every save, and a save is all it takes for an
+answer to be in the round (§24). The old `submit` action is still accepted from a
+sheet loaded before that, checks the link and changes nothing. A Server Action would
 work, but a reader or a removed member has to be refused with a real HTTP
 status, and a status is the only thing a test can assert on directly. The same rule
 covers the issue view: reactions are Server Actions because they are only ever
@@ -208,10 +214,9 @@ treat a poll exactly like any other question.
 A pick lives on the person's `replies` row as `poll_choices`, a JSON array of
 indexes into the snapshotted options. The existing unique key
 `(issue_id, issue_question_id, membership_id)` still holds, `replyHasContentCondition`
-counts a non-empty pick as content (so one commitment point — "Send answers" —
-covers polls too), and `added_after_delivery` and reactions work unchanged. A
-separate votes table was rejected: one row per pick would need its own submit,
-late-reply, and reaction rules. Clearing a pick leaves the row; readers filter
+counts a non-empty pick as content (so a pick is in the round as soon as it saves,
+like any answer), and reactions work unchanged. A separate votes table was
+rejected: one row per pick would need its own counting and reaction rules. Clearing a pick leaves the row; readers filter
 empty polls out, so a cleared pick is never shown, counted, or delivered.
 
 Writes go through `savePollChoicesFor` (`action: "pollChoice"` on the reply POST).
@@ -231,7 +236,7 @@ and `photo_url`. `groups.comments_enabled` is the owner's switch.
 
 All comment writes go through `postComment` in `src/lib/comments.ts`, which refuses
 before it stores: the author must be a live member (`membershipForViewer` ignores
-revoked members), comments must be on, an anchor must be a submitted answer of this
+revoked members), comments must be on, an anchor must be an answer (§24) of this
 issue (another member's poll pick stays hidden until delivery), a quote must be a
 live comment in the same thread, and a photo must pass `validatePhoto`. The route
 handler is only parsing.
@@ -305,7 +310,7 @@ of anything to fall out of date: a late photo, a removed photo or a deleted ques
 shows up on the next load.
 
 What the Album may show is decided in the query, not the page: `status = 'delivered'`
-and `status = 'submitted'` keep out open rounds and drafts; `admin_only` sections are
+keeps out open rounds and `never_sent` the drafts an old round went out without (§24); `admin_only` sections are
 joined only for owner and admins; the loop id is a bound parameter, so another loop's
 media cannot appear. Search words and the member id reach SQL only as parameters
 (`ILIKE` patterns are escaped; a member id that is not a UUID is no filter).
@@ -469,3 +474,34 @@ travel as their permanent, unguessable URLs rather than bytes: zipping every fil
 inside one serverless call would hit the platform's time and size limits long
 before a real loop's archive did. The file says the links die with the data, so
 people save what they want before deleting.
+
+## 24 · What's written is in
+
+Everything on the reply sheet saves as it is typed, so the only rule a newcomer
+can see is the one the data follows: a saved answer that isn't empty goes out with
+the round. There is no draft, no send and no "sent" state. `src/lib/reply-query.ts`
+holds the one definition, used by delivery and the empty-round check, the issue
+page, progress, reminders and nudges (`answeredMemberIds` in `src/lib/answered.ts`),
+comment anchors, the Album, the rounds filter and exports:
+
+- a question answer is text with something other than spaces in it, a photo, a
+  voice note or a poll pick;
+- a section answer is text, a music link, or at least one photo;
+- an answer cleared back to nothing is not one, though its row stays.
+
+The sheet has one mode. The deadline line says that everything written goes out
+then, finished or not, and that clearing an answer leaves it out; "Done" waits for
+the last words to save and confirms it, but nothing needs pressing to count.
+
+`replies.status` / `section_replies.status` and `submitted_at` are legacy: every
+save writes `submitted` so code from before this rule, still running for the few
+minutes between the migration and the release, counts the same rows, but nothing
+reads them. Migration `0021` flipped drafts in open rounds to `submitted` and set
+`never_sent` on drafts in rounds that had already gone out or been dropped, so they
+don't appear in those rounds now that drafts are answers. `never_sent` is the only
+thing that keeps them out; the status columns can be dropped in a later release.
+
+Because a half-finished sentence is an answer, a round stays a surprise until it
+goes out: before delivery, the round's page shows each member only their own
+answers (as polls already did), and the owner's loop archive leaves the open round
+out. Everyone sees everything once it is delivered.

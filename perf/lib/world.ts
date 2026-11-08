@@ -223,7 +223,7 @@ export async function buildWorld(input: { app: string; browser: Browser }): Prom
       description: section.description, position: section.position,
     }))).returning();
 
-    // An open round is part-way done: the member under test has only drafts.
+    // An open round is part-way done: the member under test hasn't written anything yet.
     const authors = status === "open" ? contributors.filter((person) => person !== member).slice(0, 6) : contributors;
     const submittedAt = new Date(opensAt.getTime() + 2 * DAY);
     const replyRows = await db.insert(replies).values(authors.flatMap((person) => asked.map((question) => ({

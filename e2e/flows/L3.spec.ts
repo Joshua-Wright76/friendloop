@@ -24,7 +24,6 @@ test("L3 · a delivered poll shows every pick by name beside a quiet tally, to m
       data: { action: "pollChoice", issueQuestionId: pollId, choices },
     });
     expect(vote.status()).toBe(200);
-    expect((await request.post(`/api/reply/${member.token}`, { data: { action: "submit" } })).status()).toBe(200);
   }
 
   const delivery = await runSweep(DELIVERY_DAY);

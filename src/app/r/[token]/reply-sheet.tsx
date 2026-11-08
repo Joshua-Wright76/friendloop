@@ -50,7 +50,6 @@ export type SheetQuestion = {
   pollMultiple: boolean;
   pollOptions: string[];
   pollChoices: number[];
-  submitted: boolean;
 };
 
 type Props = {
@@ -66,8 +65,6 @@ type Props = {
   frame: string | null;
   deadlineMoment: string;
   deliversAtIso: string;
-  /** Set once the round has gone out: its deadline has passed, so nothing should promise one. */
-  wentOutLabel: string | null;
   displayName: string;
   initialName: string | null;
   reminderPreference: ReminderPreferenceValue;
@@ -114,7 +111,6 @@ export function ReplySheet({
   frame,
   deadlineMoment,
   deliversAtIso,
-  wentOutLabel,
   displayName,
   initialName,
   reminderPreference,
@@ -132,15 +128,13 @@ export function ReplySheet({
     () => viewerTimeLabel(deliversAtIso, loopTimezone),
     () => null,
   );
-  const [submitFailed, setSubmitFailed] = useState(false);
+  const [finishFailed, setFinishFailed] = useState(false);
   const musicSaved = useRef<Record<string, string>>({});
-  const [editedSinceSend, setEditedSinceSend] = useState(false);
   const [linkGuard, setLinkGuard] = useState(false);
   const [conflicts, setConflicts] = useState<Record<string, string | null>>({});
   const lastSaved = useRef(new Map(questions.map((question) => [question.id, question.body])));
   const [droppedAttachment, setDroppedAttachment] = useState(false);
   const [droppedPick, setDroppedPick] = useState(false);
-  const [sentIds, setSentIds] = useState<Set<string>>(() => new Set(questions.filter((question) => question.submitted).map((question) => question.id)));
   const [questionStatuses, setQuestionStatuses] = useState<Record<string, QuestionSaveStatus>>(() =>
     Object.fromEntries(questions.map((question) => [question.id, question.body.trim() ? "saved" : "empty"])),
   );
@@ -191,14 +185,13 @@ export function ReplySheet({
   );
   const [pollStatuses, setPollStatuses] = useState<Record<string, PollCardStatus>>({});
   const pollRevisions = useRef(new Map<string, number>());
-  const [sent, setSent] = useState(() => questions.some((question) => question.submitted));
   const [animateSentStamp, setAnimateSentStamp] = useState(false);
-  // After a send, the sheet steps aside for a confirmation; "Edit my answers" brings it back.
-  // The sheet stays mounted (only hidden) so nothing in it — drafts, photos, previews — is lost.
-  const [confirmation, setConfirmation] = useState<null | "sent" | "updated" | "unchanged">(null);
+  // Done steps the sheet aside for a confirmation; "Back to my answers" brings it back.
+  // The sheet stays mounted (only hidden) so nothing in it — words, photos, previews — is lost.
+  const [confirmation, setConfirmation] = useState(false);
   const confirmationHeading = useRef<HTMLHeadingElement>(null);
   const sheetHeading = useRef<HTMLHeadingElement>(null);
-  const [sending, setSending] = useState(false);
+  const [finishing, setFinishing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // One permanent polite region for things that have no visible text of their own.
   const [announcement, setAnnouncement] = useState("");
@@ -240,7 +233,7 @@ export function ReplySheet({
   const [sectionErrors, setSectionErrors] = useState<Record<string, string | null>>({});
   const [sectionNotices, setSectionNotices] = useState<Record<string, string | null>>({});
   const sectionUploadLocks = useRef(new Set<string>());
-  // Sections with a photo being shrunk or uploaded right now: Send waits for them.
+  // Sections with a photo being shrunk or uploaded right now: Done waits for them.
   const [sectionUploading, setSectionUploading] = useState<Record<string, boolean>>({});
 
   const total = questions.length;
@@ -309,7 +302,7 @@ export function ReplySheet({
     const field = document.getElementById(`reply-${id}`) ?? card?.querySelector<HTMLElement>("input, textarea, button");
     field?.focus({ preventScroll: true });
   }
-  // Section answers count toward the action bar, so a section-only round sends.
+  // Section answers count toward the action bar, so a section-only round is done.
   const sectionAnswered = useMemo(
     () => sections.some((section) =>
       (sectionBodies[section.id] ?? "").trim().length > 0 ||
@@ -322,7 +315,7 @@ export function ReplySheet({
     () => Object.values(audioStates).some((state) => state === "uploading" || state === "removing"),
     [audioStates],
   );
-  // A pick still on its way would miss the send, so the button waits for it.
+  // A pick still on its way may not have saved, so the button waits for it.
   const pollBusy = useMemo(
     () => Object.values(pollStatuses).some((state) => state === "saving"),
     [pollStatuses],
@@ -333,14 +326,14 @@ export function ReplySheet({
       Object.values(sectionUploading).some(Boolean),
     [photoStates, sectionUploading],
   );
-  const sendBlocked = sending || photoBusy || audioBusy || pollBusy;
-  // Nothing written yet: Send stays operable and points at the first question instead.
+  const doneBlocked = finishing || photoBusy || audioBusy || pollBusy;
+  // Nothing written yet: Done stays operable and points at the first question instead.
   // The name is not an answer.
-  const nothingToSend = !sent && answered === 0 && !sectionAnswered;
+  const nothingWritten = answered === 0 && !sectionAnswered;
   const [nudged, setNudged] = useState(false);
   // Once something is written the note has done its job; clearing it again doesn't bring it back.
-  if (nudged && !nothingToSend) setNudged(false);
-  const showNudge = nudged && nothingToSend;
+  if (nudged && !nothingWritten) setNudged(false);
+  const showNudge = nudged && nothingWritten;
   const questionList = useRef<HTMLDivElement>(null);
   const sectionList = useRef<HTMLElement>(null);
   const nudgeMessage = useRef<HTMLParagraphElement>(null);
@@ -355,17 +348,13 @@ export function ReplySheet({
   const attachFailed = questions.some((question) =>
     (photoStates[question.id] === "uploadError" && retryablePhotos[question.id]) ||
     (audioStates[question.id] === "uploadError" && retryableAudio[question.id]));
-  // An answer already sent changes in place as it's saved. Only a brand-new one needs sending.
-  const unsentCount = sent ? questions.filter((question) =>
-    !sentIds.has(question.id) && (bodies[question.id] ?? "").trim().length > 0).length : 0;
-  const newAfterSend = unsentCount > 0;
   const status: SaveStatus = useMemo(() => {
     const states = Object.values(questionStatuses);
-    if (submitFailed || states.includes("error")) return "error";
+    if (finishFailed || states.includes("error")) return "error";
     if (states.includes("saving")) return "saving";
     if (states.includes("saved")) return "saved";
     return "idle";
-  }, [questionStatuses, submitFailed]);
+  }, [questionStatuses, finishFailed]);
 
   // A control that unmounts takes keyboard focus with it, so the handler names its successor.
   useEffect(() => {
@@ -919,7 +908,6 @@ export function ReplySheet({
 
   const onChange = useCallback(
     (questionId: string, value: string, element: HTMLTextAreaElement) => {
-      setEditedSinceSend(true);
       revisions.current.set(questionId, (revisions.current.get(questionId) ?? 0) + 1);
       dirty.current.add(questionId);
       latestBodies.current[questionId] = value;
@@ -1002,7 +990,7 @@ export function ReplySheet({
   // When the connection comes back, everything still waiting goes on its own.
   useEffect(() => {
     const retryAll = () => {
-      setSubmitFailed(false);
+      setFinishFailed(false);
       for (const question of questions) {
         if (question.kind === "poll") {
           if (pollStatuses[question.id] === "error") void choosePoll(question.id, pollPicks[question.id] ?? []);
@@ -1024,12 +1012,16 @@ export function ReplySheet({
     return () => window.removeEventListener("online", retryAll);
   }, [audioStates, bodies, choosePoll, photoStates, pollPicks, pollStatuses, questionStatuses, questions, resendQuietly, retryAudio, retryPhoto, retryableAudio, retryablePhotos, saveSection, saveSectionText, sectionLinks, sectionSaveStates, sections]);
 
-  const onSend = useCallback(async () => {
+  /**
+   * Done presses nothing into the round: every answer is already in as it saves.
+   * It makes sure the last words typed have landed, then says what happens next.
+   */
+  const onDone = useCallback(async () => {
     if (photoLocks.current.size > 0 || sectionUploadLocks.current.size > 0) return;
     for (const timer of timers.current.values()) clearTimeout(timer);
     timers.current.clear();
-    setSending(true);
-    setSubmitFailed(false);
+    setFinishing(true);
+    setFinishFailed(false);
     setError(null);
     setAnnouncement("");
 
@@ -1093,44 +1085,34 @@ export function ReplySheet({
         }
       }
       if (firstFailure && !firstFailure.result.ok) {
-        // "Sent" must never hide an answer or a vote that's gone.
-        setSubmitFailed(true);
+        // "All set" must never hide an answer or a vote that didn't save.
+        setFinishFailed(true);
         setError(firstFailure.result.error);
         if (firstFailure.question.kind !== "poll") fields.current.get(firstFailure.question.id)?.focus();
         return;
       }
 
       await Promise.allSettled([...sectionSaves.current]);
-      const result = await postReply(token, { action: "submit" }, copy.reply.genericError);
 
-      if (!result.ok) {
-        setError(result.error);
-        setSubmitFailed(true);
-        return;
-      }
-
-      setEditedSinceSend(false);
-      setSentIds(new Set(questions.filter((question) => (bodies[question.id] ?? "").trim().length > 0).map((question) => question.id)));
-      setConfirmation(sent && !newAfterSend ? "updated" : "sent");
-      setSent(true);
+      setConfirmation(true);
       setAnimateSentStamp(true);
-      setAnnouncement(copy.a11yStatus.sentAnnouncement);
+      setAnnouncement(copy.a11yStatus.doneAnnouncement);
     } catch {
       setError(copy.reply.genericError);
-      setSubmitFailed(true);
+      setFinishFailed(true);
     } finally {
-      setSending(false);
+      setFinishing(false);
     }
-  }, [bodies, name, newAfterSend, pollPicks, pollStatuses, questionStatuses, questions, sent, token, writeDraft, writePoll]);
+  }, [bodies, name, pollPicks, pollStatuses, questionStatuses, questions, token, writeDraft, writePoll]);
 
   // Each view starts at the top with focus on its heading, so a screen reader hears the change.
   useEffect(() => {
-    if (confirmation === null) return;
+    if (!confirmation) return;
     scrollPageToTop();
     confirmationHeading.current?.focus();
   }, [confirmation]);
 
-  /** Send with nothing in it: say so beside the first question and put the cursor there. */
+  /** Done with nothing written: say so beside the first question and put the cursor there. */
   const nudgeToFirstQuestion = useCallback(() => {
     setNudged(true);
     const fields = "textarea, input[type=radio], input[type=checkbox], input:not([type])";
@@ -1141,9 +1123,7 @@ export function ReplySheet({
     nudgeMessage.current?.scrollIntoView({ block: "start", behavior: "smooth" });
   }, []);
 
-  const showAllSet = useCallback(() => setConfirmation("unchanged"), []);
-
-  // "Send without it" is a decision: the warning doesn't come back on the next visit.
+  // "Finish without it" is a decision: the warning doesn't come back on the next visit.
   const settleBadPicks = () => {
     setLinkGuard(false);
     if (sectionFailed) setDroppedPick(true);
@@ -1180,7 +1160,7 @@ export function ReplySheet({
   };
 
   const editAnswers = useCallback(() => {
-    setConfirmation(null);
+    setConfirmation(false);
     // The sheet is unhidden on the next paint; move there once it is.
     requestAnimationFrame(() => {
       scrollPageToTop();
@@ -1265,13 +1245,14 @@ export function ReplySheet({
               id="reply-confirmation-heading"
               className="mt-4 text-ink outline-none"
             >
-              {confirmation === "updated" ? copy.reply.confirmation.updatedTitle : confirmation === "unchanged" ? copy.reply.confirmation.allSetTitle : copy.reply.confirmation.sentTitle}
+              {copy.reply.confirmation.title}
             </h1>
             <p className="mt-2 text-[16px] leading-relaxed text-ink">
-              {text(copy.reply.confirmation.body, { round: issueTitle(copy.reply.round, roundNumber, roundName) })}
+              {text(copy.reply.confirmation.body, { round: issueTitle(copy.reply.round, roundNumber, roundName), deadline: deadlineBoth })}
             </p>
             <p className="mt-1 text-[14px] leading-relaxed text-ink-soft">
-              {wentOutLabel ? copy.reply.confirmation.deliveryLate : text(copy.reply.confirmation.delivery, { deadline: deadlineBoth })}
+              {copy.reply.confirmation.change}
+              {answered < total ? copy.reply.confirmation.skipNote : null}
             </p>
             {droppedPick || sectionFailed ? <p role="status" className="m-0 mt-3 text-[14px] font-bold leading-relaxed text-danger">{copy.reply.pickNotSaved}</p> : null}
             {droppedAttachment || attachFailed ? <p role="status" className="m-0 mt-3 text-[14px] font-bold leading-relaxed text-danger">{copy.reply.attachDropped}</p> : null}
@@ -1285,15 +1266,17 @@ export function ReplySheet({
         </main>
       ) : null}
 
-      <main className="mx-auto w-full max-w-[600px] px-4 pb-36 pt-3" hidden={confirmation !== null}>
+      <main className="mx-auto w-full max-w-[600px] px-4 pb-36 pt-3" hidden={confirmation}>
         <section className={`reply-intro card${headerImageUrl ? " has-snapshot" : ""}`}>
           <LoopSnapshot url={headerImageUrl} />
           {headerImageUrl ? null : <Cherries className="reply-intro__cherries" />}
           <p className="reply-intro__hi">{text(copy.reply.hi, { name: name.trim() || displayName })}</p>
           <h1 ref={sheetHeading} tabIndex={-1} className="text-ink"><DisplayDigits>{issueTitle(copy.reply.round, roundNumber, roundName)}</DisplayDigits></h1>
           <p className="mt-1 text-[14.5px] leading-snug text-ink-soft numeric">
-            {wentOutLabel ? text(copy.reply.wentOut, { date: wentOutLabel }) : text(copy.reply.closes, { deadline: deadlineBoth })}
+            {text(copy.reply.closes, { deadline: deadlineBoth })}
           </p>
+          {/* Nothing has to be pressed for an answer to count, so half a thought goes out too. Say so where the deadline is. */}
+          <p className="m-0 mt-1 text-[14.5px] font-bold leading-snug text-ink">{copy.reply.goesOutNote}</p>
 
           {/* Who is answering is settled in one line; changing it is there for anyone who wants to. */}
           <details className="reply-identity" open={nameStatus === "error" ? true : undefined}>
@@ -1320,7 +1303,7 @@ export function ReplySheet({
                 aria-invalid={nameStatus === "error" ? "true" : undefined}
                 aria-describedby="reply-name-status"
                 placeholder={copy.reply.namePlaceholder}
-                disabled={sending}
+                disabled={finishing}
                 className="field mt-1.5 h-11 py-0"
               />
               <p
@@ -1352,26 +1335,14 @@ export function ReplySheet({
         </section>
 
         <p role="status" aria-live="polite" className="sr-only">{announcement}</p>
-        {sent ? (
-          <div className="notice settle mt-4 flex items-start gap-3 border bg-accent-soft px-4 py-3">
-            <svg viewBox="0 0 20 20" aria-hidden className={`sent-stamp mt-0.5 h-4 w-4 flex-none${animateSentStamp ? " sent-stamp-animate" : ""}`}>
-              <path d="M10 1.7a8.3 8.3 0 100 16.6 8.3 8.3 0 000-16.6zm3.8 6.4l-4.4 4.7a.9.9 0 01-1.3 0L6.2 10.9a.9.9 0 111.3-1.3l1.2 1.3 3.8-4a.9.9 0 011.3 1.2z" />
-            </svg>
-            <p className="text-[14px] leading-relaxed text-ink">
-              {/* One state at a time: once there's something new to send, this says so too. */}
-              {newAfterSend ? copy.reply.sentWithNewShort : wentOutLabel ? copy.reply.sentLate : text(copy.reply.sent, { deadline: deadlineBoth })}
-              {!newAfterSend && !wentOutLabel && answered < total ? copy.reply.sentSkipNote : null}
-            </p>
-          </div>
-        ) : null}
 
         <p
           ref={nudgeMessage}
-          id="reply-nothing-to-send"
+          id="reply-nothing-written"
           role="alert"
           className={showNudge ? "notice mt-4 scroll-mt-24 border bg-accent-soft px-4 py-3 text-[14px] font-bold leading-relaxed text-ink" : "scroll-mt-24"}
         >
-          {showNudge ? copy.reply.nothingToSend : null}
+          {showNudge ? copy.reply.nothingWritten : null}
         </p>
 
         <div ref={questionList} className="mt-5 flex flex-col gap-6">
@@ -1387,7 +1358,7 @@ export function ReplySheet({
                   multiple={question.pollMultiple}
                   picks={pollPicks[question.id] ?? []}
                   status={pollStatuses[question.id] ?? "idle"}
-                  disabled={sending}
+                  disabled={finishing}
                   onChange={(next) => void choosePoll(question.id, next)}
                 />
               );
@@ -1399,7 +1370,7 @@ export function ReplySheet({
             const preview = photoPreviews[question.id];
             const photoBusyForCard = photoState === "uploading" || photoState === "removing";
             // aria-disabled, not disabled: a control the keyboard is on must not drop focus mid-request.
-            const photoBlocked = sending || photoBusyForCard;
+            const photoBlocked = finishing || photoBusyForCard;
             const showRemove = Boolean(photoUrl || preview || (photoState === "uploadError" && retryablePhotos[question.id]) || photoState === "removeError");
             const photoStatusText = photoState === "uploading"
               ? copy.reply.photoUploading
@@ -1421,8 +1392,8 @@ export function ReplySheet({
                 audioState === "removeError",
             );
             const isRecordingHere = recording?.questionId === question.id;
-            const voiceBlocked = sending || voiceBusyForCard;
-            const recordBlocked = sending || voiceBusyForCard || Boolean(recording) || stopping;
+            const voiceBlocked = finishing || voiceBusyForCard;
+            const recordBlocked = finishing || voiceBusyForCard || Boolean(recording) || stopping;
             const audioStatusText = audioState === "uploading"
               ? copy.reply.voiceUploading
               : audioState === "removing"
@@ -1439,9 +1410,7 @@ export function ReplySheet({
               {/* Always top right; the tape never goes there on these cards, so the two can't overlap. */}
               <span className="question-status" aria-live="polite">
                 {questionStatuses[question.id] === "saving" ? <span>{copy.reply.questionStates.saving}</span> : null}
-                {sent && !sentIds.has(question.id) && (bodies[question.id] ?? "").trim() && questionStatuses[question.id] !== "saving" ? (
-                  <span className="question-status__unsent">{copy.reply.questionNotSent}</span>
-                ) : questionStatuses[question.id] === "saved" ? (
+                {questionStatuses[question.id] === "saved" ? (
                   <span className="question-status__saved">
                     <svg viewBox="0 0 20 20" aria-hidden="true" className="h-3.5 w-3.5 flex-none"><path d="m4 10 4 4 8-9" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" /></svg>
                     {copy.reply.questionStates.saved}
@@ -1474,7 +1443,7 @@ export function ReplySheet({
                 id={`reply-${question.id}`}
                 onChange={(event) => onChange(question.id, event.target.value, event.currentTarget)}
                 onFocus={(event) => autosize(event.currentTarget)}
-                disabled={sending}
+                disabled={finishing}
                 rows={2}
                 maxLength={8000}
                 placeholder={copy.reply.placeholder}
@@ -1722,7 +1691,7 @@ export function ReplySheet({
                           placeholder={copy.reply.sectionMusicPlaceholder}
                           inputMode="url"
                           maxLength={500}
-                          disabled={sending}
+                          disabled={finishing}
                           className="field mt-1 h-[46px] py-0"
                         />
                       </label>
@@ -1733,7 +1702,7 @@ export function ReplySheet({
                           onChange={(event) => setSectionCaptions((current) => ({ ...current, [section.id]: event.target.value }))}
                           placeholder={copy.reply.sectionCaptionPlaceholder}
                           maxLength={120}
-                          disabled={sending}
+                          disabled={finishing}
                           className="field mt-1 h-[46px] py-0"
                         />
                       </label>
@@ -1742,9 +1711,9 @@ export function ReplySheet({
                           <button
                             type="button"
                             className="link link--quiet cursor-pointer aria-disabled:cursor-not-allowed aria-disabled:opacity-45"
-                            aria-disabled={sending ? true : undefined}
+                            aria-disabled={finishing ? true : undefined}
                             onClick={() => {
-                              if (sending) return;
+                              if (finishing) return;
                               // This button leaves with the link; the field it cleared is where focus goes.
                               pendingFocus.current = [`section-link-${section.id}`];
                               musicSaved.current[section.id] = "";
@@ -1779,7 +1748,7 @@ export function ReplySheet({
                         aria-label={section.title}
                         rows={3}
                         maxLength={2000}
-                        disabled={sending}
+                        disabled={finishing}
                         className="field lined-field w-full py-2"
                       />
                       <p aria-live="polite" className="mt-1 text-[13px] text-ink-muted">
@@ -1806,9 +1775,9 @@ export function ReplySheet({
                             <button
                               type="button"
                               className="mt-1 min-h-11 text-[13px] font-bold text-ink underline underline-offset-2 aria-disabled:cursor-not-allowed aria-disabled:opacity-45"
-                              aria-disabled={sending ? true : undefined}
+                              aria-disabled={finishing ? true : undefined}
                               onClick={() => {
-                                if (!sending) void removeSectionPhoto(section.id, item.id, media.length - 1);
+                                if (!finishing) void removeSectionPhoto(section.id, item.id, media.length - 1);
                               }}
                             >
                               {copy.reply.sectionRemovePhoto}
@@ -1823,7 +1792,7 @@ export function ReplySheet({
                           sectionTitle={section.title}
                           kind={section.kind}
                           position={media.length}
-                          disabled={sending || Boolean(sectionUploading[section.id])}
+                          disabled={finishing || Boolean(sectionUploading[section.id])}
                           onPick={(file, caption) => void uploadSectionPhoto(section.id, section.kind, file, caption, media.length)}
                         />
                       ) : null}
@@ -1867,8 +1836,8 @@ export function ReplySheet({
       </main>
 
       <section
-        aria-label={copy.a11yLabels.sendBar}
-        hidden={confirmation !== null}
+        aria-label={copy.a11yLabels.answerBar}
+        hidden={confirmation}
         className="reply-actionbar stitched-top fixed inset-x-0 bottom-0 z-20 border-t backdrop-blur-md"
         style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}
       >
@@ -1882,34 +1851,32 @@ export function ReplySheet({
                 className="btn btn-primary"
                 onClick={() => {
                   settleBadPicks();
-                  if (sent && !newAfterSend && !editedSinceSend) showAllSet();
-                  else void onSend();
+                  void onDone();
                 }}
               >
-                {sent ? copy.reply.guardDone : copy.reply.guardSend}
+                {copy.reply.guardDone}
               </button>
             </div>
           ) : (
           <>
           {/* The top bar keeps the count. This one says where the words are. */}
           <span aria-live="polite" data-save-status className={`min-w-0 flex-1 text-[13px] font-bold leading-snug numeric ${status === "error" || pollFailed || sectionFailed || attachFailed || extraFailed ? "text-danger" : "text-ink-soft"}`}>
-            {status === "saving" ? copy.reply.saving : status === "error" ? copy.reply.notSaved : pollFailed ? copy.reply.pollNotSaved : sectionFailed ? copy.reply.attentionNeeded : attachFailed ? copy.reply.attachNotSaved : extraFailed ? copy.reply.extraNotSaved : sent ? (newAfterSend ? (unsentCount === 1 ? copy.reply.newUnsentOne : text(copy.reply.newUnsentCount, { count: unsentCount })) : copy.reply.liveEdits) : status === "saved" ? copy.reply.draftSaved : copy.reply.savedAsYouGo}
+            {status === "saving" ? copy.reply.saving : status === "error" ? copy.reply.notSaved : pollFailed ? copy.reply.pollNotSaved : sectionFailed ? copy.reply.attentionNeeded : attachFailed ? copy.reply.attachNotSaved : extraFailed ? copy.reply.extraNotSaved : status === "saved" ? copy.reply.savedInRound : copy.reply.savedAsYouGo}
           </span>
-          {/* aria-disabled, not disabled: the button the keyboard is on must not vanish mid-send. */}
+          {/* aria-disabled, not disabled: the button the keyboard is on must not vanish mid-save. */}
           <button
             type="button"
             onClick={() => {
-              if (sendBlocked) return;
-              if (nothingToSend) nudgeToFirstQuestion();
+              if (doneBlocked) return;
+              if (nothingWritten) nudgeToFirstQuestion();
               else if (sectionFailed || attachFailed) setLinkGuard(true);
-              else if (sent && !newAfterSend && !editedSinceSend) showAllSet();
-              else void onSend();
+              else void onDone();
             }}
-            aria-disabled={sendBlocked ? true : undefined}
-            aria-describedby={showNudge ? "reply-nothing-to-send" : undefined}
-            className={`btn ${sent && !newAfterSend ? "btn-quiet" : "btn-primary"} flex-none aria-disabled:cursor-not-allowed aria-disabled:opacity-45`}
+            aria-disabled={doneBlocked ? true : undefined}
+            aria-describedby={showNudge ? "reply-nothing-written" : undefined}
+            className="btn btn-primary flex-none aria-disabled:cursor-not-allowed aria-disabled:opacity-45"
           >
-            {sending ? copy.reply.sending : sent ? (newAfterSend ? copy.reply.sendNew : copy.reply.done) : copy.reply.sendAnswers}
+            {finishing ? copy.reply.finishing : copy.reply.done}
           </button>
           </>
           )}

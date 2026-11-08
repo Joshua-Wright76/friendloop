@@ -10,7 +10,8 @@ import {
   toStream,
 } from "../../src/lib/data-export.ts";
 import { exportResponse } from "../../src/lib/export-response.ts";
-import { addMember, rows, seedDeliveredIssue, seedLoop, setupDatabase } from "../support/app.ts";
+import { addMember, rows, seedDeliveredIssue, seedLoop, seedOpenIssue, seedReplies, setupDatabase } from "../support/app.ts";
+import { AFTER_FIRST_SLOT } from "../../e2e/support/clock.ts";
 import { seedPoll } from "../../e2e/support/polls.ts";
 import { E2E_NOW } from "../../e2e/support/clock.ts";
 import { clearRequest, setRequestHeaders } from "../stubs/request.mjs";
@@ -61,7 +62,8 @@ async function seedArchive() {
     "select id from issue_questions where issue_id = $1 and kind = 'written' and id not in (select issue_question_id from replies where membership_id = $2)",
     [issue.issueId, alice.id],
   );
-  await rows("insert into replies (issue_id, issue_question_id, membership_id, body, status) values ($1, $2, $3, 'Alice draft', 'draft')", [issue.issueId, second[0].id, alice.id]);
+  // A draft the round went out without, from before answers saved straight into the round.
+  await rows("insert into replies (issue_id, issue_question_id, membership_id, body, status, never_sent) values ($1, $2, $3, 'Alice draft', 'draft', true)", [issue.issueId, second[0].id, alice.id]);
   await rows("update replies set photo_url = $1 where membership_id = $2 and body = 'Wren laughed'", [PHOTO, wren.id]);
 
   const wrenReply = await rows<{ id: string }>("select id from replies where membership_id = $1 and body = 'Wren laughed'", [wren.id]);
@@ -97,6 +99,7 @@ test("a person's export holds their own words in every loop, drafts included, an
   assert.equal(loop.you.photoUrl, "http://localhost:3100/uploads/avatar.png");
   assert.deepEqual(loop.answers.map((answer: { answer: string }) => answer.answer), ["Wren laughed", ""]);
   assert.equal(loop.answers[0].photoUrl, PHOTO);
+  assert.equal(loop.answers[0].neverSent, false);
   assert.deepEqual(loop.answers[1].pollChoices, ["Sea"], "a pick that no longer exists is dropped");
   assert.deepEqual(loop.sectionAnswers.map((answer: { answer: string }) => answer.answer), ["My week"]);
   assert.deepEqual(loop.sectionAnswers[0].photos, [{ url: PHOTO, caption: "Hike" }]);
@@ -122,7 +125,7 @@ test("an account with no loops still exports a valid, empty file", async () => {
   assert.deepEqual(data.loops, []);
 });
 
-test("the loop archive has every round, sent answer, section, comment and reaction, and no drafts", async () => {
+test("the loop archive has every round, answer, section, comment and reaction, and no never-sent drafts", async () => {
   const world = await seedArchive();
   const archive = await loopArchive(world.loop.groupId, E2E_NOW);
   assert.equal(archive?.groupName, "Friday Loop");
@@ -176,4 +179,18 @@ test("the stream, the filename and the response headers", async () => {
   assert.equal(response.headers.get("content-disposition"), 'attachment; filename="friendloop-my-data-2026-01-02.json"');
   assert.equal(response.headers.get("cache-control"), "private, no-store");
   assert.deepEqual(await response.json(), { format: "x", items: [{ a: 1 }, { b: [2] }] });
+});
+
+test("the loop archive leaves out the round that is still open", async () => {
+  const loop = await seedLoop();
+  await seedDeliveredIssue(loop, { deliveredAt: E2E_NOW, answers: [{ email: "alice@friendloop.test", body: "Sent and read." }] });
+  const open = await seedOpenIssue(loop, { openedAt: AFTER_FIRST_SLOT });
+  const bob = loop.members.find((member) => member.email.startsWith("bob"))!;
+  await seedReplies({ issueId: open.issueId, membershipId: bob.id, answers: [{ text: "What made you laugh this week?", body: "Still writing" }] });
+
+  const text = await collect((await loopArchive(loop.groupId, E2E_NOW))!.chunks);
+  const data = JSON.parse(text);
+  assert.equal(data.rounds.length, 1);
+  assert.equal(data.rounds[0].status, "delivered");
+  assert.ok(!text.includes("Still writing"));
 });

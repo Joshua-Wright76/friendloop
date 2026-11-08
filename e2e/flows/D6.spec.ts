@@ -7,7 +7,7 @@ test.beforeEach(async () => {
   await resetDatabase();
 });
 
-test("D6 · a submitted answer can still be rewritten, not duplicated", async ({ page }) => {
+test("D6 · an answer changes in place, and clearing it takes it out of the round", async ({ page }) => {
   const loop = await seedLoop();
   const issue = await seedOpenIssue(loop, { openedAt: AFTER_FIRST_SLOT });
   const alice = loop.members.find((member) => member.email.startsWith("alice"))!;
@@ -16,41 +16,31 @@ test("D6 · a submitted answer can still be rewritten, not duplicated", async ({
   await waitForSheet(page);
   const answer = page.getByLabel("What made you laugh this week?");
   await answer.fill("First version.");
-  await page.getByRole("button", { name: "Send answers" }).click();
-  await expect(page.getByRole("heading", { name: "Sent", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Done", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "All set", exact: true })).toBeVisible();
   await expect(page.locator(".sent-stamp:visible")).toHaveClass(/sent-stamp-animate/);
 
-  await page.getByRole("button", { name: "Edit my answers" }).click();
+  await page.getByRole("button", { name: "Back to my answers" }).click();
   await answer.fill("Second version, with the good detail.");
-  await page.getByRole("button", { name: "Done" }).click();
-  // A second send confirms again, as a change rather than a first send.
-  await expect(page.getByRole("heading", { name: "Changes saved", exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "Edit my answers" }).click();
-  // The overall save status says how a sent answer behaves from here.
-  await expect(page.locator("[data-save-status]")).toHaveText("Edits to sent answers save as you go");
+  await expect(page.locator("[data-save-status]")).toHaveText("Saved. It goes out with the round.");
 
-  // Coming back later opens the sheet itself, with its quiet "Sent" note.
-  await page.reload();
-  await expect(page.getByRole("button", { name: "Done" })).toBeVisible();
-  await expect(page.locator(".sent-stamp:visible")).not.toHaveClass(/sent-stamp-animate/);
-  await expect(page.getByLabel("What made you laugh this week?")).toHaveValue(
-    "Second version, with the good detail.",
-  );
-
-  // Only answers that were written get a row, and sending never adds a blank one
-  // for the question left empty. Rewriting the answer must not add a second.
-  const saved = await rows<{ body: string; status: string }>(
-    `select body, status from replies where issue_id = $1 and membership_id = $2`,
+  // Rewriting must not add a second row, and a question left empty gets none.
+  const saved = async () => rows<{ body: string }>(
+    "select body from replies where issue_id = $1 and membership_id = $2",
     [issue.issueId, alice.id],
   );
-  expect(saved, "one row per answered question, updated in place").toHaveLength(1);
-  const answered = saved.filter((row) => row.body.length > 0);
-  expect(answered, "the edited answer was updated in place").toHaveLength(1);
-  expect(answered[0].body).toBe("Second version, with the good detail.");
-  expect(answered[0].status).toBe("submitted");
+  await expect.poll(async () => (await saved()).map((row) => row.body)).toEqual(["Second version, with the good detail."]);
+
+  // Cleared, it isn't an answer any more: not in the round, not in the count.
+  await answer.fill("");
+  await expect(page.locator("[data-save-status]")).toHaveText("Saved as you go");
+  await expect.poll(async () => (await saved()).map((row) => row.body)).toEqual([""]);
+  await expect(page.getByText(/0 of 2 answered/i).first()).toBeVisible();
+  const view = await page.request.get(`/i/${issue.issueId}?m=${alice.token}`);
+  expect(await view.text()).not.toContain("Second version");
 });
 
-test("D6 · clearing a draft resolves the overall save status after an older write is discarded", async ({ page }) => {
+test("D6 · clearing an answer resolves the overall save status after an older write is discarded", async ({ page }) => {
   const loop = await seedLoop();
   await seedOpenIssue(loop, { openedAt: AFTER_FIRST_SLOT });
   const alice = loop.members.find((member) => member.email.startsWith("alice"))!;
@@ -58,7 +48,7 @@ test("D6 · clearing a draft resolves the overall save status after an older wri
 
   await page.route("**/api/reply/**", async (route) => {
     const payload = route.request().postDataJSON() as { action: string; body?: string };
-    if (payload.action === "draft" && payload.body === "A draft that gets cleared.") {
+    if (payload.action === "draft" && payload.body === "An answer that gets cleared.") {
       delayedBody = payload.body;
       await new Promise((resolve) => setTimeout(resolve, 1200));
     }
@@ -68,20 +58,19 @@ test("D6 · clearing a draft resolves the overall save status after an older wri
   await page.goto(`/r/${alice.token}`);
   await waitForSheet(page);
   const answer = page.getByLabel("What made you laugh this week?");
-  await answer.fill("A draft that gets cleared.");
-  await expect.poll(() => delayedBody).toBe("A draft that gets cleared.");
+  await answer.fill("An answer that gets cleared.");
+  await expect.poll(() => delayedBody).toBe("An answer that gets cleared.");
   await answer.fill("");
 
-  // With nothing left to send, Send stays operable and points at the first question.
-  const send = page.getByRole("button", { name: "Send answers" });
-  await expect(send).toBeEnabled();
-  await expect(send).not.toHaveAttribute("aria-disabled", "true");
   // The late, slower write for the text you deleted is discarded, so the status
   // settles instead of being stuck on "Saving…".
   await expect(page.locator("[data-save-status]")).not.toHaveText(/Saving/);
   await expect(page.locator("[data-save-status]")).toHaveText("Saved as you go");
 
-  await send.click();
-  await expect(page.getByRole("alert").filter({ hasText: "Write one answer to send. The rest can wait." })).toBeVisible();
+  // With nothing left, Done stays operable and points at the first question.
+  const done = page.getByRole("button", { name: "Done", exact: true });
+  await expect(done).not.toHaveAttribute("aria-disabled", "true");
+  await done.click();
+  await expect(page.getByRole("alert").filter({ hasText: "Nothing written yet. Write one answer and it goes out with the round. The rest can wait." })).toBeVisible();
   await expect(answer).toBeFocused();
 });

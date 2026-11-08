@@ -43,8 +43,8 @@ test("K4 · a photo wall takes several photos, captions optional", async ({ page
   const two = await rows<{ count: number }>("select count(*)::int as count from section_media");
   expect(two[0].count).toBe(2);
 
-  await page.getByRole("button", { name: "Send answers" }).click();
-  await expect(page.getByRole("heading", { name: "Sent", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Done", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "All set", exact: true })).toBeVisible();
 
   await runSweep(new Date("2026-01-09T09:00:00Z"));
   const [issue] = await rows<{ id: string }>("select id from issues order by number asc limit 1");

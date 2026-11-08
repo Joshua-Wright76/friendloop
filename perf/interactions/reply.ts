@@ -137,7 +137,7 @@ export const replyInteractions: Interaction[] = [
   },
   {
     id: "reply.answer.submit",
-    label: "Send your answers and see the confirmation",
+    label: "Press Done and see the confirmation",
     surface: "reply", kind: "write", viewer: "anon",
     flows: ["D5"], routes: ["/r/[token]", "/api/reply/[token]"],
     prepare: async (c) => {
@@ -145,27 +145,27 @@ export const replyInteractions: Interaction[] = [
       await sheet(c, `/r/${round.members[0].replyToken}`);
       await firstAnswer(c).fill("Answered in the lab.");
     },
-    act: (c) => c.page.getByRole("button", { name: "Send answers" }).click(),
-    done: () => ({ selector: "#reply-confirmation-heading", text: "Sent" }),
+    act: (c) => c.page.getByRole("button", { name: "Done", exact: true }).click(),
+    done: () => ({ selector: "#reply-confirmation-heading", text: "All set" }),
   },
   {
     id: "reply.edit.open",
-    label: "Press Edit my answers after sending",
+    label: "Press Back to my answers after Done",
     surface: "reply", kind: "instant", viewer: "anon",
     flows: ["D5"], routes: ["/r/[token]"],
     prepare: async (c) => {
       const round = await c.world.throwawayRound();
       await sheet(c, `/r/${round.members[0].replyToken}`);
       await firstAnswer(c).fill("Answered in the lab.");
-      await c.page.getByRole("button", { name: "Send answers" }).click();
+      await c.page.getByRole("button", { name: "Done", exact: true }).click();
       await c.page.locator("#reply-confirmation-heading").waitFor();
     },
-    act: (c) => c.page.getByRole("button", { name: "Edit my answers" }).click(),
+    act: (c) => c.page.getByRole("button", { name: "Back to my answers" }).click(),
     done: () => ({ selector: "textarea" }),
   },
   {
     id: "reply.edit.save",
-    label: "Change a sent answer and press Done",
+    label: "Change an answer and press Done",
     surface: "reply", kind: "write", viewer: "anon",
     flows: ["D6"], routes: ["/r/[token]", "/api/reply/[token]"],
     prepare: async (c) => {
@@ -177,7 +177,7 @@ export const replyInteractions: Interaction[] = [
       await firstAnswer(c).fill("Second version, with the good detail.");
     },
     act: (c) => c.page.getByRole("button", { name: "Done", exact: true }).click(),
-    done: () => ({ selector: "#reply-confirmation-heading", text: "Changes saved" }),
+    done: () => ({ selector: "#reply-confirmation-heading", text: "All set" }),
   },
   {
     id: "reply.suggest.load",

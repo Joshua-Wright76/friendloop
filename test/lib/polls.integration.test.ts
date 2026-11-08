@@ -8,9 +8,9 @@ import {
   savePhotoFor,
   savePollChoicesFor,
   sheetFor,
-  submitFor,
 } from "../../src/lib/reply.ts";
 import { sweep } from "../../src/lib/sweep.ts";
+import { answeredMemberIds } from "../../src/lib/answered.ts";
 import { copy } from "../../src/lib/copy.ts";
 import { latestOutbox, outboxCount, resetDatabase, rows, seedLoop, seedReplies, setupDatabase } from "../support/app.ts";
 import { seedPoll } from "../../e2e/support/polls.ts";
@@ -193,25 +193,20 @@ test("readers and unknown links cannot vote", async () => {
   assert.equal(loop.members.length > 0, true);
 });
 
-test("a pick alone is enough to send; an unsent or cleared pick is not an answer", async () => {
-  const { alice, bob, poll } = await openPollLoop();
+test("a saved pick is an answer as it stands; a cleared pick is not", async () => {
+  const { alice, bob, poll, issueId } = await openPollLoop();
 
   await vote(alice.token, poll, [1]);
   await vote(bob.token, poll, [0]);
   await vote(bob.token, poll, []);
-  assert.equal((await submitFor(alice.token)).ok, true);
-  assert.equal((await submitFor(bob.token)).ok, true);
 
-  const submitted = await rows<{ membership_id: string }>("select membership_id from replies where status = 'submitted'");
-  assert.deepEqual(submitted.map((row) => row.membership_id), [alice.id]);
+  assert.deepEqual([...(await answeredMemberIds(issueId))], [alice.id]);
 });
 
 test("before delivery nobody sees a tally or anyone else's pick, only their own", async () => {
   const { loop, alice, bob, poll, issueId } = await openPollLoop({ multiple: true });
   await vote(alice.token, poll, [0, 1]);
   await vote(bob.token, poll, [0]);
-  await submitFor(alice.token);
-  await submitFor(bob.token);
 
   const asAlice = await loadIssue({ issueId, viewerMembershipId: alice.id });
   const block = asAlice!.blocks.find((candidate) => candidate.poll)!;
@@ -231,8 +226,6 @@ test("once delivered, every pick shows by name beside a tally, including to shar
   const { alice, bob, poll, issueId } = await openPollLoop({ multiple: true, shared: true });
   await vote(alice.token, poll, [0, 1]);
   await vote(bob.token, poll, [0]);
-  await submitFor(alice.token);
-  await submitFor(bob.token);
 
   const report = await sweep({ at: AFTER_DELIVERY });
   assert.equal(report.delivered, 1);
@@ -261,12 +254,10 @@ test("once delivered, every pick shows by name beside a tally, including to shar
   );
 });
 
-test("a pick cleared after sending drops out of the issue and the count", async () => {
+test("a pick cleared before delivery drops out of the issue and the count", async () => {
   const { alice, bob, poll, issueId } = await openPollLoop();
   await vote(alice.token, poll, [1]);
   await vote(bob.token, poll, [1]);
-  await submitFor(alice.token);
-  await submitFor(bob.token);
   await vote(bob.token, poll, []);
 
   await sweep({ at: AFTER_DELIVERY });
@@ -276,34 +267,10 @@ test("a pick cleared after sending drops out of the issue and the count", async 
   assert.deepEqual(block.answers.map((answer) => answer.author), ["Alice"]);
 });
 
-test("a vote after delivery is marked late and moves the tally", async () => {
-  const { alice, bob, poll, issueId } = await openPollLoop();
-  await vote(alice.token, poll, [0]);
-  await submitFor(alice.token);
-  await sweep({ at: AFTER_DELIVERY });
-  // A loop from before rounds ran back to back: no round opened after this one, so
-  // the sheet still points at the round that went out.
-  await rows("update issues set status = 'skipped' where number = 2");
-
-  setRequestHeaders({ "x-e2e-now": new Date(AFTER_DELIVERY.getTime() + 3_600_000).toISOString() });
-  assert.equal((await vote(bob.token, poll, [2])).ok, true);
-  assert.equal((await submitFor(bob.token)).ok, true);
-
-  const view = await loadIssue({ issueId });
-  const block = view!.blocks.find((candidate) => candidate.poll)!;
-  assert.equal(block.poll!.voters, 2);
-  assert.equal(block.poll!.tally![2].votes, 1);
-  const late = block.answers.find((answer) => answer.author === "Bob")!;
-  assert.equal(late.addedLater, true);
-  assert.equal(block.answers.find((answer) => answer.author === "Alice")!.addedLater, false);
-});
-
 test("a round with only a poll pick still delivers, and the email shows the pick and the results", async () => {
   const { alice, bob, poll } = await openPollLoop();
   await vote(alice.token, poll, [2]);
   await vote(bob.token, poll, [2]);
-  await submitFor(alice.token);
-  await submitFor(bob.token);
   await vote(bob.token, poll, []);
 
   const report = await sweep({ at: AFTER_DELIVERY });
@@ -322,7 +289,6 @@ test("a round with only a poll pick still delivers, and the email shows the pick
 test("a round whose only content is a cleared poll pick is not sent", async () => {
   const { alice, poll } = await openPollLoop();
   await vote(alice.token, poll, [1]);
-  await submitFor(alice.token);
   await vote(alice.token, poll, []);
 
   const report = await sweep({ at: AFTER_DELIVERY });

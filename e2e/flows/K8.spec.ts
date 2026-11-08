@@ -38,8 +38,8 @@ test("K8 · editing a section reaches the open round, until someone has written 
   await page.goto(`/r/${alice.token}`);
   await expect(page.getByText("The potluck corner, revisited", { exact: true })).toBeVisible();
   await page.getByRole("textbox", { name: "The potluck corner, revisited" }).fill("Banana bread, again.");
-  await page.getByRole("button", { name: "Send answers" }).click();
-  await expect(page.getByRole("heading", { name: "Sent", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Done", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "All set", exact: true })).toBeVisible();
 
   // Reworded again after Alice answered: her round keeps the words she answered.
   await reword(page, loop.groupId, "The potluck corner, revisited", "Bring a dish");

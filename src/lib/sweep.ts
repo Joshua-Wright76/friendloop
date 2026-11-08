@@ -1,6 +1,7 @@
 import { and, eq, isNull, sql, inArray } from "drizzle-orm";
 import { db } from "@/db";
-import { groups, issueQuestions, issues, memberships, replies, users } from "@/db/schema";
+import { answeredMemberIds } from "./answered";
+import { groups, issueQuestions, issues, memberships, users } from "@/db/schema";
 import { flushOutbox, sendEmail } from "./email/send";
 import { mailDeadline } from "./notify";
 import { emailThemeOf, reminderEmail } from "./email/templates";
@@ -161,11 +162,8 @@ async function remindStragglers(at: Date): Promise<number> {
         ),
       );
 
-    const submitted = await db
-      .select({ membershipId: replies.membershipId })
-      .from(replies)
-      .where(and(eq(replies.issueId, issue.id), eq(replies.status, "submitted")));
-    const done = new Set(submitted.map((row) => row.membershipId));
+    // Anyone with something written is in; only an empty hand is reminded.
+    const done = await answeredMemberIds(issue.id);
 
     const totalQuestions = await db
       .select({ count: sql<number>`count(*)::int` })

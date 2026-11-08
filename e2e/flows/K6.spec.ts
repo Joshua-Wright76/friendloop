@@ -34,8 +34,8 @@ test("K6 · a delivered issue renders a music card that opens the provider", asy
   await page.getByLabel("A line about it").first().blur();
   await expect(page.getByText("Saved.").first()).toBeVisible();
 
-  await page.getByRole("button", { name: "Send answers" }).click();
-  await expect(page.getByRole("heading", { name: "Sent", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Done", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "All set", exact: true })).toBeVisible();
 
   await runSweep(new Date("2026-01-09T09:00:00Z"));
   const [issue] = await rows<{ id: string }>("select id from issues order by number asc limit 1");

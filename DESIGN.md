@@ -49,8 +49,8 @@ It preserves the same contrast relationships and gingham texture.
 - **Fields:** cream fill, visible border, and a soft accent focus ring. Every input
   has a label or accessible name.
 - **Navigation:** loop sections use stitched headers and underline tabs. Reply
-  screens keep the loop name and answer count in a sticky top bar, with draft
-  state and the primary action in a fixed bottom bar.
+  screens keep the loop name and answer count in a sticky top bar, with the
+  save state and the primary action in a fixed bottom bar.
 - **Brand:** the cherry illustration and Gaegu wordmark are shared by the landing,
   account, reply, and issue experiences.
 
@@ -82,8 +82,8 @@ A chosen tape pack unrolls across its preview over 520ms, and a chosen paper pac
 ## Copy
 
 Plain, warm, second person, with no exclamation marks. Buttons name their outcome
-("Send answers", "Save changes"), errors name the recovery, and confirmations say
-what happens next. Time is shown in the loop's zone and the reader's own zone when
+("Done", "Save changes"), errors name the recovery, and confirmations say what
+happens next ("Everything you wrote for Round 4 goes out on Friday at 9:00 AM"). Time is shown in the loop's zone and the reader's own zone when
 they differ.
 
 ## Implementation
