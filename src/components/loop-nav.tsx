@@ -56,7 +56,7 @@ export function LoopNav({ id, name, access, active, nameIsHeading = false, snaps
           {nameIsHeading ? <h1 className="loop-head__name">{nameNode}</h1> : <span className="loop-head__name">{nameNode}</span>}
         </Link>
         {/* The owner knows they own it. The badge is for anyone wondering what they can do here. */}
-        {access === "owner" ? null : <span className="chip flex-none whitespace-nowrap border bg-card px-2.5 py-1 text-[12px] font-bold capitalize text-ink-soft">{copy.common.roles[access]}</span>}
+        {access === "owner" ? null : <span className="chip flex-none whitespace-nowrap border bg-card px-2.5 py-1 text-[13px] font-bold capitalize text-ink-soft">{copy.common.roles[access]}</span>}
       </header>
       <nav className="loop-nav no-print" aria-label={copy.common.navigation.ariaLabel}>
         {items.filter(([key]) => key !== "Settings" || access === "owner").map(([key, path, label]) => (

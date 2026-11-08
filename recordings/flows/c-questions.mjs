@@ -233,7 +233,7 @@ export const flows = {
       await t.say("Picks in a folded pack still count");
       await togglePack(t, "Silly hypotheticals");
       await t.see("3 selected");
-      await t.button("Add to the pool");
+      await t.button("Add to your questions");
       await t.see("3 questions added.");
       await t.see(silly[0]);
       t.check_(same(await poolTexts(t, loop.groupId), [LAUGH, FORWARD, silly[0], silly[1], tiny[2]]), "Picks should join the pool in order");
@@ -241,11 +241,11 @@ export const flows = {
       await t.say("Or add a whole pack at once");
       await t.button("Add all questions in Travel");
       await t.see(`${travel.length} selected`);
-      await t.button("Add to the pool");
+      await t.button("Add to your questions");
       await t.see(`${travel.length} questions added.`);
       await t.say("Now they're ticked, fixed and labelled, with nothing left to add");
       await togglePack(t, "Travel");
-      await t.see("In your pool");
+      await t.see("Already added");
       const travelState = await t.eval(`(() => {
         const group = document.querySelector('section[aria-label="Travel"]');
         const boxes = [...group.querySelectorAll('input[type="checkbox"]')];
@@ -260,7 +260,7 @@ export const flows = {
       await t.button("Remove all questions in Everyday");
       await t.see("0 selected");
       await t.clickRole("checkbox", everyday[2]);
-      await t.button("Add to the pool");
+      await t.button("Add to your questions");
       await t.see("1 question added.");
       await t.see(everyday[2]);
       t.check_(same(await poolTexts(t, loop.groupId), [LAUGH, FORWARD, silly[0], silly[1], tiny[2], ...travel, everyday[2]]), "Pool should have no duplicates");

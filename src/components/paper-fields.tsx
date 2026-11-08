@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, type CSSProperties } from "react";
+import { useEffect, useRef, type CSSProperties, type ReactNode } from "react";
 import { Avatar } from "@/components/avatar";
 import { BackgroundPicker, MascotPicker, PaperPackPicker, TapePackPicker } from "@/components/stationery-pickers";
 import { Tape } from "@/components/stationery";
@@ -50,14 +50,14 @@ function PreviewCard({ label, tokens, looks }: { label: string; tokens: SchemeTo
       }}
       data-testid={`stationery-preview-${label.toLowerCase()}`}
     >
-      <p className="m-0 text-[12px] font-extrabold" style={{ color: tokens.inkMuted }}>{label}</p>
-      <div className="card mt-3 p-3 pt-4" data-paper="answer">
+      <p className="m-0 text-[13px] font-extrabold" style={{ color: tokens.inkMuted }}>{label}</p>
+      <div className="card mt-5 p-3 pt-4" data-paper="answer">
         <Tape tone="dots" position="right" />
         <p className="m-0 font-display text-[22px] font-bold leading-tight" style={{ color: tokens.ink }}>
           {copy.stationery.previewHeading}
         </p>
         <div className="mt-2 flex items-center gap-2">
-          <Avatar name={copy.stationery.previewAnswerName} className="!h-7 !w-7 !text-[12px]" />
+          <Avatar name={copy.stationery.previewAnswerName} className="!h-7 !w-7 !text-[13px]" />
           <p className="m-0 text-[13px] font-extrabold" style={{ color: tokens.inkSoft }}>{copy.stationery.previewAnswerName}</p>
         </div>
         <p className="answer-text mt-1 text-[14px] leading-snug" style={{ color: tokens.ink }}>{copy.stationery.previewAnswer}</p>
@@ -73,16 +73,47 @@ function PreviewCard({ label, tokens, looks }: { label: string; tokens: SchemeTo
  * The parent owns the state and submits `preset` (the radios) and the
  * normalised accent (`normalizeHex(accent)`, as a hidden field).
  */
+/**
+ * One group of choices. On a wide screen every group simply shows; on a phone each folds
+ * to a line naming what's chosen, so the whole look fits on a screen or two, and the
+ * first (colours) starts open.
+ */
+function LookGroup({ title, value, startOpen = false, children }: { title: string; value: string; startOpen?: boolean; children: ReactNode }) {
+  const group = useRef<HTMLDetailsElement>(null);
+  useEffect(() => {
+    if (!startOpen && group.current && window.matchMedia("(max-width: 639px)").matches) group.current.open = false;
+  }, [startOpen]);
+  return (
+    <details ref={group} className="look-group" open>
+      <summary className="look-group__summary">
+        <span className="look-group__title">{title}</span>
+        <span className="look-group__value">{value}</span>
+        <svg viewBox="0 0 20 20" aria-hidden="true" className="look-group__chevron"><path d="m5.5 8 4.5 4.5L14.5 8" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" /></svg>
+      </summary>
+      <div className="look-group__body">{children}</div>
+    </details>
+  );
+}
+
 export function PaperFields({ preset, onPreset, accent, onAccent, onAccentCommit, looks, onLooks, loopName }: Props) {
   const pickerTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hex = normalizeHex(accent);
   const accentInvalid = accent.trim() !== "" && !hex;
   const theme = previewTheme({ preset, accent: hex });
 
+  const presetName = copy.stationery.presets[preset as PresetKey]?.name ?? preset;
+  const named = <T extends Record<string, unknown>>(names: T, key: string) => String((names as Record<string, unknown>)[key] ?? key);
   return (
     <>
-      <BackgroundPicker value={looks.background} onChange={(background) => onLooks({ background })} theme={theme} />
+      <div className="look-preview">
+        <p className="mb-2 text-[13px] font-medium text-ink-soft">{copy.stationery.previewTitle}</p>
+        <div className="grid gap-2 sm:grid-cols-2">
+          <PreviewCard label={copy.stationery.previewLight} tokens={theme.light} looks={looks} />
+          <PreviewCard label={copy.stationery.previewDark} tokens={theme.dark} looks={looks} />
+        </div>
+      </div>
 
+      <LookGroup title={copy.stationery.paperLegend} value={presetName} startOpen>
       <fieldset className="m-0 mt-5 min-w-0 border-0 p-0">
         <legend className="mb-2 text-[13px] font-medium text-ink-soft">{copy.stationery.paperLegend}</legend>
         <div className="grid grid-cols-2 gap-2">
@@ -150,7 +181,7 @@ export function PaperFields({ preset, onPreset, accent, onAccent, onAccentCommit
             </button>
           ) : null}
         </div>
-        <p id="accent-status" className={`mt-1.5 text-[12px] leading-relaxed ${accentInvalid ? "text-danger" : "text-ink-muted"}`} role="status">
+        <p id="accent-status" className={`mt-1.5 text-[13px] leading-relaxed ${accentInvalid ? "text-danger" : "text-ink-muted"}`} role="status">
           {accentInvalid
             ? copy.stationery.accentInvalid
             : hex && theme.adjusted
@@ -161,17 +192,19 @@ export function PaperFields({ preset, onPreset, accent, onAccent, onAccentCommit
         </p>
       </fieldset>
 
+      </LookGroup>
+      <LookGroup title={copy.stationery.backgroundLegend} value={named(copy.stationery.backgrounds, looks.background)}>
+      <BackgroundPicker value={looks.background} onChange={(background) => onLooks({ background })} theme={theme} />
+      </LookGroup>
+      <LookGroup title={copy.stationery.packLegend} value={(copy.stationery.packs as Record<string, { name: string }>)[looks.paperPack]?.name ?? looks.paperPack}>
       <PaperPackPicker value={looks.paperPack} onChange={(paperPack) => onLooks({ paperPack })} />
+      </LookGroup>
+      <LookGroup title={copy.stationery.tapeLegend} value={named(copy.stationery.tapes, looks.tapePack)}>
       <TapePackPicker value={looks.tapePack} onChange={(tapePack) => onLooks({ tapePack })} />
+      </LookGroup>
+      <LookGroup title={copy.stationery.mascotLegend} value={named(copy.stickers, looks.mascot)}>
       <MascotPicker value={looks.mascot} onChange={(mascot) => onLooks({ mascot })} loopName={loopName} />
-
-      <div className="mt-5">
-        <p className="mb-2 text-[13px] font-medium text-ink-soft">{copy.stationery.previewTitle}</p>
-        <div className="grid gap-2 sm:grid-cols-2">
-          <PreviewCard label={copy.stationery.previewLight} tokens={theme.light} looks={looks} />
-          <PreviewCard label={copy.stationery.previewDark} tokens={theme.dark} looks={looks} />
-        </div>
-      </div>
+      </LookGroup>
     </>
   );
 }

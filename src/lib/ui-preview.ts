@@ -737,6 +737,13 @@ async function seedUiPreview(now: Date, { deleteGroup, deleteUser }: { deleteGro
         caption: "The leftovers",
         position: 1,
       },
+      // Captions are optional, so the demo wall shows a photo without one.
+      {
+        sectionReplyId: wallReply.id,
+        url: "/dev-preview/dusk.png",
+        caption: null,
+        position: 2,
+      },
     ]);
 
     // Upserted so an older preview picks up the songs (and stays fresh).

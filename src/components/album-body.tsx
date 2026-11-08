@@ -56,20 +56,21 @@ export function AlbumBody({
       <Form key={`${filters.member ?? ""}|${filters.q}`} action={base} role="search" aria-label={copy.album.filtersLabel} className="pb-3">
         {token ? <input type="hidden" name="m" value={token} /> : null}
         <div className="album-filters">
-          <label className="block min-w-0 text-[13px] font-bold text-ink-soft">
-            <span className="sr-only">{copy.album.searchLabel}</span>
-            <span className="flex gap-2">
+          {/* The label holds only the field, so the button's word isn't read as part of its name. */}
+          <div className="flex min-w-0 gap-2">
+            <label className="block min-w-0 flex-1 text-[13px] font-bold text-ink-soft">
+              <span className="sr-only">{copy.album.searchLabel}</span>
               <input
                 type="search"
                 name="q"
                 defaultValue={filters.q}
                 maxLength={80}
                 placeholder={copy.album.searchPlaceholder}
-                className="field h-[46px] min-w-0 flex-1 py-0"
+                className="field h-[46px] w-full min-w-0 py-0"
               />
-              <button type="submit" className="btn btn-quiet flex-none px-4 text-[14px]">{copy.album.apply}</button>
-            </span>
-          </label>
+            </label>
+            <button type="submit" className="btn btn-quiet flex-none px-4 text-[14px]">{copy.album.apply}</button>
+          </div>
           <div className="filter-line">
             <span className="text-[14px] font-bold text-ink-soft">{copy.album.memberLabel}</span>
             <AutoPicker

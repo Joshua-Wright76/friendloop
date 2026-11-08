@@ -194,7 +194,7 @@ export const flows = {
       t.check_(JSON.stringify(await offers()) === JSON.stringify(["Make gone the owner", "Make heir the owner"]), `Offers: ${await offers()}`);
       await t.see("Make heir the owner");
       await t.say("The role menu doesn't offer “Owner”");
-      await t.button("Member type for Alice");
+      await t.button("Role for Alice");
       const options = await t.eval(`[...document.querySelectorAll('[role="option"]')].map((o) => o.textContent.trim())`);
       t.check_(options.length > 0 && !options.includes("Owner"), `Options: ${options}`);
       await t.pause(900);

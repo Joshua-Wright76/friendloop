@@ -11,7 +11,7 @@ test("M3 · a comment on one answer renders with that answer and never in the is
   await page.goto(`/i/${issue.issueId}?m=${alice.token}`);
 
   const bobsAnswer = page.locator("article").filter({ hasText: "Bob rebuilt the shed." });
-  await bobsAnswer.getByRole("button", { name: "Comment", exact: true }).click();
+  await bobsAnswer.getByRole("button", { name: /^Comment: / }).click();
 
   const composer = bobsAnswer.getByLabel("Comment on Bob's answer");
   await composer.fill("Was it a big shed?");
@@ -26,7 +26,7 @@ test("M3 · a comment on one answer renders with that answer and never in the is
   await expect(thread.getByText("Nothing yet.")).toBeVisible();
   await expect(thread.getByText("Was it a big shed?")).toHaveCount(0);
   const alicesAnswer = page.locator("article").filter({ hasText: "Alice found a very patient goose." });
-  await expect(alicesAnswer.getByRole("button", { name: "Comment", exact: true })).toBeVisible();
+  await expect(alicesAnswer.getByRole("button", { name: /^Comment: / })).toBeVisible();
 
   const [saved] = await rows<{ reply_id: string; membership_id: string }>("select reply_id, membership_id from comments");
   const [bobReply] = await rows<{ id: string }>("select id from replies where membership_id = $1", [bob.id]);

@@ -133,7 +133,7 @@ export function StationeryForm({ groupId, loopName, preset: savedPreset, accent:
 
       <form
         action={stationeryAction}
-        className="mt-3"
+        className="stationery-fields mt-3"
         onSubmit={(event) => {
           // Enter in the color field. Without script the form still posts on its own.
           event.preventDefault();
@@ -255,7 +255,7 @@ function HeaderPicture({ groupId, initial }: { groupId: string; initial: string 
         aria-label={copy.stationery.headerInput}
         onChange={(event) => void choose(event.target.files?.[0])}
       />
-      <p aria-live="polite" className={`mt-1.5 text-[12px] ${status === "error" ? "text-danger" : "text-ink-muted"}`}>
+      <p aria-live="polite" className={`mt-1.5 text-[13px] ${status === "error" ? "text-danger" : "text-ink-muted"}`}>
         {status === "saving"
           ? copy.stationery.headerSaving
           : status === "saved"

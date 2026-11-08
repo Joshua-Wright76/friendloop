@@ -24,7 +24,7 @@ export default function MembersTab({ notices }: {
   const isOwner = membership.access === "owner";
 
   return (
-    <main className="mx-auto w-full max-w-[680px] px-4 pb-16 pt-5 sm:px-6">
+    <main className="loop-page mx-auto w-full max-w-[680px] px-4 pb-16 pt-5 sm:px-6 lg:max-w-[1040px]">
       <LoopNav id={id} name={group.name} access={membership.access} active="People">
         <h1>{copy.members.title}</h1>
         {group.mode === "from_you" ? <p className="mt-1 text-[14px] leading-relaxed text-ink-soft">{copy.members.fromYouDescription}</p> : null}
@@ -47,8 +47,9 @@ export default function MembersTab({ notices }: {
         </div>
       ) : null}
 
-      <ul className="mt-4 flex flex-col gap-2.5">
-        {[...people].sort((a, b) => Number(a.id === membership.id) - Number(b.id === membership.id)).map((person) => {
+      {/* Your own card first: it holds your photo, charm and frame. */}
+      <ul className="member-list mt-4 flex flex-col gap-2.5">
+        {[...people].sort((a, b) => Number(b.id === membership.id) - Number(a.id === membership.id)).map((person) => {
           const isYou = person.id === membership.id;
           return (
             <li key={person.id} className="card p-4">
@@ -75,20 +76,9 @@ export default function MembersTab({ notices }: {
                     participation={person.participation}
                     fixedReader={group.mode === "from_you"}
                   />
-                  <ConfirmAction
-                    className="member-remove"
-                    action={removeAction}
-                    fields={{ groupId: id, membershipId: person.id }}
-                    label={copy.members.remove}
-                    triggerLabel={text(copy.a11yLabels.removeMember, { name: person.name ?? person.email })}
-                    question={text(copy.a11yLabels.removeMemberQuestion, { name: person.name ?? person.email })}
-                    body={copy.a11yLabels.removeMemberBody}
-                    confirmLabel={text(copy.a11yLabels.removeMemberConfirm, { name: person.name ?? person.email })}
-                    cancelLabel={copy.a11yLabels.confirmCancel}
-                  />
                   </>
                 ) : (
-                  <span className="chip flex-none border bg-card px-2.5 py-1 text-[12px] font-bold capitalize text-ink-soft">
+                  <span className="chip flex-none border bg-card px-2.5 py-1 text-[13px] font-bold capitalize text-ink-soft">
                     {copy.common.roles[person.access]}
                   </span>
                 )}
@@ -98,7 +88,7 @@ export default function MembersTab({ notices }: {
                 <div className="mt-2 flex flex-col gap-1.5" data-email-status>
                   {person.suppression ? (
                     <p className="text-[13px] leading-relaxed text-danger">
-                      <span className="mr-1.5 inline-flex rounded-full border border-current px-2 py-0.5 text-[12px] font-bold">
+                      <span className="mr-1.5 inline-flex rounded-full border border-current px-2 py-0.5 text-[13px] font-bold">
                         {copy.members.bouncing}
                       </span>
                       {person.suppression === "complaint" ? copy.members.complaintHint : copy.members.bouncingHint}
@@ -106,7 +96,7 @@ export default function MembersTab({ notices }: {
                   ) : null}
                   {person.mutedAt ? (
                     <p className="text-[13px] leading-relaxed text-ink-soft">
-                      <span className="mr-1.5 inline-flex rounded-full border border-line px-2 py-0.5 text-[12px] font-bold">
+                      <span className="mr-1.5 inline-flex rounded-full border border-line px-2 py-0.5 text-[13px] font-bold">
                         {copy.members.muted}
                       </span>
                       {copy.members.mutedHint}
@@ -159,6 +149,22 @@ export default function MembersTab({ notices }: {
                 </div>
               ) : null}
 
+              {/* Removing someone is the one action here that can't be undone: it sits apart, at the foot of the card. */}
+              {manages && person.access !== "owner" ? (
+                <div className="member-card__danger">
+                  <ConfirmAction
+                    className="member-remove"
+                    action={removeAction}
+                    fields={{ groupId: id, membershipId: person.id }}
+                    label={copy.members.remove}
+                    triggerLabel={text(copy.a11yLabels.removeMember, { name: person.name ?? person.email })}
+                    question={text(copy.a11yLabels.removeMemberQuestion, { name: person.name ?? person.email })}
+                    body={copy.a11yLabels.removeMemberBody}
+                    confirmLabel={text(copy.a11yLabels.removeMemberConfirm, { name: person.name ?? person.email })}
+                    cancelLabel={copy.a11yLabels.confirmCancel}
+                  />
+                </div>
+              ) : null}
             </li>
           );
         })}

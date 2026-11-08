@@ -14,9 +14,9 @@ test("G3 · an admin manages people but never reaches owner settings", async ({ 
 
   await page.goto(`/g/${loop.groupId}/members`);
   const card = page.locator(".card").filter({ hasText: "admin@friendloop.test" });
-  await card.getByRole("button", { name: /Member type for/ }).click();
+  await card.getByRole("button", { name: /Role for/ }).click();
   await card.getByRole("option", { name: "Admin", exact: true }).click();
-  await expect(card.getByRole("button", { name: /Member type for.*Admin/ })).toBeVisible();
+  await expect(card.getByRole("button", { name: /Role for.*Admin/ })).toBeVisible();
 
   // The menu shows the choice as soon as it's made, so wait for the write behind it.
   await expect.poll(async () => {
@@ -63,9 +63,9 @@ test("G3 · a promotion reaches the other person's live session", async ({ brows
 
     await ownerPage.goto(`/g/${loop.groupId}/members`);
     const card = ownerPage.locator(".card").filter({ hasText: "promoted@friendloop.test" });
-    await card.getByRole("button", { name: /Member type for/ }).click();
+    await card.getByRole("button", { name: /Role for/ }).click();
     await card.getByRole("option", { name: "Admin", exact: true }).click();
-    await expect(card.getByRole("button", { name: /Member type for.*Admin/ })).toBeVisible();
+    await expect(card.getByRole("button", { name: /Role for.*Admin/ })).toBeVisible();
     // The menu shows the choice as soon as it's made, so wait for the write behind it.
     await expect.poll(async () => {
       const [row] = await rows<{ access: string }>("select access from memberships where id = $1", [promoted.id]);

@@ -11,18 +11,35 @@ export function SignInForm() {
   const [state, action, pending] = useActionState(requestLink, initial);
   // Controlled, so a failed submit does not wipe what was typed (React resets uncontrolled fields).
   const [email, setEmail] = useState("");
+  // Our own message instead of the browser's bubble, so it reads like the rest of the page.
+  const [localError, setLocalError] = useState<string | null>(null);
+  const error = localError ?? state.error;
 
   return (
-    <form action={action} className="flex flex-col gap-4">
+    <form
+      action={action}
+      noValidate
+      onSubmit={(event) => {
+        const field = event.currentTarget.elements.namedItem("email") as HTMLInputElement;
+        const value = field.value.trim();
+        const problem = value === "" ? copy.signIn.emptyEmail : /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value) ? null : copy.signIn.invalidEmail;
+        setLocalError(problem);
+        if (problem) {
+          event.preventDefault();
+          field.focus();
+        }
+      }}
+      className="flex flex-col gap-4"
+    >
       <label className="flex flex-col gap-1.5">
         <FieldLabel required>{copy.signIn.emailLabel}</FieldLabel>
         <input
           name="email"
           type="email"
           value={email}
-          onChange={(event) => setEmail(event.target.value)}
-          aria-invalid={state.error ? "true" : undefined}
-          aria-describedby={state.error ? "signin-error" : undefined}
+          onChange={(event) => { setEmail(event.target.value); setLocalError(null); }}
+          aria-invalid={error ? "true" : undefined}
+          aria-describedby={error ? "signin-error" : undefined}
           required
           autoComplete="email"
           inputMode="email"
@@ -32,9 +49,9 @@ export function SignInForm() {
         />
       </label>
 
-      {state.error ? (
-        <p id="signin-error" role="alert" className="text-[14px] leading-snug text-danger">
-          {state.error}
+      {error ? (
+        <p id="signin-error" role="alert" className="text-[14px] font-bold leading-snug text-danger">
+          {error}
         </p>
       ) : null}
 

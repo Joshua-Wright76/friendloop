@@ -1,5 +1,6 @@
 import { copy, text } from "@/lib/copy";
 import { formatTrackTime, type MusicTrack } from "@/lib/music-meta";
+import { MusicArt } from "./music-art";
 
 const SHOWN = 3;
 
@@ -31,14 +32,7 @@ export function MusicCard({
   return (
     <div className={`music-card music-card-${provider ?? "other"}`}>
       <a href={url} target="_blank" rel="noreferrer" className="music-card-head">
-        {artworkUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={artworkUrl} alt="" className="music-card-art" />
-        ) : (
-          <span aria-hidden="true" className="music-card-art music-card-art-empty">
-            <ProviderIcon provider={provider} />
-          </span>
-        )}
+        <MusicArt src={artworkUrl} fallback={<ProviderIcon provider={provider} />} />
         <span className="min-w-0 flex-1">
           <span className="block wrap-any text-[14px] font-bold">{title ?? url}</span>
           {name ? (

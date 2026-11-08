@@ -10,6 +10,7 @@ import { issueTitle } from "@/lib/issue-name";
 import { LoopSnapshot, LoopTheme } from "@/components/loop-theme";
 import { printHref, wantsPrint, webHref } from "@/lib/print-view";
 import { IssuePrint } from "../../i/[id]/issue-print";
+import { DisplayDigits } from "@/components/display-digits";
 
 export const instant = false;
 
@@ -60,7 +61,7 @@ export default async function SharePage({
           </span>
         </div>
         <div className="loop-head__page">
-          <h1>{issueTitle(copy.share.round, view.issue.number, view.issue.name)}</h1>
+          <h1><DisplayDigits>{issueTitle(copy.share.round, view.issue.number, view.issue.name)}</DisplayDigits></h1>
           <p className="numeric">
             {view.issue.name ? `${text(copy.share.round, { number: view.issue.number })}. ` : null}
             {view.answerCount === 1 ? copy.share.answer : text(copy.share.answers, { count: view.answerCount })}{" "}
@@ -68,6 +69,7 @@ export default async function SharePage({
               date: formatDate(view.issue.deliveredAt ?? view.issue.deliversAt, view.group.timezone),
             })}
           </p>
+          <p className="shared-note">{text(copy.share.sharedNote, { loop: view.group.name })}</p>
         </div>
       </header>
 

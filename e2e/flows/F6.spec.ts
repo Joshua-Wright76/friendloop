@@ -27,7 +27,7 @@ test("F6 · resetting share links retires every URL that was handed out", async 
   await expect(page.getByText("New share links. Old ones no longer work.")).toBeVisible();
 
   await page.goto("/s/old-share-token");
-  await expect(page.getByText("This page isn't here")).toBeVisible();
+  await expect(page.getByText("This shared issue isn't available")).toBeVisible();
 
   const [row] = await rows<{ share_token: string }>(
     "select share_token from issues where id = $1",
@@ -51,5 +51,5 @@ test("F6 · turning sharing off closes links that already exist", async ({ page 
   await rows("update groups set share_enabled = false where id = $1", [loop.groupId]);
   await page.goto("/s/live-share-token");
   await expect(page.getByText("Private again.")).toHaveCount(0);
-  await expect(page.getByText("This page isn't here")).toBeVisible();
+  await expect(page.getByText("This shared issue isn't available")).toBeVisible();
 });

@@ -58,7 +58,7 @@ test("T1 · a full-size camera photo goes up everywhere a photo can, and is stor
   // The header picture, from the owner's settings.
   await signIn(page, "owner@friendloop.test");
   await page.goto(`/g/${loop.groupId}/settings`);
-  await openPart(page, "Paper");
+  await openPart(page, "Stationery");
   await chooseFile(page, "Choose a header picture", photo);
   await expect(page.getByText("Header picture saved.")).toBeVisible({ timeout: 60_000 });
   const [group] = await rows<{ header_image_url: string }>("select header_image_url from groups where id = $1", [loop.groupId]);

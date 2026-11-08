@@ -29,7 +29,7 @@ test("N6 · the owner picks a page, paper pack, tape pack and mascot separately,
   const { loop, delivered, alice } = await seedWorld("n6-share-token");
   await signIn(page, "owner@friendloop.test");
   await page.goto(`/g/${loop.groupId}/settings`);
-  await openPart(page, "Paper");
+  await openPart(page, "Stationery");
 
   // The originals are chosen, and stored as nothing.
   for (const name of [/^Gingham$/, /^Plain cream/, /^Picnic$/, /^Cherries$/]) {
@@ -93,7 +93,7 @@ test("N6 · back to the originals stores nothing and adds no CSS, so the loop re
 
   await signIn(page, "owner@friendloop.test");
   await page.goto(`/g/${loop.groupId}/settings`);
-  await openPart(page, "Paper");
+  await openPart(page, "Stationery");
   await expect(page.getByRole("radio", { name: /^Stars/ })).toBeChecked();
 
   await page.getByRole("radio", { name: /^Gingham$/ }).check();

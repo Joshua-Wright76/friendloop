@@ -125,7 +125,7 @@ export function FeedbackButton() {
               onChange={(event) => setMessage(event.target.value)}
               autoFocus
             />
-            <p className="mt-1.5 text-[12px] text-ink-muted numeric">
+            <p className="mt-1.5 text-[13px] text-ink-muted numeric">
               {text(copy.feedback.count, { remaining: MAX_LENGTH - message.length })}
             </p>
             <p role="alert" className="mt-2 min-h-5 text-[13px] text-danger">{error}</p>

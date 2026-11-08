@@ -41,7 +41,7 @@ test("C6 · questions can be picked across packs and added to the pool", async (
   await expect(silly.getByRole("checkbox")).toHaveCount(0);
 
   await expect(page.getByText("3 selected")).toBeVisible();
-  await page.getByRole("button", { name: "Add to the pool" }).click();
+  await page.getByRole("button", { name: "Add to your questions" }).click();
   await expect(page.getByText("3 questions added.")).toBeVisible();
 
   const sillyQuestions = pack("Silly hypotheticals").questions;
@@ -63,7 +63,7 @@ test("C6 · a whole pack adds at once and questions already in the pool are skip
 
   await page.getByRole("button", { name: "Add all questions in Travel" }).click();
   await expect(page.getByText(`${pack("Travel").questions.length} selected`)).toBeVisible();
-  await page.getByRole("button", { name: "Add to the pool" }).click();
+  await page.getByRole("button", { name: "Add to your questions" }).click();
   await expect(page.getByText(`${pack("Travel").questions.length} questions added.`)).toBeVisible();
   expect(await poolTexts(loop.groupId)).toEqual([
     "What made you laugh this week?",
@@ -76,7 +76,7 @@ test("C6 · a whole pack adds at once and questions already in the pool are skip
   const travel = page.getByRole("group", { name: "Travel", exact: true });
   await expect(travel.getByRole("checkbox").first()).toBeChecked();
   await expect(travel.getByRole("checkbox").first()).toBeDisabled();
-  await expect(travel.getByText("In your pool", { exact: true })).toHaveCount(pack("Travel").questions.length);
+  await expect(travel.getByText("Already added", { exact: true })).toHaveCount(pack("Travel").questions.length);
   await expect(page.getByRole("button", { name: "Add all questions in Travel" })).toHaveCount(0);
 
   // "Add all" on a pack that is partly in the pool picks only the new ones.
@@ -88,7 +88,7 @@ test("C6 · a whole pack adds at once and questions already in the pool are skip
   const fresh = everyday[2];
   await page.getByRole("button", { name: /^Everyday/ }).click();
   await page.getByRole("group", { name: "Everyday", exact: true }).getByText(fresh).click();
-  await page.getByRole("button", { name: "Add to the pool" }).click();
+  await page.getByRole("button", { name: "Add to your questions" }).click();
   await expect(page.getByText("1 question added.")).toBeVisible();
 
   const after = await poolTexts(loop.groupId);

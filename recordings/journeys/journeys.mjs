@@ -306,7 +306,7 @@ export const flows = {
       await t.clickRole("checkbox", silly[0]);
       await t.clickRole("checkbox", silly[1]);
       await t.see("2 selected");
-      await t.button("Add to the pool");
+      await t.button("Add to your questions");
       await t.see("2 questions added.");
       await t.say("Sam moves their own question to the top");
       if (t.isMobile) { // A phone gets a Move button and a sheet of positions, not arrows.
@@ -348,8 +348,8 @@ export const flows = {
       await t.open(`/g/${loop.groupId}/questions`);
       await t.see("Suggested questions");
       await t.see("from Alice");
-      await t.button("Add to pool");
-      await t.see("Suggestion added to the pool.");
+      await t.button("Add to your questions");
+      await t.see("Suggestion added to your questions.");
       await t.dontSee("Suggested questions");
       await t.say("The pool, as the next round will use it");
       await t.see("Who taught the dog to open doors?");
@@ -634,7 +634,7 @@ export const flows = {
       await t.say("Sam promotes Max to admin");
       await t.signInAs(SAM);
       await t.open(people);
-      await t.button("Member type for Max");
+      await t.button("Role for Max");
       await t.clickRole("option", "Admin", { exact: true });
       await t.pause(900);
       const [max] = await t.sql("select access from memberships where email = 'max@friendloop.test'");

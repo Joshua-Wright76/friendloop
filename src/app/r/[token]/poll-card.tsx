@@ -33,7 +33,7 @@ export function PollCard({ id, index, prompt, options, multiple, picks, status, 
   };
 
   return (
-    <section data-paper="poll" className="card paper ride-in block p-5 pt-7">
+    <section id={`card-${id}`} data-paper="poll" className="card paper ride-in block p-5 pt-7">
       <Tape tone={(["dots", "stripe", "mint", "check"] as const)[index % 4]} position={index % 2 ? "right" : "left"} />
       <fieldset className="m-0 min-w-0 border-0 p-0" disabled={disabled}>
         <legend className="mb-1 w-full p-0 font-display text-[25px] font-bold leading-[1.15] text-ink">{prompt}</legend>

@@ -113,9 +113,11 @@ export function MemberLook({
         </div>
       </fieldset>
 
-      <p aria-live="polite" className={`mt-2 min-h-[18px] text-[12px] leading-relaxed ${status === "error" ? "text-danger" : "text-ink-muted"}`}>
+      <p aria-live="polite" className={`mt-2 min-h-[18px] text-[13px] leading-relaxed ${status === "error" ? "text-danger" : "text-ink-muted"}`}>
         {status === "saving" ? copy.identity.look.saving : status === "saved" ? copy.identity.look.saved : status === "error" ? copy.identity.look.error : copy.identity.look.hint}
       </p>
+      {/* The same rising note as the stationery's, so a pick visibly lands. Decorative: the line above already speaks. */}
+      {status === "saved" ? <p aria-hidden="true" className="toast">{copy.identity.look.savedToast}</p> : null}
     </div>
   );
 }

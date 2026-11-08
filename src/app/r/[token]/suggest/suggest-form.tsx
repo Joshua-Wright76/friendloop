@@ -61,11 +61,14 @@ export function SuggestForm({ token, displayName }: Props) {
 
   return (
     <>
-      <p role="status" aria-live="polite" className="sr-only">{sent ? copy.a11yStatus.suggestionSent : ""}</p>
+      {/* One confirmation, seen and heard: it takes focus, so it's read out once. */}
       {sent ? (
-        <div ref={done} tabIndex={-1} className="mt-5 outline-offset-4">
-          <p className="text-[15px] font-semibold text-ink">{copy.suggest.doneTitle}</p>
-          <p className="mt-1 text-[14px] leading-relaxed text-ink-soft">{copy.suggest.doneBody}</p>
+        <div ref={done} tabIndex={-1} role="status" className="notice settle mt-5 flex items-start gap-3 border bg-accent-soft px-4 py-3 outline-offset-4">
+          <svg viewBox="0 0 20 20" aria-hidden="true" className="sent-stamp mt-0.5 h-5 w-5 flex-none"><path d="M10 1.7a8.3 8.3 0 100 16.6 8.3 8.3 0 000-16.6zm3.8 6.4l-4.4 4.7a.9.9 0 01-1.3 0L6.2 10.9a.9.9 0 111.3-1.3l1.2 1.3 3.8-4a.9.9 0 011.3 1.2z" /></svg>
+          <div>
+            <p className="text-[15px] font-extrabold text-ink">{copy.suggest.doneTitle}</p>
+            <p className="mt-1 text-[14px] leading-relaxed text-ink-soft">{copy.suggest.doneBody}</p>
+          </div>
         </div>
       ) : (
         <form onSubmit={onSubmit} className="mt-5">

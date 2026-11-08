@@ -58,6 +58,8 @@ export function IssueBody({
 }: Props) {
   const answered = blocks.filter((block) => block.answers.length > 0);
   const sectionOffset = answered.length;
+  // Reading by person, an answer still carries its question's number from the by-question view.
+  const numberOf = new Map(answered.map((block, index) => [block.question, index + 1]));
   // The contents: every card on the page, numbered as the cards are.
   const contents: Array<{ href: string; number: number | null; label: string }> = groups
     ? groups.map((group) => ({ href: `#person-${group.id}`, number: null, label: group.name }))
@@ -102,6 +104,7 @@ export function IssueBody({
                       commentsEnabled={commentsEnabled}
                       mentionables={mentionables}
                       questionLabel={entry.question}
+                      questionNumber={numberOf.get(entry.question)}
                       editHref={entry.answer.replyId === firstOwn ? editHref : null}
                     />
                   ) : (
@@ -144,6 +147,7 @@ export function IssueBody({
                   answer={answer}
                   commentsEnabled={commentsEnabled}
                   mentionables={mentionables}
+                  questionNumber={index + 1}
                   editHref={answer.replyId === firstOwn ? editHref : null}
                 />
               ))}
@@ -270,7 +274,7 @@ function SectionReplyCard({ reply, label }: { reply: IssueSectionReplyBlock; lab
         </figure>
       ))}
       {reply.addedLater ? (
-        <p className="mt-2 text-[12px] text-ink-muted">{copy.issue.addedLater}</p>
+        <p className="mt-2 text-[13px] text-ink-muted">{copy.issue.addedLater}</p>
       ) : null}
     </div>
   );
@@ -321,6 +325,7 @@ function AnswerCard({
   commentsEnabled,
   mentionables,
   questionLabel,
+  questionNumber,
   editHref = null,
 }: {
   issueId: string;
@@ -331,6 +336,8 @@ function AnswerCard({
   mentionables: Array<{ id: string; name: string }>;
   /** Set when reading by person, where the question is no longer the heading above. */
   questionLabel?: string;
+  /** The question's number on the page, so each reaction button's name says which answer it's for. */
+  questionNumber?: number;
   /** Set on the viewer's own answer while it can still change. */
   editHref?: string | null;
 }) {
@@ -363,7 +370,15 @@ function AnswerCard({
           )
         : [...state, { emoji, count: 1, mine: true }],
   );
-  const addLabel = answer.isYou ? copy.issue.reactMoreOwn : text(copy.issue.reactMore, { author: answer.author });
+  const whose = questionNumber
+    ? answer.isYou ? text(copy.issue.yourAnswerNumbered, { number: questionNumber }) : text(copy.issue.whoseAnswerNumbered, { author: answer.author, number: questionNumber })
+    : answer.isYou ? copy.issue.yourAnswer : text(copy.issue.whoseAnswer, { author: answer.author });
+  const commentLabel = count === 0
+    ? copy.issue.commentOnAnswer
+    : count === 1
+      ? copy.issue.commentCountOne
+      : text(copy.issue.commentCount, { count });
+  const addLabel = questionNumber ? text(copy.issue.reactMoreTo, { whose }) : answer.isYou ? copy.issue.reactMoreOwn : text(copy.issue.reactMore, { author: answer.author });
 
   function react(emoji: string) {
     if (pending) return;
@@ -427,13 +442,16 @@ function AnswerCard({
         />
       ) : null}
       {answer.addedLater ? (
-        <p className="mt-2 text-[12px] text-ink-muted">
+        <p className="mt-2 text-[13px] text-ink-muted">
           {copy.issue.addedLater}
         </p>
       ) : null}
 
       <div className="answer-actions">
-        {local.map((reaction) => (
+        {/* Reactions wrap within their own row; Comment keeps its place at the right, however many there are. */}
+        <div className="reaction-row">
+        {/* Untouched quick picks would repeat under every answer: only the heart stays one tap away until someone reacts; the picker has the rest. */}
+        {local.filter((reaction) => reaction.count > 0 || reaction.mine || reaction.emoji === "❤️").map((reaction) => (
           <button
             key={reaction.emoji}
             type="button"
@@ -443,11 +461,12 @@ function AnswerCard({
             aria-pressed={reaction.mine}
             aria-label={
               reaction.count > 0
-                ? text(copy.a11yStatus.reactWithCount, { emoji: reaction.emoji, count: reaction.count })
-                : text(copy.issue.reactAriaLabel, { emoji: reaction.emoji })
+                ? text(copy.issue.reactWithCountTo, { emoji: reaction.emoji, count: reaction.count, whose })
+                : text(copy.issue.reactAriaLabelTo, { emoji: reaction.emoji, whose })
             }
             onClick={() => react(reaction.emoji)}
-            className={`reaction-chip disabled:opacity-50 aria-disabled:opacity-50 ${
+            // Read-only (a shared copy) stays at full contrast: the counts are content there, not a control.
+            className={`reaction-chip ${canInteract ? "disabled:opacity-50" : "reaction-chip--static"} ${reaction.count === 0 && !reaction.mine ? "reaction-chip--idle" : ""} aria-disabled:opacity-50 ${
               reaction.mine
                 ? "reaction-chip--mine"
                 : "hover:bg-field"
@@ -474,6 +493,7 @@ function AnswerCard({
             </svg>
           </button>
         ) : null}
+        </div>
         {commentsEnabled && (count > 0 || canInteract) ? (
           <button
             type="button"
@@ -481,12 +501,9 @@ function AnswerCard({
             aria-controls={threadId}
             onClick={() => setThreadOpen((open) => !open)}
             className="link cursor-pointer"
+            aria-label={text(copy.issue.commentButtonNamed, { label: commentLabel, whose })}
           >
-            {count === 0
-              ? copy.issue.commentOnAnswer
-              : count === 1
-                ? copy.issue.commentCountOne
-                : text(copy.issue.commentCount, { count })}
+            {commentLabel}
           </button>
         ) : null}
       </div>

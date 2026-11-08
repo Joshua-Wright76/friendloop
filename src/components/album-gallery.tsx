@@ -8,6 +8,15 @@ import { formatAudioDuration } from "@/lib/audio-validation";
 import { copy, text } from "@/lib/copy";
 import type { AlbumItem } from "@/lib/album";
 
+/** Notes the trip, so the issue can offer the way back to this album. The issue's address stays the same. */
+function rememberAlbum() {
+  try {
+    sessionStorage.setItem("fl-from-album", JSON.stringify({ href: window.location.pathname + window.location.search, at: Date.now() }));
+  } catch {
+    // Storage can be off; the issue then simply has no way back.
+  }
+}
+
 export type GalleryGroup = {
   issueId: string;
   title: string;
@@ -39,7 +48,7 @@ export function AlbumGallery({ groups }: { groups: GalleryGroup[] }) {
             {group.items.map((item) => (
               <li key={item.key} className={item.kind === "voice" ? "album-voice" : undefined}>
                 {item.kind === "photo" ? (
-                  <figure className="card m-0 p-2">
+                  <figure className="card m-0 p-3">
                     <button
                       type="button"
                       className="album-tile"
@@ -75,7 +84,7 @@ export function AlbumGallery({ groups }: { groups: GalleryGroup[] }) {
         photos={photos}
         state={lightbox}
         extra={(_photo, index) => (
-          <Link href={photos[index].issueHref} className="text-[14px] font-bold text-ink underline underline-offset-4">
+          <Link href={photos[index].issueHref} onClick={rememberAlbum} className="inline-flex min-h-11 items-center text-[14px] font-bold text-ink underline underline-offset-4">
             {copy.album.viewInIssue}
           </Link>
         )}
@@ -95,8 +104,8 @@ function Credit({ item }: { item: AlbumItem }) {
       {item.caption || item.body ? (
         <span className="mt-0.5 line-clamp-2 block text-[13px] leading-snug text-ink">{item.caption || item.body}</span>
       ) : null}
-      <span className="line-clamp-1 block text-[12px] leading-snug text-ink-muted">{item.context}</span>
-      <Link href={item.issueHref} className="link link--quiet text-[13px]!">
+      <span className="line-clamp-1 block text-[13px] leading-snug text-ink-muted">{item.context}</span>
+      <Link href={item.issueHref} onClick={rememberAlbum} className="link link--quiet text-[13px]!" aria-label={text(copy.album.viewInIssueNamed, { what: [item.author, item.caption || item.body || item.context].filter(Boolean).join(", ") })}>
         {copy.album.viewInIssue}
       </Link>
     </figcaption>

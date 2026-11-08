@@ -727,7 +727,9 @@ export async function membersOf(groupId: string) {
     .from(memberships)
     .leftJoin(emailSuppressions, eq(emailSuppressions.email, sql`lower(${memberships.email})`))
     .where(and(eq(memberships.groupId, groupId), isNull(memberships.revokedAt)))
-    .orderBy(sql`case when ${memberships.access} = 'owner' then 0 when ${memberships.access} = 'admin' then 1 else 2 end`, memberships.invitedAt);
+    // The owner first, then everyone by when they joined. Neither a new role nor a
+    // re-sent invite (fixing an address) moves anyone's card.
+    .orderBy(sql`case when ${memberships.access} = 'owner' then 0 else 1 end`, memberships.createdAt, memberships.id);
 }
 
 export async function userById(id: string) {

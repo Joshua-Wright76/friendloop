@@ -52,8 +52,8 @@ export function ReminderPreference({ token, initial }: { token: string; initial:
           ))}
         </div>
       </fieldset>
-      <p id={hintId} className="mt-1 text-[12px] leading-relaxed text-ink-muted">{labels.hint}</p>
-      <p aria-live="polite" className={`mt-1 text-[12px] empty:hidden ${status === "error" ? "text-danger" : "text-ink-muted"}`}>
+      <p id={hintId} className="mt-1 text-[13px] leading-relaxed text-ink-muted">{labels.hint}</p>
+      <p aria-live="polite" className={`mt-1 text-[13px] empty:hidden ${status === "error" ? "text-danger" : "text-ink-muted"}`}>
         {status === "saving" ? labels.saving : status === "saved" ? labels.saved : status === "error" ? labels.error : ""}
       </p>
     </section>

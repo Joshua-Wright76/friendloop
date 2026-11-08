@@ -13,7 +13,8 @@ export async function requestLink(
   formData: FormData,
 ): Promise<SignInState> {
   const email = String(formData.get("email") ?? "");
-  if (!email.includes("@") || email.length < 3) {
+  // A full address: something, an @, and a domain with a dot. "you@" or "you@home" would only bounce.
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
     return { error: copy.signIn.invalidEmail };
   }
 

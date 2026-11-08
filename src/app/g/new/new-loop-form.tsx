@@ -241,7 +241,8 @@ export function NewLoopForm({ packs }: { packs: QuestionPack[] }) {
     }
     const parsed = raw.split(/[\s,;]+/).map((email) => email.trim().toLowerCase()).filter(Boolean);
     if (parsed.some((email) => !VALID_EMAIL.test(email))) {
-      setEmailError(copy.newLoop.wizard.readers.invalidEmail);
+      // Say which one, so it can be found and fixed.
+      setEmailError(text(copy.members.invalidEmailNamed, { emails: unusable.join(", ") }));
       setEmailNotice("");
       return false;
     }
@@ -525,7 +526,7 @@ export function NewLoopForm({ packs }: { packs: QuestionPack[] }) {
                   aria-label={copy.stationery.headerInput}
                   onChange={(event) => void chooseHeader(event.target.files?.[0])}
                 />
-                <p aria-live="polite" className={`mt-1.5 text-[12px] ${headerError ? "text-danger" : "text-ink-muted"}`}>
+                <p aria-live="polite" className={`mt-1.5 text-[13px] ${headerError ? "text-danger" : "text-ink-muted"}`}>
                   {headerError || (headerPreparing ? copy.newLoop.wizard.look.picturePreparing : headerFile ? copy.newLoop.wizard.look.pictureChosen : "")}
                 </p>
               </div>
@@ -627,7 +628,7 @@ export function NewLoopForm({ packs }: { packs: QuestionPack[] }) {
                       type="button"
                       aria-label={text(copy.newLoop.wizard.readers.removeEmail, { email })}
                       onClick={() => setEmails((current) => current.filter((item) => item !== email))}
-                      className="flex h-7 w-7 flex-none items-center justify-center rounded-full text-ink-muted hover:bg-field hover:text-ink"
+                      className="chip-remove flex h-7 w-7 flex-none items-center justify-center rounded-full text-ink-muted hover:bg-field hover:text-ink"
                     >
                       <IconRemove />
                     </button>
@@ -647,7 +648,7 @@ export function NewLoopForm({ packs }: { packs: QuestionPack[] }) {
                   aria-invalid={Boolean(emailError)}
                   aria-describedby={emailError ? errorId : undefined}
                   autoComplete="off"
-                  className="min-w-[8rem] flex-1 border-0 bg-transparent p-1 text-[14px] text-ink outline-none"
+                  className="min-h-11 min-w-[8rem] flex-1 border-0 bg-transparent p-1 text-[14px] text-ink outline-none"
                 />
               </div>
               </div>
@@ -662,6 +663,22 @@ export function NewLoopForm({ packs }: { packs: QuestionPack[] }) {
           <>
             <h1 ref={stepHeading} tabIndex={-1} id="wizard-step-heading" className="wizard-heading">{copy.newLoop.wizard.note.title}</h1>
             <p className="wizard-description">{copy.newLoop.wizard.note.description}</p>
+            {/* Everything chosen so far, in one place, before anything is created or sent. */}
+            <section className="wizard-summary mt-4" aria-labelledby="wizard-summary-heading">
+              <h2 id="wizard-summary-heading" className="wizard-summary__title">{copy.newLoop.wizard.note.summaryTitle}</h2>
+              <dl>
+                <div><dt>{copy.newLoop.wizard.note.summaryName}</dt><dd className="wrap-any">{name.trim()}</dd></div>
+                <div><dt>{copy.newLoop.wizard.note.summaryRhythm}</dt><dd>{text(copy.newLoop.wizard.details.scheduleSummary, { when: text(scheduleWhen, { weekday: weekdayName }), hour: formatHour(Number(hour)) })}</dd></div>
+                <div><dt>{copy.newLoop.wizard.note.summaryLook}</dt><dd>{[
+                  copy.stationery.presets[preset as keyof typeof copy.stationery.presets]?.name ?? preset,
+                  (copy.stationery.backgrounds as Record<string, string>)[looks.background],
+                  (copy.stationery.packs as Record<string, { name: string }>)[looks.paperPack]?.name,
+                  (copy.stickers as Record<string, string>)[looks.mascot],
+                ].filter(Boolean).join(" · ")}</dd></div>
+                <div><dt>{copy.newLoop.wizard.note.summaryQuestions}</dt><dd className="numeric">{questions.length === 1 ? copy.newLoop.wizard.note.summaryQuestionsOne : text(copy.newLoop.wizard.note.summaryQuestionsCount, { count: questions.length })}</dd></div>
+                <div><dt>{copy.newLoop.wizard.note.summaryInvites}</dt><dd className="numeric">{emails.length === 0 ? copy.newLoop.wizard.note.summaryInvitesNone : emails.length === 1 ? copy.newLoop.wizard.note.summaryInvitesOne : text(copy.newLoop.wizard.note.summaryInvitesCount, { count: emails.length })}</dd></div>
+              </dl>
+            </section>
             <div className="mt-4">
               <label htmlFor="personal-note" className="mb-2 block text-[14px] font-bold text-ink">{copy.newLoop.wizard.note.label}</label>
               <textarea
@@ -839,7 +856,7 @@ export function NewLoopForm({ packs }: { packs: QuestionPack[] }) {
                 : text(copy.newLoop.wizard.note.previewReaders, { count: emails.length })}
           </p>
           <div className="mt-4 rounded-md bg-accent-soft p-3">
-            <p className="text-[12px] font-bold uppercase tracking-wide text-ink-soft">{copy.newLoop.wizard.note.previewNote}</p>
+            <p className="text-[13px] font-bold uppercase tracking-wide text-ink-soft">{copy.newLoop.wizard.note.previewNote}</p>
             <p className="mt-1 whitespace-pre-wrap text-[14px] leading-relaxed text-ink">
               {personalNote.trim() || copy.newLoop.wizard.note.emptyNote}
             </p>
