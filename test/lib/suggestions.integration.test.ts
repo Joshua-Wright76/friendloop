@@ -120,7 +120,7 @@ test("credits carry the author into a delivered issue, or drop them", async () =
   assert.equal((await suggestionCreditsForQuestions(loop.groupId, [])).size, 0);
 });
 
-test("an accepted suggestion joins the open round with its credit, at the back of the queue", async () => {
+test("an accepted suggestion waits at the back of the queue, or joins the open round with its credit when nothing takes turns", async () => {
   const loop = await seedLoop();
   const alice = await memberOf(loop);
   const round = await openRound({ groupId: loop.groupId, at: AFTER_FIRST_SLOT, prompt: false });
@@ -133,9 +133,20 @@ test("an accepted suggestion joins the open round with its credit, at the back o
     "select text, suggested_by from issue_questions where issue_id = $1 order by position",
     [round.issueId],
   );
-  assert.deepEqual(asked.at(-1), { text: "Best sandwich ever?", suggested_by: "Alice" });
+  assert.equal(asked.some((row) => row.text === "Best sandwich ever?"), false, "a turn-taker waits its turn");
   const [question] = await rows<{ frequency: string; active: boolean; created_by_membership_id: string }>(
     "select frequency, active, created_by_membership_id from questions where text = 'Best sandwich ever?'",
   );
-  assert.deepEqual(question, { frequency: "rotating", active: true, created_by_membership_id: alice.id });
+  assert.deepEqual({ ...question }, { frequency: "rotating", active: true, created_by_membership_id: alice.id });
+
+  // Nothing takes turns any more: the next one is asked every round, starting with this one.
+  await rows("update questions set frequency = 'every_round' where group_id = $1", [loop.groupId]);
+  await createSuggestion({ token: alice.token, text: "Best soup?", authorDisplay: "name" });
+  const [soup] = await rows<{ id: string }>("select id from question_suggestions where text = 'Best soup?'");
+  assert.equal((await acceptSuggestion({ groupId: loop.groupId, suggestionId: soup.id, text: "Best soup?", at: new Date() })).ok, true);
+  const now = await rows<{ text: string; suggested_by: string | null }>(
+    "select text, suggested_by from issue_questions where issue_id = $1 order by position",
+    [round.issueId],
+  );
+  assert.deepEqual({ ...now.at(-1) }, { text: "Best soup?", suggested_by: "Alice" });
 });

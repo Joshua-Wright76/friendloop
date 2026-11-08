@@ -7,6 +7,7 @@ import { groups, issueQuestions, issues, questions, replies } from "@/db/schema"
 import { formatOf, legacyActive, type AnswerFormat, type AskFrequency } from "./asks";
 import { placeDatedItems } from "./events";
 import { takeTurns } from "./round-plan";
+import { reorderIds } from "./question-order";
 import { suggestionCreditsForQuestions } from "./suggestions";
 
 /*
@@ -53,17 +54,20 @@ export function snapshotOf(question: QuestionRow, credit: string | null) {
   };
 }
 
-async function insertSnapshots(ex: Executor, groupId: string, issueId: string, selected: QuestionRow[], firstPosition: number) {
-  if (selected.length === 0) return;
+/** Snapshot pool items into a round; returns the ids of the rows it made. */
+async function insertSnapshots(ex: Executor, groupId: string, issueId: string, selected: QuestionRow[], firstPosition: number): Promise<string[]> {
+  if (selected.length === 0) return [];
   const credits = await suggestionCreditsForQuestions(groupId, selected.map((question) => question.id));
-  await ex
+  const rows = await ex
     .insert(issueQuestions)
     .values(selected.map((question, index) => ({
       issueId,
       position: firstPosition + index,
       ...snapshotOf(question, credits.get(question.id) ?? null),
     })))
-    .onConflictDoNothing({ target: [issueQuestions.issueId, issueQuestions.questionId] });
+    .onConflictDoNothing({ target: [issueQuestions.issueId, issueQuestions.questionId] })
+    .returning({ id: issueQuestions.id });
+  return rows.map((row) => row.id);
 }
 
 /** Send items that took their turn to the back of the queue, in the order they were taken. */
@@ -111,12 +115,6 @@ export async function snapshotRound(input: {
   const { group, issueId } = input;
   const ex = input.ex ?? db;
 
-  // "Sitting out this round" only ever meant the round it was set in.
-  await ex
-    .update(questions)
-    .set({ skipNext: false })
-    .where(and(eq(questions.groupId, group.id), eq(questions.skipNext, true)));
-
   const taken = takeTurns(await poolOf(ex, group.id, "rotating"), group.questionsPerRound);
   const everyRound = await poolOf(ex, group.id, "every_round");
   await insertSnapshots(ex, group.id, issueId, [...taken, ...everyRound], 0);
@@ -147,7 +145,13 @@ async function openRoundWithGroup(ex: Executor, groupId: string): Promise<OpenRo
   return row ?? null;
 }
 
-type RoundRow = { id: string; questionId: string | null; position: number; frequency: AskFrequency | null };
+type RoundRow = {
+  id: string;
+  questionId: string | null;
+  position: number;
+  occurrenceDate: string | null;
+  frequency: AskFrequency | null;
+};
 
 /** The open round's items, in order, with the frequency each came from. */
 async function roundRows(ex: Executor, issueId: string): Promise<RoundRow[]> {
@@ -156,6 +160,7 @@ async function roundRows(ex: Executor, issueId: string): Promise<RoundRow[]> {
       id: issueQuestions.id,
       questionId: issueQuestions.questionId,
       position: issueQuestions.position,
+      occurrenceDate: issueQuestions.occurrenceDate,
       frequency: questions.frequency,
     })
     .from(issueQuestions)
@@ -174,15 +179,9 @@ async function writtenIn(ex: Executor, issueId: string, ids: string[]): Promise<
   return new Set(rows.map((row) => row.id));
 }
 
-const RANK: Record<AskFrequency, number> = { rotating: 0, every_round: 1, on_date: 2 };
-
-/** Turn-takers first, then every-round items, then dates; each group keeps its own order. */
-async function renumber(ex: Executor, issueId: string) {
-  const rows = await roundRows(ex, issueId);
-  const ordered = [...rows].sort((left, right) =>
-    (RANK[left.frequency ?? "on_date"] - RANK[right.frequency ?? "on_date"]) || left.position - right.position,
-  );
-  const moved = ordered.map((row, position) => ({ id: row.id, position, was: row.position })).filter((row) => row.position !== row.was);
+/** Hand out positions 0, 1, 2… in this order, touching only the rows that move. */
+async function writeOrder(ex: Executor, rows: Array<{ id: string; position: number }>): Promise<void> {
+  const moved = rows.map((row, position) => ({ id: row.id, position, was: row.position })).filter((row) => row.position !== row.was);
   if (moved.length === 0) return;
   const cases = moved.map((row) => sql`when ${row.id}::uuid then ${row.position}::int`);
   await ex
@@ -191,12 +190,38 @@ async function renumber(ex: Executor, issueId: string) {
     .where(inArray(issueQuestions.id, moved.map((row) => row.id)));
 }
 
+const RANK: Record<AskFrequency, number> = { rotating: 0, every_round: 1, on_date: 2 };
+const rankOf = (row: RoundRow) => RANK[row.frequency ?? "on_date"];
+
 /**
- * Add a pool item to the open round, after the others of its kind. A turn-taker
- * goes to the back of the queue; a dated item is placed only if its day falls in
- * the round. Nothing happens when the loop has no open round or already asks it.
+ * Find a place for rows the round just gained. Asked for (`end`), they go last.
+ * Otherwise each joins its own kind, as a fresh round would hold it: a turn-taker
+ * after the round's last turn-taker, an every-round item after the last of those.
+ * Whatever order the owner gave the round stays as it was.
  */
-export async function addToOpenRound(groupId: string, questionId: string): Promise<boolean> {
+async function settle(ex: Executor, issueId: string, added: string[], end: boolean): Promise<void> {
+  const all = await roundRows(ex, issueId);
+  const fresh = new Set(added);
+  const ordered = all.filter((row) => !fresh.has(row.id));
+  for (const row of all.filter((candidate) => fresh.has(candidate.id))) {
+    let index = ordered.length;
+    if (!end) {
+      const after = ordered.findLastIndex((other) => rankOf(other) <= rankOf(row));
+      index = after + 1;
+    }
+    ordered.splice(index, 0, row);
+  }
+  await writeOrder(ex, ordered);
+}
+
+/**
+ * Add a pool item to the open round. A turn-taker goes to the back of the queue,
+ * since this was its turn; a dated item is placed only if its day falls in the
+ * round. With `end` (the owner adding it by hand) it goes last; otherwise it joins
+ * the others of its kind. Nothing happens when the loop has no open round or the
+ * round already asks it.
+ */
+export async function addToOpenRound(groupId: string, questionId: string, options: { end?: boolean } = {}): Promise<boolean> {
   const open = await openRoundWithGroup(db, groupId);
   if (!open) return false;
   const [question] = await db
@@ -219,49 +244,74 @@ export async function addToOpenRound(groupId: string, questionId: string): Promi
 
   const rows = await roundRows(db, open.issue.id);
   if (rows.some((row) => row.questionId === question.id)) return false;
-  await insertSnapshots(db, groupId, open.issue.id, [question], (rows.at(-1)?.position ?? -1) + 1);
+  const added = await insertSnapshots(db, groupId, open.issue.id, [question], (rows.at(-1)?.position ?? -1) + 1);
   if (question.frequency === "rotating" && open.group.questionsPerRound !== null) await sendToBack(db, groupId, [question.id]);
-  await renumber(db, open.issue.id);
+  await settle(db, open.issue.id, added, options.end ?? false);
   return true;
 }
 
 export type RemoveResult = "removed" | "written" | "absent";
 
 /**
- * Take a pool item out of the open round, unless someone has written there. A
+ * Take one of the open round's items out, unless someone has written there. A
  * turn-taker goes first in line for the next round (when rounds take turns at
- * all); a dated occurrence is
- * remembered in `skipped_dates`, so carrying the round over doesn't put it back.
+ * all); a dated occurrence is remembered in `skipped_dates`, so carrying the
+ * round over doesn't put it back. The round takes nothing else in its place.
  */
-export async function removeFromOpenRound(groupId: string, questionId: string): Promise<RemoveResult> {
+export async function removeSnapshot(groupId: string, snapshotId: string): Promise<RemoveResult> {
   const open = await openRoundWithGroup(db, groupId);
   if (!open) return "absent";
-  const [row] = await db
-    .select({ id: issueQuestions.id, occurrenceDate: issueQuestions.occurrenceDate, frequency: questions.frequency })
-    .from(issueQuestions)
-    .innerJoin(questions, eq(questions.id, issueQuestions.questionId))
-    .where(and(eq(issueQuestions.issueId, open.issue.id), eq(issueQuestions.questionId, questionId)))
-    .limit(1);
+  const row = (await roundRows(db, open.issue.id)).find((candidate) => candidate.id === snapshotId);
   if (!row) return "absent";
   if ((await writtenIn(db, open.issue.id, [row.id])).size > 0) return "written";
 
   await db.delete(issueQuestions).where(eq(issueQuestions.id, row.id));
   // When every turn-taker is asked each round, the queue's order is just the round's.
-  if (row.frequency === "rotating" && open.group.questionsPerRound !== null) await sendToFront(db, groupId, [questionId]);
-  if (row.frequency === "on_date" && row.occurrenceDate) {
+  if (row.questionId && row.frequency === "rotating" && open.group.questionsPerRound !== null) {
+    await sendToFront(db, groupId, [row.questionId]);
+  }
+  if (row.questionId && row.occurrenceDate) {
     await db
       .update(questions)
       .set({ skippedDates: sql`array_append(${questions.skippedDates}, ${row.occurrenceDate}::date)` })
-      .where(eq(questions.id, questionId));
+      .where(eq(questions.id, row.questionId));
   }
-  await renumber(db, open.issue.id);
+  await writeOrder(db, (await roundRows(db, open.issue.id)));
   return "removed";
+}
+
+/** Take a pool item out of the open round (see `removeSnapshot`). */
+export async function removeFromOpenRound(groupId: string, questionId: string): Promise<RemoveResult> {
+  const open = await openRoundWithGroup(db, groupId);
+  if (!open) return "absent";
+  const row = (await roundRows(db, open.issue.id)).find((candidate) => candidate.questionId === questionId);
+  return row ? removeSnapshot(groupId, row.id) : "absent";
+}
+
+/**
+ * Move one of the open round's items. The order is this round's only: the next
+ * round is built from the queue and the every-round order again. Returns the
+ * round's order as saved.
+ */
+export async function reorderOpenRound(groupId: string, snapshotId: string, targetIndex: number): Promise<string[]> {
+  return db.transaction(async (tx) => {
+    // One reorder at a time per loop, so each applies to the latest order.
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${`round:${groupId}`}, 0))`);
+    const open = await openRoundWithGroup(tx, groupId);
+    if (!open) return [];
+    const rows = await roundRows(tx, open.issue.id);
+    const orderedIds = reorderIds(rows.map((row) => row.id), snapshotId, targetIndex);
+    const byId = new Map(rows.map((row) => [row.id, row]));
+    await writeOrder(tx, orderedIds.map((id) => byId.get(id)!));
+    return orderedIds;
+  });
 }
 
 /**
  * Carry a pool item's new words into the open round (the K8 rule): its snapshot
  * follows the edit unless someone has already written there, in which case it
- * keeps the words they answered and the next round asks the new ones.
+ * keeps the words they answered and the next round asks the new ones. A dated
+ * card keeps the title it was given for its day.
  */
 export async function refreshOpenRound(groupId: string, questionId: string): Promise<void> {
   const open = await openRoundWithGroup(db, groupId);
@@ -274,59 +324,58 @@ export async function refreshOpenRound(groupId: string, questionId: string): Pro
     .limit(1);
   if (!row || row.snapshot.occurrenceDate) return;
   if ((await writtenIn(db, open.issue.id, [row.snapshot.id])).size > 0) return;
-  const { text, emoji, description, adminOnly } = row.question;
-  await db.update(issueQuestions).set({ text, emoji, description, adminOnly }).where(eq(issueQuestions.id, row.snapshot.id));
+  const fresh = snapshotOf(row.question, null);
+  await db
+    .update(issueQuestions)
+    .set({
+      text: fresh.text,
+      kind: fresh.kind,
+      format: fresh.format,
+      pollMultiple: fresh.pollMultiple,
+      pollOptions: fresh.pollOptions,
+      emoji: fresh.emoji,
+      description: fresh.description,
+      adminOnly: fresh.adminOnly,
+    })
+    .where(eq(issueQuestions.id, row.snapshot.id));
+}
+
+/** The pool items' order within one frequency, as the page shows it. */
+export async function poolOrder(groupId: string, frequency: AskFrequency): Promise<string[]> {
+  return (await poolOf(db, groupId, frequency)).map((question) => question.id);
 }
 
 /**
- * The open round after the number of turn-takers per round changed: turn-takers
- * past the new count go back to the front of the queue (they were never really
- * asked) unless someone wrote there, and a larger count takes more from the queue.
+ * Move an item within its own list: the queue for turn-takers, the every-round
+ * order for the rest. The positions stay the ones the list already held, handed
+ * out in the new order. Returns the list's order as saved.
  */
-export async function resizeOpenRound(groupId: string): Promise<void> {
-  const open = await openRoundWithGroup(db, groupId);
-  if (!open) return;
-  const count = open.group.questionsPerRound;
-  const rotating = (await roundRows(db, open.issue.id)).filter((row) => row.frequency === "rotating");
-
-  if (count !== null && rotating.length > count) {
-    const written = await writtenIn(db, open.issue.id, rotating.map((row) => row.id));
-    const kept = rotating.filter((row) => written.has(row.id));
-    const room = Math.max(0, count - kept.length);
-    const keep = new Set([...kept.map((row) => row.id), ...rotating.filter((row) => !written.has(row.id)).slice(0, room).map((row) => row.id)]);
-    const dropped = rotating.filter((row) => !keep.has(row.id));
-    if (dropped.length > 0) {
-      await db.delete(issueQuestions).where(inArray(issueQuestions.id, dropped.map((row) => row.id)));
-      await sendToFront(db, groupId, dropped.flatMap((row) => (row.questionId ? [row.questionId] : [])));
+export async function reorderPool(groupId: string, frequency: "rotating" | "every_round", questionId: string, targetIndex: number): Promise<string[]> {
+  return db.transaction(async (tx) => {
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${groupId}, 0))`);
+    const rows = await poolOf(tx, groupId, frequency);
+    const orderedIds = reorderIds(rows.map((row) => row.id), questionId, targetIndex);
+    const positions = rows.map((row) => row.position).sort((left, right) => left - right);
+    const moved = orderedIds
+      .map((id, index) => ({ id, position: positions[index], was: rows.find((row) => row.id === id)!.position }))
+      .filter((row) => row.position !== row.was);
+    if (moved.length > 0) {
+      const cases = moved.map((row) => sql`when ${row.id}::uuid then ${row.position}::int`);
+      await tx
+        .update(questions)
+        .set({ position: sql`case ${questions.id} ${sql.join(cases, sql` `)} else ${questions.position} end` })
+        .where(inArray(questions.id, moved.map((row) => row.id)));
     }
-  } else {
-    await fillOpenRound(groupId);
-  }
-  await renumber(db, open.issue.id);
+    return orderedIds;
+  });
 }
 
-/**
- * Top the open round up from the queue while it holds fewer turn-takers than a
- * round asks: a new question in an "all questions" loop joins the round people
- * are answering now, as it always did.
- */
-export async function fillOpenRound(groupId: string): Promise<void> {
-  const open = await openRoundWithGroup(db, groupId);
-  if (!open) return;
-  const rows = await roundRows(db, open.issue.id);
-  const asked = new Set(rows.map((row) => row.questionId));
-  const rotatingCount = rows.filter((row) => row.frequency === "rotating").length;
-  const room = open.group.questionsPerRound === null ? Infinity : open.group.questionsPerRound - rotatingCount;
-  if (room <= 0) return;
-  // An item sitting this round out stays out of it.
-  const fresh = (question: QuestionRow) => !asked.has(question.id) && !question.skipNext;
-  const waiting = (await poolOf(db, groupId, "rotating")).filter(fresh);
-  const taken = takeTurns(waiting, room === Infinity ? null : room);
-  const everyRound = (await poolOf(db, groupId, "every_round")).filter(fresh);
-  if (taken.length === 0 && everyRound.length === 0) return;
-  await insertSnapshots(db, groupId, open.issue.id, [...taken, ...everyRound], (rows.at(-1)?.position ?? -1) + 1);
-  if (open.group.questionsPerRound !== null) await sendToBack(db, groupId, taken.map((question) => question.id));
-  await renumber(db, open.issue.id);
+/** Send an item to the back of its own list: where a new turn-taker or every-round item goes. */
+export async function sendToBackOf(groupId: string, questionId: string, frequency: AskFrequency): Promise<void> {
+  await db
+    .update(questions)
+    .set({ position: await nextPosition(groupId, frequency) })
+    .where(eq(questions.id, questionId));
 }
 
 export type NewItem = {
@@ -334,8 +383,6 @@ export type NewItem = {
   text: string;
   format: AnswerFormat;
   frequency: AskFrequency;
-  /** Written through the question pages (not as a section or a date): see `legacyActive`. */
-  asQuestion: boolean;
   at: Date;
   pollMultiple?: boolean;
   pollOptions?: string[] | null;
@@ -346,31 +393,24 @@ export type NewItem = {
   date?: { kind: "once" | "birthday"; month: number; day: number; year: number | null; aboutMembershipId: string | null };
 };
 
-/** The position a new item takes: the back of its own group. Sections count from 1000. */
-async function nextPosition(groupId: string, frequency: AskFrequency, asQuestion: boolean): Promise<number> {
+/** The position a new item takes: the back of its own list. Dates sort by day instead. */
+async function nextPosition(groupId: string, frequency: AskFrequency): Promise<number> {
   if (frequency === "on_date") return 0;
-  const floor = frequency === "every_round" && !asQuestion ? 1000 : 0;
-  const ceiling = frequency === "every_round" && asQuestion ? 1000 : null;
   const [{ last }] = await db
     .select({ last: max(questions.position) })
     .from(questions)
-    .where(and(
-      eq(questions.groupId, groupId),
-      eq(questions.frequency, frequency),
-      frequency === "every_round" ? sql`${questions.position} >= ${floor}` : undefined,
-      ceiling === null ? undefined : sql`${questions.position} < ${ceiling}`,
-    ));
-  return Math.max(floor, (last ?? floor - 1) + 1);
+    .where(and(eq(questions.groupId, groupId), eq(questions.frequency, frequency)));
+  return (last ?? -1) + 1;
 }
 
-/** Add an item to the pool, at the back of its group. Returns its id. */
+/** Add an item to the pool, at the back of its list. Returns its id. */
 export async function insertPoolItem(item: NewItem): Promise<string> {
   const [row] = await db
     .insert(questions)
     .values({
       groupId: item.groupId,
       text: item.text,
-      position: await nextPosition(item.groupId, item.frequency, item.asQuestion),
+      position: await nextPosition(item.groupId, item.frequency),
       active: legacyActive(item),
       kind: item.format === "poll" ? "poll" : "written",
       format: item.format,
@@ -393,9 +433,9 @@ export async function insertPoolItem(item: NewItem): Promise<string> {
 }
 
 /**
- * How often a new question is asked: it takes turns if the loop has any
- * turn-takers or asks a set number each round, and otherwise joins the loop's
- * every-round questions (an "all questions" loop after the switch).
+ * How often a new question is asked unless the owner says otherwise: it takes
+ * turns if the loop has any turn-takers or asks a set number each round, and is
+ * otherwise asked every round.
  */
 export async function newQuestionFrequency(groupId: string): Promise<AskFrequency> {
   const [group] = await db.select({ questionsPerRound: groups.questionsPerRound }).from(groups).where(eq(groups.id, groupId)).limit(1);
@@ -406,20 +446,4 @@ export async function newQuestionFrequency(groupId: string): Promise<AskFrequenc
     .where(and(eq(questions.groupId, groupId), eq(questions.frequency, "rotating"), isNull(questions.archivedAt)))
     .limit(1);
   return turnTaker ? "rotating" : "every_round";
-}
-
-/**
- * A question added through the question pages, at the back of the list
- * (`newQuestionFrequency`). It reaches the open round at once when that round
- * has room for it.
- */
-export async function addPoolQuestion(input: Omit<NewItem, "frequency" | "asQuestion" | "format"> & { format?: "written" | "poll" }) {
-  const id = await insertPoolItem({
-    ...input,
-    format: input.format ?? "written",
-    frequency: await newQuestionFrequency(input.groupId),
-    asQuestion: true,
-  });
-  await fillOpenRound(input.groupId);
-  return id;
 }

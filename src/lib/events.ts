@@ -1,19 +1,10 @@
 import { and, asc, eq, isNull, max, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { groups, issueQuestions, issues, memberships, questions } from "@/db/schema";
+import { groups, issueQuestions, memberships, questions } from "@/db/schema";
 import { copy, text } from "./copy.ts";
 import { formatOf } from "./asks";
 import type { Executor } from "./round-questions";
-import {
-  EVENT_TITLE_MAX,
-  describeDate,
-  issueCoverage,
-  localDate,
-  nextOccurrence,
-  occurrencesInWindow,
-  parseDateInput,
-  type EventRule,
-} from "./event-dates.ts";
+import { issueCoverage, occurrencesInWindow, type EventRule } from "./event-dates.ts";
 
 /*
  * An event is an item asked on a date (docs/questions-unify-design.md): a pool
@@ -27,14 +18,15 @@ type GroupRow = typeof groups.$inferSelect;
 type QuestionRow = typeof questions.$inferSelect;
 
 /** A dated item with the birthday person's current details, for snapshotting and the list. */
-type DatedItem = {
+export type DatedItem = {
   question: QuestionRow;
   personName: string | null;
   personEmail: string | null;
   personRevoked: boolean;
 };
 
-async function loadDated(ex: Executor, groupId: string, onlyId?: string): Promise<DatedItem[]> {
+/** The loop's dated items that are still asked, with the birthday person's current details. */
+export async function loadDated(ex: Executor, groupId: string, onlyId?: string): Promise<DatedItem[]> {
   const rows = await ex
     .select({
       question: questions,
@@ -54,15 +46,15 @@ async function loadDated(ex: Executor, groupId: string, onlyId?: string): Promis
   return rows.map((row) => ({ ...row, personRevoked: row.personRevoked === true }));
 }
 
-function personLabel(row: Pick<DatedItem, "personName" | "personEmail">): string {
+export function personLabel(row: Pick<DatedItem, "personName" | "personEmail">): string {
   return row.personName ?? row.personEmail?.split("@")[0] ?? "";
 }
 
-function kindOf(question: QuestionRow): "once" | "birthday" {
+export function kindOf(question: Pick<QuestionRow, "dateKind">): "once" | "birthday" {
   return question.dateKind === "birthday" ? "birthday" : "once";
 }
 
-function ruleOf(question: QuestionRow): EventRule {
+export function ruleOf(question: Pick<QuestionRow, "dateKind" | "month" | "day" | "year">): EventRule {
   return { kind: kindOf(question), month: question.month ?? 1, day: question.day ?? 1, year: question.year };
 }
 
@@ -131,192 +123,4 @@ export async function placeDatedItems(input: {
     .onConflictDoNothing()
     .returning({ id: issueQuestions.id });
   return inserted.length;
-}
-
-/**
- * A date added while a round is already open would miss that round's snapshot. If
- * its day falls inside the open round, add it there now, so nothing owners type in
- * is silently lost to timing.
- */
-async function placeInOpenIssue(group: GroupRow, questionId: string): Promise<void> {
-  const [open] = await db
-    .select()
-    .from(issues)
-    .where(and(eq(issues.groupId, group.id), eq(issues.status, "open")))
-    .limit(1);
-  if (!open) return;
-  await placeDatedItems({ group, issueId: open.id, opensAt: open.opensAt, deliversAt: open.deliversAt, onlyQuestionId: questionId });
-}
-
-export type EventListItem = {
-  id: string;
-  kind: "once" | "birthday";
-  /** What the list calls it: the title, or "Maya's birthday". */
-  label: string;
-  title: string;
-  emoji: string | null;
-  membershipId: string | null;
-  month: number;
-  day: number;
-  year: number | null;
-  /** Next date on the calendar as ISO, or null for a one-time event that has passed. */
-  nextDate: string | null;
-  nextLabel: string | null;
-  /** The ISO date for the edit form's date input. */
-  inputDate: string;
-};
-
-function pad(value: number, width: number): string {
-  return String(value).padStart(width, "0");
-}
-
-/** The list a manager sees: soonest first, with finished one-time events last. */
-export async function eventsOf(group: Pick<GroupRow, "id" | "timezone">, at: Date): Promise<EventListItem[]> {
-  const today = localDate(at, group.timezone);
-  const items = (await loadDated(db, group.id))
-    .filter((row) => !(kindOf(row.question) === "birthday" && row.personRevoked))
-    .map((row): EventListItem => {
-      const rule = ruleOf(row.question);
-      const next = nextOccurrence(rule, today);
-      return {
-        id: row.question.id,
-        kind: rule.kind,
-        label: rule.kind === "birthday" ? text(copy.events.birthdayRow, { name: personLabel(row) }) : row.question.text,
-        title: rule.kind === "birthday" ? "" : row.question.text,
-        emoji: row.question.emoji,
-        membershipId: row.question.aboutMembershipId,
-        month: rule.month,
-        day: rule.day,
-        year: rule.year,
-        nextDate: next,
-        nextLabel: next ? describeDate(next) : null,
-        inputDate: `${pad(rule.year ?? Number(today.slice(0, 4)), 4)}-${pad(rule.month, 2)}-${pad(rule.day, 2)}`,
-      };
-    });
-
-  return items.sort((left, right) => {
-    if (left.nextDate && right.nextDate) return left.nextDate.localeCompare(right.nextDate);
-    if (left.nextDate) return -1;
-    if (right.nextDate) return 1;
-    return left.label.localeCompare(right.label);
-  });
-}
-
-export type EventInput = {
-  kind: "once" | "birthday";
-  title: string;
-  emoji: string | null;
-  /** `YYYY-MM-DD` from a date input. */
-  date: string;
-  membershipId: string | null;
-};
-
-/** Which copy line explains a refused event: a key of `copy.events.errors`. */
-export type EventErrorCode = keyof typeof copy.events.errors;
-
-export type EventWriteResult =
-  | { ok: true }
-  | { ok: false; code: EventErrorCode };
-
-type DateValues = {
-  text: string;
-  emoji: string | null;
-  dateKind: "once" | "birthday";
-  month: number;
-  day: number;
-  year: number | null;
-  aboutMembershipId: string | null;
-};
-
-/** Check an event form against the loop; returns the columns to store. */
-async function checkEvent(
-  group: Pick<GroupRow, "id" | "timezone">,
-  input: EventInput,
-  options: { at: Date; allowPast: boolean },
-): Promise<{ ok: false; code: EventErrorCode } | { ok: true; values: DateValues }> {
-  const date = parseDateInput(input.date);
-  if (!date) return { ok: false, code: "invalid" };
-
-  const emoji = input.emoji?.trim().slice(0, 8) || null;
-
-  if (input.kind === "birthday") {
-    if (!input.membershipId) return { ok: false, code: "memberRequired" };
-    const [person] = await db
-      .select({ id: memberships.id })
-      .from(memberships)
-      .where(
-        and(
-          eq(memberships.id, input.membershipId),
-          eq(memberships.groupId, group.id),
-          isNull(memberships.revokedAt),
-        ),
-      )
-      .limit(1);
-    if (!person) return { ok: false, code: "memberRequired" };
-    return {
-      ok: true,
-      values: { text: "", emoji, dateKind: "birthday", month: date.month, day: date.day, year: null, aboutMembershipId: person.id },
-    };
-  }
-
-  const title = input.title.trim();
-  if (!title || title.length > EVENT_TITLE_MAX) return { ok: false, code: "titleRequired" };
-  if (!options.allowPast && input.date < localDate(options.at, group.timezone)) {
-    return { ok: false, code: "pastDate" };
-  }
-  return {
-    ok: true,
-    values: { text: title, emoji, dateKind: "once", month: date.month, day: date.day, year: date.year, aboutMembershipId: null },
-  };
-}
-
-export async function createEvent(input: EventInput & { group: GroupRow; at: Date }): Promise<EventWriteResult> {
-  const checked = await checkEvent(input.group, input, { at: input.at, allowPast: false });
-  if (!checked.ok) return checked;
-
-  const [created] = await db
-    .insert(questions)
-    .values({
-      ...checked.values,
-      groupId: input.group.id,
-      position: 0,
-      active: false,
-      kind: "written",
-      format: "written",
-      frequency: "on_date",
-      createdAt: input.at,
-    })
-    .returning({ id: questions.id });
-  await placeInOpenIssue(input.group, created.id);
-  return { ok: true };
-}
-
-/** Edit a date. The kind is fixed; a delivered or open round keeps what it snapshotted. */
-export async function updateEvent(
-  input: Omit<EventInput, "kind"> & { group: GroupRow; eventId: string; at: Date },
-): Promise<EventWriteResult> {
-  const [existing] = await db
-    .select()
-    .from(questions)
-    .where(and(eq(questions.id, input.eventId), eq(questions.groupId, input.group.id), eq(questions.frequency, "on_date")))
-    .limit(1);
-  if (!existing) return { ok: false, code: "invalid" };
-
-  const checked = await checkEvent(
-    input.group,
-    { ...input, kind: kindOf(existing) },
-    { at: input.at, allowPast: true },
-  );
-  if (!checked.ok) return checked;
-
-  await db.update(questions).set(checked.values).where(eq(questions.id, existing.id));
-  await placeInOpenIssue(input.group, existing.id);
-  return { ok: true };
-}
-
-/** Remove a date. Cards already in a round keep their title and place. */
-export async function deleteEvent(input: { groupId: string; eventId: string }): Promise<void> {
-  await db
-    .delete(questions)
-    .where(and(eq(questions.id, input.eventId), eq(questions.groupId, input.groupId), eq(questions.frequency, "on_date")));
 }

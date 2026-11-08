@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { existsSync } from "node:fs";
 import path from "node:path";
 import { checkMusicLink, musicCardFor, musicCardsFor, PHOTO_WALL_MAX } from "../../src/lib/music.ts";
-import { archiveSection, createSection, moveSection, sectionsOf, updateSection } from "../../src/lib/sections.ts";
+import { addSection } from "../support/items.ts";
 import {
   deletePhotoIfUnreferenced,
   removeSectionMediaFor,
@@ -25,10 +25,11 @@ import { makePng, makeWebm } from "../../e2e/support/audio.ts";
 import { clearRequest, setRequestHeaders } from "../stubs/request.mjs";
 
 /*
- * Sections are items asked every round in the one list of questions
- * (docs/questions-unify-design.md, PR B). The old tab's adapters write them to
- * the pool; their answers are `replies` (and `reply_media` on a photo wall). A
- * sheet loaded before the switch still writes through the old section actions.
+ * What were sections are items asked every round in the one list of questions
+ * (docs/questions-unify-design.md): photo walls, music picks and written items.
+ * Their answers are `replies` (and `reply_media` on a photo wall). A sheet loaded
+ * before the switch still writes through the old section actions. Adding,
+ * editing and stopping items is covered in ask-items.integration.test.ts.
  */
 
 setupDatabase();
@@ -47,15 +48,7 @@ const uploaded = (url: string) => path.join(process.cwd(), "public", "uploads", 
 
 async function createSectionRow(input: { kind: Kind; title: string; adminOnly?: boolean }) {
   const loop = await seedLoop();
-  const created = await createSection({
-    groupId: loop.groupId,
-    kind: input.kind,
-    title: input.title,
-    emoji: null,
-    description: null,
-    adminOnly: input.adminOnly ?? false,
-    at: new Date(),
-  });
+  const created = await addSection({ groupId: loop.groupId, kind: input.kind, title: input.title, adminOnly: input.adminOnly });
   assert.deepEqual(created, { ok: true });
   const [row] = await rows<{ id: string }>("select id from questions where group_id = $1 and text = $2", [loop.groupId, input.title]);
   const alice = loop.members.find((member) => member.email.startsWith("alice"))!;
@@ -245,8 +238,8 @@ test("a photo wall takes one caption per photo, up to six, through either way of
 
 test("owners-only items hide from members but answer for owners", async () => {
   const loop = await seedLoop();
-  await createSection({ groupId: loop.groupId, kind: "standard", title: "Committee notes", emoji: null, description: null, adminOnly: true, at: new Date() });
-  await createSection({ groupId: loop.groupId, kind: "standard", title: "Open notes", emoji: null, description: null, adminOnly: false, at: new Date() });
+  await addSection({ groupId: loop.groupId, title: "Committee notes", adminOnly: true });
+  await addSection({ groupId: loop.groupId, title: "Open notes", adminOnly: false });
   await sweep({ at: AFTER_FIRST_SLOT });
 
   const alice = loop.members.find((member) => member.email.startsWith("alice"))!;
@@ -320,92 +313,6 @@ test("a photo stays on disk while any row still shows it", async () => {
   await rows("delete from section_media");
   await deletePhotoIfUnreferenced(url);
   assert.equal(existsSync(uploaded(url)), false);
-});
-
-test("owners shape the section list; stopped sections leave the list", async () => {
-  const loop = await seedLoop();
-  assert.deepEqual(
-    await createSection({ groupId: loop.groupId, kind: "standard", title: "The potluck corner", emoji: " 🍲 ", description: "  Food stories  ", adminOnly: false, at: new Date() }),
-    { ok: true },
-  );
-  assert.deepEqual(
-    await createSection({ groupId: loop.groupId, kind: "music", title: "Music picks", emoji: null, description: null, adminOnly: false, at: new Date() }),
-    { ok: true },
-  );
-  assert.equal((await createSection({ groupId: loop.groupId, kind: "standard", title: "   ", emoji: null, description: null, adminOnly: false, at: new Date() })).ok, false);
-  assert.equal((await createSection({ groupId: loop.groupId, kind: "standard", title: "a".repeat(81), emoji: null, description: null, adminOnly: false, at: new Date() })).ok, false);
-
-  const before = await sectionsOf(loop.groupId);
-  assert.deepEqual(before.map((row) => `${row.title}:${row.kind}:${row.position}`), ["The potluck corner:standard:1000", "Music picks:music:1001"]);
-  assert.equal(`${before[0].emoji}|${before[0].description}`, "🍲|Food stories");
-  // They are items asked every round, not the loop's questions.
-  const [stored] = await rows<{ frequency: string; active: boolean; format: string }>("select frequency, active, format from questions where id = $1", [before[1].id]);
-  assert.deepEqual(stored, { frequency: "every_round", active: false, format: "music" });
-
-  const musicId = before[1].id;
-  await moveSection({ groupId: loop.groupId, sectionId: musicId, targetIndex: 0 });
-  assert.deepEqual((await sectionsOf(loop.groupId)).map((row) => `${row.title}:${row.position}`), ["Music picks:1000", "The potluck corner:1001"]);
-  // Moving to where it already is, or moving something that isn't there, changes nothing.
-  await moveSection({ groupId: loop.groupId, sectionId: musicId, targetIndex: 0 });
-  await moveSection({ groupId: loop.groupId, sectionId: "00000000-0000-4000-8000-000000000000", targetIndex: 0 });
-  assert.deepEqual((await sectionsOf(loop.groupId)).map((row) => row.position), [1000, 1001]);
-
-  await archiveSection({ groupId: loop.groupId, sectionId: musicId, at: new Date() });
-  // Stopping twice is the same as once.
-  await archiveSection({ groupId: loop.groupId, sectionId: musicId, at: new Date() });
-  assert.deepEqual((await sectionsOf(loop.groupId)).map((row) => row.title), ["The potluck corner"]);
-});
-
-test("a section added or stopped while a round is open changes that round, unless someone wrote there", async () => {
-  const base = await openSection();
-  const created = await createSection({ groupId: base.groupId, kind: "photo_wall", title: "Weekend photos", emoji: null, description: null, adminOnly: false, at: new Date() });
-  assert.deepEqual(created, { ok: true });
-  const [wall] = await rows<{ id: string; question_id: string }>("select id, question_id from issue_questions where issue_id = $1 and text = 'Weekend photos'", [base.issueId]);
-  assert.ok(wall, "a new section lands in the open round");
-
-  // Nobody wrote in the wall: stopping takes it out of the round.
-  await archiveSection({ groupId: base.groupId, sectionId: wall.question_id, at: new Date() });
-  assert.equal((await rows("select 1 from issue_questions where id = $1", [wall.id])).length, 0);
-
-  // Someone wrote in the potluck corner: it stays, with what they answered.
-  await saveSectionTextFor({ token: base.token, issueSectionId: base.issueSectionId, body: "Soup." });
-  await archiveSection({ groupId: base.groupId, sectionId: base.sectionId, at: new Date() });
-  assert.equal((await rows("select 1 from issue_questions where id = $1", [base.issueSectionId])).length, 1);
-});
-
-test("editing a section follows the open round until someone writes there; unticking stops it", async () => {
-  const base = await openSection();
-
-  assert.deepEqual(
-    await updateSection({ groupId: base.groupId, sectionId: base.sectionId, title: "The supper club", emoji: "🍝", description: "Who cooked?", adminOnly: false, active: true }),
-    { ok: true },
-  );
-  const [fresh] = await rows<{ text: string; emoji: string; description: string }>("select text, emoji, description from issue_questions where id = $1", [base.issueSectionId]);
-  assert.deepEqual(fresh, { text: "The supper club", emoji: "🍝", description: "Who cooked?" });
-
-  await saveSectionTextFor({ token: base.token, issueSectionId: base.issueSectionId, body: "Pasta." });
-  await updateSection({ groupId: base.groupId, sectionId: base.sectionId, title: "Renamed again", emoji: null, description: null, adminOnly: false, active: true, at: new Date() });
-  const [kept] = await rows<{ text: string }>("select text from issue_questions where id = $1", [base.issueSectionId]);
-  assert.equal(kept.text, "The supper club", "the words someone answered stay");
-
-  assert.equal((await updateSection({ groupId: base.groupId, sectionId: base.sectionId, title: "", emoji: null, description: null, adminOnly: false, active: true })).ok, false);
-  assert.equal((await updateSection({ groupId: base.groupId, sectionId: base.sectionId, title: "a".repeat(81), emoji: null, description: null, adminOnly: false, active: true })).ok, false);
-
-  // "Include in future issues" unticked is Stop asking.
-  assert.deepEqual(
-    await updateSection({ groupId: base.groupId, sectionId: base.sectionId, title: "Renamed again", emoji: null, description: null, adminOnly: false, active: false }),
-    { ok: true },
-  );
-  const [stopped] = await rows<{ archived_at: string | null }>("select archived_at from questions where id = $1", [base.sectionId]);
-  assert.ok(stopped.archived_at);
-  assert.deepEqual(await sectionsOf(base.groupId), []);
-});
-
-test("a stopped section no longer lands in future rounds", async () => {
-  const { groupId, sectionId } = await createSectionRow({ kind: "music", title: "Music picks" });
-  await updateSection({ groupId, sectionId, title: "Music picks", emoji: null, description: null, adminOnly: false, active: false, at: new Date() });
-  await sweep({ at: AFTER_FIRST_SLOT });
-  assert.equal((await rows("select 1 from issue_questions where question_id = $1", [sectionId])).length, 0);
 });
 
 test("gates cover readers, cap-sized bodies, and an old unopened link's first write", async () => {

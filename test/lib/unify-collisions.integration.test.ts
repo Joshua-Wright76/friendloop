@@ -18,7 +18,7 @@ import { rows, setupDatabase } from "../support/app.ts";
 import { runMigrationFile } from "../../e2e/support/db.ts";
 import { undoUnifiedCopy } from "../../e2e/support/golden.ts";
 import { removeSectionMediaFor, saveSectionMusicFor, saveSectionTextFor, sheetFor, unifiedIdOf } from "../../src/lib/reply.ts";
-import { fillOpenRound } from "../../src/lib/round-questions.ts";
+import { addToOpenRound, poolOrder } from "../../src/lib/round-questions.ts";
 import { clearRequest, setRequestHeaders } from "../stubs/request.mjs";
 
 setupDatabase();
@@ -295,9 +295,9 @@ test("an old sheet's writes by legacy id land on the copy, and the open round is
   assert.equal(sheet.questions.find((item) => item.id === openWall)?.legacyId, ROUND_SECTION.openWall);
   assert.equal(sheet.questions.find((item) => item.id === ASK.openCook)?.legacyId, ASK.openCook);
 
-  // Every section copy in the open round is linked, so topping the round up adds nothing twice.
+  // Every section copy in the open round is linked, so asking each every-round item again adds nothing twice.
   const asked = async () => (await rows<{ n: number }>("select count(*)::int as n from issue_questions where issue_id = $1", [OPEN]))[0].n;
   const count = await asked();
-  await fillOpenRound(LOOP);
+  for (const id of await poolOrder(LOOP, "every_round")) await addToOpenRound(LOOP, id);
   assert.equal(await asked(), count);
 });

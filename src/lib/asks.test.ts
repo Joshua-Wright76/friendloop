@@ -38,10 +38,9 @@ test("an item is named by its emoji and words", () => {
 });
 
 test("only written and poll questions asked as questions stay visible to the code before the switch", () => {
-  assert.equal(legacyActive({ format: "written", frequency: "rotating", asQuestion: true }), true);
-  assert.equal(legacyActive({ format: "poll", frequency: "every_round", asQuestion: true }), true);
-  assert.equal(legacyActive({ format: "written", frequency: "every_round", asQuestion: false }), false, "a section");
-  assert.equal(legacyActive({ format: "photo_wall", frequency: "rotating", asQuestion: true }), false);
-  assert.equal(legacyActive({ format: "music", frequency: "every_round", asQuestion: true }), false);
-  assert.equal(legacyActive({ format: "written", frequency: "on_date", asQuestion: true }), false);
+  assert.equal(legacyActive({ format: "written", frequency: "rotating" }), true);
+  assert.equal(legacyActive({ format: "poll", frequency: "every_round" }), true);
+  assert.equal(legacyActive({ format: "photo_wall", frequency: "rotating" }), false);
+  assert.equal(legacyActive({ format: "music", frequency: "every_round" }), false);
+  assert.equal(legacyActive({ format: "written", frequency: "on_date" }), false);
 });

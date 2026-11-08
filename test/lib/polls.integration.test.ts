@@ -1,6 +1,8 @@
 import { test, beforeEach } from "node:test";
 import assert from "node:assert/strict";
-import { addPoll, archiveQuestion, reorderQuestion } from "../../src/lib/manage.ts";
+import { stopAsking } from "../../src/lib/ask-items.ts";
+import { reorderPool } from "../../src/lib/round-questions.ts";
+import { addItem } from "../support/items.ts";
 import { loadIssue } from "../../src/lib/issue-view.ts";
 import {
   saveAudioFor,
@@ -47,9 +49,10 @@ async function vote(token: string, issueQuestionId: string, choices: unknown) {
   return savePollChoicesFor({ token, issueQuestionId, choices });
 }
 
-test("addPoll puts a poll at the end of the pool and refuses a malformed one", async () => {
+test("a poll goes to the back of the queue, and a malformed one is refused", async () => {
   const loop = await seedLoop();
-  const added = await addPoll(loop.groupId, { prompt: " Camp where? ", options: ["Lake", " Coast ", "lake"], multiple: true }, E2E_NOW);
+  const poll = { text: " Camp where? ", format: "poll" as const, frequency: "rotating" as const };
+  const added = await addItem(loop.groupId, { ...poll, pollOptions: ["Lake", " Coast ", "lake"], pollMultiple: true }, { at: E2E_NOW });
   assert.equal(added.ok, true);
 
   const [row] = await rows<{ text: string; kind: string; poll_multiple: boolean; poll_options: string[]; position: number }>(
@@ -60,21 +63,23 @@ test("addPoll puts a poll at the end of the pool and refuses a malformed one", a
   assert.equal(row.poll_multiple, true);
   assert.equal(row.position, 2);
 
-  const refused = await addPoll(loop.groupId, { prompt: "Camp where?", options: ["Only one"], multiple: false }, E2E_NOW);
-  assert.deepEqual(refused, { ok: false, error: copy.polls.errors.optionCount });
+  assert.deepEqual(await addItem(loop.groupId, { ...poll, pollOptions: ["Only one"] }), { ok: false, code: "poll" });
+  assert.deepEqual(await addItem(loop.groupId, { ...poll, pollOptions: ["a", "b", "c", "d", "e", "f", "g"] }), { ok: false, code: "poll" });
+  assert.deepEqual(await addItem(loop.groupId, { ...poll, pollOptions: ["a", "b".repeat(81)] }), { ok: false, code: "poll" });
   const [{ count }] = await rows<{ count: string }>("select count(*) as count from questions where kind = 'poll'");
   assert.equal(Number(count), 1);
 });
 
-test("a poll reorders and archives like any question", async () => {
+test("a poll moves in the queue and stops like any question", async () => {
   const loop = await seedLoop({ questions: ["One", "Two"] });
   const pollId = await seedPoll(loop, { text: "Pick", options: ["a", "b"] });
 
-  assert.equal(await reorderQuestion(loop.groupId, pollId, 0), true);
+  const ids = (await rows<{ id: string }>("select id from questions order by position")).map((row) => row.id);
+  assert.deepEqual(await reorderPool(loop.groupId, "rotating", pollId, 0), [pollId, ...ids.filter((id) => id !== pollId)]);
   const ordered = await rows<{ text: string }>("select text from questions order by position");
   assert.deepEqual(ordered.map((row) => row.text), ["Pick", "One", "Two"]);
 
-  await archiveQuestion(loop.groupId, pollId, E2E_NOW);
+  await stopAsking(loop.groupId, pollId, E2E_NOW);
   const [archived] = await rows<{ active: boolean; archived_at: string | null }>(
     "select active, archived_at from questions where id = $1",
     [pollId],

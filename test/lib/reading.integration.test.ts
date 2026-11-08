@@ -103,7 +103,7 @@ test("a round snapshots its questions in order; asking them all leaves the queue
   assert.deepEqual(pool.map((row) => row.text), ["One?", "Two?", "Three?"]);
 });
 
-test("a stopped question stays out of the round; sitting out lasted only the round it was set in", async () => {
+test("a stopped question stays out of the round", async () => {
   const loop = await seedLoop({ questions: ["Keep?", "Archived?"] });
   const [keep, archived] = await rows<{ id: string }>(
     "select id from questions where group_id = $1 order by position",
@@ -111,15 +111,13 @@ test("a stopped question stays out of the round; sitting out lasted only the rou
   );
 
   await rows("update questions set archived_at = $1 where id = $2", [E2E_NOW.toISOString(), archived.id]);
-  await rows("update questions set skip_next = true where id = $1", [keep.id]);
 
   const group = await groupOf(loop.groupId);
   const round = await bareRound(loop.groupId, 9, 8);
   assert.equal(await snapshotRound({ group, ...round }), 1);
   const texts = await rows<{ text: string }>("select text from issue_questions where issue_id = $1", [round.issueId]);
   assert.deepEqual(texts.map((row) => row.text), ["Keep?"]);
-  const [question] = await rows<{ skip_next: boolean }>("select skip_next from questions where id = $1", [keep.id]);
-  assert.equal(question.skip_next, false);
+  assert.ok(keep.id);
 });
 
 test("a delivered round renders for a member, marking their own answers", async () => {
