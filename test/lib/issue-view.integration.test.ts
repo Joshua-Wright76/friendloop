@@ -4,7 +4,6 @@ import { db } from "@/db";
 import { sections } from "@/db/schema";
 import { issueGroupId, loadIssue } from "../../src/lib/issue-view.ts";
 import { saveSectionMusicFor, saveSectionPhotoFor, saveSectionTextFor, snapshotSectionsForIssue } from "../../src/lib/sections.ts";
-import { submitFor } from "../../src/lib/reply.ts";
 import { groupOf, resetDatabase, rows, seedDeliveredIssue, seedLoop, setupDatabase } from "../support/app.ts";
 import { DELIVERY_DAY } from "../../e2e/support/clock.ts";
 import { makePng } from "../../e2e/support/audio.ts";
@@ -38,6 +37,13 @@ async function deliveredSectionLoop(input: { kind: "standard" | "photo_wall" | "
   return { loop, groupId: loop.groupId, ownerToken: loop.ownerToken, ...delivered };
 }
 
+/** A reply link only writes to an open round: open it for the writing, then send it again. */
+async function writeWhileOpen(issueId: string, write: () => Promise<unknown>) {
+  await rows("update issues set status = 'open' where id = $1", [issueId]);
+  await write();
+  await rows("update issues set status = 'delivered' where id = $1", [issueId]);
+}
+
 async function snapshotOf(issueId: string): Promise<string> {
   const [row] = await rows<{ id: string }>("select id from issue_sections where issue_id = $1", [issueId]);
   return row.id;
@@ -48,9 +54,10 @@ test("delivered issues read their sections, crediting the author and their photo
   const alice = setup.loop.members.find((member) => member.email.startsWith("alice"))!;
   const section = await snapshotOf(setup.issueId);
 
-  await saveSectionTextFor({ token: alice.token, issueSectionId: section, body: "Banana bread." });
-  await saveSectionPhotoFor({ token: alice.token, issueSectionId: section, bytes: new Uint8Array(makePng()), contentType: "image/png", caption: "", position: 0 });
-  await submitFor(alice.token);
+  await writeWhileOpen(setup.issueId, async () => {
+    await saveSectionTextFor({ token: alice.token, issueSectionId: section, body: "Banana bread." });
+    await saveSectionPhotoFor({ token: alice.token, issueSectionId: section, bytes: new Uint8Array(makePng()), contentType: "image/png", caption: "", position: 0 });
+  });
 
   const view = await loadIssue({ issueId: setup.issueId, viewerMembershipId: alice.id });
   assert.equal(view!.sections.length, 1);
@@ -69,8 +76,9 @@ test("music answers carry their card; other readers stay strangers", async () =>
   const alice = setup.loop.members.find((member) => member.email.startsWith("alice"))!;
   const section = await snapshotOf(setup.issueId);
 
-  await saveSectionMusicFor({ token: alice.token, issueSectionId: section, url: MUSIC, caption: "Road trip" });
-  await submitFor(alice.token);
+  await writeWhileOpen(setup.issueId, async () => {
+    await saveSectionMusicFor({ token: alice.token, issueSectionId: section, url: MUSIC, caption: "Road trip" });
+  });
 
   // The metadata cache is warm, so no provider is reached.
   await rows(
@@ -94,9 +102,10 @@ test("a photo wall lays out each photo with its caption", async () => {
   const alice = setup.loop.members.find((member) => member.email.startsWith("alice"))!;
   const section = await snapshotOf(setup.issueId);
 
-  await saveSectionPhotoFor({ token: alice.token, issueSectionId: section, bytes: new Uint8Array(makePng()), contentType: "image/png", caption: "The table", position: 0 });
-  await saveSectionPhotoFor({ token: alice.token, issueSectionId: section, bytes: new Uint8Array(makePng()), contentType: "image/png", caption: "The leftovers", position: 1 });
-  await submitFor(alice.token);
+  await writeWhileOpen(setup.issueId, async () => {
+    await saveSectionPhotoFor({ token: alice.token, issueSectionId: section, bytes: new Uint8Array(makePng()), contentType: "image/png", caption: "The table", position: 0 });
+    await saveSectionPhotoFor({ token: alice.token, issueSectionId: section, bytes: new Uint8Array(makePng()), contentType: "image/png", caption: "The leftovers", position: 1 });
+  });
 
   const view = await loadIssue({ issueId: setup.issueId });
   const media = view!.sections[0].replies[0].media;

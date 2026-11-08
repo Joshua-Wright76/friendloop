@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray, isNull } from "drizzle-orm";
+import { and, asc, desc, eq, isNull } from "drizzle-orm";
 import { db } from "@/db";
 import { groups, issueQuestions, issues, memberships, replies, users } from "@/db/schema";
 import { getNow } from "./clock";
@@ -53,12 +53,12 @@ export async function resolveToken(token: string): Promise<TokenContext> {
   // A paused loop takes no answers: its open round waits for the resume.
   if (group.pausedAt) return { state: "ok", membership, group, issue: null };
 
-  // A running loop always has a round open, so this is it. A delivered round only
-  // shows up here for a loop from before rounds ran back to back.
+  // A running loop always has a round open, and a reply link only ever reaches
+  // it: a round that has gone out takes nothing more.
   const [issue] = await db
     .select()
     .from(issues)
-    .where(and(eq(issues.groupId, group.id), inArray(issues.status, ["open", "delivered"])))
+    .where(and(eq(issues.groupId, group.id), eq(issues.status, "open")))
     .orderBy(desc(issues.number))
     .limit(1);
 
@@ -171,7 +171,6 @@ export async function savePhotoFor(input: {
   }
 
   const at = await getNow();
-  const afterDelivery = context.issue.status === "delivered" || at > context.issue.deliversAt;
   const [existing] = await db.transaction(async (tx) => {
     const [previous] = await tx
       .select({ photoUrl: replies.photoUrl })
@@ -193,12 +192,11 @@ export async function savePhotoFor(input: {
         membershipId: context.membership.id,
         body: "",
         photoUrl: input.photoUrl,
-        status: "draft",
-        addedAfterDelivery: afterDelivery,
+        ...inTheRound(at),
       })
       .onConflictDoUpdate({
         target: [replies.issueId, replies.issueQuestionId, replies.membershipId],
-        set: { photoUrl: input.photoUrl, updatedAt: at, addedAfterDelivery: afterDelivery },
+        set: { photoUrl: input.photoUrl, updatedAt: at, ...inTheRound(at) },
       });
 
     if (!context.membership.acceptedAt) {
@@ -216,7 +214,7 @@ export async function savePhotoFor(input: {
   return { ok: true, savedAt: at.toISOString(), photoUrl: input.photoUrl };
 }
 
-/** Remove a photo while leaving the text and submission state alone. */
+/** Remove a photo while leaving the text alone. */
 export async function removePhotoFor(input: {
   token: string;
   issueQuestionId: string;
@@ -258,7 +256,7 @@ export async function removePhotoFor(input: {
   return { ok: true, savedAt: at.toISOString() };
 }
 
-/** Autosave one answer. Creates the row, or updates it in place. */
+/** Autosave one answer: once saved, it goes out with the round. Creates the row, or updates it in place. */
 export async function saveDraftFor(input: {
   token: string;
   issueQuestionId: string;
@@ -271,7 +269,6 @@ export async function saveDraftFor(input: {
 
   const { context, question } = gate;
   const at = await getNow();
-  const afterDelivery = context.issue.status === "delivered" || at > context.issue.deliversAt;
   const body = input.body.slice(0, 8000);
 
   if (input.ifBody !== undefined) {
@@ -296,12 +293,11 @@ export async function saveDraftFor(input: {
       issueQuestionId: question.id,
       membershipId: context.membership.id,
       body,
-      status: "draft",
-      addedAfterDelivery: afterDelivery,
+      ...inTheRound(at),
     })
     .onConflictDoUpdate({
       target: [replies.issueId, replies.issueQuestionId, replies.membershipId],
-      set: { body, updatedAt: at, addedAfterDelivery: afterDelivery },
+      set: { body, updatedAt: at, ...inTheRound(at) },
     });
 
   await markAccepted(context.membership.id, context.membership.acceptedAt, at);
@@ -309,9 +305,9 @@ export async function saveDraftFor(input: {
 }
 
 /**
- * Save which options this person picked on a poll. Like text, the pick is a
- * draft until they send the round, and it can change as often as they like; an
- * empty pick clears it. Nothing here ever reports a tally back.
+ * Save which options this person picked on a poll. Like text, the pick is in the
+ * round as soon as it saves, and it can change as often as they like; an empty
+ * pick clears it. Nothing here ever reports a tally back.
  */
 export async function savePollChoicesFor(input: {
   token: string;
@@ -326,7 +322,6 @@ export async function savePollChoicesFor(input: {
   if (!choices) return { ok: false, status: 400, error: copy.polls.errors.choices };
 
   const at = await getNow();
-  const afterDelivery = context.issue.status === "delivered" || at > context.issue.deliversAt;
 
   await db
     .insert(replies)
@@ -336,20 +331,23 @@ export async function savePollChoicesFor(input: {
       membershipId: context.membership.id,
       body: "",
       pollChoices: choices,
-      status: "draft",
-      addedAfterDelivery: afterDelivery,
+      ...inTheRound(at),
     })
     .onConflictDoUpdate({
       target: [replies.issueId, replies.issueQuestionId, replies.membershipId],
-      set: { pollChoices: choices, updatedAt: at, addedAfterDelivery: afterDelivery },
+      set: { pollChoices: choices, updatedAt: at, ...inTheRound(at) },
     });
 
   await markAccepted(context.membership.id, context.membership.acceptedAt, at);
   return { ok: true, savedAt: at.toISOString() };
 }
 
-/** One commitment point: every non-empty answer in the round becomes submitted. */
-export async function submitFor(token: string): Promise<WriteResult> {
+/**
+ * What a sheet loaded before answers saved themselves sends from its "Send
+ * answers" button. Every saved answer is already in the round, so there is
+ * nothing left to do but check the link still reaches an open round.
+ */
+export async function confirmFor(token: string): Promise<WriteResult> {
   const gate = await ensureWritable(token);
   if (!gate.ok) return gate.result;
 
@@ -357,36 +355,18 @@ export async function submitFor(token: string): Promise<WriteResult> {
   if (!context.issue) return { ok: false, status: 409, error: copy.reply.errors.nothingOpen };
 
   const at = await getNow();
-  // Three rows of different tables, none reading another: one round trip, not three.
-  await Promise.all([
-    db
-      .update(replies)
-      .set({ status: "submitted", submittedAt: at, updatedAt: at })
-      .where(
-        and(
-          eq(replies.issueId, context.issue.id),
-          eq(replies.membershipId, context.membership.id),
-          replyHasContentCondition(),
-        ),
-      ),
-    // Section answers ride the same submission as the questions.
-    db
-      .update(sectionReplies)
-      .set({
-        status: "submitted",
-        submittedAt: at,
-        addedAfterDelivery: context.issue.status === "delivered" || at > context.issue.deliversAt,
-        updatedAt: at,
-      })
-      .where(
-        and(
-          eq(sectionReplies.issueId, context.issue.id),
-          eq(sectionReplies.membershipId, context.membership.id),
-        ),
-      ),
-    markAccepted(context.membership.id, context.membership.acceptedAt, at),
-  ]);
+  await markAccepted(context.membership.id, context.membership.acceptedAt, at);
   return { ok: true, savedAt: at.toISOString() };
+}
+
+/**
+ * Columns every save writes. Nothing reads `status` any more (an answer counts
+ * when it has something in it, see `reply-query.ts`), but code from before this
+ * rule may still be running for a few minutes after the database changes, and
+ * it only counts `submitted` rows.
+ */
+export function inTheRound(at: Date) {
+  return { status: "submitted" as const, submittedAt: at };
 }
 
 async function markAccepted(membershipId: string, acceptedAt: Date | null, at: Date) {
@@ -488,7 +468,6 @@ export async function sheetFor(token: string) {
         pollMultiple: question.pollMultiple,
         pollOptions: question.pollOptions ?? [],
         pollChoices: reply?.pollChoices ?? [],
-        submitted: reply?.status === "submitted",
       };
     }),
   };
@@ -532,7 +511,6 @@ export async function saveAudioFor(input: {
   }
 
   const at = await getNow();
-  const afterDelivery = context.issue.status === "delivered" || at > context.issue.deliversAt;
   const [existing] = await db.transaction(async (tx) => {
     const [previous] = await tx
       .select({ audioUrl: replies.audioUrl })
@@ -555,8 +533,7 @@ export async function saveAudioFor(input: {
         body: "",
         audioUrl: input.audioUrl,
         audioDurationMs: input.audioDurationMs,
-        status: "draft",
-        addedAfterDelivery: afterDelivery,
+        ...inTheRound(at),
       })
       .onConflictDoUpdate({
         target: [replies.issueId, replies.issueQuestionId, replies.membershipId],
@@ -564,7 +541,7 @@ export async function saveAudioFor(input: {
           audioUrl: input.audioUrl,
           audioDurationMs: input.audioDurationMs,
           updatedAt: at,
-          addedAfterDelivery: afterDelivery,
+          ...inTheRound(at),
         },
       });
 
@@ -583,7 +560,7 @@ export async function saveAudioFor(input: {
   return { ok: true, savedAt: at.toISOString(), audioUrl: input.audioUrl, audioDurationMs: input.audioDurationMs };
 }
 
-/** Remove a voice note while leaving the text, photo, and submission state alone. */
+/** Remove a voice note while leaving the text and photo alone. */
 export async function removeAudioFor(input: {
   token: string;
   issueQuestionId: string;

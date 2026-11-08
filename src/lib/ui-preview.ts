@@ -696,8 +696,8 @@ async function seedUiPreview(now: Date, { deleteGroup, deleteUser }: { deleteGro
         issueId: UI_PREVIEW.openIssueId,
         issueSectionId: OPEN_SECTION_IDS[0],
         membershipId: UI_PREVIEW.ownerMembershipId,
-        body: "Draft: the soup story, take two.",
-        status: "draft",
+        body: "The soup story, take two.",
+        status: "submitted",
       },
       {
         issueId: UI_PREVIEW.deliveredIssueId,

@@ -47,7 +47,7 @@ export default async function IssuePage({
     token: m ?? null,
   });
 
-  // A reply link edits the loop's latest round, before and after it goes out; this
+  // A reply link edits the loop's open round, and only that one; this
   // is asked alongside the round rather than after it.
   const [view, own] = await Promise.all([
     loadIssue({

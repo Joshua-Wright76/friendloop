@@ -1,53 +1,83 @@
 import { test, expect } from "@playwright/test";
-import { resetDatabase, rows } from "../support/db";
+import { resetDatabase } from "../support/db";
 import { seedLoop, seedOpenIssue } from "../support/seed";
-import { AFTER_FIRST_SLOT, freezeClock, waitForSheet } from "../support/harness";
+import { AFTER_FIRST_SLOT, freezeClock, signIn, waitForSheet } from "../support/harness";
 
 test.beforeEach(async () => {
   await resetDatabase();
 });
 
-test("D5 · sending marks the answers submitted and says so", async ({ page }) => {
+test("D5 · Done confirms what goes out and when", async ({ page }) => {
   const loop = await seedLoop();
-  const issue = await seedOpenIssue(loop, { openedAt: AFTER_FIRST_SLOT });
+  await seedOpenIssue(loop, { openedAt: AFTER_FIRST_SLOT });
   const alice = loop.members.find((member) => member.email.startsWith("alice"))!;
 
   await freezeClock(page, AFTER_FIRST_SLOT);
   await page.goto(`/r/${alice.token}`);
   await waitForSheet(page);
   await page.getByLabel("What made you laugh this week?").fill("A cat fist bump.");
+  await expect(page.locator("[data-save-status]")).toHaveText("Saved. It goes out with the round.");
+
+  // Typed and straight to Done: the last words still land before the confirmation.
   await page.getByLabel("What are you looking forward to?").fill("Friday, obviously.");
+  await page.getByRole("button", { name: "Done", exact: true }).click();
 
-  await page.getByRole("button", { name: "Send answers" }).click();
-
-  // A screen of its own says it went, with focus on it, and the sheet steps aside.
-  const heading = page.getByRole("heading", { name: "Sent", exact: true });
+  // A screen of its own, with focus on it, and the sheet steps aside.
+  const heading = page.getByRole("heading", { name: "All set", exact: true });
   await expect(heading).toBeVisible();
   await expect(heading).toBeFocused();
-  await expect(page.getByText("Your answers are in for Round 1.")).toBeVisible();
-  // The confirmation repeats the real deadline, computed on the server, and the
-  // reader's own time when their zone differs from the loop's, as the sheet does.
+  // It repeats the real deadline, computed on the server, and the reader's own
+  // time when their zone differs from the loop's, as the sheet does.
   await expect(
-    page.getByText(/^It goes out on (.+ your time \()?Fri 9 Jan, 9:05 AM( in Amsterdam\))?\. Until then, you can change anything\.$/),
+    page.getByText(/^Everything you wrote for Round 1 goes out on (.+ your time \()?Fri 9 Jan, 9:05 AM( in Amsterdam\))?\.$/),
   ).toBeVisible();
+  await expect(page.getByText("Until then you can change anything. Clear an answer to leave it out.")).toBeVisible();
   await expect(page.getByLabel("What made you laugh this week?")).toBeHidden();
 
-  // "Edit my answers" brings the sheet back, answers intact, ready to change.
-  await page.getByRole("button", { name: "Edit my answers" }).click();
+  // "Back to my answers" brings the sheet back, answers intact, ready to change.
+  await page.getByRole("button", { name: "Back to my answers" }).click();
   await expect(page.getByLabel("What made you laugh this week?")).toHaveValue("A cat fist bump.");
-  await expect(page.getByText("Sent. You can still change anything until it goes out.")).toBeVisible();
-  // A sent answer changes as it's saved, so all that's left to press is Done.
-  await expect(page.getByRole("button", { name: "Done" })).toBeVisible();
 
-  const saved = await rows<{ status: string; submitted_at: string | null }>(
-    `select status, submitted_at from replies
-     where issue_id = $1 and membership_id = $2
-     order by created_at`,
-    [issue.issueId, alice.id],
-  );
-  expect(saved).toHaveLength(2);
-  for (const row of saved) {
-    expect(row.status).toBe("submitted");
-    expect(row.submitted_at).not.toBeNull();
-  }
+  // A later visit opens the sheet itself, with everything still there.
+  await page.reload();
+  await expect(page.getByLabel("What are you looking forward to?")).toHaveValue("Friday, obviously.");
+  await expect(page.getByRole("button", { name: "Done", exact: true })).toBeVisible();
+});
+
+test("D5 · the owner counts an answer as soon as it saves, before any Done", async ({ page }, testInfo) => {
+  // The dashboard is not a phone surface in this suite (see playwright.config.ts).
+  test.skip(testInfo.project.name === "phone", "owner dashboard runs on desktop");
+  const loop = await seedLoop();
+  await seedOpenIssue(loop, { openedAt: AFTER_FIRST_SLOT });
+  const alice = loop.members.find((member) => member.email.startsWith("alice"))!;
+
+  // Signed in on the real clock: a session minted on a frozen one would already
+  // have expired in the browser. The sheet itself is reached by Alice's link.
+  await signIn(page, "owner@friendloop.test");
+  await freezeClock(page, AFTER_FIRST_SLOT);
+  await page.goto(`/g/${loop.groupId}`);
+  await expect(page.getByText("0 of 3 people in")).toBeVisible();
+
+  await page.goto(`/r/${alice.token}`);
+  await waitForSheet(page);
+  await page.getByLabel("What made you laugh this week?").fill("A cat fist bump.");
+  await expect(page.locator("[data-save-status]")).toHaveText("Saved. It goes out with the round.");
+
+  await page.goto(`/g/${loop.groupId}`);
+  await expect(page.getByText("1 of 3 people in")).toBeVisible();
+});
+
+test("D5 · Done with nothing written points at the first question", async ({ page }) => {
+  const loop = await seedLoop();
+  await seedOpenIssue(loop, { openedAt: AFTER_FIRST_SLOT });
+  const alice = loop.members.find((member) => member.email.startsWith("alice"))!;
+
+  await page.goto(`/r/${alice.token}`);
+  await waitForSheet(page);
+  const done = page.getByRole("button", { name: "Done", exact: true });
+  await expect(done).not.toHaveAttribute("aria-disabled", "true");
+  await done.click();
+  await expect(page.getByRole("alert").filter({ hasText: "Nothing written yet." })).toBeVisible();
+  await expect(page.getByLabel("What made you laugh this week?")).toBeFocused();
+  await expect(page.getByRole("heading", { name: "All set" })).toHaveCount(0);
 });

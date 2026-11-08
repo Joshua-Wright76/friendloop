@@ -7,7 +7,6 @@ import { createEvent, deleteEvent, eventsOf, placeEventsInRound, updateEvent } f
 import { removeMember } from "../../src/lib/manage.ts";
 import { openRound } from "../../src/lib/rounds.ts";
 import { sectionsForSheet, saveSectionTextFor } from "../../src/lib/sections.ts";
-import { submitFor } from "../../src/lib/reply.ts";
 import { sweep } from "../../src/lib/sweep.ts";
 import { AFTER_FIRST_SLOT, DELIVERY_DAY, rows, seedLoop, setupDatabase } from "../support/app.ts";
 import { clearRequest, setRequestHeaders } from "../stubs/request.mjs";
@@ -233,7 +232,6 @@ test("an event section can be answered from the reply sheet and delivers with th
 
   const saved = await saveSectionTextFor({ token: bob.token, issueSectionId: sheet[0].id, body: "Happy birthday, Alice!" });
   assert.equal(saved.ok, true);
-  await submitFor(bob.token);
 
   const delivered = await sweep({ at: DELIVERY_DAY });
   assert.equal(delivered.delivered, 1);

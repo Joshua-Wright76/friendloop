@@ -1,6 +1,7 @@
 import { and, desc, eq, isNull, like, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { groups, issueQuestions, issues, memberships, outbox, replies, users } from "@/db/schema";
+import { answeredMemberIds } from "./answered";
+import { groups, issueQuestions, issues, memberships, outbox, users } from "@/db/schema";
 import { atMoment, formatMoment, timezonePlace } from "./format";
 import { sendEmail } from "./email/send";
 import { emailThemeOf, promptEmail, reminderEmail } from "./email/templates";
@@ -102,11 +103,8 @@ export async function nudgeStragglers(groupId: string, fromMembershipId?: string
     .where(eq(issueQuestions.issueId, issue.id));
   if (questionCount === 0) return 0;
 
-  const submitted = await db
-    .select({ membershipId: replies.membershipId })
-    .from(replies)
-    .where(and(eq(replies.issueId, issue.id), eq(replies.status, "submitted")));
-  const done = new Set(submitted.map((row) => row.membershipId));
+  // Anyone with something written is in; only an empty hand is reminded.
+  const done = await answeredMemberIds(issue.id);
 
   const contributors = await db
     .select({

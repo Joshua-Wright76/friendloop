@@ -31,8 +31,8 @@ test("O2 · the sweep puts an event in the round whose window holds it, and the 
   await page.getByRole("textbox", { name: "Alice's birthday" }).fill("Happy birthday, Alice. Cake is on me.");
   await extras.getByLabel("Add a photo").first().setInputFiles({ name: "cake.png", mimeType: "image/png", buffer: makePng() });
   await expect(page.getByText("Photo added.").first()).toBeVisible();
-  await page.getByRole("button", { name: "Send answers" }).click();
-  await expect(page.getByRole("heading", { name: "Sent", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Done", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "All set", exact: true })).toBeVisible();
 
   // Delivery carries the section in the email and on the web issue.
   await runSweep(DELIVERY_DAY);

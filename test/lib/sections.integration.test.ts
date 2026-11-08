@@ -19,7 +19,7 @@ import {
   saveSectionTextFor,
   sectionsForSheet,
 } from "../../src/lib/sections.ts";
-import { submitFor } from "../../src/lib/reply.ts";
+import { answeredMemberIds } from "../../src/lib/answered.ts";
 import { resetDatabase, rows, seedLoop, setEnv, setupDatabase } from "../support/app.ts";
 import { AFTER_FIRST_SLOT } from "../../e2e/support/clock.ts";
 import { makePng, makeWebm } from "../../e2e/support/audio.ts";
@@ -120,9 +120,13 @@ test("sections arrive in an open round, and members answer them", async () => {
   const [row] = await rows<{ body: string }>("select body from section_replies limit 1");
   assert.equal(row.body, "Banana bread, again.");
 
-  await submitFor(base.token);
-  const [status] = await rows<{ status: string }>("select status from section_replies");
-  assert.equal(status.status, "submitted");
+  // Saved is in: nothing more to press.
+  const [membership] = await rows<{ id: string }>("select id from memberships where reply_token = $1", [base.token]);
+  assert.deepEqual([...(await answeredMemberIds(base.issueId))], [membership.id]);
+
+  // Cleared back to nothing, it isn't an answer any more.
+  await saveSectionTextFor({ token: base.token, issueSectionId: base.issueSectionId, body: "   " });
+  assert.equal((await answeredMemberIds(base.issueId)).size, 0);
 });
 
 test("bad tokens and unknown sections read as refusals, not errors", async () => {
@@ -390,25 +394,6 @@ test("owner edits ride updateSection, and inactive sections leave future rounds"
     [groupId],
   );
   assert.equal(snapshots.length, 0);
-});
-
-test("submitSectionsFor flips just one member's drafts; positions clamp", async () => {
-  const base = await openSection();
-  const [membership] = await rows<{ id: string }>("select id from memberships where reply_token = $1", [base.token]);
-  const [other] = await rows<{ reply_token: string }>("select reply_token from memberships where reply_token <> $1 limit 1", [base.token]);
-
-  await saveSectionTextFor({ token: base.token, issueSectionId: base.issueSectionId, body: "mine" });
-  await saveSectionTextFor({ token: other.reply_token, issueSectionId: base.issueSectionId, body: "theirs" });
-
-  const { submitSectionsFor } = await import("../../src/lib/sections.ts");
-  await submitSectionsFor({ issueId: base.issueId, membershipId: membership.id, membershipAcceptedAt: null, at: new Date(), afterDelivery: true });
-  const states = await rows(
-    "select (case when body = 'mine' then 'mine-' || status else 'theirs-' || status end) as event from section_replies order by body",
-  );
-  assert.deepEqual(
-    states.map((row) => row.event),
-    ["mine-submitted", "theirs-draft"],
-  );
 });
 
 test("a wall photo needs no caption, and a blank one is stored as none", async () => {

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { saveDraftFor, saveNameFor, saveReminderPreferenceFor, savePollChoicesFor, submitFor } from "@/lib/reply";
+import { confirmFor, saveDraftFor, saveNameFor, saveReminderPreferenceFor, savePollChoicesFor } from "@/lib/reply";
 import { saveSectionMusicFor, saveSectionTextFor } from "@/lib/sections";
 import { copy } from "@/lib/copy";
 
@@ -17,8 +17,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ tok
     return NextResponse.json({ error: copy.reply.errors.json }, { status: 400 });
   }
 
+  // Answers are in the round as soon as they save. "submit" is what a sheet
+  // loaded before that still sends from its old "Send answers" button.
   if (payload.action === "submit") {
-    const result = await submitFor(token);
+    const result = await confirmFor(token);
     return result.ok
       ? NextResponse.json({ ok: true, savedAt: result.savedAt })
       : NextResponse.json({ error: result.error }, { status: result.status });

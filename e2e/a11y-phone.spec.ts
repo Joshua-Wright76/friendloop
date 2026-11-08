@@ -42,13 +42,13 @@ test("WCAG AA · the reply sheet on a phone, with the sheet open", async ({ page
 
   // Typing opens the sticky action bar, which only exists at phone widths.
   await page.getByLabel("What made you laugh this week?").fill("A cat fist bump.");
-  await expect(page.getByRole("button", { name: "Send answers" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Done", exact: true })).toBeVisible();
   await audit(page, "/r (typing)");
 
-  // The confirmation that replaces the sheet once the answers are sent.
-  await page.getByRole("button", { name: "Send answers" }).click();
-  await expect(page.getByRole("heading", { name: "Sent", exact: true })).toBeVisible();
-  await audit(page, "/r (sent)");
+  // The confirmation that replaces the sheet once Done is pressed.
+  await page.getByRole("button", { name: "Done", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "All set", exact: true })).toBeVisible();
+  await audit(page, "/r (done)");
 });
 
 test("WCAG AA · a delivered round and its share page on a phone", async ({ page }) => {

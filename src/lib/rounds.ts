@@ -18,6 +18,7 @@ import { sendEmail } from "./email/send";
 import { mailDeadline, sendPromptEmails } from "./notify";
 import { deliveryEmail, emailThemeOf, pausedEmail, type AnswerBlock } from "./email/templates";
 import { tallyPoll } from "./poll";
+import { replyHasContentCondition, sectionReplyHasContentCondition } from "./reply-query";
 import { copy, text } from "./copy.ts";
 import { issueUrl, replyUrl, unsubscribeUrl, url } from "./urls";
 import { newToken } from "./tokens";
@@ -166,7 +167,7 @@ export async function deliverRound(input: { issue: IssueRow; at: Date; early?: b
   const [group] = await db.select().from(groups).where(eq(groups.id, issue.groupId)).limit(1);
   if (!group) return "gone";
 
-  const allRows = await db
+  const rows = await db
     .select({
       questionId: issueQuestions.id,
       question: issueQuestions.text,
@@ -186,11 +187,9 @@ export async function deliverRound(input: { issue: IssueRow; at: Date; early?: b
     .from(replies)
     .innerJoin(issueQuestions, eq(issueQuestions.id, replies.issueQuestionId))
     .innerJoin(memberships, eq(memberships.id, replies.membershipId))
-    .where(and(eq(replies.issueId, issue.id), eq(replies.status, "submitted")))
+    // Whatever is written goes out; an answer cleared back to nothing doesn't.
+    .where(and(eq(replies.issueId, issue.id), replyHasContentCondition()))
     .orderBy(issueQuestions.position, memberships.createdAt);
-
-  // A poll pick someone cleared after sending is not an answer.
-  const rows = allRows.filter((row) => row.kind !== "poll" || row.pollChoices.length > 0);
 
   // Section answers are content too, but a truly empty issue stays empty.
   const sectionRows = await db
@@ -214,7 +213,7 @@ export async function deliverRound(input: { issue: IssueRow; at: Date; early?: b
         .from(sectionReplies)
         .innerJoin(memberships, eq(memberships.id, sectionReplies.membershipId))
         .leftJoin(musicLinks, eq(musicLinks.url, sectionReplies.linkUrl))
-        .where(and(eq(sectionReplies.issueId, issue.id), eq(sectionReplies.status, "submitted")))
+        .where(and(eq(sectionReplies.issueId, issue.id), sectionReplyHasContentCondition()))
     : [];
 
   if (rows.length === 0 && sectionReplyRows.length === 0) {

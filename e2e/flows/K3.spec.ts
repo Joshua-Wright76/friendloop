@@ -50,8 +50,8 @@ test("K3 · a standard section takes text and one photo", async ({ page }) => {
   expect(refused.status()).toBe(409);
   expect((await refused.json()).error).toContain("Standard sections");
 
-  await page.getByRole("button", { name: "Send answers" }).click();
-  await expect(page.getByRole("heading", { name: "Sent", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Done", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "All set", exact: true })).toBeVisible();
 
   await runSweep(new Date("2026-01-09T09:00:00Z"));
   const [issue] = await rows<{ id: string }>("select id from issues order by number asc limit 1");

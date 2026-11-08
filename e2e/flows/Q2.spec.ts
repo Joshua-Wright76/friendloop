@@ -6,7 +6,7 @@ test.beforeEach(async () => {
   await resetDatabase();
 });
 
-test("Q2 · the print view is the web round as it is now, late additions marked and removals gone", async ({ page, request }) => {
+test("Q2 · the print view is the web round as it is now, old late additions marked and removals gone", async ({ page, request }) => {
   const world = await seedKeepsake();
   const printPath = `/i/${world.issueId}?print&m=${world.alice.token}`;
   const [{ id: laughQuestion }] = await rows<{ id: string }>("select id from issue_questions where issue_id = $1 and text = $2", [world.issueId, PQ1]);
@@ -21,12 +21,23 @@ test("Q2 · the print view is the web round as it is now, late additions marked 
   await expect(page.locator(".print-answer").filter({ hasText: "Added a day later." })).toContainText("Added late");
   await expect(page.locator(".print-answer").filter({ hasText: "A goose on the towpath" })).not.toContainText("Added late");
 
-  // After delivery Alice edits an answer and adds one she never wrote, the way the reply sheet does.
-  for (const [issueQuestionId, body] of [[laughQuestion, "A goose, and then a swan"], [lookingQuestion, "Seeing everyone in June"]] as const) {
-    const draft = await request.post(`/api/reply/${world.alice.token}`, { data: { action: "draft", issueQuestionId, body } });
-    expect(draft.status()).toBe(200);
-  }
-  expect((await request.post(`/api/reply/${world.alice.token}`, { data: { action: "submit" } })).status()).toBe(200);
+  // A delivered round takes no more answers through the reply link: it reaches the open round only.
+  const refused = await request.post(`/api/reply/${world.alice.token}`, {
+    data: { action: "draft", issueQuestionId: laughQuestion, body: "Too late now" },
+  });
+  expect(refused.status()).toBe(409);
+
+  // Rounds from before that rule kept changing after they went out, and the stored rows say so.
+  // Here one answer was rewritten later and one was added later, as the old sheet would have.
+  await rows(
+    "update replies set body = 'A goose, and then a swan', added_after_delivery = true where issue_id = $1 and issue_question_id = $2 and membership_id = $3",
+    [world.issueId, laughQuestion, world.alice.id],
+  );
+  await rows(
+    `insert into replies (issue_id, issue_question_id, membership_id, body, status, submitted_at, added_after_delivery)
+     values ($1, $2, $3, 'Seeing everyone in June', 'submitted', now(), true)`,
+    [world.issueId, lookingQuestion, world.alice.id],
+  );
 
   // And an owner takes a comment down.
   await rows("update comments set deleted_at = now() where body = 'Agreed!'");
@@ -39,15 +50,14 @@ test("Q2 · the print view is the web round as it is now, late additions marked 
   await expect(late).toContainText("Alice");
   await expect(late).toContainText("Added late, after the round went out");
   await expect(page.locator(".print-answer").filter({ hasText: "A goose, and then a swan" })).toContainText("Added late");
-  // Two replies and two section answers: submitting after delivery also flags the submitter's
-  // existing section answer (the web round does the same, and the print view agrees with it).
-  await expect(page.getByText("Added late, after the round went out")).toHaveCount(5);
+  // The two from the start, plus Alice's two.
+  await expect(page.getByText("Added late, after the round went out")).toHaveCount(4);
   await expect(page.getByText("Agreed!")).toHaveCount(0);
   await expect(page.getByText("What a round!")).toBeVisible();
 
   // The web round says exactly as many things were added late.
   await page.goto(`/i/${world.issueId}?m=${world.alice.token}`);
-  await expect(page.getByText("added after the issue went out", { exact: true })).toHaveCount(5);
+  await expect(page.getByText("added after the issue went out", { exact: true })).toHaveCount(4);
 
   // Commenting off hides threads on paper exactly as on the web; the words stay stored.
   await rows("update groups set comments_enabled = false where id = $1", [world.loop.groupId]);

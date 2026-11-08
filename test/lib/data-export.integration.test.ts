@@ -61,7 +61,8 @@ async function seedArchive() {
     "select id from issue_questions where issue_id = $1 and kind = 'written' and id not in (select issue_question_id from replies where membership_id = $2)",
     [issue.issueId, alice.id],
   );
-  await rows("insert into replies (issue_id, issue_question_id, membership_id, body, status) values ($1, $2, $3, 'Alice draft', 'draft')", [issue.issueId, second[0].id, alice.id]);
+  // A draft the round went out without, from before answers saved straight into the round.
+  await rows("insert into replies (issue_id, issue_question_id, membership_id, body, status, never_sent) values ($1, $2, $3, 'Alice draft', 'draft', true)", [issue.issueId, second[0].id, alice.id]);
   await rows("update replies set photo_url = $1 where membership_id = $2 and body = 'Wren laughed'", [PHOTO, wren.id]);
 
   const wrenReply = await rows<{ id: string }>("select id from replies where membership_id = $1 and body = 'Wren laughed'", [wren.id]);
@@ -97,6 +98,7 @@ test("a person's export holds their own words in every loop, drafts included, an
   assert.equal(loop.you.photoUrl, "http://localhost:3100/uploads/avatar.png");
   assert.deepEqual(loop.answers.map((answer: { answer: string }) => answer.answer), ["Wren laughed", ""]);
   assert.equal(loop.answers[0].photoUrl, PHOTO);
+  assert.equal(loop.answers[0].neverSent, false);
   assert.deepEqual(loop.answers[1].pollChoices, ["Sea"], "a pick that no longer exists is dropped");
   assert.deepEqual(loop.sectionAnswers.map((answer: { answer: string }) => answer.answer), ["My week"]);
   assert.deepEqual(loop.sectionAnswers[0].photos, [{ url: PHOTO, caption: "Hike" }]);
@@ -122,7 +124,7 @@ test("an account with no loops still exports a valid, empty file", async () => {
   assert.deepEqual(data.loops, []);
 });
 
-test("the loop archive has every round, sent answer, section, comment and reaction, and no drafts", async () => {
+test("the loop archive has every round, answer, section, comment and reaction, and no never-sent drafts", async () => {
   const world = await seedArchive();
   const archive = await loopArchive(world.loop.groupId, E2E_NOW);
   assert.equal(archive?.groupName, "Friday Loop");

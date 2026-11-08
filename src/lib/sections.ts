@@ -14,7 +14,7 @@ import {
 import { getNow } from "./clock";
 import { copy } from "./copy.ts";
 import { deleteStoredPhoto, storePhoto } from "./photo-storage";
-import { resolveToken, type WriteResult } from "./reply";
+import { inTheRound, resolveToken, type WriteResult } from "./reply";
 import { validatePhoto } from "./photo-validation";
 import { metadataUrl, parseMusicPage, type MusicMeta, type MusicProvider, type MusicTrack } from "./music-meta.ts";
 import { log } from "./log";
@@ -371,13 +371,13 @@ async function touchSectionReply(input: {
       issueId: input.issueId,
       issueSectionId: input.issueSectionId,
       membershipId: input.membershipId,
-      status: "draft",
+      ...inTheRound(input.at),
       ...input.patch,
       updatedAt: input.at,
     })
     .onConflictDoUpdate({
       target: [sectionReplies.issueId, sectionReplies.issueSectionId, sectionReplies.membershipId],
-      set: { ...input.patch, updatedAt: input.at },
+      set: { ...input.patch, ...inTheRound(input.at), updatedAt: input.at },
     });
 }
 
@@ -529,7 +529,7 @@ export async function saveSectionPhotoFor(input: {
         issueSectionId: gate.issueSection.id,
         membershipId: gate.membershipId,
         body: "",
-        status: "draft",
+        ...inTheRound(at),
       })
       .returning({ id: sectionReplies.id });
     replyId = created.id;
@@ -652,7 +652,6 @@ export async function sectionsForSheet(token: string, issueId: string) {
       body: reply?.body ?? "",
       linkUrl: reply?.linkUrl ?? "",
       linkProvider: reply?.linkProvider ?? "",
-      submitted: reply?.status === "submitted",
       media: media
         .filter((item) => reply && item.sectionReplyId === reply.id)
         .map((item) => ({ id: item.id, url: item.url, caption: item.caption })),
@@ -661,30 +660,6 @@ export async function sectionsForSheet(token: string, issueId: string) {
 }
 
 export type SheetSection = Awaited<ReturnType<typeof sectionsForSheet>>[number];
-
-/** Flip this member's section answers to submitted alongside their question replies. */
-export async function submitSectionsFor(input: {
-  issueId: string;
-  membershipId: string;
-  membershipAcceptedAt: Date | null;
-  at: Date;
-  afterDelivery: boolean;
-}): Promise<void> {
-  await db
-    .update(sectionReplies)
-    .set({
-      status: "submitted",
-      submittedAt: input.at,
-      addedAfterDelivery: input.afterDelivery,
-      updatedAt: input.at,
-    })
-    .where(
-      and(
-        eq(sectionReplies.issueId, input.issueId),
-        eq(sectionReplies.membershipId, input.membershipId),
-      ),
-    );
-}
 
 // --- owner-side management -------------------------------------------------
 

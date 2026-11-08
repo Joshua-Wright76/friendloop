@@ -6,6 +6,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { sql } from "drizzle-orm";
 import { db } from "@/db";
+import { answeredCountSql, replyHasContentSql, sectionReplyHasContentSql } from "@/lib/reply-query";
 import { currentUser } from "@/lib/auth";
 import { getNow } from "@/lib/clock";
 import { formatDate, atMoment, formatMoment } from "@/lib/format";
@@ -166,10 +167,11 @@ async function loopCards(userId: string): Promise<LoopCard[]> {
     join groups g on g.id = m.group_id
     left join lateral (
       select i.number, i.status, i.delivers_at, i.delivered_at,
-        (select count(distinct r.membership_id) from replies r
-          where r.issue_id = i.id and r.status = 'submitted') as answered,
-        exists (select 1 from replies r
-          where r.issue_id = i.id and r.membership_id = m.id and r.status = 'submitted') as mine
+        ${answeredCountSql("i")} as answered,
+        (exists (select 1 from replies r
+          where r.issue_id = i.id and r.membership_id = m.id and ${replyHasContentSql("r")})
+         or exists (select 1 from section_replies sr
+          where sr.issue_id = i.id and sr.membership_id = m.id and ${sectionReplyHasContentSql("sr")})) as mine
       from issues i
       where i.group_id = g.id and i.status <> 'skipped'
       order by i.number desc

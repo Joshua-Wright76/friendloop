@@ -20,6 +20,7 @@ import {
 import { copy } from "./copy.ts";
 import { plainBody } from "./mentions.ts";
 import { appUrl } from "./urls.ts";
+import { replyHasContentCondition, sectionReplyHasContentCondition } from "./reply-query";
 
 /**
  * Taking your words with you.
@@ -108,7 +109,7 @@ export function exportFilename(subject: string, at: Date): string {
 
 /* ------------------------- one person's words ------------------------- */
 
-/** Everything one membership wrote in its loop, drafts included: it is theirs. */
+/** Everything one membership wrote in its loop, including drafts a past round went out without: it is theirs. */
 async function contributionsOf(membership: Membership, group: Pick<Group, "id" | "name">) {
   const names = await namesIn(group.id);
 
@@ -176,8 +177,8 @@ async function contributionsOf(membership: Membership, group: Pick<Group, "id" |
       pollChoices: picks(question.pollOptions, reply.pollChoices),
       photoUrl: absolute(reply.photoUrl),
       audioUrl: absolute(reply.audioUrl),
-      status: reply.status,
-      submittedAt: reply.submittedAt,
+      // A draft from before answers saved straight into the round, in a round that went out without it.
+      neverSent: reply.neverSent,
       updatedAt: reply.updatedAt,
     })),
     sectionAnswers: sectionAnswers.map(({ reply, section, issue }) => ({
@@ -189,8 +190,8 @@ async function contributionsOf(membership: Membership, group: Pick<Group, "id" |
       photos: media
         .filter((item) => item.sectionReplyId === reply.id)
         .map((item) => ({ url: absolute(item.url), caption: item.caption })),
-      status: reply.status,
-      submittedAt: reply.submittedAt,
+      neverSent: reply.neverSent,
+      updatedAt: reply.updatedAt,
     })),
     comments: written.map(({ comment, issue }) => ({
       round: issue.number,
@@ -273,8 +274,8 @@ async function roundOf(issue: typeof issues.$inferSelect, names: Names) {
     db
       .select()
       .from(replies)
-      .where(and(eq(replies.issueId, issue.id), eq(replies.status, "submitted")))
-      .orderBy(asc(replies.submittedAt)),
+      .where(and(eq(replies.issueId, issue.id), replyHasContentCondition()))
+      .orderBy(asc(replies.createdAt)),
     db
       .select()
       .from(issueSections)
@@ -283,13 +284,13 @@ async function roundOf(issue: typeof issues.$inferSelect, names: Names) {
     db
       .select()
       .from(sectionReplies)
-      .where(and(eq(sectionReplies.issueId, issue.id), eq(sectionReplies.status, "submitted")))
-      .orderBy(asc(sectionReplies.submittedAt)),
+      .where(and(eq(sectionReplies.issueId, issue.id), sectionReplyHasContentCondition()))
+      .orderBy(asc(sectionReplies.createdAt)),
     db
       .select({ sectionReplyId: sectionMedia.sectionReplyId, url: sectionMedia.url, caption: sectionMedia.caption })
       .from(sectionMedia)
       .innerJoin(sectionReplies, eq(sectionReplies.id, sectionMedia.sectionReplyId))
-      .where(and(eq(sectionReplies.issueId, issue.id), eq(sectionReplies.status, "submitted")))
+      .where(and(eq(sectionReplies.issueId, issue.id), sectionReplyHasContentCondition()))
       .orderBy(asc(sectionMedia.position)),
     db
       .select()
@@ -300,7 +301,7 @@ async function roundOf(issue: typeof issues.$inferSelect, names: Names) {
       .select({ replyId: reactions.replyId, membershipId: reactions.membershipId, emoji: reactions.emoji })
       .from(reactions)
       .innerJoin(replies, eq(replies.id, reactions.replyId))
-      .where(and(eq(replies.issueId, issue.id), eq(replies.status, "submitted")))
+      .where(and(eq(replies.issueId, issue.id), replyHasContentCondition()))
       .orderBy(asc(reactions.createdAt)),
   ]);
 
@@ -327,7 +328,7 @@ async function roundOf(issue: typeof issues.$inferSelect, names: Names) {
           pollChoices: picks(question.pollOptions, reply.pollChoices),
           photoUrl: absolute(reply.photoUrl),
           audioUrl: absolute(reply.audioUrl),
-          submittedAt: reply.submittedAt,
+          updatedAt: reply.updatedAt,
           addedLate: reply.addedAfterDelivery,
           reactions: reacted
             .filter((reaction) => reaction.replyId === reply.id)

@@ -42,18 +42,19 @@ test("E1 · an open round says when it goes out, not that it was delivered", asy
   await expect(page.getByText(/Delivered /)).toHaveCount(0);
 });
 
-test("E1 · once a round has gone out, its reply sheet stops promising a deadline", async ({ page }) => {
+test("E1 · a reply link never reopens a round that has gone out", async ({ page }) => {
   const loop = await seedLoop();
   const issue = await seedOpenIssue(loop, { openedAt: AFTER_FIRST_SLOT });
   const alice = loop.members.find((member) => member.email.startsWith("alice"))!;
   await seedReplies({ issueId: issue.issueId, membershipId: alice.id, answers: [{ text: "What made you laugh this week?", body: "Geese." }] });
   await runSweep(issue.deliversAt);
-  // A loop from before rounds ran back to back: no round after this one, so the
-  // link stays on the one that went out.
+  // Even with no round open after it (the next one dropped), the link does not go
+  // back to the one that went out: that round takes nothing more.
   await rows("update issues set status = 'skipped' where group_id = $1 and number = 2", [loop.groupId]);
 
   await page.setExtraHTTPHeaders(clockHeaders(new Date(issue.deliversAt.getTime() + 60_000)));
   await page.goto(`/r/${alice.token}`);
-  await expect(page.getByText(/Went out /)).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Nothing open right now" })).toBeVisible();
+  await expect(page.getByLabel("What made you laugh this week?")).toHaveCount(0);
   await expect(page.getByText(/^Goes out /)).toHaveCount(0);
 });
