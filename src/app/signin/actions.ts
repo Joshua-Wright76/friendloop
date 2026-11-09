@@ -6,6 +6,7 @@ import { CHECK_EMAIL_COOKIE, confirmSignInCode, type JoinResult, LINK_HOURS, nor
 import { joinDestination } from "@/lib/invite-link";
 import { copy } from "@/lib/copy";
 import { requestIp } from "@/lib/rate-limit";
+import { secureCookies } from "@/lib/e2e";
 
 export type SignInState = { error?: string };
 
@@ -65,7 +66,7 @@ export async function rememberCheckEmail(email: string): Promise<void> {
   (await cookies()).set(CHECK_EMAIL_COOKIE, normalizeEmail(email), {
     httpOnly: true,
     sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
+    secure: secureCookies(),
     path: "/signin",
     // As long as the code it pairs with, so the code box still knows the address days later.
     maxAge: LINK_HOURS * 60 * 60,

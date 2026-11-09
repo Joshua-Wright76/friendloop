@@ -1,7 +1,8 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "../support/test";
 import { resetDatabase, rows } from "../support/db";
 import { seedLoop, seedOpenIssue } from "../support/seed";
 import { makeMp3 } from "../support/audio";
+import { showAttachments } from "../support/harness";
 import { copy, text } from "@/lib/copy";
 
 test.beforeEach(async () => {
@@ -67,6 +68,7 @@ test("J4 · a refused microphone permission and a missing microphone each get th
     });
   });
   await page.goto(`/r/${alice.token}`);
+  await showAttachments(page);
   const record = page.getByRole("button", { name: copy.reply.voiceRecord }).first();
   await record.click();
   await expect(page.getByText(copy.reply.voiceBlocked).first()).toBeVisible();
@@ -103,6 +105,7 @@ test.describe("J4 · on an iPhone", () => {
       });
     });
     await page.goto(`/r/${alice.token}`);
+    await showAttachments(page);
     await page.getByRole("button", { name: copy.reply.voiceRecord }).first().click();
     await expect(page.getByText(copy.reply.voiceBlocked).first()).toBeVisible();
 

@@ -67,8 +67,11 @@ export function IssueBar({ contents, reading, readingLabel, title }: {
       open.querySelector("summary")?.focus();
     };
     // Tabbing out of an open menu closes it, or it would sit over whatever takes focus next.
+    // Safari doesn't focus a link it presses: focus drops to a focusable wrapper around
+    // the bar, which isn't leaving it, and closing then would swallow the click.
     const onFocus = (event: FocusEvent) => {
-      if (!element.contains(event.target as Node)) close();
+      const target = event.target as Node;
+      if (!element.contains(target) && !target.contains(element)) close();
     };
     document.addEventListener("pointerdown", onPointer);
     document.addEventListener("keydown", onKey);

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useId, useOptimistic, useState, useTransition, type ReactNode } from "react";
+import { useEffect, useId, useOptimistic, useRef, useState, useTransition, type ReactNode } from "react";
 import { toggleReaction } from "./actions";
 import { CommentThread } from "./comment-thread";
 import { IssueBar } from "./issue-bar";
@@ -571,6 +571,7 @@ function AnswerActions({
   const [threadOpen, setThreadOpen] = useState(false);
   const [reactFailed, setReactFailed] = useState<string | null>(null);
   const [picking, setPicking] = useState(false);
+  const addReaction = useRef<HTMLButtonElement>(null);
   // Once the connection is back, the message no longer applies.
   useEffect(() => {
     if (!reactFailed) return;
@@ -657,6 +658,7 @@ function AnswerActions({
         {canInteract ? (
           <button
             type="button"
+            ref={addReaction}
             aria-haspopup="dialog"
             aria-label={addLabel}
             onClick={() => setPicking(true)}
@@ -692,6 +694,7 @@ function AnswerActions({
       {picking ? (
         <EmojiPicker
           label={addLabel}
+          opener={addReaction}
           onClose={() => setPicking(false)}
           onPick={(emoji) => {
             setPicking(false);

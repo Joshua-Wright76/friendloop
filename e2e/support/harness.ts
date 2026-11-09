@@ -135,6 +135,18 @@ export async function openPart(page: Page, name: string): Promise<void> {
   }).toPass();
 }
 
+/** On a phone a card's photo, video, voice and link buttons fold behind one: open the first card's. */
+export async function showAttachments(scope: Page | Locator): Promise<void> {
+  const toggle = scope.getByRole("button", { name: copy.reply.addAttachment }).first();
+  if (await toggle.isVisible()) await toggle.click();
+}
+
+/** On a phone the stationery groups start folded to one line each: open them all, as someone choosing would. */
+export async function unfoldLooks(page: Page): Promise<void> {
+  const folded = page.locator("details.look-group:not([open]) > summary");
+  while ((await folded.count()) > 0) await folded.first().click();
+}
+
 /** Choose an option in a picker inside `scope`, for when the page holds more than one with that name. */
 export async function pickIn(scope: Locator, page: Page, triggerLabel: string, option: string): Promise<void> {
   await scope.getByRole("button", { name: triggerName(triggerLabel) }).click();

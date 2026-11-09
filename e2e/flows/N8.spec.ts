@@ -1,4 +1,4 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, type Page } from "../support/test";
 import AxeBuilder from "@axe-core/playwright";
 import { resetDatabase, rows } from "../support/db";
 import { DELIVERY_DAY, openPart, runSweep, signIn, uniqueEmail } from "../support/harness";

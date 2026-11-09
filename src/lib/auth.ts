@@ -10,6 +10,7 @@ import { cleanDisplayName } from "./names";
 import { isValidTimezone } from "./timezone";
 import { joinEmail, signInEmail } from "./email/templates";
 import { sendEmail } from "./email/send";
+import { secureCookies } from "./e2e";
 import { signInUrl } from "./urls";
 import { consume, LIMITS, limitKey } from "./rate-limit";
 import { joinWithInvite, loopForInvite, type JoinOutcome } from "./invite-link";
@@ -280,7 +281,7 @@ async function setSessionCookie(token: string, expiresAt: Date): Promise<void> {
   (await cookies()).set(SESSION_COOKIE, token, {
     httpOnly: true,
     sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
+    secure: secureCookies(),
     path: "/",
     expires: expiresAt,
   });

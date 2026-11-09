@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "../support/test";
 import { latestOutbox, linkFrom, resetDatabase } from "../support/db";
 import { uniqueEmail } from "../support/harness";
 import { copy, text } from "@/lib/copy";

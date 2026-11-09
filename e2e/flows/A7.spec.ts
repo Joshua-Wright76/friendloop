@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "../support/test";
 import { resetDatabase, rows } from "../support/db";
 import { hashToken } from "../../src/lib/tokens";
 import { APP, E2E_NOW, clockHeaders } from "../support/harness";

@@ -126,7 +126,9 @@ jobs:
   # 42578068946, flows 3/3 took 215s (137s suite) and WCAG 3/5 took 203s (116s
   # suite) behind a 78s shared build, in a 305s overall run. Hence three groups,
   # each sharded on its own: four flows shards and six WCAG shards to shorten
-  # those tails, plus four stationery shards now their long loops are split. The
+  # those tails, plus four stationery shards now their long loops are split.
+  # Every flow also runs in Safari on an iPhone (WebKit, the "phone" project) in
+  # four shards of its own, so desktop Chromium's flows aren't held up. The
   # greps on the shared title prefixes make the groups exact complements. Each job
   # runs three app/browser workers, each with its own database and server
   # (e2e/support/parallel.ts), on the runners' four cores; scripts/e2e-db.mjs sets
@@ -153,6 +155,10 @@ jobs:
           - { group: flows, shard: 2, of: 4 }
           - { group: flows, shard: 3, of: 4 }
           - { group: flows, shard: 4, of: 4 }
+          - { group: safari, shard: 1, of: 4 }
+          - { group: safari, shard: 2, of: 4 }
+          - { group: safari, shard: 3, of: 4 }
+          - { group: safari, shard: 4, of: 4 }
           - { group: wcag, shard: 1, of: 6 }
           - { group: wcag, shard: 2, of: 6 }
           - { group: wcag, shard: 3, of: 6 }
@@ -220,7 +226,8 @@ jobs:
           SHARD: ${{ matrix.shard }}/${{ matrix.of }}
         run: |
           case "$GROUP" in
-            flows) npm run e2e -- --grep-invert "WCAG AA" --shard="$SHARD" ;;
+            flows) npm run e2e -- --project=desktop --grep-invert "WCAG AA" --shard="$SHARD" ;;
+            safari) npm run e2e -- --project=phone --grep-invert "WCAG AA" --shard="$SHARD" ;;
             wcag) npm run e2e -- --grep "WCAG AA" --grep-invert "WCAG AA sweep · stationery" --shard="$SHARD" ;;
             stationery) npm run e2e -- --grep "WCAG AA sweep · stationery" --shard="$SHARD" ;;
             *) echo "::error::Unknown group $GROUP"; exit 1 ;;

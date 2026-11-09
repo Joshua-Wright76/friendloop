@@ -71,6 +71,13 @@ for (const id of specIds) {
 
 for (const id of duplicate) problems.push(`${id} appears more than once in ${FLOW_DOC}`);
 
+// Specs take `test` from e2e/support/test.ts, which steadies Safari's navigations.
+for (const file of specFiles) {
+  if (/from "@playwright\/test"/.test(readFileSync(`${SPEC_DIR}/${file}`, "utf8"))) {
+    problems.push(`${SPEC_DIR}/${file} imports @playwright/test: import from "../support/test" so it runs the same in Safari`);
+  }
+}
+
 const pct = rows.length === 0 ? 0 : Math.round((done.length / rows.length) * 100);
 console.log(
   `flows: ${rows.length} total · ${done.length} done · ${todo.length} todo · ${pct}% covered`,

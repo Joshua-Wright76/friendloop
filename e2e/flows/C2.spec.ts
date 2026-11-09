@@ -1,4 +1,4 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, type Page } from "../support/test";
 import { resetDatabase, rows } from "../support/db";
 import { seedLoop } from "../support/seed";
 import { AFTER_FIRST_SLOT, freezeClock, runSweep, signIn } from "../support/harness";
@@ -70,7 +70,7 @@ test("C2 · every-round items reorder among themselves", async ({ page }) => {
     .toEqual(["Wall", "Notes", "Music"]);
 });
 
-test("C2 · dragging a card by its grip moves the whole card, by mouse and by touch", async ({ page }) => {
+test("C2 · dragging a card by its grip moves the whole card, by mouse and by touch", async ({ page, browserName }) => {
   const loop = await seedLoop({ questions: ["Q1", "Q2", "Q3", "Q4"] });
   await signIn(page, "owner@friendloop.test");
   await page.goto(`/g/${loop.groupId}/questions`);
@@ -95,13 +95,16 @@ test("C2 · dragging a card by its grip moves the whole card, by mouse and by to
   await page.mouse.move(from.x, to.y + 8, { steps: 12 });
   await expect(cards.nth(3)).toHaveAttribute("data-dragging", "");
   expect(await cards.nth(3).evaluate((el) => new DOMMatrix(getComputedStyle(el).transform).m42)).toBeLessThan(-50);
-  expect(await cards.nth(0).evaluate((el) => new DOMMatrix(getComputedStyle(el).transform).m42)).toBeGreaterThan(20);
+  // The others glide aside rather than jump, so give them the moment it takes.
+  await expect.poll(() => cards.nth(0).evaluate((el) => new DOMMatrix(getComputedStyle(el).transform).m42)).toBeGreaterThan(20);
   await page.mouse.up();
   await expect.poll(() => queue(loop.groupId)).toEqual(["Q4", "Q1", "Q2", "Q3"]);
   await expect(queueList(page).locator("[data-locked]")).toHaveCount(0);
   await expect(page.getByRole("button", { name: copyText(copy.reorder.upLabel, { item: "Q4" }) })).toHaveCount(0); // a drag doesn't open Up and Down
 
   // Touch, as on a phone: the finger on the grip carries the card, without scrolling the page.
+  // Only Chromium takes raw touch moves from a test (through its DevTools protocol).
+  if (browserName !== "chromium") return;
   const cdp = await page.context().newCDPSession(page);
   await cdp.send("Emulation.setTouchEmulationEnabled", { enabled: true, maxTouchPoints: 1 });
   const touchGrip = (await cards.nth(3).locator("button").first().boundingBox())!;

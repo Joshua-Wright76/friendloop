@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
-import { test, expect } from "@playwright/test";
+import { test, expect } from "../support/test";
 import { copy, text } from "@/lib/copy";
 import { formatAudioDuration } from "@/lib/audio-validation";
 import { latestOutbox, resetDatabase, rows } from "../support/db";
@@ -20,13 +20,15 @@ test("W3 · a delivered video plays on the round's page, and the email, print vi
 
   await page.goto(`/r/${alice.token}`);
   const card = page.locator("section").filter({ has: page.locator("textarea") }).first();
-  await card.locator("textarea").fill("The ferry at dusk");
   await card.getByLabel(text(copy.a11yLabels.forQuestionNumber, { label: copy.reply.addVideo, n: 1 })).setInputFiles({
     name: "ferry.webm",
     mimeType: "video/webm",
     buffer: clip("clip.webm"),
   });
   await expect(card.getByText(copy.reply.videoSaved)).toBeVisible({ timeout: 30_000 });
+  // Words after the clip: by then the page is live, so none of them are typed into
+  // the server's HTML before the script that saves them arrives.
+  await card.locator("textarea").fill("The ferry at dusk");
   await expect(card.getByText(copy.reply.questionStates.saved, { exact: true })).toBeVisible();
   const [reply] = await rows<{ video_url: string; video_poster_url: string; video_duration_ms: number }>(
     "select video_url, video_poster_url, video_duration_ms from replies where video_url is not null",

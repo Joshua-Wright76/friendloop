@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "../support/test";
 import AxeBuilder from "@axe-core/playwright";
 import { resetDatabase, rows } from "../support/db";
 import { DELIVERY_DAY, runSweep, signIn } from "../support/harness";

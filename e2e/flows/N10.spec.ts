@@ -1,4 +1,4 @@
-import { test, expect, type Locator, type Page } from "@playwright/test";
+import { test, expect, type Locator, type Page } from "../support/test";
 import AxeBuilder from "@axe-core/playwright";
 import { copy, copyPattern, text } from "@/lib/copy";
 import { COVER_TINTS, SCRAPBOOK_PER_ROUND } from "@/lib/looks";
