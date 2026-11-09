@@ -14,7 +14,25 @@ const nameOf = (key: string) => copy.stickers[key as keyof typeof copy.stickers]
  * and focus goes back to the button that opened it. The current sticker is pressed;
  * tapping it again, or None, peels it off.
  */
-export function StickerSheet({ current, onPick, onClose }: { current: string | null; onPick: (key: string | null) => void; onClose: () => void }) {
+export function StickerSheet({
+  current,
+  onPick,
+  onClose,
+  title = copy.reply.sticker.sheetTitle,
+  note = copy.reply.sticker.sheetNote,
+  extra,
+  withNone = true,
+}: {
+  current: string | null;
+  onPick: (key: string | null) => void;
+  onClose: () => void;
+  title?: string;
+  note?: string;
+  /** A line under the note, like how many are left. */
+  extra?: string;
+  /** The None cell, for peeling off the one sticker an answer carries. */
+  withNone?: boolean;
+}) {
   const dialog = useRef<HTMLDialogElement>(null);
   const first = useRef<HTMLButtonElement>(null);
   const titleId = useId();
@@ -53,17 +71,20 @@ export function StickerSheet({ current, onPick, onClose }: { current: string | n
       <div className="sticker-picker__panel">
         <span className="sticker-picker__grab" aria-hidden="true" />
         <div className="sticker-picker__head">
-          <h2 id={titleId} className="sticker-picker__title">{copy.reply.sticker.sheetTitle}</h2>
+          <h2 id={titleId} className="sticker-picker__title">{title}</h2>
           <button type="button" className="link link--quiet min-h-11 min-w-11 cursor-pointer justify-center px-2 text-[14px] font-bold" onClick={onClose}>{copy.common.close}</button>
         </div>
-        <p id={noteId} className="sticker-picker__note">{copy.reply.sticker.sheetNote}</p>
+        <p id={noteId} className="sticker-picker__note">{note}{extra ? <strong className="sticker-picker__extra">{extra}</strong> : null}</p>
         <div className="sticker-picker__grid">
-          <button ref={first} type="button" className="sticker-picker__cell sticker-picker__cell--none" aria-pressed={current === null} onClick={() => onPick(null)}>
-            {copy.reply.sticker.none}
-          </button>
-          {CHARM_KEYS.map((key) => (
+          {withNone ? (
+            <button ref={first} type="button" className="sticker-picker__cell sticker-picker__cell--none" aria-pressed={current === null} onClick={() => onPick(null)}>
+              {copy.reply.sticker.none}
+            </button>
+          ) : null}
+          {CHARM_KEYS.map((key, index) => (
             <button
               key={key}
+              ref={!withNone && index === 0 ? first : undefined}
               type="button"
               className="sticker-picker__cell"
               aria-pressed={current === key}

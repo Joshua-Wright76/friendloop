@@ -111,6 +111,7 @@ export default async function SharePage({
         barTitle={issueTitle(copy.share.round, view.issue.number, view.issue.name)}
         commentsEnabled={false}
         mentionables={[]}
+        scrapbook={{ canStick: false, canModerate: false, used: 0 }}
         opening={view.statusLines ? <RollCall lines={view.statusLines} /> : undefined}
         closing={view.signatures || marks.signOff ? (
           <>

@@ -172,6 +172,11 @@ export default async function IssuePage({
         barTitle={issueTitle(copy.issue.round, view.issue.number, view.issue.name)}
         opening={view.statusLines ? <RollCall lines={view.statusLines} /> : undefined}
         people={view.statusLines || view.signatures ? marked : undefined}
+        scrapbook={delivered ? {
+          canStick: Boolean(membership),
+          canModerate: membership?.access === "owner" || membership?.access === "admin",
+          used: view.scrapbookUsed ?? 0,
+        } : undefined}
         closing={view.signatures || (delivered && marks.signOff) ? (
           <>
             <SignedCard signatures={view.signatures} round={view.issue.number} />

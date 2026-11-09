@@ -1520,6 +1520,7 @@ html[data-theme="dark"] .sticker-picker::backdrop { background: rgb(6 3 5 / .68)
 /* The rounds list: a covered round is a little zine beside its card's words. */
 .round-card--covered { display: grid; grid-template-columns: 88px minmax(0, 1fr); align-items: start; gap: 16px; }
 .zine-cover { display: flex; aspect-ratio: 3 / 4; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 8px 6px; overflow: hidden; border-radius: 3px 8px 8px 3px; background-color: var(--cover-tint); background-image: var(--cover-motif); background-size: 14px 14px; box-shadow: inset 5px 0 0 rgb(0 0 0 / .06), 0 6px 12px -8px rgb(61 42 48 / .5); text-align: center; transform: rotate(-1.5deg); }
+.zine-cover > * { flex: none; }
 .zine-cover img { width: 40px; height: 40px; transform: rotate(-6deg); filter: drop-shadow(1px 0 0 #fff) drop-shadow(-1px 0 0 #fff) drop-shadow(0 1px 0 #fff) drop-shadow(0 -1px 0 #fff); }
 .zine-cover__name { display: -webkit-box; overflow: hidden; color: var(--cover-ink); font-family: var(--font-display); font-size: 15px; font-weight: 700; line-height: 1.05; overflow-wrap: anywhere; -webkit-box-orient: vertical; -webkit-line-clamp: 3; }
 .zine-cover__no { color: var(--cover-ink); font-size: 11px; font-weight: 800; letter-spacing: .04em; }
@@ -1545,16 +1546,71 @@ html[data-theme="dark"] .sticker-picker::backdrop { background: rgb(6 3 5 / .68)
 .cover-sticker:has(input:checked) { border-color: var(--accent-ink); background: var(--accent-soft); box-shadow: 0 0 0 1px var(--accent-ink); }
 .cover-sticker:has(input:focus-visible), .cover-tint:has(input:focus-visible) { outline: 3px solid var(--accent-ink); outline-offset: 2px; }
 .cover-picker:disabled .cover-sticker, .cover-picker:disabled .cover-sticker input { cursor: not-allowed; }
-.cover-tints { clear: both; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
-@media (min-width: 560px) { .cover-tints { grid-template-columns: repeat(6, minmax(0, 1fr)); } }
+.cover-tints { clear: both; display: grid; grid-template-columns: repeat(auto-fill, minmax(64px, 76px)); gap: 6px; }
 .cover-tint { position: relative; display: flex; min-height: 44px; flex-direction: column; align-items: center; gap: 3px; padding: 4px 2px; border-radius: 8px; cursor: pointer; }
 .cover-tint__swatch { display: block; width: 34px; height: 34px; border: 2px solid var(--card); border-radius: 50%; background-color: var(--swatch); background-image: var(--cover-motif); background-size: 10px 10px; box-shadow: 0 0 0 1.5px var(--line-strong); }
 .cover-tint:has(input:checked) .cover-tint__swatch { box-shadow: 0 0 0 3px var(--accent-ink); }
 .cover-tint__name { color: var(--ink-soft); font-size: 12px; font-weight: 700; }
 .cover-tint:has(input:checked) .cover-tint__name { color: var(--ink); font-weight: 800; }
 .cover-preview { margin-top: 12px; }
+/* Floated only as a legend; beside a cover (its own block) it would squeeze it to nothing. */
+.cover-preview > .cover-picker__label { float: none; }
 .round-cover--preview .round-cover__band { height: 96px; }
 .round-cover--preview .round-cover__sticker { width: 60px; height: 60px; }
 .round-cover--preview .round-cover__name { font-size: 26px; }
 .email-line { clear: both; display: flex; align-items: center; gap: 8px; margin: 0; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--field); color: var(--ink-soft); font-size: 13.5px; font-weight: 700; }
 .email-line img { width: 24px; height: 24px; flex: none; }
+
+/* ------------------------------------------------------------------------------
+   The scrapbook layer (src/app/i/[id]/scrapbook.tsx): stickers in an answer's
+   margins on a delivered round. The layer is as wide as the answer's card, and a
+   sticker straddles the card's edge, so it only ever covers the card's padding.
+   ------------------------------------------------------------------------------ */
+.scrap-host { position: relative; }
+/* A sticker hangs past the card into the page's gutter; on a phone that's the screen's edge, which it mustn't widen. */
+html:has(.scrap-layer) { overflow-x: clip; }
+/*
+ * The card's padding: 36px on the ruled side (.paper), 20px on the other. A sticker
+ * reaches `--scrap-in` into it, which leaves room for its tilt before any words.
+ */
+.scrap-layer { --scrap-size: 32px; --scrap-in: 14px; position: absolute; z-index: 3; inset: 0 -20px 0 -36px; pointer-events: none; }
+@media (min-width: 640px) { .scrap-layer { --scrap-size: 40px; --scrap-in: 13px; } }
+@media (min-width: 780px) { .scrap-layer { --scrap-size: 52px; --scrap-in: 12px; } }
+.scrap-sticker { position: absolute; top: calc((100% - var(--scrap-size)) * var(--offset)); display: block; width: var(--scrap-size); height: var(--scrap-size); padding: 0; border: 0; border-radius: 50%; background: none; cursor: pointer; pointer-events: auto; touch-action: none; transform: rotate(var(--tilt)); -webkit-tap-highlight-color: transparent; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; transition: top 260ms cubic-bezier(.3, 1.3, .5, 1), left 260ms cubic-bezier(.3, 1.3, .5, 1), right 260ms cubic-bezier(.3, 1.3, .5, 1); }
+.scrap-sticker--left { left: calc(var(--scrap-in) - var(--scrap-size)); }
+.scrap-sticker--right { right: calc(var(--scrap-in) - var(--scrap-size)); }
+/* A finger's worth to aim at, whatever the drawing's size. */
+.scrap-sticker::after { content: ""; position: absolute; inset: calc((44px - var(--scrap-size)) / -2); border-radius: 50%; }
+.scrap-sticker img { display: block; width: 100%; height: 100%; pointer-events: none; filter: drop-shadow(1.2px 0 0 #fff) drop-shadow(-1.2px 0 0 #fff) drop-shadow(0 1.2px 0 #fff) drop-shadow(0 -1.2px 0 #fff) drop-shadow(0 2px 2px rgb(61 42 48 / .3)); }
+.scrap-sticker.is-mine { cursor: grab; }
+.scrap-sticker:focus-visible { outline: 3px solid var(--accent-ink); outline-offset: 3px; }
+.scrap-sticker[aria-disabled="true"] { cursor: progress; opacity: .7; }
+.scrap-sticker.is-dragging { z-index: 5; cursor: grabbing; transform: rotate(var(--tilt)) scale(1.18); transition: none; }
+.scrap-sticker.is-dragging img { filter: drop-shadow(1.6px 0 0 #fff) drop-shadow(-1.6px 0 0 #fff) drop-shadow(0 1.6px 0 #fff) drop-shadow(0 -1.6px 0 #fff) drop-shadow(0 10px 8px rgb(61 42 48 / .35)); }
+.scrap-sticker--pop img { animation: scrap-pop 320ms cubic-bezier(.3, 1.6, .5, 1) both; }
+@keyframes scrap-pop { from { opacity: 0; transform: scale(1.6); } to { opacity: 1; transform: scale(1); } }
+/* "Stuck by Maya": on hover, on focus and on a tap, reading inward from the card's edge. */
+.scrap-sticker__tag { position: absolute; top: calc(100% + 4px); padding: 2px 8px; border-radius: 999px; background: var(--ink); color: var(--card); font-size: 11.5px; font-weight: 800; line-height: 1.4; white-space: nowrap; opacity: 0; pointer-events: none; transform: rotate(calc(var(--tilt) * -1)); transition: opacity 150ms; }
+.scrap-sticker--left .scrap-sticker__tag { left: 50%; }
+.scrap-sticker--right .scrap-sticker__tag { right: 50%; }
+.scrap-sticker:hover .scrap-sticker__tag, .scrap-sticker:focus-visible .scrap-sticker__tag, .scrap-sticker.is-told .scrap-sticker__tag { opacity: 1; }
+.scrap-sticker.is-dragging .scrap-sticker__tag { opacity: 0; }
+/* Its menu opens inward, over the answer, and upward from a sticker low on it. */
+.scrap-menu { position: absolute; z-index: 6; top: calc((100% - var(--scrap-size)) * var(--offset)); display: flex; width: max-content; min-width: 168px; max-width: min(240px, calc(100vw - 48px)); flex-direction: column; padding: 4px; border: 1px solid var(--line-strong); border-radius: 10px; background: var(--card); box-shadow: var(--shadow-lift); pointer-events: auto; }
+.scrap-menu--up { top: auto; bottom: calc((100% - var(--scrap-size)) * (1 - var(--offset))); }
+.scrap-menu--left { left: calc(var(--scrap-in) + 10px); }
+.scrap-menu--right { right: calc(var(--scrap-in) + 10px); }
+.scrap-menu__who { margin: 0; padding: 6px 10px 2px; color: var(--ink-muted); font-size: 12.5px; font-weight: 800; }
+.scrap-menu button { display: flex; min-height: 44px; align-items: center; padding: 0 10px; border: 0; border-radius: 7px; background: none; color: var(--ink); font-size: 14.5px; font-weight: 700; text-align: left; cursor: pointer; }
+.scrap-menu button:hover:not([aria-disabled="true"]) { background: var(--accent-soft); }
+.scrap-menu button[aria-disabled="true"] { color: var(--ink-muted); cursor: default; }
+.scrap-menu .scrap-menu__peel { color: var(--danger); }
+.scrap-menu .scrap-menu__done { border-top: 1px solid var(--line); border-radius: 0 0 7px 7px; color: var(--ink-soft); }
+.scrap-note { margin: 2px 0 0; color: var(--ink-muted); font-size: 13px; font-weight: 700; line-height: 1.45; }
+.sticker-picker__extra { display: block; margin-top: 4px; color: var(--accent-ink); font-weight: 800; }
+@media (prefers-reduced-motion: reduce) {
+  .scrap-sticker { transition: none; }
+  .scrap-sticker--pop img { animation: none; }
+  .scrap-sticker.is-dragging { transform: rotate(var(--tilt)); }
+}
+@media print { .scrap-layer { display: none; } }
