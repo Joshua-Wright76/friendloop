@@ -38,7 +38,8 @@ test("the marks are kept too, and a draft from before them gets none", () => {
   const marked = { ...fresh, marks: { ...fresh.marks, motto: "still terrible at replying", sealStyle: "wax", divider: "vine" } };
   assert.equal(draftIsWorthKeeping(marked, fresh), true);
   assert.deepEqual(mergeDraft(fresh, JSON.parse(JSON.stringify(marked))).marks, marked.marks);
-  const { marks: _marks, ...older } = marked;
+  const older: Record<string, unknown> = { ...marked };
+  delete older.marks;
   assert.deepEqual(mergeDraft(fresh, JSON.parse(JSON.stringify(older))).marks, fresh.marks);
   assert.equal(mergeDraft(fresh, { ...older, marks: { motto: 7, divider: "lace" } }).marks.divider, "lace");
   assert.equal(mergeDraft(fresh, { ...older, marks: { motto: 7, divider: "lace" } }).marks.motto, "");
