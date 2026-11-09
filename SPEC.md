@@ -241,15 +241,21 @@ nothing) is carried over to the next delivery; on its third empty delivery it is
 
 | Layer | Trigger | On failure |
 | --- | --- | --- |
-| CI | every PR | blocks merge |
-| Preview | Vercel preview | blocks merge |
-| Probe | production deployment READY | `POST /v1/projects/{id}/rollback/{deploymentId}` |
-| Monitor | every 15 min | alert only |
+| CI | every PR and push to `main` | reports it; does not block the deploy |
+| Probe | production reports the pushed commit | `POST /v1/projects/{id}/rollback/{deploymentId}` |
+| Monitor | every 30 min | alert only |
 
-The probe runs against a synthetic tenant (`is_synthetic`, excluded from counts,
-cleaned weekly). It retries once before rolling back, and only ever rolls back to a
-deployment that itself passed. If the rollback target also fails, it stops and
-pages a human.
+The probe is `.github/workflows/verify-deploy.yml`: once `/api/version` reports
+the pushed commit, the read-only `@probe` Playwright checks and `/api/healthz`
+run against production. A failure rolls back to the newest earlier READY
+deployment with a different commit, waits for `/api/version` to stop reporting
+the failed commit, then checks `/api/healthz` and re-runs the probes against the
+restored deployment. A target that also fails is reported for a person, not
+rolled back again. `/api/health` stays with `monitor.yml`: a lapsed sweep schedule
+turns it red for reasons a rollback cannot fix. The probes never write — there is
+no synthetic tenant — so a broken write path still needs a human. Set the
+`AUTO_ROLLBACK_DISABLED` repository variable to `true` to keep the gate without
+the rollback.
 
 **Expand/contract migrations only.** Rollback reverts code, not schema, so no
 destructive DDL in the release that depends on it: add nullable → backfill → write
@@ -259,9 +265,11 @@ destructive DDL in the release that depends on it: add nullable → backfill →
 What actually runs today: errors go to Sentry when a DSN is configured (tokens,
 cookies, and bodies scrubbed first); the sweep checks in to a Sentry cron monitor
 and writes a `heartbeats` row; `/api/health` (CRON_SECRET) turns 503 when that
-heartbeat is older than 2 hours or outbox mail has been stuck for 26 hours; and
-`.github/workflows/monitor.yml` probes it every 30 minutes. `/api/healthz` is the
-public, detail-free liveness check.
+heartbeat is older than 2 hours or outbox mail has been stuck for 26 hours;
+`.github/workflows/monitor.yml` probes it every 30 minutes; and
+`.github/workflows/verify-deploy.yml` live tests each production deploy and rolls
+it back if the checks fail. `/api/healthz` is the public, detail-free liveness
+check.
 
 Deliverability is monitored separately from function: Resend webhooks →
 `email_events`, with a daily canary that asserts a `delivered` event arrives.
