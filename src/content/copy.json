@@ -1508,6 +1508,8 @@
       "delivery": "Delivered round",
       "deliveryShared": "Delivered round with a share link",
       "deliveryThemed": "Delivered round with its own stationery and a name",
+      "deliveryMarked": "Delivered round with a motto, wax seal, divider and sign-off",
+      "deliveryPostmarked": "Delivered round with a postmark",
       "paused": "Empty round, loop paused"
     }
   },

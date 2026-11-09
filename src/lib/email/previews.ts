@@ -3,6 +3,7 @@ import path from "node:path";
 import { appUrl } from "../urls.ts";
 import {
   deliveryEmail,
+  emailMarksOf,
   emailThemeOf,
   inviteEmail,
   mentionEmail,
@@ -94,7 +95,9 @@ function withLocalStickers<T extends { html: string }>(email: T): T {
     `data:image/png;base64,${readFileSync(path.join(process.cwd(), "public", dir, file)).toString("base64")}`;
   const html = email.html
     .replace(/src="[^"]*\/stickers\/png\/([a-z]+\.png)"/g, (_, file: string) => `src="${inline("stickers/png", file)}"`)
-    .replace(/url\('[^']*\/patterns\/email\/([a-z]+-[a-z]+\.png)'\)/g, (_, file: string) => `url('${inline("patterns/email", file)}')`);
+    .replace(/url\('[^']*\/patterns\/email\/([a-z]+-[a-z]+\.png)'\)/g, (_, file: string) => `url('${inline("patterns/email", file)}')`)
+    .replace(/url\('[^']*\/dividers\/email\/([a-z]+-[a-z]+\.png)'\)/g, (_, file: string) => `url('${inline("dividers/email", file)}')`)
+    .replace(/src="[^"]*\/seals\/([a-z]+-[a-z]+(?:-[a-z]+)?\.png)"/g, (_, file: string) => `src="${inline("seals", file)}"`);
   return { ...email, html };
 }
 
@@ -226,6 +229,32 @@ export function emailPreviews(): EmailPreview[] {
         }),
       })),
     },
+    ...(["wax", "postmark"] as const).map((sealStyle) => ({
+      // The owner's marks: a motto, a seal or postmark, a divider and a sign-off.
+      id: sealStyle === "wax" ? "deliveryMarked" : "deliveryPostmarked",
+      email: withLocalStickers(deliveryEmail({
+        groupName: "Saturday Club",
+        issueNumber: 11,
+        url: "https://friendloop.dev/i/preview",
+        unsubscribeUrl: PREVIEW_STOP_URL,
+        answers: ANSWERS,
+        theme: emailThemeOf({ themePreset: "meadow", themeAccent: null, themeBackground: null, headerImageUrl: null, themeMascot: "frog" }),
+        marks: emailMarksOf(
+          {
+            themePreset: "meadow",
+            themeMascot: "frog",
+            timezone: "Europe/Amsterdam",
+            motto: "est. 2019 · still terrible at replying",
+            signOff: "xo, the Saturday crew",
+            sealStyle,
+            sealColor: "moss",
+            divider: sealStyle === "wax" ? "vine" : "ricrac",
+          },
+          { number: 11, deliveredAt: new Date("2026-11-07T08:00:00Z") },
+          { number: 12, deliversAt: new Date("2026-11-14T08:00:00Z") },
+        ),
+      })),
+    })),
     {
       id: "paused",
       email: pausedEmail({

@@ -1,8 +1,8 @@
 import { test, beforeEach } from "node:test";
 import assert from "node:assert/strict";
-import { issueGroupId, loadIssue } from "../../src/lib/issue-view.ts";
+import { issueGroupId, loadIssue, nextRoundFor } from "../../src/lib/issue-view.ts";
 import { saveDraftFor, saveMusicFor, saveSectionMusicFor, saveSectionPhotoFor, saveSectionTextFor, saveWallPhotoFor } from "../../src/lib/reply.ts";
-import { resetDatabase, rows, seedDeliveredIssue, seedLoop, setupDatabase } from "../support/app.ts";
+import { resetDatabase, rows, seedDeliveredIssue, seedLoop, seedOpenIssue, setupDatabase } from "../support/app.ts";
 import type { SeededLoop } from "../../e2e/support/seed.ts";
 import { DELIVERY_DAY } from "../../e2e/support/clock.ts";
 import { makePng } from "../../e2e/support/audio.ts";
@@ -262,4 +262,13 @@ test("an issue's loop is found without loading the issue, and a stranger id find
   assert.equal(await issueGroupId(setup.issueId), setup.groupId);
   assert.equal(await issueGroupId("00000000-0000-4000-8000-000000000000"), null);
   assert.equal(await issueGroupId(""), null);
+});
+
+test("a sign-off can promise the open round's delivery, and nothing while the loop is paused", async () => {
+  const loop = await seedLoop();
+  assert.equal(await nextRoundFor(loop.groupId), null, "no round open yet");
+  const open = await seedOpenIssue(loop, { openedAt: DELIVERY_DAY });
+  assert.deepEqual(await nextRoundFor(loop.groupId), { number: open.number, deliversAt: open.deliversAt });
+  await rows("update groups set paused_at = now() where id = $1", [loop.groupId]);
+  assert.equal(await nextRoundFor(loop.groupId), null);
 });
