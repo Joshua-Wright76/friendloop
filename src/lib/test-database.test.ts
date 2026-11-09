@@ -12,13 +12,20 @@ import {
 
 const BASE = "postgresql://postgres@127.0.0.1:55432/friendloop_test_run_42_abc";
 
-test("only an absolute integration child path selects a per-file database", () => {
+test("only wrapper-managed absolute integration children select per-file databases", () => {
   const relativeSetupPath = "test/lib/auth.integration.test.ts";
   const absoluteChildPath = `${process.cwd()}/${relativeSetupPath}`;
 
-  assert.equal(databaseUrlForTest(BASE, relativeSetupPath), BASE);
-  assert.equal(databaseUrlForTest(BASE, `${process.cwd()}/src/lib/auth.test.ts`), BASE);
-  assert.notEqual(databaseUrlForTest(BASE, absoluteChildPath), BASE);
+  assert.equal(databaseUrlForTest(BASE, relativeSetupPath, true), BASE);
+  assert.equal(databaseUrlForTest(BASE, `${process.cwd()}/src/lib/auth.test.ts`, true), BASE);
+  assert.notEqual(databaseUrlForTest(BASE, absoluteChildPath, true), BASE);
+});
+
+test("standalone integration files keep the supplied base database", () => {
+  const absoluteChildPath = `${process.cwd()}/test/lib/auth.integration.test.ts`;
+
+  assert.equal(databaseUrlForTest(BASE, absoluteChildPath), BASE);
+  assert.equal(databaseUrlForTest(BASE, absoluteChildPath, false), BASE);
 });
 
 test("integration database names are stable, file-specific, and safely bounded", () => {

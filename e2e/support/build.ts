@@ -71,7 +71,10 @@ export function sourceFingerprint(cwd = process.cwd(), env: BuildEnv = process.e
   for (const file of [...files].sort()) {
     hash.update(file);
     hash.update("\0");
-    hash.update(readFileSync(join(cwd, file)));
+    const path = join(cwd, file);
+    // A tracked file can be deleted without being unstaged. Keep it in the
+    // fingerprint so validation reports staleness instead of crashing.
+    hash.update(existsSync(path) ? readFileSync(path) : "friendloop:deleted");
     hash.update("\0");
   }
   hash.update("build-environment\0");

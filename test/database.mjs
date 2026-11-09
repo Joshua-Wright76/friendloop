@@ -33,9 +33,9 @@ export function isIntegrationTestFile(file) {
   return file?.endsWith(INTEGRATION_SUFFIX) ?? false;
 }
 
-/** Global setup has a relative argv[1]; only absolute paths belong to test children. */
-export function databaseUrlForTest(baseUrl, file) {
-  if (!file || !isAbsolute(file) || !isIntegrationTestFile(file)) return baseUrl;
+/** Only wrapper-managed children select the clones created by global setup. */
+export function databaseUrlForTest(baseUrl, file, wrapperManaged = false) {
+  if (!wrapperManaged || !file || !isAbsolute(file) || !isIntegrationTestFile(file)) return baseUrl;
   return integrationDatabaseUrl(baseUrl, file);
 }
 

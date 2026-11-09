@@ -425,6 +425,8 @@ switch (command) {
       if (usesBuild) env.E2E_WORKERS ??= String(env.CI ? 2 : Math.min(6, Math.max(1, Math.floor(cpus().length / 3))));
       const workers = Number(env.E2E_WORKERS ?? 1);
       if (usesIntegration) {
+        // Only these children have the per-file databases created by global setup.
+        env.TEST_INTEGRATION_ISOLATION = "1";
         integrationFiles = integrationTestFiles();
         const ports = await freePorts(integrationFiles.length);
         env.TEST_MAIL_PORTS = JSON.stringify(Object.fromEntries(

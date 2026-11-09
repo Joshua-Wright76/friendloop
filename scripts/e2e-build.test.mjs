@@ -47,6 +47,22 @@ test("source fingerprints include untracked source and ignored env changes", (t)
   assert.notEqual(sourceFingerprint(cwd), changedSource);
 });
 
+test("source fingerprints hash unstaged deletion of tracked source", (t) => {
+  const cwd = sourceFixture(t);
+  const tracked = join(cwd, "src", "tracked.ts");
+  writeFileSync(tracked, "export const tracked = true;\n");
+  execFileSync("git", ["add", "--", "src/tracked.ts"], { cwd });
+  const original = sourceFingerprint(cwd);
+
+  rmSync(tracked);
+  const deleted = sourceFingerprint(cwd);
+  assert.notEqual(deleted, original);
+  assert.equal(sourceFingerprint(cwd), deleted);
+
+  writeFileSync(tracked, "export const tracked = true;\n");
+  assert.equal(sourceFingerprint(cwd), original);
+});
+
 test("source fingerprints canonically hash supplied build environment", (t) => {
   const cwd = sourceFixture(t);
   const original = {
