@@ -60,7 +60,7 @@ jobs:
       # All unit and integration tests, with 100% line and function coverage of
       # src/lib enforced rather than reported.
       - name: Unit and integration tests, with the coverage gate
-        run: TEST_WORKERS=2 npm run test:coverage
+        run: TEST_WORKERS=3 npm run test:coverage
 
       # The release gate README promises: no flow may ship marked `todo`.
       - name: Flow coverage (strict)
@@ -126,8 +126,9 @@ jobs:
   # each sharded on its own: the flows, the WCAG checks, and the per-page/theme
   # stationery sweeps, which use four shards now their long loops are split. The
   # greps on the shared title prefixes make the groups exact complements. Each job
-  # runs two workers, each with its own database and server (e2e/support/parallel.ts),
-  # which suits the runners' four cores; scripts/e2e-db.mjs sets that from CI.
+  # runs three app/browser workers, each with its own database and server
+  # (e2e/support/parallel.ts), on the runners' four cores; scripts/e2e-db.mjs sets
+  # that from CI.
   e2e-shard:
     name: End-to-end (${{ matrix.group }} ${{ matrix.shard }}/${{ matrix.of }})
     needs: e2e-build
@@ -178,9 +179,10 @@ jobs:
       E2E_RELAX_DB: server
       # Every shard serves the artifact built from this commit, never a rebuild.
       E2E_SKIP_BUILD: "1"
-      # Match the URL baked by e2e-build; two app workers use 3100 and 3101.
+      # Match the URL baked by e2e-build; three app workers use 3100 through 3102.
       E2E_PORT: "3100"
-      E2E_FAKE_MAIL_PORT: "3102"
+      # Keep the mail stub off the app workers' ports.
+      E2E_FAKE_MAIL_PORT: "3103"
     steps:
       - uses: actions/checkout@v7
 

@@ -420,9 +420,9 @@ switch (command) {
       }
       // Explicit Playwright ports win; integration mail ports are allocated per file.
       // A Playwright run gets a server per worker. Each costs a browser and a Node
-      // process, so a third of the cores leaves the machine breathing; CI's four
-      // cores hold two without tests starting to time out.
-      if (usesBuild) env.E2E_WORKERS ??= String(env.CI ? 2 : Math.min(6, Math.max(1, Math.floor(cpus().length / 3))));
+      // process, so a third of the cores leaves the machine breathing; CI uses
+      // three app/browser workers on its four cores.
+      if (usesBuild) env.E2E_WORKERS ??= String(env.CI ? 3 : Math.min(6, Math.max(1, Math.floor(cpus().length / 3))));
       const workers = Number(env.E2E_WORKERS ?? 1);
       if (usesIntegration) {
         // Only these children have the per-file databases created by global setup.
