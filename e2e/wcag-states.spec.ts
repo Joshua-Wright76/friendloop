@@ -2,6 +2,8 @@ import { expect, test, type Page } from "@playwright/test";
 import { UI_PREVIEW } from "@/lib/ui-preview";
 import { resetDatabase } from "./support/db";
 import { ZOOM_400, axeProblems, focusedProblems, keyboardProblems, openAllDetails, reflowProblems, textSpacingProblems, type Problems } from "./support/wcag";
+import { copy, copyPattern } from "@/lib/copy";
+import { triggerName } from "./support/harness";
 
 /**
  * WCAG 2.2 AA in the states a plain page load never reaches: an open dialog, a
@@ -26,7 +28,7 @@ async function enterPreview(page: Page) {
 
 async function setTheme(page: Page, theme: "light" | "dark") {
   if ((await page.locator("html").getAttribute("data-theme")) === theme) return;
-  await page.getByRole("button", { name: theme === "light" ? /switch to light mode/ : /switch to dark mode/ }).click();
+  await page.getByRole("button", { name: theme === "light" ? copyPattern(copy.common.theme.switchToLight) : copyPattern(copy.common.theme.switchToDark) }).click();
   await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
 }
 
@@ -60,7 +62,7 @@ test.beforeEach(async () => {
 });
 
 testEverywhere("WCAG AA states · the feedback dialog", "/", 4 * 60_000, async (page, label) => {
-  await page.getByRole("button", { name: "Send feedback" }).click();
+  await page.getByRole("button", { name: copy.feedback.open }).click();
   const dialog = page.getByRole("dialog");
   await expect(dialog).toBeVisible();
   const out = [
@@ -72,7 +74,7 @@ testEverywhere("WCAG AA states · the feedback dialog", "/", 4 * 60_000, async (
   await page.keyboard.press("Escape");
   await expect(dialog).toBeHidden();
   // Closing returns focus to the button that opened it.
-  await expect(page.getByRole("button", { name: "Send feedback" })).toBeFocused();
+  await expect(page.getByRole("button", { name: copy.feedback.open })).toBeFocused();
   return out;
 });
 
@@ -81,10 +83,10 @@ testEverywhere("WCAG AA states · every step of the new-loop wizard, and its val
   const out: Problems = [];
   // Step one refuses to move on without a name, and says so.
   await page.getByRole("button", { name: NEXT }).click();
-  await expect(page.getByText("Give the loop a name.")).toBeVisible();
+  await expect(page.getByText(copy.newLoop.errors.name)).toBeVisible();
   out.push(...(await axeProblems(page, `wizard error ${label}`)));
-  await page.getByLabel("Loop title").fill("The Sunday Loop");
-  const progress = page.getByRole("progressbar", { name: "Loop setup progress" });
+  await page.getByLabel(copy.newLoop.nameLabel).fill("The Sunday Loop");
+  const progress = page.getByRole("progressbar", { name: copy.newLoop.wizard.stepAriaLabel });
   const total = Number(await progress.getAttribute("aria-valuemax"));
   expect(total, "the wizard reports no steps").toBeGreaterThan(1);
   for (let step = 1; step <= total; step += 1) {
@@ -101,7 +103,7 @@ testEverywhere("WCAG AA states · every step of the new-loop wizard, and its val
 
 testEverywhere("WCAG AA states · pickers keep a visible focus on every option", "/g/new", 4 * 60_000, async (page, label) => {
   const out: Problems = [];
-  await page.getByRole("button", { name: /^Timezone:/ }).click();
+  await page.getByRole("button", { name: triggerName(copy.newLoop.timezone) }).click();
   const listbox = page.getByRole("listbox").first();
   await expect(listbox).toBeVisible();
   out.push(...(await axeProblems(page, `picker ${label}`, ".picker-popover")));
@@ -141,11 +143,11 @@ for (const [name, href] of [
 }
 
 testEverywhere("WCAG AA states · the album viewer, keyboard only", `/g/${P.groupId}/album`, 4 * 60_000, async (page, label) => {
-  const tile = page.getByRole("button", { name: /^Open photo from/ }).first();
+  const tile = page.getByRole("button", { name: copyPattern(copy.album.openPhoto, { start: true }) }).first();
   await expect(tile, "the album has no photo to open").toBeVisible();
   await tile.focus();
   await page.keyboard.press("Enter");
-  const viewer = page.getByRole("dialog", { name: "Photo viewer" });
+  const viewer = page.getByRole("dialog", { name: copy.album.viewer.label });
   await expect(viewer).toBeVisible();
   const out = [...(await axeProblems(page, `album viewer ${label}`)), ...(await keyboardProblems(page, `album viewer ${label}`))];
   await page.keyboard.press("Escape");

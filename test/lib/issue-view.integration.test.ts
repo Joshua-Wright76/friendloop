@@ -7,6 +7,7 @@ import type { SeededLoop } from "../../e2e/support/seed.ts";
 import { DELIVERY_DAY } from "../../e2e/support/clock.ts";
 import { makePng } from "../../e2e/support/audio.ts";
 import { clearRequest, setRequestHeaders } from "../stubs/request.mjs";
+import { copy } from "@/lib/copy";
 
 /*
  * The round's page reads one list (docs/questions-unify-design.md). Items copied
@@ -239,7 +240,7 @@ test("before it goes out, each person sees only their own answers", async () => 
   const asAlice = await loadIssue({ issueId: setup.issueId, viewerMembershipId: alice.id });
   const wall = asAlice!.blocks.find((block) => block.questionId === setup.item)!;
   assert.deepEqual(wall.answers.map((answer) => answer.authorId), [alice.id]);
-  assert.equal(wall.answers[0].author, "You");
+  assert.equal(wall.answers[0].author, copy.issue.you);
   const asStranger = await loadIssue({ issueId: setup.issueId });
   assert.equal(asStranger!.answerCount, 0);
 });

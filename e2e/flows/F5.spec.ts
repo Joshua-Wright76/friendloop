@@ -2,6 +2,7 @@ import { test, expect } from "@playwright/test";
 import { resetDatabase } from "../support/db";
 import { addMember, seedLoop } from "../support/seed";
 import { signIn } from "../support/harness";
+import { copy, copyPattern } from "@/lib/copy";
 
 test.beforeEach(async () => {
   await resetDatabase();
@@ -16,10 +17,10 @@ test("F5 · a plain member is sent away from owner routes", async ({ page }) => 
   await expect(page).toHaveURL(new RegExp(`/g/${loop.groupId}$`));
 
   await page.goto(`/g/${loop.groupId}/members`);
-  await expect(page.getByLabel("Invite people by email")).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "Remove" })).toHaveCount(0);
+  await expect(page.getByLabel(copy.members.inviteAriaLabel)).toHaveCount(0);
+  await expect(page.getByRole("button", { name: copyPattern(copy.a11yLabels.removeMember, { start: true }) })).toHaveCount(0);
 
   await page.goto(`/g/${loop.groupId}`);
-  await expect(page.getByRole("link", { name: "Settings" })).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "Send now" })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: copy.common.navigation.settings })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: copy.loop.sendNow })).toHaveCount(0);
 });

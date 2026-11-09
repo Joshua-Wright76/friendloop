@@ -4,6 +4,7 @@ import { resetDatabase, rows } from "../support/db";
 import { DELIVERY_DAY, openPart, runSweep, signIn } from "../support/harness";
 import { TINY_PNG } from "../support/comments";
 import { PAPER, chooseFile, cssVar, gotoScheme, seedWorld } from "../support/identity";
+import { copy, copyPattern } from "@/lib/copy";
 
 test.use({ reducedMotion: "reduce" });
 
@@ -29,18 +30,18 @@ test("N1 · the owner picks a paper and every member's surfaces wear it, light a
 
   await signIn(page, "owner@friendloop.test");
   await page.goto(`/g/${loop.groupId}/settings`);
-  await openPart(page, "Stationery");
+  await openPart(page, copy.settings.groupPaper);
 
   // The settings show the original as chosen, and a live preview of both schemes.
-  await expect(page.getByRole("radio", { name: /Gingham Picnic/ })).toBeChecked();
-  await page.getByRole("radio", { name: /Meadow Postcard/ }).check();
+  await expect(page.getByRole("radio", { name: copyPattern(copy.stationery.presets.gingham.name) })).toBeChecked();
+  await page.getByRole("radio", { name: copyPattern(copy.stationery.presets.meadow.name) }).check();
   await expect(page.getByTestId("stationery-preview-light")).toBeVisible();
   await expect(page.getByTestId("stationery-preview-dark")).toBeVisible();
   expect(await page.getByTestId("stationery-preview-light").evaluate((el) => getComputedStyle(el).backgroundColor)).toBe("rgb(240, 246, 236)");
   expect(await page.getByTestId("stationery-preview-dark").evaluate((el) => getComputedStyle(el).backgroundColor)).toBe("rgb(24, 33, 27)");
 
   // Choosing a paper saves it.
-  await expect(page.getByText("Saved. Everyone sees it on their next visit.")).toBeVisible();
+  await expect(page.getByText(copy.stationery.statusSaved)).toBeVisible();
   const [group] = await rows<{ theme_preset: string | null; theme_accent: string | null }>(
     "select theme_preset, theme_accent from groups where id = $1",
     [loop.groupId],
@@ -75,27 +76,27 @@ test("N1 · an accent that would be hard to read is nudged, validated, saved, an
 
   // Pale yellow on cream is the classic unreadable accent.
   await page.goto(`/g/${loop.groupId}/settings`);
-  await openPart(page, "Stationery");
-  await page.getByRole("radio", { name: /Lilac Linen/ }).check();
-  await expect(page.getByText("Saved. Everyone sees it on their next visit.")).toBeVisible();
-  await page.getByLabel("Accent color as a hex code").fill("#ffee00");
-  await expect(page.getByText(/a little hard to read, so we nudged it/)).toBeVisible();
-  await page.getByLabel("Accent color as a hex code").fill("yellow-ish");
-  await expect(page.getByText("Use a hex code like #3366cc.")).toBeVisible();
+  await openPart(page, copy.settings.groupPaper);
+  await page.getByRole("radio", { name: copyPattern(copy.stationery.presets.lilac.name) }).check();
+  await expect(page.getByText(copy.stationery.statusSaved)).toBeVisible();
+  await page.getByLabel(copy.stationery.accentInput).fill("#ffee00");
+  await expect(page.getByText(copyPattern(copy.stationery.adjusted))).toBeVisible();
+  await page.getByLabel(copy.stationery.accentInput).fill("yellow-ish");
+  await expect(page.getByText(copy.stationery.accentInvalid)).toBeVisible();
   // Leaving the field with something unusable saves nothing.
-  await page.getByLabel("Accent color as a hex code").blur();
+  await page.getByLabel(copy.stationery.accentInput).blur();
   const [unsaved] = await rows<{ theme_accent: string | null }>("select theme_accent from groups where id = $1", [loop.groupId]);
   expect(unsaved.theme_accent).toBeNull();
   // Leaving it with a real colour saves that, and the nudge stays said.
-  await page.getByLabel("Accent color as a hex code").fill("#ffee00");
-  await page.getByLabel("Accent color as a hex code").blur();
-  await expect(page.getByText(/a little hard to read, so we nudged it/)).toBeVisible();
+  await page.getByLabel(copy.stationery.accentInput).fill("#ffee00");
+  await page.getByLabel(copy.stationery.accentInput).blur();
+  await expect(page.getByText(copyPattern(copy.stationery.adjusted))).toBeVisible();
   const accent = () => rows<{ theme_accent: string | null }>("select theme_accent from groups where id = $1", [loop.groupId]).then(([row]) => row.theme_accent);
   await expect.poll(accent).toBe("#ffee00");
 
   // Reset returns the paper's own accent.
-  await page.getByRole("button", { name: "Use the paper's own" }).click();
-  await expect(page.getByText("Using the paper's own accent.")).toBeVisible();
+  await page.getByRole("button", { name: copy.stationery.accentReset }).click();
+  await expect(page.getByText(copy.stationery.accentUsing)).toBeVisible();
   await expect.poll(accent).toBeNull();
 });
 
@@ -151,9 +152,9 @@ test("N1 · a header picture shows above every surface and in the email; only th
 
   await signIn(page, "owner@friendloop.test");
   await page.goto(`/g/${loop.groupId}/settings`);
-  await openPart(page, "Stationery");
+  await openPart(page, copy.settings.groupPaper);
   await chooseFile(page, "Choose a header picture", { name: "banner.png", mimeType: "image/png", buffer: TINY_PNG });
-  await expect(page.getByText("Header picture saved.")).toBeVisible();
+  await expect(page.getByText(copy.stationery.headerSaved)).toBeVisible();
   const [row] = await rows<{ header_image_url: string }>("select header_image_url from groups where id = $1", [loop.groupId]);
   expect(row.header_image_url).toMatch(/\/uploads\/[a-f0-9]{64}\.png$/);
 
@@ -170,13 +171,13 @@ test("N1 · a header picture shows above every surface and in the email; only th
   // Something that cannot be read as a picture is refused before it leaves the browser
   // (a real oversize photo is shrunk instead: see T1).
   await page.goto(`/g/${loop.groupId}/settings`);
-  await openPart(page, "Stationery");
+  await openPart(page, copy.settings.groupPaper);
   await chooseFile(page, "Choose a header picture", { name: "huge.png", mimeType: "image/png", buffer: Buffer.alloc(4 * 1024 * 1024 + 1) });
-  await expect(page.getByText("We couldn't read that picture.")).toBeVisible();
+  await expect(page.getByText(copy.identity.errors.unreadable)).toBeVisible();
 
   // Removing it takes it off the pages.
-  await page.getByRole("button", { name: "Remove picture" }).click();
-  await expect(page.getByText("Header picture removed.")).toBeVisible();
+  await page.getByRole("button", { name: copy.stationery.headerRemove }).click();
+  await expect(page.getByText(copy.stationery.headerRemoved)).toBeVisible();
   await page.goto(`/r/${alice.token}`);
   await expect(page.locator(".snapshot img, img.loop-banner")).toHaveCount(0);
 

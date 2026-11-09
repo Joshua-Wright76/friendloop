@@ -2,6 +2,7 @@ import { test, expect } from "@playwright/test";
 import { resetDatabase, rows } from "../support/db";
 import { seedLoop, seedReplies } from "../support/seed";
 import { AFTER_FIRST_SLOT, clockHeaders, runSweep, sendNow, signIn } from "../support/harness";
+import { copy, copyPattern } from "@/lib/copy";
 
 test.beforeEach(async () => {
   await resetDatabase();
@@ -18,7 +19,7 @@ test("D3 · send now sends the round as it stands and opens the next one", async
   await page.setExtraHTTPHeaders(clockHeaders(AFTER_FIRST_SLOT));
   await page.goto(`/g/${loop.groupId}`);
   await sendNow(page);
-  await expect(page.getByText(/Round 1 is on its way to everyone\. Round 2 is open for answers\./)).toBeVisible();
+  await expect(page.getByText(copyPattern(copy.rounds.sentNotice, { values: { number: "1", next: "2" } }))).toBeVisible();
 
   const rounds = await rows<{ number: number; status: string; delivers_at: Date }>(
     "select number, status, delivers_at from issues where group_id = $1 order by number",
@@ -44,6 +45,6 @@ test("D3 · with nothing in the round, there is nothing to send", async ({ page 
   await page.setExtraHTTPHeaders(clockHeaders(AFTER_FIRST_SLOT));
 
   await page.goto(`/g/${loop.groupId}`);
-  await expect(page.getByText("Nothing to send until someone answers.")).toBeVisible();
-  await expect(page.getByRole("button", { name: "Send now" })).toHaveCount(0);
+  await expect(page.getByText(copy.loop.sendNowHint)).toBeVisible();
+  await expect(page.getByRole("button", { name: copy.loop.sendNow })).toHaveCount(0);
 });

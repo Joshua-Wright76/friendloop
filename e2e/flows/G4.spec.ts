@@ -17,5 +17,5 @@ test("G4 · a reader posting to the reply endpoint is refused with 403", async (
     data: { action: "draft", issueQuestionId: "00000000-0000-0000-0000-000000000000", body: "nope" },
   });
   expect(response.status()).toBe(403);
-  expect(await response.json()).toMatchObject({ error: expect.stringContaining("Readers") });
+  expect(await response.json()).toMatchObject({ error: expect.stringContaining("reader") });
 });

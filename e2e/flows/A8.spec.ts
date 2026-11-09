@@ -2,6 +2,7 @@ import { test, expect, type Page } from "@playwright/test";
 import { resetDatabase, rows } from "../support/db";
 import { clockHeaders, E2E_NOW, uniqueEmail } from "../support/harness";
 import { LIMITS } from "../../src/lib/rate-limit-policy";
+import { copy, copyPattern } from "@/lib/copy";
 
 test.beforeEach(async () => {
   await resetDatabase();
@@ -15,8 +16,8 @@ const signInMail = async (to: string) =>
 
 async function requestLink(page: Page, email: string) {
   await page.goto("/signin");
-  await page.getByLabel("Your email").fill(email);
-  await page.getByRole("button", { name: "Email me a link" }).click();
+  await page.getByLabel(copy.signIn.emailLabel).fill(email);
+  await page.getByRole("button", { name: copy.signIn.submit }).click();
 }
 
 test("A8 · a flooded address still sees 'check your inbox', but no more mail goes out", async ({ page }) => {
@@ -26,7 +27,7 @@ test("A8 · a flooded address still sees 'check your inbox', but no more mail go
   for (let i = 0; i < LIMITS.signInEmail.max + 2; i++) {
     await requestLink(page, email);
     await expect(page).toHaveURL(/\/signin\/check-email$/);
-    await expect(page.getByRole("heading", { name: "Check your inbox" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: copy.checkEmail.title })).toBeVisible();
   }
   expect(await signInMail(email)).toBe(LIMITS.signInEmail.max);
 });
@@ -45,7 +46,7 @@ test("A8 · a flooding network is told to wait, and nothing is sent", async ({ p
   const email = uniqueEmail("blocked");
 
   await requestLink(page, email);
-  await expect(page.getByText(/Lots of sign-in requests are coming from your network/)).toBeVisible();
+  await expect(page.getByText(copyPattern(copy.signIn.tooMany))).toBeVisible();
   await expect(page).toHaveURL(/\/signin$/);
   expect(await signInMail(email)).toBe(0);
 
@@ -62,5 +63,5 @@ test("A8 · a stranger's feedback flood is refused with 429 and friendly words",
   for (let i = 0; i < LIMITS.feedbackAnonymous.max; i++) expect((await send()).status()).toBe(200);
   const refused = await send();
   expect(refused.status()).toBe(429);
-  expect((await refused.json()).error).toMatch(/a lot of notes for one hour/)
+  expect((await refused.json()).error).toMatch(copyPattern(copy.feedback.errors.tooMany))
 });

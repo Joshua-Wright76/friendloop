@@ -1,6 +1,6 @@
-Subject: Golden Loop · round 1
+Subject: Golden Loop · Round 1
 
-Golden Loop · round 1
+Golden Loop · Round 1
 
 <app>/i/00000000-0000-4000-8000-000000000010?m=golden-token-cleo
 

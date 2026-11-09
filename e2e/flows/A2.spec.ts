@@ -1,6 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { latestOutbox, linkFrom, resetDatabase } from "../support/db";
 import { uniqueEmail } from "../support/harness";
+import { copy, text } from "@/lib/copy";
 
 test.beforeEach(async () => {
   await resetDatabase();
@@ -10,8 +11,8 @@ test("A2 · the emailed link signs you in and puts you on your own page", async 
   const email = uniqueEmail("owner");
 
   await page.goto("/signin");
-  await page.getByLabel("Your email").fill(email);
-  await page.getByRole("button", { name: "Email me a link" }).click();
+  await page.getByLabel(copy.signIn.emailLabel).fill(email);
+  await page.getByRole("button", { name: copy.signIn.submit }).click();
   await expect(page).toHaveURL(/\/signin\/check-email$/);
 
   const mail = await latestOutbox("signin:");
@@ -19,11 +20,11 @@ test("A2 · the emailed link signs you in and puts you on your own page", async 
 
   await page.goto(link);
   await expect(page.getByText(email)).toBeVisible();
-  await page.getByRole("button", { name: "Sign in" }).click();
+  await page.getByRole("button", { name: copy.emails.signIn.cta }).click();
 
   await expect(page).toHaveURL(/\/you$/);
-  await expect(page.getByRole("heading", { name: "Your loops" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: copy.you.title })).toBeVisible();
   // The full sentence on purpose: the confirm page, which navigation may keep
   // mounted, also shows the bare address.
-  await expect(page.getByText(`Signed in as ${email}`, { exact: true })).toBeVisible();
+  await expect(page.getByText(text(copy.you.signedInAs, { email }), { exact: true })).toBeVisible();
 });

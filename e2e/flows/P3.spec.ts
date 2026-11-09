@@ -3,6 +3,7 @@ import { resetDatabase, rows } from "../support/db";
 import { enableShare } from "../support/audio";
 import { seedAlbum } from "../support/album";
 import { signIn } from "../support/harness";
+import { copy } from "@/lib/copy";
 
 test.beforeEach(async () => {
   await resetDatabase();
@@ -15,7 +16,7 @@ test("P3 · share-link visitors get no Album, and strangers, revoked members and
   // The shared round carries no door to the archive.
   await page.goto("/s/album-share-token");
   await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
-  await expect(page.getByRole("link", { name: "See the album" })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: copy.album.issueLink })).toHaveCount(0);
   await expect(page.locator('a[href*="/album/"]')).toHaveCount(0);
 
   // The share token opens nothing here, as a token or any other way.
@@ -33,7 +34,7 @@ test("P3 · share-link visitors get no Album, and strangers, revoked members and
     expect(body, path).not.toContain("/uploads/");
     expect(body, path).not.toContain("album-grid");
     await page.goto(path);
-    await expect(page.getByRole("heading", { name: "This page isn't here" }), path).toBeVisible();
+    await expect(page.getByRole("heading", { name: copy.common.notFound.title }), path).toBeVisible();
   }
 
   // A revoked member's link stops working, album included.
@@ -41,7 +42,7 @@ test("P3 · share-link visitors get no Album, and strangers, revoked members and
   const revoked = await (await request.get(`/album/${world.loop.groupId}?m=${world.bob.token}`)).text();
   expect(revoked).not.toContain("album-grid");
   await page.goto(`/album/${world.loop.groupId}?m=${world.bob.token}`);
-  await expect(page.getByRole("heading", { name: "This page isn't here" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: copy.common.notFound.title })).toBeVisible();
 
   // A signed-out visit to the signed-in route goes to sign-in, with no data in the way.
   await page.goto(`/g/${world.loop.groupId}/album`);
@@ -50,10 +51,10 @@ test("P3 · share-link visitors get no Album, and strangers, revoked members and
   // Someone signed in to a different loop sees nothing of this one.
   await signIn(page, "stranger@friendloop.test");
   await page.goto(`/g/${world.loop.groupId}/album`);
-  await expect(page.getByRole("heading", { name: "This page isn't here" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: copy.common.notFound.title })).toBeVisible();
   await expect(page.getByText("Tent at dawn")).toHaveCount(0);
   await page.goto(`/album/${world.loop.groupId}`);
-  await expect(page.getByRole("heading", { name: "This page isn't here" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: copy.common.notFound.title })).toBeVisible();
   await expect(page.getByText("Tent at dawn")).toHaveCount(0);
 });
 

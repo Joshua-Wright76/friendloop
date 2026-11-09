@@ -1,7 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 import type { RunOptions } from "axe-core";
-import { copy } from "@/lib/copy";
+import { copy, copyPattern } from "@/lib/copy";
 import { THEME_PRESET_KEYS, previewTheme } from "@/lib/theme";
 import { UI_PREVIEW } from "@/lib/ui-preview";
 import { resetDatabase, rows } from "./support/db";
@@ -70,7 +70,7 @@ async function enterPreview(page: Page) {
 
 async function setTheme(page: Page, theme: "light" | "dark") {
   if ((await page.locator("html").getAttribute("data-theme")) === theme) return;
-  await page.getByRole("button", { name: theme === "light" ? /switch to light mode/ : /switch to dark mode/ }).click();
+  await page.getByRole("button", { name: theme === "light" ? copyPattern(copy.common.theme.switchToLight) : copyPattern(copy.common.theme.switchToDark) }).click();
   await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
 }
 

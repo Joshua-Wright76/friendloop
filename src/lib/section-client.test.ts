@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { removeReplySectionMedia, uploadReplySectionPhoto } from "./section-client.ts";
+import { copy } from "./copy.ts";
 
 function fetcher(data: unknown, init?: { status?: number; throw?: boolean }) {
   return (async () => {
@@ -46,7 +47,7 @@ test("the response itself can fail to parse", async () => {
 test("a platform 413 on a section photo reads as the size message, not a generic error", async () => {
   const platform = (async () => new Response("Request Entity Too Large", { status: 413 })) as typeof fetch;
   const result = await uploadReplySectionPhoto("t", "s", new File(["x"], "p.png", { type: "image/png" }), "", 0, "generic", platform);
-  assert.deepEqual(result, { ok: false, error: "Photos must be 4 MB or smaller." });
+  assert.deepEqual(result, { ok: false, error: copy.reply.errors.photoTooLarge });
 });
 
 test("wall photos go to the question's media endpoint, named by the question", async () => {

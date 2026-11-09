@@ -23,6 +23,7 @@ import { resetDatabase, rows, seedLoop, setEnv, setupDatabase } from "../support
 import { AFTER_FIRST_SLOT } from "../../e2e/support/clock.ts";
 import { makePng, makeWebm } from "../../e2e/support/audio.ts";
 import { clearRequest, setRequestHeaders } from "../stubs/request.mjs";
+import { copy } from "@/lib/copy";
 
 /*
  * What were sections are items asked every round in the one list of questions
@@ -87,8 +88,8 @@ test("sections arrive in an open round, and members answer them", async () => {
   assert.ok(sheet);
   // One list in round order: the loop's two questions take their turn, then the section.
   assert.deepEqual(sheet.questions.map((item) => item.text), [
-    "What made you laugh this week?",
-    "What are you looking forward to?",
+    copy.questionPacks[0].questions[0],
+    copy.questionPacks[0].questions[1],
     "The potluck corner",
   ]);
   assert.equal(sheet.questions[2].format, "written");

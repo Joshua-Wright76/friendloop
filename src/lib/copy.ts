@@ -24,3 +24,29 @@ export function text(template: string, values: Record<string, string | number> =
     return String(value);
   });
 }
+
+const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+/**
+ * A pattern that matches editable copy as it appears on the page, so a test can
+ * find "Role for Bob" or the start of a long hint without repeating the words.
+ * Placeholders take the given values (a RegExp is used as a pattern), or match
+ * any text when left out.
+ */
+export function copyPattern(
+  template: string,
+  options: { values?: Record<string, string | number | RegExp>; start?: boolean; end?: boolean; flags?: string } = {},
+): RegExp {
+  const { values = {}, start = false, end = false, flags } = options;
+  const source = template
+    .split(/(\{[a-zA-Z][a-zA-Z0-9]*\})/)
+    .map((part) => {
+      const key = /^\{([a-zA-Z][a-zA-Z0-9]*)\}$/.exec(part)?.[1];
+      if (!key) return escapeRegExp(part);
+      if (!(key in values)) return ".+?";
+      const value = values[key];
+      return value instanceof RegExp ? `(?:${value.source})` : escapeRegExp(String(value));
+    })
+    .join("");
+  return new RegExp(`${start ? "^" : ""}${source}${end ? "$" : ""}`, flags);
+}

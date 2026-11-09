@@ -1,7 +1,8 @@
 import { expect, test } from "@playwright/test";
 import { resetDatabase, rows } from "./support/db";
 import { hashToken } from "../src/lib/tokens";
-import { APP, E2E_NOW, clockHeaders } from "./support/harness";
+import { APP, E2E_NOW, clockHeaders, triggerName } from "./support/harness";
+import { copy } from "@/lib/copy";
 
 /**
  * The picker's bottom sheet on a real phone (WebKit, touch). The new-loop form once
@@ -24,23 +25,23 @@ test("the day sheet on the new-loop form closes on a choice, on Close, and on th
   await page.setExtraHTTPHeaders(clockHeaders(E2E_NOW));
   await page.goto("/g/new");
 
-  const trigger = page.getByRole("button", { name: /^Day:/ });
-  const sheet = page.getByRole("dialog", { name: "Day" });
+  const trigger = page.getByRole("button", { name: triggerName(copy.newLoop.day) });
+  const sheet = page.getByRole("dialog", { name: copy.newLoop.day });
 
   await trigger.tap();
   await expect(sheet).toBeVisible();
   await sheet.getByRole("option", { name: "Wednesday", exact: true }).tap();
   await expect(sheet).toBeHidden();
-  await expect(trigger).toHaveAccessibleName("Day: Wednesday");
+  await expect(trigger).toHaveAccessibleName(`${copy.newLoop.day}: Wednesday`);
 
   await trigger.tap();
   await expect(sheet).toBeVisible();
-  await sheet.getByRole("button", { name: "Close" }).tap();
+  await sheet.getByRole("button", { name: copy.common.close }).tap();
   await expect(sheet).toBeHidden();
 
   await trigger.tap();
   await expect(sheet).toBeVisible();
   await page.locator(".picker-scrim").tap({ position: { x: 20, y: 20 } });
   await expect(sheet).toBeHidden();
-  await expect(trigger).toHaveAccessibleName("Day: Wednesday");
+  await expect(trigger).toHaveAccessibleName(`${copy.newLoop.day}: Wednesday`);
 });

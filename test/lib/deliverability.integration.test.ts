@@ -30,6 +30,7 @@ import {
   stopFakeResend,
 } from "../../e2e/support/fake-resend.ts";
 
+import { copy } from "@/lib/copy";
 process.env.RESEND_BASE_URL = FAKE_MAIL_URL;
 process.env.RESEND_API_KEY = "re_test_key";
 
@@ -366,7 +367,7 @@ test("a muted member gets no prompt; it is recorded as suppressed, and everyone 
   const bob = await tokenOf("bob@friendloop.test");
   const bobMail = mail.find((row) => row.to === "bob@friendloop.test")!;
   assert.ok(bobMail.html.includes(`/u/${bob.unsubscribe}`));
-  assert.ok(bobMail.html.includes("Stop emails from this loop"));
+  assert.ok(bobMail.html.includes(copy.emails.stopLink));
   assert.ok(bobMail.text.includes(`Stop emails from this loop: http://localhost:3100/u/${bob.unsubscribe}`));
 
   // Muting is per loop membership, not per address: the sign-in path is untouched.

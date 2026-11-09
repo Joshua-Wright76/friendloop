@@ -2,6 +2,7 @@ import { test, expect } from "@playwright/test";
 import { resetDatabase, rows } from "../support/db";
 import { seedLoop, seedReplies } from "../support/seed";
 import { AFTER_FIRST_SLOT, DAY, runSweep } from "../support/harness";
+import { copy, text as copyText } from "@/lib/copy";
 
 test.beforeEach(async () => {
   await resetDatabase();
@@ -33,7 +34,7 @@ test("O3 · a birthday lands in exactly one round, however many weekly rounds op
 
   const issues = await rows<{ count: number }>("select count(*)::int as count from issues");
   expect(issues[0].count).toBeGreaterThanOrEqual(6);
-  expect(await placements()).toEqual([{ number: 3, title: "Alice's birthday", event_date: "2026-01-20" }]);
+  expect(await placements()).toEqual([{ number: 3, title: copyText(copy.events.birthdayRow, { name: "Alice" }), event_date: "2026-01-20" }]);
 });
 
 test("O3 · a biweekly round covers both of its weeks", async () => {
@@ -46,7 +47,7 @@ test("O3 · a biweekly round covers both of its weeks", async () => {
     await rows("update groups set paused_at = null where id = $1", [loop.groupId]);
     await runSweep(new Date(AFTER_FIRST_SLOT.getTime() + round * 14 * DAY));
   }
-  expect(await placements()).toEqual([{ number: 1, title: "Bob's birthday", event_date: "2026-01-13" }]);
+  expect(await placements()).toEqual([{ number: 1, title: copyText(copy.events.birthdayRow, { name: "Bob" }), event_date: "2026-01-13" }]);
 });
 
 test("O3 · a birthday on the last day of the year reaches a round that crosses New Year", async () => {
@@ -61,7 +62,7 @@ test("O3 · a birthday on the last day of the year reaches a round that crosses 
   await runSweep(new Date("2025-12-26T08:05:00Z"));
 
   expect(await placements()).toEqual([
-    { number: 1, title: "Alice's birthday", event_date: "2025-12-31" },
-    { number: 1, title: "Bob's birthday", event_date: "2026-01-01" },
+    { number: 1, title: copyText(copy.events.section.birthdayTitle, { name: "Alice" }), event_date: "2025-12-31" },
+    { number: 1, title: copyText(copy.events.section.birthdayTitle, { name: "Bob" }), event_date: "2026-01-01" },
   ]);
 });

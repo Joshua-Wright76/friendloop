@@ -2,6 +2,7 @@ import { test, expect } from "@playwright/test";
 import { resetDatabase, rows } from "../support/db";
 import { seedLoop } from "../support/seed";
 import { signIn } from "../support/harness";
+import { copy, text } from "@/lib/copy";
 
 const SECRET = process.env.UI_PREVIEW_SECRET ?? "e2e-preview-secret";
 
@@ -19,19 +20,19 @@ test("S2 · the stats stay locked without the key, count the loops, and can bloc
 
   await page.goto(`/dev/ui?key=${SECRET}`);
   await page.goto("/dev/stats");
-  await expect(page.getByRole("heading", { name: "Stats" })).toBeVisible();
-  const table = page.getByRole("region", { name: "Loops" });
+  await expect(page.getByRole("heading", { name: copy.devStats.title })).toBeVisible();
+  const table = page.getByRole("region", { name: copy.devStats.loopsHeading });
   await expect(table.getByText("Saturday Club")).toBeVisible();
   await expect(table.getByText("owner@friendloop.test")).toBeVisible();
 
-  await page.getByLabel("Email address").fill("owner@friendloop.test");
-  await page.getByRole("button", { name: "Block", exact: true }).click();
+  await page.getByLabel(copy.devStats.blockLabel).fill("owner@friendloop.test");
+  await page.getByRole("button", { name: copy.devStats.block, exact: true }).click();
   await expect(page.getByText("owner@friendloop.test is blocked.")).toBeVisible();
 
   const [{ blocked }] = await rows<{ blocked: boolean }>("select blocked_at is not null as blocked from users where email = 'owner@friendloop.test'");
   expect(blocked).toBe(true);
 
-  await page.getByLabel("Email address").fill("owner@friendloop.test");
-  await page.getByRole("button", { name: "Unblock" }).click();
-  await expect(page.getByText("owner@friendloop.test can sign in again.")).toBeVisible();
+  await page.getByLabel(copy.devStats.blockLabel).fill("owner@friendloop.test");
+  await page.getByRole("button", { name: copy.devStats.unblock }).click();
+  await expect(page.getByText(text(copy.devStats.unblocked, { email: "owner@friendloop.test" }))).toBeVisible();
 });

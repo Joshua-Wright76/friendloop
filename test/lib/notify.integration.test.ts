@@ -6,6 +6,7 @@ import { sweep } from "../../src/lib/sweep.ts";
 import { groupOf, rows, seedLoop, seedOpenIssue, seedReplies, setupDatabase } from "../support/app.ts";
 import { AFTER_FIRST_SLOT, HOUR } from "../../e2e/support/clock.ts";
 import { clearRequest, setRequestHeaders } from "../stubs/request.mjs";
+import { copy, text as copyText } from "@/lib/copy";
 
 setupDatabase();
 
@@ -131,9 +132,9 @@ test("a round that holds only sections still sends its prompt, counting what eac
     "select \"to\", subject, text from outbox where kind = 'prompt' order by \"to\"",
   );
   assert.deepEqual(mail.map((row) => [row.to, row.subject]), [
-    ["alice@friendloop.test", "Alice, 1 question for Sections"],
-    ["bob@friendloop.test", "Bob, 1 question for Sections"],
-    ["owner@friendloop.test", "Sam, 2 questions for Sections"],
+    ["alice@friendloop.test", copyText(copy.emails.prompt.subject, { memberName: "Alice", questionCount: 1, plural: copy.emails.questionSingular, groupName: "Sections" })],
+    ["bob@friendloop.test", copyText(copy.emails.prompt.subject, { memberName: "Bob", questionCount: 1, plural: copy.emails.questionSingular, groupName: "Sections" })],
+    ["owner@friendloop.test", copyText(copy.emails.prompt.subject, { memberName: "Sam", questionCount: 2, plural: copy.emails.questionPlural, groupName: "Sections" })],
   ]);
   assert.match(mail[2].text, /- 📝 This week\n- 📝 Planning/);
   assert.doesNotMatch(mail[0].text, /Planning/, "a member is never told about a section only admins answer");

@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { copy, text } from "./copy.ts";
+import { copy, copyPattern, text } from "./copy.ts";
 
 test("placeholders are filled from named values", () => {
   assert.equal(text("Round {number} of {total}", { number: 4, total: 9 }), "Round 4 of 9");
@@ -43,4 +43,15 @@ test("production renders the literal placeholder without console noise", (t) => 
 test("the copy document is the real one, not a fixture", () => {
   assert.ok(copy.common.brand.length > 0);
   assert.ok(copy.reply.closes.includes("{deadline}"));
+});
+
+test("a copy pattern matches the filled text, and nothing looser", () => {
+  const pattern = copyPattern("Role for {name}?", { start: true, end: true });
+  assert.ok(pattern.test("Role for Bob (admin)?"));
+  assert.ok(!pattern.test("A role for Bob?"));
+  assert.ok(copyPattern("Move {item} to {position}.", { values: { position: 2 } }).test("Move Q1 to 2."));
+  assert.ok(!copyPattern("Move {item} to {position}.", { values: { position: 2 } }).test("Move Q1 to 3."));
+  assert.ok(copyPattern("Hello", { flags: "i" }).test("hello"));
+  assert.ok(copyPattern("Code: {code}", { values: { code: /\d{6}/ }, end: true }).test("Code: 042917"));
+  assert.ok(!copyPattern("Code: {code}", { values: { code: /\d{6}/ }, end: true }).test("Code: 0429"));
 });

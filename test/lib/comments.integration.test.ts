@@ -9,7 +9,7 @@ import { updateLoopSettings } from "../../src/lib/manage.ts";
 import { COMMENT_MAX_LENGTH } from "../../src/lib/comments.ts";
 import { MAX_PHOTO_BYTES } from "../../src/lib/photo-validation.ts";
 import { LIMITS } from "../../src/lib/rate-limit.ts";
-import { copy } from "../../src/lib/copy.ts";
+import { copy, text as copyText } from "../../src/lib/copy.ts";
 import {
   E2E_NOW,
   groupOf,
@@ -70,7 +70,7 @@ test("a member posts to the issue thread; empty, oversized and stranger posts ar
   assert.deepEqual(saved, { body: "Lovely.", reply_id: null });
 
   const nothing = await postComment({ issueId: issue.issueId, viewerToken: alice.token, body: "   " });
-  assert.deepEqual(nothing, { ok: false, status: 400, error: "Write something first." });
+  assert.deepEqual(nothing, { ok: false, status: 400, error: copy.issue.writeFirst });
   const long = await postComment({
     issueId: issue.issueId,
     viewerToken: alice.token,
@@ -125,7 +125,7 @@ test("an owner can turn comments off: writes refused, surfaces gone, nothing del
   await updateLoopSettings(loop.groupId, { ...group, commentsEnabled: false });
 
   const refused = await postComment({ issueId: issue.issueId, viewerToken: alice.token, body: "After." });
-  assert.deepEqual(refused, { ok: false, status: 403, error: "Comments are turned off for this loop." });
+  assert.deepEqual(refused, { ok: false, status: 403, error: copy.issue.errors.commentsOff });
   assert.equal((await rows("select 1 from comments")).length, 2, "past comments stay stored");
 
   const off = await loadIssue({ issueId: issue.issueId, viewerMembershipId: alice.id });
@@ -171,7 +171,7 @@ test("a comment hangs from one answer and stays out of the issue thread", async 
   assert.deepEqual(view?.comments.map((comment) => comment.parts), [[{ type: "text", text: "On the issue." }]]);
   const answer = view?.blocks.flatMap((block) => block.answers).find((candidate) => candidate.replyId === bobReply);
   assert.equal(answer?.comments.length, 1);
-  assert.equal(answer?.comments[0].author, "You");
+  assert.equal(answer?.comments[0].author, copy.issue.you);
   const untouched = view?.blocks.flatMap((block) => block.answers).find((candidate) => candidate.replyId !== bobReply);
   assert.deepEqual(untouched?.comments, []);
 });
@@ -185,7 +185,7 @@ test("an answer must belong to this issue, be submitted, and (for polls) be visi
   });
   const [elsewhere] = await rows<{ id: string }>("select id from replies where issue_id = $1", [other.issueId]);
   const wrongIssue = await postComment({ issueId: issue.issueId, viewerToken: alice.token, body: "x", replyId: elsewhere.id });
-  assert.deepEqual(wrongIssue, { ok: false, status: 404, error: "That answer isn't there to comment on." });
+  assert.deepEqual(wrongIssue, { ok: false, status: 404, error: copy.issue.errors.answerGone });
 
   const notReal = await postComment({ issueId: issue.issueId, viewerToken: alice.token, body: "x", replyId: "nope" });
   assert.equal(notReal.ok === false && notReal.status, 404);
@@ -227,7 +227,7 @@ test("quoting: the quote must be a live comment in the same thread; a removed on
 
   // A quote belongs to its own thread.
   const crossThread = await postComment({ issueId: issue.issueId, viewerToken: alice.token, body: "x", quoteCommentId: firstId, replyId: bobReply });
-  assert.deepEqual(crossThread, { ok: false, status: 409, error: "The comment you were answering has been removed." });
+  assert.deepEqual(crossThread, { ok: false, status: 409, error: copy.issue.errors.quoteGone });
   const garbage = await postComment({ issueId: issue.issueId, viewerToken: alice.token, body: "x", quoteCommentId: "nope" });
   assert.equal(garbage.ok === false && garbage.status, 409);
 
@@ -238,7 +238,7 @@ test("quoting: the quote must be a live comment in the same thread; a removed on
   await rows("update comments set deleted_at = now() where id = $1", [firstId]);
   view = await loadIssue({ issueId: issue.issueId, viewerMembershipId: alice.id });
   assert.equal(view?.comments.length, 1, "the removed comment itself is gone from the thread");
-  assert.deepEqual(view?.comments[0].quote, { author: "", text: "A comment that has since been removed.", removed: true });
+  assert.deepEqual(view?.comments[0].quote, { author: "", text: copy.issue.quoteRemoved, removed: true });
 
   const deadQuote = await postComment({ issueId: issue.issueId, viewerToken: alice.token, body: "x", quoteCommentId: firstId });
   assert.equal(deadQuote.ok === false && deadQuote.status, 409);
@@ -255,7 +255,7 @@ test("a long quote is trimmed, and a quote of your own comment says You", async 
   await postComment({ issueId: issue.issueId, viewerToken: alice.token, body: "ok", quoteCommentId: (long as { id: string }).id });
   const view = await loadIssue({ issueId: issue.issueId, viewerMembershipId: alice.id });
   const quote = view?.comments.find((comment) => comment.quote)?.quote;
-  assert.equal(quote?.author, "You");
+  assert.equal(quote?.author, copy.issue.you);
   assert.ok(quote && quote.text.length <= 141 && quote.text.endsWith("…"));
 });
 
@@ -293,7 +293,7 @@ test("mentions: one email per mentioned member, readers included, never the auth
     [`mention:${issue.issueId}:${commentId}:${bob.id}`, `mention:${issue.issueId}:${commentId}:${sam.id}`].sort(),
   );
   const toBob = sent.find((email) => email.to === "bob@friendloop.test")!;
-  assert.equal(toBob.subject, "Alice mentioned you in Friday Loop");
+  assert.equal(toBob.subject, copyText(copy.emails.mention.subject, { authorName: "Alice", groupName: "Friday Loop" }));
   assert.match(toBob.text, /Hi @Bob and @Sam, and @Alice, @Gone, @Else!/);
   assert.match(toBob.text, new RegExp(`/i/${issue.issueId}\\?m=${bob.token}`));
 });
@@ -316,7 +316,7 @@ test("posting the same comment twice is one comment and one email", async () => 
 
   // And someone else cannot take over that id.
   const stolen = await postComment({ issueId: issue.issueId, viewerToken: bob.token, id, body: "mine now" });
-  assert.deepEqual(stolen, { ok: false, status: 409, error: "That didn't go through. Try again?" });
+  assert.deepEqual(stolen, { ok: false, status: 409, error: copy.issue.errors.invalidRequest });
   const [still] = await rows<{ body: string }>("select body from comments where id = $1", [id]);
   assert.match(still.body, /^Hey @\[/);
 });
@@ -345,7 +345,7 @@ test("a mention follows a rename, and an unknown one reads as someone", async ()
     "Hi @[99999999-9999-4999-8999-999999999999]",
   ]);
   const again = await loadIssue({ issueId: issue.issueId, viewerMembershipId: alice.id });
-  assert.deepEqual(again?.comments[1].parts[1], { type: "mention", id: "99999999-9999-4999-8999-999999999999", name: "someone" });
+  assert.deepEqual(again?.comments[1].parts[1], { type: "mention", id: "99999999-9999-4999-8999-999999999999", name: copy.issue.unknownMention });
 });
 
 test("the mention list is everyone live except you, and empty for strangers", async () => {
@@ -384,13 +384,13 @@ test("a photo rides along under the same caps as an answer's", async (t) => {
   assert.equal(view?.comments[0].photoUrl, saved.photo_url);
 
   const text = await postComment({ issueId: issue.issueId, viewerToken: alice.token, body: "x", photo: { bytes: new TextEncoder().encode("not an image"), type: "image/png" } });
-  assert.deepEqual(text, { ok: false, status: 415, error: "Use a JPEG, PNG, WebP or GIF photo." });
+  assert.deepEqual(text, { ok: false, status: 415, error: copy.issue.errors.photoInvalid });
   const mismatch = await postComment({ issueId: issue.issueId, viewerToken: alice.token, body: "x", photo: { bytes: PNG, type: "image/jpeg" } });
   assert.equal(mismatch.ok === false && mismatch.status, 415);
   const big = new Uint8Array(MAX_PHOTO_BYTES + 1);
   big.set(PNG);
   const tooBig = await postComment({ issueId: issue.issueId, viewerToken: alice.token, body: "x", photo: { bytes: big, type: "image/png" } });
-  assert.deepEqual(tooBig, { ok: false, status: 413, error: "That photo is over 4 MB. Try a smaller one." });
+  assert.deepEqual(tooBig, { ok: false, status: 413, error: copy.issue.errors.photoTooLarge });
   assert.equal((await rows("select 1 from comments")).length, 1);
 });
 
@@ -425,7 +425,7 @@ test("a retried photo comment keeps one file; a storage failure is a plain error
     console.error = originalError;
   });
   const failed = await postComment({ issueId: issue.issueId, viewerToken: alice.token, body: "x", photo: { bytes: PNG, type: "image/png" } });
-  assert.deepEqual(failed, { ok: false, status: 500, error: "The photo didn't make it. Try again?" });
+  assert.deepEqual(failed, { ok: false, status: 500, error: copy.issue.errors.photoFailed });
 });
 
 test("a member posting faster than the limit is refused with 429, and others are not", async () => {

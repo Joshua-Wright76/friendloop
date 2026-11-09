@@ -6,6 +6,7 @@ import { resetDatabase, rows } from "./support/db";
 import { seedDeliveredIssue, seedLoop, seedOpenIssue } from "./support/seed";
 import { seedAlbum } from "./support/album";
 import { freezeClock, signIn } from "./support/harness";
+import { copy } from "@/lib/copy";
 
 /*
  * The headers are static (next.config.ts), so these assertions hold for every
@@ -131,7 +132,7 @@ test("the main flows load without a single CSP violation", async ({ page, browse
     await visit(page, path);
   }
   // Client-side navigation between tabs (partial prefetch + RSC payloads).
-  await page.getByRole("navigation", { name: "Manage the loop" }).getByRole("link", { name: "People" }).click();
+  await page.getByRole("navigation", { name: copy.common.navigation.ariaLabel }).getByRole("link", { name: copy.common.navigation.people }).click();
   await expect(page).toHaveURL(new RegExp(`/g/${loop.groupId}/members$`));
   await page.waitForLoadState("networkidle");
 

@@ -2,6 +2,7 @@ import { test, expect } from "@playwright/test";
 import { resetDatabase } from "../support/db";
 import { seedLoop, seedOpenIssue } from "../support/seed";
 import { AFTER_FIRST_SLOT } from "../support/harness";
+import { copy } from "@/lib/copy";
 
 test.beforeEach(async () => {
   await resetDatabase();
@@ -15,10 +16,10 @@ test("B4 · an invited contributor lands on the questions with no sign-in", asyn
   await page.goto(`/r/${alice.token}`);
 
   await expect(page.getByText("Friday Loop").first()).toBeVisible();
-  await expect(page.getByText("What made you laugh this week?")).toBeVisible();
-  await expect(page.getByLabel("What made you laugh this week?")).toBeVisible();
+  await expect(page.getByText(copy.questionPacks[0].questions[0])).toBeVisible();
+  await expect(page.getByLabel(copy.questionPacks[0].questions[0])).toBeVisible();
   await expect(page.getByText(/Alice, only the people in Friday Loop/)).toBeVisible();
-  await expect(page.getByRole("button", { name: "Email me a link" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: copy.signIn.submit })).toHaveCount(0);
 });
 
 test("B4 · a reader gets the loop but no form", async ({ page }) => {

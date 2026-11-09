@@ -2,6 +2,7 @@ import { test, expect } from "@playwright/test";
 import { resetDatabase } from "../support/db";
 import { seedDeliveredIssue, seedLoop } from "../support/seed";
 import { signIn } from "../support/harness";
+import { copy, copyPattern, text } from "@/lib/copy";
 
 test.beforeEach(async () => {
   await resetDatabase();
@@ -22,8 +23,8 @@ test("E5 · the archive lists rounds newest first and old ones still open", asyn
   await page.goto(`/g/${loop.groupId}/issues`);
   const cards = page.locator("main .card");
   await expect(cards.first()).toContainText("Round 2");
-  await expect(cards.nth(1)).toContainText("Round 1");
+  await expect(cards.nth(1)).toContainText(text(copy.rounds.round, { number: 1 }));
 
-  await cards.nth(1).getByRole("link", { name: /^Read the round/ }).click();
+  await cards.nth(1).getByRole("link", { name: copyPattern(copy.rounds.read, { start: true }) }).click();
   await expect(page.getByText("Older answer.")).toBeVisible();
 });

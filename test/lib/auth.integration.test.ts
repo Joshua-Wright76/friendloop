@@ -20,6 +20,7 @@ import { LIMITS } from "../../src/lib/rate-limit.ts";
 import { latestOutbox, rows, setupDatabase } from "../support/app.ts";
 import { clearRequest, cookieEntries, setRequestCookies, setRequestHeaders } from "../stubs/request.mjs";
 import { E2E_NOW } from "../../e2e/support/clock.ts";
+import { copy, copyPattern } from "@/lib/copy";
 
 beforeEach(async () => {
   clearRequest();
@@ -37,7 +38,7 @@ async function newestSignInToken(): Promise<string> {
 /** The code from the newest sign-in email, as a person would read it. */
 async function newestSignInCode(): Promise<string> {
   const mail = await latestOutbox("signin:");
-  const match = /Or type this code: (\d{6})/.exec(mail.text);
+  const match = copyPattern(copy.emails.signIn.text, { values: { code: /(\d{6})/ } }).exec(mail.text);
   assert.ok(match, "the sign-in email carries a code");
   return match[1];
 }
