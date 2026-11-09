@@ -98,7 +98,7 @@ Status: `todo` (not built) · `done` (built and covered).
 
 | ID | Flow | Acceptance criteria | Status |
 | --- | --- | --- | --- |
-| G3 | Promote to admin | Promoting a member to admin lets them manage questions and members, while the owner-only actions stay unavailable to them; the promotion reaches that person's already-signed-in session. | done |
+| G3 | Promote to admin | Promoting a member to admin lets them manage questions, members and the loop's settings, while downloading and deleting the loop stay the owner's; plain members never reach settings; the promotion reaches that person's already-signed-in session. | done |
 | G4 | Reader cannot reply | A direct POST to the reply endpoint from a reader is rejected with 403 and writes nothing. | done |
 
 ## H · Preview

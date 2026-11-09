@@ -7,6 +7,7 @@ import {
   MAX_SEND_ATTEMPTS,
   latestOutboxRow,
   queueEmail,
+  SENT_BODY,
   sendEmail,
   TRANSPORT_HEADER,
 } from "../../src/lib/email/send.ts";
@@ -95,12 +96,14 @@ test("a header can route one request through the real provider, and the id comes
   const result = await sendEmail({ ...base, dedupeKey: "signin:provider" });
   assert.equal(result.queued, true);
 
-  const [row] = await rows<{ status: string; provider_id: string; error: string | null }>(
-    "select status, provider_id, error from outbox",
+  const [row] = await rows<{ status: string; provider_id: string; error: string | null; html: string; text: string }>(
+    "select status, provider_id, error, html, text from outbox",
   );
   assert.equal(row.status, "sent");
   assert.equal(row.error, null);
   assert.match(row.provider_id!, /^fake_/);
+  assert.equal(row.html, SENT_BODY, "a sent email keeps no copy of its body");
+  assert.equal(row.text, SENT_BODY);
 
   const log = await providerLog();
   assert.equal(log.length, 1);
@@ -130,12 +133,18 @@ test("a provider failure is recorded with its reason and attempt count", async (
   const result = await sendEmail({ ...base, dedupeKey: "signin:fail" });
   assert.equal(result.queued, true);
 
-  const [row] = await rows<{ status: string; attempts: number; error: string }>(
-    "select status, attempts, error from outbox",
+  const [row] = await rows<{ status: string; attempts: number; error: string; html: string }>(
+    "select status, attempts, error, html from outbox",
   );
   assert.equal(row.status, "failed");
   assert.equal(row.attempts, 1);
   assert.match(row.error, /Provider failure 500/);
+  assert.equal(row.html, base.html, "a failed email keeps its body for the retry");
+
+  await flushOutbox();
+  const [retried] = await rows<{ status: string; html: string }>("select status, html from outbox");
+  assert.equal(retried.status, "sent");
+  assert.equal(retried.html, SENT_BODY, "the retry that sends it clears the body");
 });
 
 test("flushing retries failures and pending rows, oldest first, then clears the error", async () => {

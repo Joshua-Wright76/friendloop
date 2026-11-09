@@ -27,7 +27,7 @@ export default function IssuesTab({
   const open = group.pausedAt ? null : openIssue;
   const display = (person: { name: string | null; email: string }) => person.name ?? person.email.split("@")[0];
   const id = group.id;
-  const isOwner = membership.access === "owner";
+  const manages = membership.access !== "member";
 
   // Reading one person across the year: only delivered rounds they answered in.
   const contributors = people
@@ -121,7 +121,7 @@ export default function IssuesTab({
                 </Link>
               ) : null}
 
-            {isOwner ? (
+            {manages ? (
               <details className="round-rename">
                 <summary aria-label={text(round.name ? copy.a11yLabels.renameNamedRound : copy.a11yLabels.renameRound, { title: issueTitle(copy.rounds.round, round.number, round.name) })} className="link link--quiet cursor-pointer">
                   {round.name ? copy.rounds.renameNamed : copy.rounds.rename}
