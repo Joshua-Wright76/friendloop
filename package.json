@@ -17,6 +17,7 @@
     "db:generate": "drizzle-kit generate",
     "db:push": "drizzle-kit push",
     "e2e": "node scripts/e2e-db.mjs run playwright test",
+    "e2e:probe": "playwright test --grep @probe",
     "e2e:build": "node scripts/e2e-build.mjs",
     "e2e:fast": "E2E_SKIP_BUILD=1 node scripts/e2e-db.mjs run playwright test",
     "e2e:db": "node scripts/e2e-db.mjs start",

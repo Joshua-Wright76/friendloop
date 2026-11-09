@@ -2,9 +2,21 @@ name: Verify production deploy
 
 # Vercel deploys main on its own, and has once built a merge for dev while
 # never starting the production deployment, with no error anywhere. So after
-# every push to main, wait for production to report that commit. A failed run
-# means the merge isn't live: GitHub emails whoever pushed, and the fix is to
-# check the Vercel dashboard, then deploy main to production from there.
+# every push to main, wait for production to report that commit, live test it,
+# and put the previous deployment back if those tests fail.
+#
+# The live tests are read-only: e2e/probes.spec.ts never writes, and neither does
+# /api/healthz. A failure therefore means the release is not serving pages or
+# cannot reach its database. It does not prove a write path works; that still
+# needs a person. /api/health (the sweep/outbox check) is deliberately not part
+# of this gate: it can be red for hours when the sweep schedule lapses, and a
+# rollback does not fix that — monitor.yml alerts on it instead.
+#
+# Rollback needs the VERCEL_TOKEN repository secret (an account token that can
+# roll back). The project name defaults to `friendloop`; set VERCEL_PROJECT_ID or
+# VERCEL_PROJECT when that is wrong, and VERCEL_TEAM_ID when the project belongs
+# to a team. Set the AUTO_ROLLBACK_DISABLED variable to true to keep the gate but
+# leave a failed release live.
 
 on:
   push:
@@ -14,7 +26,8 @@ on:
 permissions: {}
 
 # Only the newest push matters: production skips ahead when merges land close
-# together, and the older commit would never appear.
+# together, and the older commit would never appear. This also cancels a probe
+# or rollback for a commit that a newer push has already superseded.
 concurrency:
   group: verify-deploy
   cancel-in-progress: true
@@ -46,3 +59,109 @@ jobs:
           done
           echo "::error::Production is still on '${deployed:-unknown}', not $GITHUB_SHA. The build failed or never started: check the Vercel dashboard."
           exit 1
+
+  live-test:
+    name: Live test production
+    needs: verify
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    # The workflow sets `permissions: {}`; checkout still needs to read the repo.
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Read-only @probe tests from e2e/probes.spec.ts: the site and sign-in page
+      # render, the cron endpoint refuses strangers, unknown links land on the
+      # not-found screen, and a bad reply link explains itself without a stack
+      # trace. Playwright starts no browser and no server for these, and
+      # global-setup.ts skips the test database when E2E_BASE_URL is set.
+      #
+      # The marker file is written first: the rollback step below runs on any
+      # failure after this point, and must not run when checkout or `npm ci`
+      # failed before the checks ever started.
+      - name: Probes against https://friendloop.dev
+        env:
+          E2E_BASE_URL: https://friendloop.dev
+        run: |
+          touch .live-checks-started
+          npm run e2e:probe
+
+      - name: Liveness
+        run: |
+          # Public and detail-free: 200 when the deployment reaches its database.
+          # curl --retry rides out a cold start or a network blip; a real problem
+          # is still failing ~30 seconds later.
+          status=$(curl --silent --show-error --max-time 30 \
+            --retry 2 --retry-delay 10 \
+            --output healthz.json --write-out '%{http_code}' \
+            https://friendloop.dev/api/healthz) || status="curl-failed"
+          echo "GET /api/healthz -> HTTP $status"
+          cat healthz.json 2>/dev/null || true
+          echo
+          if [ "$status" != "200" ]; then
+            echo "::error::Production liveness returned $status."
+            exit 1
+          fi
+
+      # scripts/rollback-deploy.mjs picks the newest earlier READY production
+      # deployment with a different commit, points the alias at it, and waits for
+      # /api/version to stop reporting the failed commit. It exits without acting
+      # if another deployment is already live, and fails loudly if there is no
+      # earlier deployment to return to.
+      - name: Point production at the previous deployment
+        id: rollback
+        if: failure() && vars.AUTO_ROLLBACK_DISABLED != 'true'
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
+          VERCEL_PROJECT: ${{ vars.VERCEL_PROJECT }}
+          VERCEL_TEAM_ID: ${{ vars.VERCEL_TEAM_ID }}
+          EXPECTED_SHA: ${{ github.sha }}
+        run: |
+          if [ ! -f .live-checks-started ]; then
+            echo "::warning::The live checks never started; leaving production alone."
+            exit 0
+          fi
+          node scripts/rollback-deploy.mjs
+
+      # A rollback that leaves the site down is a different incident, and the red
+      # steps above should not be read as "recovered". The probes run again: a
+      # rollback target that also fails them needs a person, not another rollback.
+      - name: Confirm production answers again
+        if: failure() && steps.rollback.outcome == 'success'
+        env:
+          E2E_BASE_URL: https://friendloop.dev
+        run: |
+          [ -f .live-checks-started ] || exit 0
+          status=""
+          for attempt in $(seq 1 12); do
+            status=$(curl --silent --show-error --max-time 20 \
+              --output /dev/null --write-out '%{http_code}' \
+              https://friendloop.dev/api/healthz) || status="curl-failed"
+            [ "$status" = "200" ] && break
+            echo "Attempt $attempt: /api/healthz returned $status"
+            sleep 10
+          done
+          if [ "$status" != "200" ]; then
+            echo "::error::Production has not answered after the rollback (last status: $status). Check the Vercel dashboard."
+            exit 1
+          fi
+
+          echo "Production answers again after the rollback. Now serving:"
+          curl --silent --max-time 15 https://friendloop.dev/api/version
+          echo
+
+          if ! npm run e2e:probe; then
+            echo "::error::The rollback target is also failing its live probes. Check the Vercel dashboard; do not expect another automatic rollback."
+            exit 1
+          fi
+          echo "The rollback target passes the live probes."

@@ -49,12 +49,25 @@ test.describe("@probe deployed", () => {
     expect(await response.text()).not.toContain("opened");
   });
 
-  test("@probe unknown links are honest 404s", async ({ request }) => {
+  test("@probe unknown links are honest about it", async ({ request }) => {
+    // Streamed pages can send their 200 before the lookup misses (the same
+    // reason e2e/flows/P3.spec.ts reads the screen rather than the status), so
+    // the proof is the not-found screen with no stack trace in the bytes.
     const share = await request.get("/s/definitely-not-a-share-token");
-    expect(share.status()).toBe(404);
+    expect([200, 404]).toContain(share.status());
+    const shareBody = await share.text();
+    expect(shareBody).toContain(copy.common.notFound.title);
+    expect(shareBody).not.toMatch(/Unhandled Runtime Error|Application error/i);
 
     const loop = await request.get("/g/00000000-0000-4000-8000-000000000000");
-    expect([307, 404]).toContain(loop.status());
+    expect([200, 307, 404]).toContain(loop.status());
+    if (loop.status() === 200) {
+      // Either the not-found screen or, if the route learns to redirect, sign-in:
+      // both are honest, and neither carries another loop's data.
+      const loopBody = await loop.text();
+      expect(loopBody).not.toMatch(/Unhandled Runtime Error|Application error/i);
+      expect(loopBody.includes(copy.common.notFound.title) || loopBody.includes(copy.signIn.submit)).toBe(true);
+    }
   });
 
   test("@probe a reply link that is not one explains itself", async ({ request }) => {
