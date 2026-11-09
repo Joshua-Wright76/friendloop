@@ -34,6 +34,11 @@ export function shareUrl(token: string): string {
   return url(`/s/${token}`);
 }
 
+/** A loop's shareable invite link. */
+export function joinUrl(token: string): string {
+  return url(`/join/${token}`);
+}
+
 export function signInUrl(token: string): string {
   return url(`/signin/confirm?token=${encodeURIComponent(token)}`);
 }

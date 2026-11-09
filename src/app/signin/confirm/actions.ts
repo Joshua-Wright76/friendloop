@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { confirmMagicLink } from "@/lib/auth";
+import { joinDestination } from "@/lib/invite-link";
 import { forgetCheckEmail } from "../actions";
 
 export async function confirmLink(formData: FormData): Promise<void> {
@@ -13,7 +14,7 @@ export async function confirmLink(formData: FormData): Promise<void> {
 
   if (result.ok) {
     await forgetCheckEmail();
-    redirect("/you");
+    redirect(result.join ? joinDestination(result.join.joinToken, result.join.outcome) : "/you");
   }
 
   const reason = result.ok ? "unknown" : result.reason;

@@ -58,6 +58,8 @@ export type LoopData = {
   answerHref: string | null;
   /** This loop's emails waiting on the day's email budget. Only counted for owners and admins. */
   heldEmails: number;
+  /** The loop's shareable invite link. Only for owners and admins; null for everyone else. */
+  inviteUrl: string | null;
 };
 
 const LoopDataContext = createContext<LoopData | null>(null);

@@ -104,6 +104,7 @@ test("every email the product sends has a preview", () => {
       "inviteContributor",
       "inviteReader",
       "inviteThemed",
+      "join",
       "mention",
       "paused",
       "prompt",

@@ -350,6 +350,24 @@ export function signInEmail(url: string, code: string): RenderedEmail {
   };
 }
 
+/** The sign-in email for someone who asked to join a loop from its invite link. */
+export function joinEmail(groupName: string, url: string, code: string): RenderedEmail {
+  const content = copy.emails.join;
+  const values = { groupName, url, code, note: content.note };
+  return {
+    subject: text(content.subject, values),
+    html: layout({
+      preheader: text(content.preheader, values),
+      heading: text(content.heading, values),
+      body: [text(content.body, values)],
+      cta: { label: text(content.cta, values), url },
+      code: { label: content.codeLabel, value: code, note: content.note },
+      footer: content.footer,
+    }),
+    text: withStopLine(text(content.text, values), undefined),
+  };
+}
+
 export function inviteEmail(input: {
   groupName: string;
   inviterName: string;

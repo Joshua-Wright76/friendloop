@@ -2,7 +2,7 @@ import { expect, test, type Page } from "@playwright/test";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { groups } from "@/db/schema";
-import { resetDatabase } from "./support/db";
+import { resetDatabase, rows } from "./support/db";
 import { seedDeliveredIssue, seedLoop, seedOpenIssue } from "./support/seed";
 import { seedAlbum } from "./support/album";
 import { freezeClock, signIn } from "./support/harness";
@@ -63,7 +63,7 @@ test("every route sends the security headers; credential routes send no referrer
   expect(headers["permissions-policy"]).toContain("microphone=(self)");
   expect(headers["permissions-policy"]).toContain("camera=()");
 
-  for (const path of ["/r/not-a-token", "/r/not-a-token/leave", "/u/not-a-token", "/s/not-a-token", "/signin", "/you", "/you/delete", "/album/not-an-id"]) {
+  for (const path of ["/r/not-a-token", "/r/not-a-token/leave", "/u/not-a-token", "/s/not-a-token", "/signin", "/you", "/you/delete", "/album/not-an-id", "/join/not-a-token"]) {
     const response = await request.get(path, { maxRedirects: 0 });
     expect(response.headers()["referrer-policy"], path).toBe("no-referrer");
     expect(response.headers()["content-security-policy"], path).toContain("frame-ancestors 'none'");
@@ -178,7 +178,8 @@ test("the landing page has a link-preview card; private pages preview as Friendl
   });
   const alice = loop.members.find((member) => member.email.startsWith("alice"))!;
 
-  for (const path of [`/r/${alice.token}`, `/r/${alice.token}/leave`, `/i/${issue.issueId}?m=${alice.token}`, `/album/${loop.groupId}?m=${alice.token}`, "/signin", "/goodbye"]) {
+  await rows("insert into invite_links (group_id, token) values ($1, 'preview-join-token')", [loop.groupId]);
+  for (const path of ["/join/preview-join-token", `/r/${alice.token}`, `/r/${alice.token}/leave`, `/i/${issue.issueId}?m=${alice.token}`, `/album/${loop.groupId}?m=${alice.token}`, "/signin", "/goodbye"]) {
     await page.goto(path);
     expect(await page.locator('meta[name="robots"]').getAttribute("content"), path).toContain("noindex");
     for (const selector of ['meta[property^="og:"]', 'meta[name^="twitter:"]', 'meta[name="description"]']) {
@@ -197,7 +198,7 @@ test("the landing page has a link-preview card; private pages preview as Friendl
   }
 
   const robots = await (await request.get("/robots.txt")).text();
-  for (const prefix of ["/r/", "/u/", "/s/", "/i/", "/g/", "/album/", "/you", "/signin"]) {
+  for (const prefix of ["/r/", "/u/", "/s/", "/i/", "/g/", "/album/", "/you", "/signin", "/join/"]) {
     expect(robots).toContain(`Disallow: ${prefix}`);
   }
 });

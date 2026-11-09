@@ -6,6 +6,7 @@ import {
   deliveryEmail,
   emailThemeOf,
   inviteEmail,
+  joinEmail,
   mentionEmail,
   pausedEmail,
   promptEmail,
@@ -30,9 +31,19 @@ test("sign-in email carries the link and the code, and says how long both last",
   assert.ok(email.text.includes(note));
 });
 
+test("join email names the loop and carries the link and the code", () => {
+  const email = joinEmail("Friday Loop", "https://friendloop.dev/signin/confirm?token=test", "042917");
+  assert.equal(email.subject, "Join Friday Loop: 042917");
+  assert.match(email.html, />Join Friday Loop<\/a>/);
+  assert.match(email.html, /letter-spacing:8px;[^>]*>042917<\/td>/);
+  assert.match(email.text, /Confirm and join: https:\/\/friendloop\.dev\/signin\/confirm\?token=test/);
+  assert.match(email.text, /Or type this code: 042917/);
+});
+
 test("every email uses Friendloop's stationery system and plain-text twin", () => {
   const emails = [
     signInEmail("https://friendloop.dev/signin", "123456"),
+    joinEmail("Friday Loop", "https://friendloop.dev/signin", "123456"),
     inviteEmail({ groupName: "Friday Loop", inviterName: "Dev", url: "https://friendloop.dev/invite", isReader: false }),
     promptEmail({ groupName: "Friday Loop", memberName: "Dev", issueNumber: 3, questionCount: 4, url: "https://friendloop.dev/answer", deadlineLabel: "Friday at 9:00 AM" }),
     reminderEmail({ groupName: "Friday Loop", memberName: "Dev", url: "https://friendloop.dev/answer", deadlineLabel: "Friday at 9:00 AM", remaining: 2 }),

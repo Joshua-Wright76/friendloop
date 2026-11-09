@@ -173,6 +173,35 @@
       }
     }
   },
+  "join": {
+    "eyebrow": "You're invited",
+    "title": "Join {groupName}",
+    "lead": "{ownerName} invited you to {groupName}, a private newsletter for your friends. Each round you answer a few questions, and everyone's answers go out together.",
+    "peopleOne": "It's just {ownerName} so far.",
+    "peopleMany": "{count} people are in it.",
+    "emailLabel": "Your email",
+    "emailHint": "We'll email you a link and a code to confirm it's you. There's no password.",
+    "submit": "Join the loop",
+    "sending": "Sending…",
+    "signedInAs": "You're signed in as",
+    "joinNow": "Join {groupName}",
+    "notYou": "Not you?",
+    "haveCode": "Already have a code?",
+    "problems": {
+      "gone": {
+        "title": "This invite link doesn't work anymore",
+        "body": "The loop's owner made a new one. Ask whoever sent you this for the new link."
+      },
+      "full": {
+        "title": "{groupName} is full",
+        "body": "A loop holds up to 50 people. Ask {ownerName} if there's room."
+      },
+      "removed": {
+        "title": "You're not in {groupName} anymore",
+        "body": "Ask {ownerName} to invite you again."
+      }
+    }
+  },
   "you": {
     "title": "Your loops",
     "newLoop": "New loop",
@@ -608,6 +637,7 @@
     "resume": "Resume",
     "pause": "Pause",
     "welcome": "Loop created.",
+    "welcomeJoined": "You're in! Answer the round whenever you like. Everyone's answers go out together.",
     "welcomeNoPicture": "The header picture didn't save, so add it again from the settings.",
     "round": "Round {number}",
     "progress": "{answered} of {writers} people in",
@@ -675,6 +705,18 @@
     "resendInvite": "Resend invite",
     "remove": "Remove",
     "inviteTitle": "Invite people",
+    "inviteLink": {
+      "title": "Invite with a link",
+      "hint": "Send it to your group chat. Anyone with the link can join with their email.",
+      "fieldLabel": "Invite link",
+      "copy": "Copy invite link",
+      "reset": "Reset link",
+      "resetQuestion": "Make a new invite link?",
+      "resetBody": "The old link stops working, including for anyone who hasn't joined with it yet. Nobody who already joined is removed.",
+      "resetConfirm": "Make a new link",
+      "resetCancel": "Keep this one",
+      "resetNotice": "There's a new invite link. The old one doesn't work anymore."
+    },
     "firstPersonTitle": "Bring someone into the loop",
     "firstPersonBody": "Invite a friend so they can answer the first round too.",
     "firstPersonAction": "Invite the first person",
@@ -1268,6 +1310,17 @@
       "footer": "Friendloop · private group newsletters",
       "text": "Sign in to Friendloop\n\nSign in: {url}\n\nOr type this code: {code}\n\n{note}"
     },
+    "join": {
+      "subject": "Join {groupName}: {code}",
+      "preheader": "Tap the button, or type {code}, to confirm it's you and join.",
+      "heading": "Join {groupName}",
+      "body": "Tap the button to confirm your email and join {groupName}.",
+      "codeLabel": "On another device, or in the app on your home screen, type this code:",
+      "note": "The link and code work for 4 days. If you didn't ask to join, you can ignore this email.",
+      "cta": "Join {groupName}",
+      "footer": "Friendloop · private group newsletters",
+      "text": "Join {groupName}\n\nConfirm and join: {url}\n\nOr type this code: {code}\n\n{note}"
+    },
     "invite": {
       "subject": "{inviterName} added you to {groupName}",
       "preheaderReader": "You'll get each round, no questions to answer.",
@@ -1824,6 +1877,7 @@
     "signIn": "Sign in",
     "checkEmail": "Check your email",
     "confirm": "Confirm your sign-in",
+    "join": "Join a loop",
     "yourLoops": "Your loops",
     "newLoop": "New loop",
     "overview": "Overview",
