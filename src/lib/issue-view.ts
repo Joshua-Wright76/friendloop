@@ -39,9 +39,16 @@ export type IssueAnswer = {
   comments: IssueComment[];
   /** A music pick's card. Only on music answers, so other answers read exactly as they always have. */
   link?: IssueLink;
-  /** A photo wall's photos. Only on photo-wall answers. */
-  media?: Array<{ url: string; caption: string | null }>;
+  /** A video clip. Only on answers that have one, so the rest read exactly as they always have. */
+  video?: IssueVideo;
+  /** A photo wall's photos and clips. Only on photo-wall answers. */
+  media?: IssueMedia[];
 };
+
+export type IssueVideo = { url: string; posterUrl: string; durationMs: number };
+
+/** A wall item: a photo, or a clip whose `url` is its still image. */
+export type IssueMedia = { url: string; caption: string | null; videoUrl?: string; videoDurationMs?: number };
 
 export type IssueLink = {
   url: string;
@@ -69,7 +76,7 @@ export type IssueSectionReplyBlock = {
   linkTracks: MusicTrack[];
   linkTrackCount: number;
   addedLater: boolean;
-  media: Array<{ url: string; caption: string | null }>;
+  media: IssueMedia[];
   /** Former section answers take reactions and comments like any other answer. */
   reactions: Array<{ emoji: string; count: number; mine: boolean }>;
   comments: IssueComment[];
@@ -177,6 +184,9 @@ export async function loadIssue(input: {
         photoUrl: replies.photoUrl,
         audioUrl: replies.audioUrl,
         audioDurationMs: replies.audioDurationMs,
+        videoUrl: replies.videoUrl,
+        videoPosterUrl: replies.videoPosterUrl,
+        videoDurationMs: replies.videoDurationMs,
         pollChoices: replies.pollChoices,
         linkUrl: replies.linkUrl,
         linkProvider: replies.linkProvider,
@@ -204,7 +214,13 @@ export async function loadIssue(input: {
       .innerJoin(replies, eq(replies.id, reactions.replyId))
       .where(eq(replies.issueId, issue.id)),
     db
-      .select({ replyId: replyMedia.replyId, url: replyMedia.url, caption: replyMedia.caption })
+      .select({
+        replyId: replyMedia.replyId,
+        url: replyMedia.url,
+        caption: replyMedia.caption,
+        videoUrl: replyMedia.videoUrl,
+        videoDurationMs: replyMedia.videoDurationMs,
+      })
       .from(replyMedia)
       .innerJoin(replies, eq(replies.id, replyMedia.replyId))
       .where(eq(replies.issueId, issue.id))
@@ -226,9 +242,12 @@ export async function loadIssue(input: {
   for (const reaction of reactionRows) {
     reactionsByReply.set(reaction.replyId, [...(reactionsByReply.get(reaction.replyId) ?? []), reaction]);
   }
-  const mediaByReply = new Map<string, Array<{ url: string; caption: string | null }>>();
+  const mediaByReply = new Map<string, IssueMedia[]>();
   for (const item of allMedia) {
-    mediaByReply.set(item.replyId, [...(mediaByReply.get(item.replyId) ?? []), { url: item.url, caption: item.caption }]);
+    const entry: IssueMedia = item.videoUrl
+      ? { url: item.url, caption: item.caption, videoUrl: item.videoUrl, videoDurationMs: item.videoDurationMs ?? 0 }
+      : { url: item.url, caption: item.caption };
+    mediaByReply.set(item.replyId, [...(mediaByReply.get(item.replyId) ?? []), entry]);
   }
   const musicCards = await musicCardsFor(rows.flatMap((row) =>
     row.linkUrl && row.linkProvider ? [{ provider: row.linkProvider as MusicProvider, url: row.linkUrl }] : []));
@@ -296,6 +315,9 @@ export async function loadIssue(input: {
                   trackCount: card?.trackCount ?? 0,
                 },
               }
+            : {}),
+          ...(row.videoUrl && row.videoPosterUrl
+            ? { video: { url: row.videoUrl, posterUrl: row.videoPosterUrl, durationMs: row.videoDurationMs ?? 0 } }
             : {}),
           ...(format === "photo_wall" ? { media: mediaByReply.get(row.replyId) ?? [] } : {}),
         };

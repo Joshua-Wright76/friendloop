@@ -7,7 +7,7 @@ import { mailDeadline, roundAsks } from "./notify";
 import { emailThemeOf, reminderEmail } from "./email/templates";
 import { REMINDER_LEAD_MS, remindersOn } from "./reminders";
 import { replyUrl, unsubscribeUrl } from "./urls";
-import { purgeQueuedMedia } from "./media-cleanup.ts";
+import { purgeOrphanVideos, purgeQueuedMedia } from "./media-cleanup.ts";
 import { pruneRateLimits } from "./rate-limit";
 import { deliverRound, openRound } from "./rounds";
 
@@ -74,6 +74,8 @@ async function sweepUnlocked(at: Date): Promise<SweepReport> {
   report.reminded = await remindStragglers(at);
   report.retried = await flushOutbox();
   report.mediaPurged = await purgeQueuedMedia();
+  // Once an hour (the sweep runs every 15 minutes): clips a closed browser left unattached.
+  if (at.getUTCMinutes() < 15) report.mediaPurged += await purgeOrphanVideos(at);
   // Housekeeping, not part of the report: closed abuse windows are just rows.
   await pruneRateLimits(at);
   return report;

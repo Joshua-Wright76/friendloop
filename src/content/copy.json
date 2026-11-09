@@ -993,7 +993,7 @@
     "deleteConfirmLabel": "Type \"{name}\" to confirm",
     "delete": "Delete forever",
     "archiveTitle": "Download the loop",
-    "archiveBody": "Every round, question, answer, and comment in one file, with links to photos and voice notes. The links stop working if you delete the loop.",
+    "archiveBody": "Every round, question, answer, and comment in one file, with links to photos, videos, and voice notes. The links stop working if you delete the loop.",
     "archive": "Download the archive",
     "jumpLabel": "Jump to",
     "groupDetails": "Details",
@@ -1090,8 +1090,16 @@
       "voiceTooLong": "Voice notes run up to 3 minutes. Try recording a shorter one.",
       "audioSaveFailed": "We couldn't save that recording. Try again.",
       "audioRemoveFailed": "We couldn't remove that recording. Try again.",
+      "missingVideo": "Choose a video to upload.",
+      "invalidVideo": "That file isn't a video we can use. Try an MP4 or MOV from your phone.",
+      "videoTooLarge": "That video is too big. Try a shorter clip, up to a minute.",
+      "videoTooLong": "Videos run up to a minute. Try a shorter clip.",
+      "videoUnreadable": "We couldn't read that video. Try another clip.",
+      "videoUploadFailed": "We couldn't upload that video. Try again.",
+      "videoRemoveFailed": "We couldn't remove that video. Try again.",
+      "wallVideoCap": "A photo wall takes two videos from each person, and you've added both.",
       "sectionSaveFailed": "That isn't saved yet. It's safe on this device, and we'll try again when you're back online.",
-      "sectionPhotoCap": "A photo wall holds six photos, and this one is full.",
+      "sectionPhotoCap": "A photo wall holds six photos or videos, and this one is full.",
       "sectionPhotoStandardCap": "An answer takes one photo, and this one already has it.",
       "changedElsewhere": "This answer changed on another device, so we didn't overwrite it. Try again to replace it with what's here.",
       "tooManyUploads": "That's a lot of files for one hour. Try again a little later."
@@ -1127,6 +1135,19 @@
     "voiceMicBusy": "Another app is using the microphone. Close it and try again, or attach an audio file instead.",
     "voiceDurationLabel": "Voice note, {duration}",
     "voiceFormats": "m4a, mp3, webm, or ogg, up to 3 minutes.",
+    "addVideo": "Add a video",
+    "replaceVideo": "Replace video",
+    "removeVideo": "Remove video",
+    "videoFormats": "Any video from your phone, up to a minute. A longer one keeps its first minute.",
+    "videoPreparing": "Getting your video ready… {percent}%",
+    "videoUploading": "Uploading video… {percent}%",
+    "videoSaved": "Video saved.",
+    "videoTrimmed": "Video saved. It ran over a minute, so it keeps the first minute.",
+    "videoRemoving": "Removing video…",
+    "videoRemoved": "Video removed.",
+    "videoRetry": "Try again",
+    "videoCancel": "Stop",
+    "videoLabel": "Video, {duration}",
     "sectionDraftSaved": "Saved.",
     "sectionSaving": "Saving…",
     "sectionCaptionLabel": "Caption (optional)",
@@ -1139,6 +1160,9 @@
     "sectionReplacePhoto": "Replace photo",
     "sectionRemovePhoto": "Remove photo",
     "sectionPhotoCaptionPlaceholder": "Caption (optional)",
+    "sectionAddVideo": "Add a video",
+    "sectionAddVideoTo": "Add a video to {section}",
+    "sectionRemoveVideo": "Remove video",
     "sectionUploading": "Adding photo…",
     "sectionUploaded": "Photo added",
     "sectionRemoved": "Photo removed",
@@ -1156,6 +1180,9 @@
     "attachRemovePhoto": "Remove photo",
     "attachReplaceVoice": "Record again",
     "attachRemoveVoice": "Remove voice note",
+    "attachVideo": "Video",
+    "attachReplaceVideo": "New video",
+    "attachRemoveVideo": "Remove video",
     "attachLink": "Music link",
     "linkAdd": "Add a music link",
     "linkLabel": "Music link",
@@ -1170,15 +1197,15 @@
     "extraNotSaved": "One answer isn't saved yet. It's safe on this device.",
     "retryExtra": "Try again",
     "pollNotSaved": "One poll pick isn't saved yet. It's safe on this device.",
-    "attachNotSaved": "One photo or voice note isn't saved yet.",
-    "attachGuard": "One photo or voice note isn't saved.",
+    "attachNotSaved": "One photo, video, or voice note isn't saved yet.",
+    "attachGuard": "One photo, video, or voice note isn't saved.",
     "attachFix": "Go to it",
-    "attachDropped": "One photo or voice note didn't save, so it won't go out. You can add it back any time before the round goes out.",
+    "attachDropped": "One photo, video, or voice note didn't save, so it won't go out. You can add it back any time before the round goes out.",
     "jumpTitle": "Go to a question",
     "jumpAnswered": "answered",
     "jumpOpen": "not answered yet",
     "sectionAddPhotoTo": "Add a photo to {section}",
-    "addAttachment": "Add a photo, voice note, or link",
+    "addAttachment": "Add a photo, video, voice note, or link",
     "pausedTitle": "Paused for now",
     "pausedBody": "{groupName} is paused, so it isn't taking answers right now. Your link will work again as soon as it's resumed.",
     "voiceBlockedHelp": "Show me how"
@@ -1267,6 +1294,7 @@
     "mentionedYou": "mentioned you",
     "askedBy": "asked by {name}",
     "voiceLabel": "Voice note, {duration}",
+    "videoLabel": "Video from {author}, {duration}",
     "photosAdded": "added {count} photos. See them on the web.",
     "sectionEmpty": "Nothing here yet.",
     "musicSongs": "Songs",
@@ -1403,6 +1431,8 @@
     },
     "voiceNote": "Voice note · {duration}",
     "voiceNoteListen": "Listen on the web",
+    "videoNote": "Video · {duration}",
+    "videoNoteWatch": "Watch it on the web",
     "openIn": "Open in {provider}",
     "openLink": "Open the link",
     "musicProviders": {
@@ -1792,16 +1822,17 @@
     "apply": "Search",
     "clear": "Clear filters",
     "count": "{shown} of {total}",
-    "countAll": "{total} photos and voice notes",
-    "countOne": "1 photo or voice note",
+    "countAll": "{total} photos, videos, and voice notes",
+    "countOne": "1 photo, video, or voice note",
     "showMore": "Show more",
-    "empty": "Nothing here yet. Photos and voice notes show up once the round they came with has gone out.",
+    "empty": "Nothing here yet. Photos, videos, and voice notes show up once the round they came with has gone out.",
     "emptyFiltered": "Nothing matches that. Try fewer words, or a different person.",
     "round": "Round {number}",
     "deliveredOn": "Went out {date}",
     "openPhoto": "Open photo from {author}: {about}",
     "photoAlt": "Photo from {author}",
     "voiceFrom": "Voice note from {author}, {duration}",
+    "videoFrom": "Video from {author}, {duration}",
     "viewInIssue": "View in the round",
     "viewer": {
       "label": "Photo viewer",
@@ -1826,6 +1857,7 @@
     "eyebrow": "Kept from the loop",
     "late": "Added late, after the round went out",
     "voiceCard": "Voice note, {duration}. Listen on the web.",
+    "videoCard": "Video, {duration}. Watch it on the web.",
     "reactions": "Reactions: {summary}",
     "commentsHeading": "Comments",
     "answerComments": "Comments on this answer",
@@ -1933,7 +1965,7 @@
     "metadataTitle": "Delete your account",
     "eyebrow": "Your account",
     "title": "Delete your account",
-    "intro": "This deletes your account and everything you've written in every loop: answers, photos, voice notes, comments, reactions, and suggested questions. Rounds that already went out won't show anything from you. This can't be undone.",
+    "intro": "This deletes your account and everything you've written in every loop: answers, photos, videos, voice notes, comments, reactions, and suggested questions. Rounds that already went out won't show anything from you. This can't be undone.",
     "downloadFirst": "Want a copy first?",
     "download": "Download my data",
     "soloTitle": "These loops have nobody else in them, so they go too:",
@@ -1954,7 +1986,7 @@
     "metadataTitle": "Leave this loop",
     "eyebrow": "Leaving {groupName}",
     "title": "Leave {groupName}?",
-    "body": "You'll stop getting emails from this loop, and everything you've written here goes: answers, photos, voice notes, comments, reactions, and suggested questions. Rounds that already went out won't show anything from you. This can't be undone.",
+    "body": "You'll stop getting emails from this loop, and everything you've written here goes: answers, photos, videos, voice notes, comments, reactions, and suggested questions. Rounds that already went out won't show anything from you. This can't be undone.",
     "otherLoops": "This only affects {groupName}. If you're in other loops, each has its own link.",
     "downloadFirst": "Want a copy first?",
     "download": "Download what I wrote here",
@@ -1969,7 +2001,7 @@
   "goodbye": {
     "metadataTitle": "Deleted",
     "title": "Everything you wrote is gone.",
-    "body": "Everything you wrote has been deleted, along with your photos and voice notes. Copies of emails that already reached people's inboxes are theirs, and we can't recall those.",
+    "body": "Everything you wrote has been deleted, along with your photos, videos, and voice notes. Copies of emails that already reached people's inboxes are theirs, and we can't recall those.",
     "home": "Back to Friendloop"
   },
   "legal": {
@@ -1982,8 +2014,8 @@
     "contactHeading": "Questions",
     "contactBody": "Write to",
     "export": {
-      "personalNote": "Everything you wrote on Friendloop, as of exportedAt. Photos and voice notes are links; they keep working until you delete your account or leave the loop, or the loop is deleted, so save any you want to keep first.",
-      "loopNote": "The whole loop as of exportedAt: every round that has gone out, with its questions, answers, comments, and reactions (older rounds list their photo walls and music picks apart, as sections). Photos and voice notes are links; they stop working once the loop or the person who added them is deleted, so save any you want to keep first. Answers that some older rounds went out without are not included. The round that's open now isn't included: its answers stay private until it goes out."
+      "personalNote": "Everything you wrote on Friendloop, as of exportedAt. Photos, videos, and voice notes are links; they keep working until you delete your account or leave the loop, or the loop is deleted, so save any you want to keep first.",
+      "loopNote": "The whole loop as of exportedAt: every round that has gone out, with its questions, answers, comments, and reactions (older rounds list their photo walls and music picks apart, as sections). Photos, videos, and voice notes are links; they stop working once the loop or the person who added them is deleted, so save any you want to keep first. Answers that some older rounds went out without are not included. The round that's open now isn't included: its answers stay private until it goes out."
     },
     "privacy": {
       "metadataTitle": "Privacy",
@@ -1996,7 +2028,7 @@
           "items": [
             "Your email address, and the name you give. If you sign in, the timezone your browser reports, so deadlines read in your own clock.",
             "For each loop you are in: your name there, your profile photo if you add one, your role, your reminder choice, and the private link that lets you answer without an account.",
-            "Everything you write: answers (saved as you type, and part of the round as soon as they save), poll picks, photos, voice notes, photo walls and music links, comments, reactions, and questions you suggest.",
+            "Everything you write: answers (saved as you type, and part of the round as soon as they save), poll picks, photos, videos, voice notes, photo walls and music links, comments, reactions, and questions you suggest.",
             "Birthdays and dates the loop's owner adds to its calendar.",
             "A copy of every email we send, and delivery notices from our email provider (sent, bounced, and so on), so a failed send can be retried and never doubled.",
             "Notes you send with the feedback button, with the page you were on, your screen size, and your browser.",
@@ -2009,7 +2041,7 @@
             "The people in your loop see the answers you write, your name and photo, your comments and reactions. An answer is part of the round as soon as it saves: the owner and admins can read it while the round is open, and everyone else sees it when the round goes out. Clear an answer before then to take it out. The owner and admins also see members' email addresses and who has answered so far.",
             "If you reply to a loop's email, your reply goes straight to the loop's owner, since their address is set as the reply-to. So members can see the owner's address when they reply.",
             "If the loop's owner turns on share links, anyone holding a round's share link can read that round. They are off unless the owner turns them on, and the owner can replace them at any time.",
-            "Photos and voice notes are stored at long, unguessable web addresses. Anyone given one of those addresses can open that file."
+            "Photos, videos, and voice notes are stored at long, unguessable web addresses. Anyone given one of those addresses can open that file."
           ]
         },
         {
@@ -2018,7 +2050,7 @@
             "We use a few companies to run Friendloop. Each one handles your data only to do its job for us. Their servers may be outside your country."
           ],
           "items": [
-            "Vercel runs the website and stores photos and voice notes (Vercel Blob).",
+            "Vercel runs the website and stores photos, videos, and voice notes (Vercel Blob).",
             "Neon hosts the database where everything else lives.",
             "Resend sends our emails, so it sees each recipient's address and the email itself.",
             "Sentry receives error reports when something breaks, which can include the page address, your browser, and technical details of the failure."
@@ -2027,7 +2059,7 @@
         {
           "heading": "How long we keep it",
           "paragraphs": [
-            "Everything stays until it is deleted: by you, or by the loop's owner deleting the loop. When something is deleted it is removed from the database straight away, and its photos and voice notes are removed from storage moments later (if storage is briefly unavailable, we keep retrying).",
+            "Everything stays until it is deleted: by you, or by the loop's owner deleting the loop. When something is deleted it is removed from the database straight away, and its photos, videos, and voice notes are removed from storage moments later (if storage is briefly unavailable, we keep retrying).",
             "Our database provider keeps a short recovery history for a limited time, so deleted data can linger there for a few days before it ages out. Emails that already reached someone's inbox belong to them, and we can't recall them; our own stored copies of sent emails that name you are blanked when you delete your data."
           ]
         },

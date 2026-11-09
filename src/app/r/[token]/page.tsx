@@ -1,3 +1,4 @@
+import { videoUploadMode } from "@/lib/video-storage";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { formatMoment } from "@/lib/format";
@@ -129,6 +130,7 @@ export default async function ReplyPage({ params }: { params: Promise<{ token: s
       initialName={context.membership.name}
       reminderPreference={context.membership.reminderPreference}
       mutedUnsubscribeToken={context.membership.mutedAt ? context.membership.unsubscribeToken : null}
+      videoUploadMode={videoUploadMode()}
       questions={sheet.questions.map((question, index) => ({
         id: question.id,
         index: index + 1,
@@ -145,6 +147,9 @@ export default async function ReplyPage({ params }: { params: Promise<{ token: s
         photoUrl: question.photoUrl,
         audioUrl: question.audioUrl,
         audioDurationMs: question.audioDurationMs,
+        video: question.videoUrl && question.videoPosterUrl
+          ? { url: question.videoUrl, posterUrl: question.videoPosterUrl, durationMs: question.videoDurationMs ?? 0 }
+          : null,
         kind: question.kind,
         pollMultiple: question.pollMultiple,
         pollOptions: question.pollOptions,

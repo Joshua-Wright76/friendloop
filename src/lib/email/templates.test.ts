@@ -337,3 +337,24 @@ test("a charm sits beside the name in the answers, and never in the plain text",
   assert.doesNotMatch(email.html, /not-a-charm/);
   assert.doesNotMatch(email.text, /frog|moon/);
 });
+
+test("a video in the delivery email is its still, linked to the web issue with its length", () => {
+  const email = deliveryEmail({
+    groupName: "Loop",
+    issueNumber: 3,
+    url: "https://friendloop.dev/i/abc",
+    answers: [
+      {
+        question: "What did you see?",
+        author: "Alice",
+        body: "",
+        videoPosterUrl: "https://store.public.blob.vercel-storage.com/reply-photos/still.jpg",
+        videoDurationMs: 42_000,
+      },
+      { question: "What did you see?", author: "Bob", body: "Nothing much" },
+    ],
+  });
+  assert.match(email.html, /<a href="https:\/\/friendloop\.dev\/i\/abc"[^>]*><img src="https:\/\/store\.public\.blob\.vercel-storage\.com\/reply-photos\/still\.jpg" alt="Video from Alice, 0:42"/);
+  assert.match(email.html, /Video · 0:42\. <a href="https:\/\/friendloop\.dev\/i\/abc"[^>]*>Watch it on the web<\/a>/);
+  assert.equal(email.html.match(/still\.jpg/g)?.length, 1, "Bob's answer has no clip");
+});

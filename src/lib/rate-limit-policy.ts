@@ -34,6 +34,8 @@ export const LIMITS = {
   nudge: { max: 5, windowMs: DAY },
   /** Files through one link or loop. A full reply with a photo wall is a dozen at most. */
   upload: { max: 60, windowMs: HOUR },
+  /** Clips through one link, each up to 50 MB: one per answer and a couple on a wall, with retries. */
+  videoUpload: { max: 15, windowMs: HOUR },
   /** Links to a new address: enough for a typo and a retry. */
   emailChange: { max: 3, windowMs: HOUR },
   /** Feedback emails to whoever runs this, however many notes arrive. The rest still store. */
@@ -61,6 +63,7 @@ export const limitKey = {
   invite: (userId: string) => `invite:user:${userId}`,
   nudge: (groupId: string) => `nudge:group:${groupId}`,
   upload: (subject: string) => `upload:${subject}`,
+  videoUpload: (subject: string) => `upload:video:${subject}`,
   emailChange: (userId: string) => `email-change:user:${userId}`,
   feedbackNotify: () => "feedback:notify",
 };
