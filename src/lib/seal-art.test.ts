@@ -1,5 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { copy, text } from "./copy.ts";
 import { existsSync } from "node:fs";
 import {
   EMAIL_SEAL_SIZE,
@@ -65,12 +66,13 @@ test("a stamp carries the round's number only when it's given one", () => {
 
 test("a postmark rings the loop's name, escaped, and keeps a long one to one turn", () => {
   const svg = postmarkSvg({ loopName: "Tom & <Jerry>", number: 14, day: "8 NOV", year: "2026", id: "p" });
-  assert.match(svg, /TOM &amp; &lt;JERRY&gt; · ROUND 14 · /);
+  const round = (number: number) => text(copy.issue.round, { number }).toUpperCase();
+  assert.ok(svg.includes(`TOM &amp; &lt;JERRY&gt; · ${round(14)} · `));
   assert.match(svg, />8 NOV</);
   assert.match(svg, />2026</);
   const long = postmarkSvg({ loopName: "The Extremely Long Saturday Morning Pancake Society", number: 120, day: "1 JAN", year: "2027", id: "q" });
   assert.match(long, /…/);
-  assert.match(long, /ROUND 120/);
+  assert.ok(long.includes(round(120)));
   assert.equal(ringFontSize(1), 10.5);
   assert.equal(ringFontSize(500), 6.2);
   assert.equal(ringFontSize(0), 10.5);

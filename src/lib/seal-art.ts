@@ -1,3 +1,4 @@
+import { copy, text } from "./copy.ts";
 import { DEFAULT_WAX, WAX_COLORS, WAX_COLOR_KEYS, isWaxColor } from "./looks.ts";
 import { DEFAULT_MASCOT, MASCOT_KEYS, isMascotKey } from "./stickers.ts";
 
@@ -263,7 +264,7 @@ const RING_MAX = 44;
  * property, so it can lighten for dark paper.
  */
 export function postmarkSvg({ loopName, number, day, year, id }: PostmarkArt): string {
-  const round = `ROUND ${Math.max(0, Math.floor(number))}`;
+  const round = text(copy.issue.round, { number: Math.max(0, Math.floor(number)) }).toUpperCase();
   const name = [...loopName.toUpperCase()];
   const room = RING_MAX - round.length - 6;
   const shortName = name.length > room ? `${name.slice(0, room - 1).join("").trim()}…` : name.join("");
