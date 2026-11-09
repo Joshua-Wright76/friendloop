@@ -85,12 +85,16 @@ for (const [name, path] of LOOP_MANAGEMENT_PAGES) {
   }
 }
 
-test("WCAG AA · loop creation pickers and member-role focus", async ({ page }) => {
+test("WCAG AA · loop creation pickers and member-role focus in dark mode", async ({ page }) => {
   test.setTimeout(120_000);
   const loop = await seedLoop();
   await signIn(page, "owner@friendloop.test");
 
   await page.goto("/g/new");
+  // The original combined audit ended its theme loop in dark mode. Preserve that
+  // state explicitly for both picker audits and all subsequent focus interactions.
+  await page.getByRole("button", { name: /switch to dark mode/ }).click();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
   await page.getByRole("button", { name: /^Timezone:/ }).click();
   await audit(page, "/g/new?picker=open", false);
 
