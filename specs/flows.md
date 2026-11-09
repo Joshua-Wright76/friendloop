@@ -139,6 +139,16 @@ What were sections are items asked every round in the one list of things to ask 
 | J5 | Reading and the email snapshot | The round's web page renders a styled audio player; the delivery email renders a "Voice note · listen on the web" card (email never attempts to embed audio). | done |
 | J6 | Media parity | Audio files get long random names and are stored exactly like photos (local in dev, Blob in prod); share-link visitors can hear a shared round's notes under the same rules as photos. | done |
 
+## W · Video replies
+
+A written answer takes one short clip beside its words, photo and voice note, and a photo wall takes up to two among its six items. The browser shrinks a clip to 720p MP4 before sending it (keeping the first minute of anything longer); in production it goes straight to Blob, signed by the app, and the app checks its first bytes before an answer points at it.
+
+| ID | Flow | Acceptance criteria | Status |
+| --- | --- | --- | --- |
+| W1 | Attach a video | A written answer offers "Video" with the other attachments; picking a clip shows it being prepared and uploaded with progress, then the browser's player with a still from the clip. A clip alone is an answer, it comes back on the next visit, "Remove video" takes it off, and a file that isn't a video gets a plain-language error with nothing saved. Clips are served in byte ranges a player can seek. | done |
+| W2 | Videos on a photo wall | A photo wall offers "Add a video" beside "Add a photo", with the same optional caption; each person can add up to two clips among the wall's six items, and the button goes once they have. The delivered wall plays each clip in place, its still showing until then; clips don't open in the photo viewer. | done |
+| W3 | Reading a video | The round's page plays the clip with the browser's own player and downloads nothing until it is played; the delivery email shows the still linked to the round with the clip's length and "Watch it on the web"; the print view shows the still and where to watch; the Album lists it with the round's photos and voice notes, playable in place. | done |
+
 ## L · Polls
 
 | ID | Flow | Acceptance criteria | Status |

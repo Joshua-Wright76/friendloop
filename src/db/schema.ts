@@ -413,6 +413,10 @@ export const replies = pgTable(
     /** A recorded voice note riding alongside the text and photo. */
     audioUrl: text("audio_url"),
     audioDurationMs: integer("audio_duration_ms"),
+    /** A short video clip, with the still image that stands in for it wherever it can't play (email, print, the album grid). */
+    videoUrl: text("video_url"),
+    videoPosterUrl: text("video_poster_url"),
+    videoDurationMs: integer("video_duration_ms"),
     /** A poll answer: indexes into the snapshotted `pollOptions`. Empty on written answers. */
     pollChoices: jsonb("poll_choices").$type<number[]>().default([]).notNull(),
     /** A music answer's link, ahead of the code that writes it (`docs/questions-unify-design.md`). */
@@ -442,9 +446,13 @@ export const replyMedia = pgTable(
     replyId: uuid("reply_id")
       .references(() => replies.id, { onDelete: "cascade" })
       .notNull(),
+    /** The picture. On a video, its still image, so everything that only shows pictures still shows something. */
     url: text("url").notNull(),
     caption: text("caption"),
     position: integer("position").default(0).notNull(),
+    /** Set when this wall item is a video clip; `url` is then its still image. */
+    videoUrl: text("video_url"),
+    videoDurationMs: integer("video_duration_ms"),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => [index("reply_media_reply_idx").on(t.replyId)],

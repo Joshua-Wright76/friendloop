@@ -96,6 +96,9 @@ export type AnswerBlock = {
   photoUrl?: string | null;
   audioUrl?: string | null;
   audioDurationMs?: number | null;
+  /** A video clip's still image and length. The clip itself plays on the web. */
+  videoPosterUrl?: string | null;
+  videoDurationMs?: number | null;
   /** A music link that came with a written answer, and its title when known. */
   linkUrl?: string | null;
   linkTitle?: string | null;
@@ -233,6 +236,10 @@ function answersHtml(answers: AnswerBlock[], url: string, c: EmailPalette): stri
           const voice = answer.audioUrl
             ? `<div style="margin:14px 0 0;border:1px dashed ${c.lineStrong};border-radius:6px;padding:10px 12px;font:400 13px/1.5 ${BODY_FONT};color:${c.soft}">${escapeHtml(copy.emails.voiceNote.replace("{duration}", formatAudioDuration(answer.audioDurationMs ?? 0)))}. <a href="${escapeHtml(url)}" style="color:${c.accent}">${escapeHtml(copy.emails.voiceNoteListen)}</a></div>`
             : "";
+          // Nor video: the still links to the web issue, with the clip's length under it.
+          const video = answer.videoPosterUrl
+            ? `<a href="${escapeHtml(url)}" style="display:block;margin:14px 0 0;text-decoration:none"><img src="${escapeHtml(answer.videoPosterUrl)}" alt="${escapeHtml(text(copy.issue.videoLabel, { author: answer.author, duration: formatAudioDuration(answer.videoDurationMs ?? 0) }))}" width="520" style="display:block;width:100%;max-width:520px;border:1px solid ${c.line};border-radius:6px" /></a><div style="margin:6px 0 0;font:400 13px/1.5 ${BODY_FONT};color:${c.soft}">&#9654; ${escapeHtml(text(copy.emails.videoNote, { duration: formatAudioDuration(answer.videoDurationMs ?? 0) }))}. <a href="${escapeHtml(url)}" style="color:${c.accent}">${escapeHtml(copy.emails.videoNoteWatch)}</a></div>`
+            : "";
           const link = answer.linkUrl
             ? `<div style="margin:12px 0 0;font:400 15px/1.6 ${BODY_FONT};color:${c.ink}">${answer.linkTitle ? `<strong>${escapeHtml(answer.linkTitle)}</strong> ` : ""}<a href="${escapeHtml(answer.linkUrl)}" style="color:${c.accent}">${escapeHtml(musicLinkLabel(answer.linkUrl))}</a></div>`
             : "";
@@ -243,7 +250,7 @@ function answersHtml(answers: AnswerBlock[], url: string, c: EmailPalette): stri
           return `<div style="${divider}margin:16px 0 0">
   <div style="font:800 14px/1.5 ${BODY_FONT};color:${c.soft};margin:0 0 4px">${escapeHtml(answer.author)}${charmImage(answer.authorCharm)}</div>
   <div style="font:400 16px/1.65 ${BODY_FONT};color:${c.ink};white-space:pre-wrap">${escapeHtml(answer.body)}</div>
-  ${link}${photo}${voice}${note}
+  ${link}${photo}${video}${voice}${note}
 </div>`;
         })
         .join("");

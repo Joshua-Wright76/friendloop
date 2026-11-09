@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { comments, groups, mediaDeletions, memberships, replies, replyMedia, sectionMedia } from "@/db/schema";
 import { deleteStoredAudio } from "./media-storage.ts";
 import { deleteStoredPhoto } from "./photo-storage.ts";
+import { deleteStoredVideo, listStoredVideos } from "./video-storage.ts";
 
 /** The database, or a transaction on it: queueing has to ride in the caller's. */
 export type Executor = typeof db | Parameters<Parameters<typeof db.transaction>[0]>[0];
@@ -33,9 +34,14 @@ export async function queueMediaDeletion(
 /** Whether any row still shows this file; a shared file is never pulled out from under it. */
 export async function isMediaReferenced(url: string): Promise<boolean> {
   const checks = [
-    db.select({ id: replies.id }).from(replies).where(or(eq(replies.photoUrl, url), eq(replies.audioUrl, url))).limit(1),
+    db.select({ id: replies.id }).from(replies).where(or(
+      eq(replies.photoUrl, url),
+      eq(replies.audioUrl, url),
+      eq(replies.videoUrl, url),
+      eq(replies.videoPosterUrl, url),
+    )).limit(1),
     db.select({ id: comments.id }).from(comments).where(eq(comments.photoUrl, url)).limit(1),
-    db.select({ id: replyMedia.id }).from(replyMedia).where(eq(replyMedia.url, url)).limit(1),
+    db.select({ id: replyMedia.id }).from(replyMedia).where(or(eq(replyMedia.url, url), eq(replyMedia.videoUrl, url))).limit(1),
     // The legacy copy until the contract release drops it: a rollback would show it.
     db.select({ id: sectionMedia.id }).from(sectionMedia).where(eq(sectionMedia.url, url)).limit(1),
     db.select({ id: memberships.id }).from(memberships).where(eq(memberships.photoUrl, url)).limit(1),
@@ -49,12 +55,13 @@ export async function isMediaReferenced(url: string): Promise<boolean> {
 
 /**
  * Remove one stored file. Each storage layer only touches URLs it owns, so a
- * photo URL is a no-op for the audio layer and the other way round, and a URL
- * this app never stored is left alone by both.
+ * photo URL is a no-op for the audio and video layers and the other way round,
+ * and a URL this app never stored is left alone by all of them.
  */
 export async function removeStoredFile(url: string): Promise<void> {
   await deleteStoredPhoto(url);
   await deleteStoredAudio(url);
+  await deleteStoredVideo(url);
 }
 
 async function purgeOne(url: string, tries: number): Promise<boolean> {
@@ -104,4 +111,33 @@ export async function purgeQueuedMedia(limit = SWEEP_BATCH): Promise<number> {
     .orderBy(asc(mediaDeletions.createdAt))
     .limit(limit);
   return purgeMedia(queued.map((row) => row.url), 1);
+}
+
+/** A clip still unattached after this long was left by a browser that closed mid-answer. */
+export const ORPHAN_VIDEO_AGE_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * Remove clips uploaded straight to storage that no answer ever came to point
+ * at. Listing the store is a paid operation, so the sweep calls this hourly
+ * rather than every run. Returns how many it removed.
+ */
+export async function purgeOrphanVideos(at: Date, limit = SWEEP_BATCH): Promise<number> {
+  let candidates: string[];
+  try {
+    candidates = await listStoredVideos(new Date(at.getTime() - ORPHAN_VIDEO_AGE_MS), limit);
+  } catch (error) {
+    console.error("Unable to list stored videos; the sweep will try again", error);
+    return 0;
+  }
+  let removed = 0;
+  for (const url of candidates) {
+    if (await isMediaReferenced(url)) continue;
+    try {
+      await deleteStoredVideo(url);
+      removed += 1;
+    } catch (error) {
+      console.error("Unable to remove an unattached video; the sweep will try again", error);
+    }
+  }
+  return removed;
 }

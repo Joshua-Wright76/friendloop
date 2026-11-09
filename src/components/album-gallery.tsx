@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Avatar, NameCharm } from "@/components/avatar";
 import { PhotoLightbox, useLightbox } from "@/components/photo-lightbox";
 import { VoiceNote } from "@/components/voice-note";
+import { VideoClip } from "@/components/video-clip";
 import { formatAudioDuration } from "@/lib/audio-validation";
 import { copy, text } from "@/lib/copy";
 import type { AlbumItem } from "@/lib/album";
@@ -58,6 +59,20 @@ export function AlbumGallery({ groups }: { groups: GalleryGroup[] }) {
                       {/* eslint-disable-next-line @next/next/no-img-element -- Uploaded photos live on local URLs in development and Blob in production. */}
                       <img src={item.url} alt="" loading="lazy" />
                     </button>
+                    <Credit item={item} />
+                  </figure>
+                ) : item.kind === "video" ? (
+                  <figure className="card m-0 p-3">
+                    <VideoClip
+                      className="album-video"
+                      src={item.url}
+                      posterUrl={item.posterUrl ?? null}
+                      durationMs={item.durationMs}
+                      label={text(copy.album.videoFrom, {
+                        author: item.author,
+                        duration: formatAudioDuration(item.durationMs ?? 0),
+                      })}
+                    />
                     <Credit item={item} />
                   </figure>
                 ) : (

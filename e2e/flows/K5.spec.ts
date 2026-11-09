@@ -60,7 +60,7 @@ test("K5 · any written answer can carry a music link", async ({ page }) => {
   await expect(page.locator("[data-save-status]")).toHaveText(copy.reply.savedInRound);
 
   // On a phone the attachments fold behind one button.
-  const toggle = page.getByRole("button", { name: "Add a photo, sound or link" }).first();
+  const toggle = page.getByRole("button", { name: copy.reply.addAttachment }).first();
   if (await toggle.isVisible()) await toggle.click();
   await page.getByRole("button", { name: copyText(copy.a11yLabels.forQuestionNumber, { label: copy.reply.linkAdd, n: "1" }) }).click();
   const field = page.getByRole("textbox", { name: copyText(copy.a11yLabels.forQuestionNumber, { label: copy.reply.attachLink, n: "1" }) });
@@ -109,7 +109,7 @@ test("K5 · Remove link takes it off and keeps the words", async ({ page }) => {
   await page.goto(`/r/${alice.token}`);
   await waitForSheet(page);
   await page.getByLabel(copy.questionPacks[0].questions[0]).fill("Still funny.");
-  const toggle = page.getByRole("button", { name: "Add a photo, sound or link" }).first();
+  const toggle = page.getByRole("button", { name: copy.reply.addAttachment }).first();
   if (await toggle.isVisible()) await toggle.click();
   await page.getByRole("button", { name: copyText(copy.a11yLabels.forQuestionNumber, { label: copy.reply.linkAdd, n: "1" }) }).click();
   const field = page.getByRole("textbox", { name: copyText(copy.a11yLabels.forQuestionNumber, { label: copy.reply.attachLink, n: "1" }) });

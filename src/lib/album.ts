@@ -11,8 +11,10 @@ import {
 
 export type AlbumItem = {
   key: string;
-  kind: "photo" | "voice";
+  kind: "photo" | "voice" | "video";
   url: string;
+  /** A video's still image. Only on videos, so photos and voice notes read as they always have. */
+  posterUrl?: string;
   durationMs: number | null;
   /** The line the author put under a photo-wall photo; null everywhere else. */
   caption: string | null;
@@ -40,7 +42,7 @@ export type AlbumGroup = {
 
 export type AlbumView = {
   groups: AlbumGroup[];
-  /** Photos and voice notes matching the filters, across every screen. */
+  /** Photos, videos and voice notes matching the filters, across every screen. */
   total: number;
   shown: number;
   hasMore: boolean;
@@ -49,9 +51,10 @@ export type AlbumView = {
 };
 
 type Row = {
-  kind: "photo" | "voice";
+  kind: "photo" | "voice" | "video";
   key: string;
   url: string;
+  poster_url: string | null;
   duration_ms: number | null;
   caption: string | null;
   body: string;
@@ -80,7 +83,7 @@ function everything(groupId: string, viewerIsAdmin: boolean): SQL {
   const visible = sql`i.group_id = ${groupId} and i.status = 'delivered' and not r.never_sent
       and (q.admin_only = false or ${viewerIsAdmin})`;
   return sql`
-    select 'photo' as kind, 'photo-' || r.id::text as key, r.photo_url as url,
+    select 'photo' as kind, 'photo-' || r.id::text as key, r.photo_url as url, null::text as poster_url,
       null::integer as duration_ms, null::text as caption, r.body as body, q.text as context,
       i.id as issue_id, i.number as number, i.name as issue_name,
       coalesce(i.delivered_at, i.delivers_at) as delivered_at,
@@ -94,8 +97,8 @@ function everything(groupId: string, viewerIsAdmin: boolean): SQL {
     join memberships m on m.id = r.membership_id
     where ${visible} and r.photo_url is not null
     union all
-    select 'voice', 'voice-' || r.id::text, r.audio_url,
-      r.audio_duration_ms, null::text, r.body, q.text,
+    select 'video', 'video-' || r.id::text, r.video_url, r.video_poster_url,
+      r.video_duration_ms, null::text, r.body, q.text,
       i.id, i.number, i.name,
       coalesce(i.delivered_at, i.delivers_at), 'answer-' || r.id::text,
       m.id, m.name, m.email, m.photo_url, m.charm, m.avatar_frame,
@@ -104,10 +107,23 @@ function everything(groupId: string, viewerIsAdmin: boolean): SQL {
     join issues i on i.id = r.issue_id
     join issue_questions q on q.id = r.issue_question_id
     join memberships m on m.id = r.membership_id
+    where ${visible} and r.video_url is not null and r.video_poster_url is not null and not q.from_section
+    union all
+    select 'voice', 'voice-' || r.id::text, r.audio_url, null::text,
+      r.audio_duration_ms, null::text, r.body, q.text,
+      i.id, i.number, i.name,
+      coalesce(i.delivered_at, i.delivers_at), 'answer-' || r.id::text,
+      m.id, m.name, m.email, m.photo_url, m.charm, m.avatar_frame,
+      0, q.position, 2, r.created_at
+    from replies r
+    join issues i on i.id = r.issue_id
+    join issue_questions q on q.id = r.issue_question_id
+    join memberships m on m.id = r.membership_id
     where ${visible} and r.audio_url is not null and not q.from_section
     union all
-    select 'photo', 'media-' || rm.id::text, rm.url,
-      null::integer, rm.caption, r.body, q.text,
+    select (case when rm.video_url is null then 'photo' else 'video' end), 'media-' || rm.id::text,
+      coalesce(rm.video_url, rm.url), (case when rm.video_url is null then null else rm.url end),
+      rm.video_duration_ms, rm.caption, r.body, q.text,
       i.id, i.number, i.name,
       coalesce(i.delivered_at, i.delivers_at),
       (case when q.from_section then 'section-reply-' else 'answer-' end) || r.id::text,
@@ -183,6 +199,7 @@ export async function loadAlbum(input: {
       key: row.key,
       kind: row.kind,
       url: row.url,
+      ...(row.poster_url ? { posterUrl: row.poster_url } : {}),
       durationMs: row.duration_ms,
       caption: row.caption,
       body: row.body,

@@ -6,9 +6,10 @@ import { toggleReaction } from "./actions";
 import { CommentThread } from "./comment-thread";
 import { IssueBar } from "./issue-bar";
 import { VoiceNote } from "@/components/voice-note";
+import { VideoClip } from "@/components/video-clip";
 import { formatAudioDuration } from "@/lib/audio-validation";
 import type { IssueComment } from "@/lib/comment-view";
-import type { IssueAnswer, IssueBlock, IssuePoll, IssueSectionBlock, IssueSectionReplyBlock } from "@/lib/issue-view";
+import type { IssueAnswer, IssueBlock, IssueMedia, IssuePoll, IssueSectionBlock, IssueSectionReplyBlock } from "@/lib/issue-view";
 import type { PersonGroup } from "@/lib/issue-reading";
 import { Avatar, NameCharm } from "@/components/avatar";
 import { EmojiPicker } from "@/components/emoji-picker";
@@ -221,7 +222,7 @@ export function IssueBody({
 
 type WallEntry = {
   reply: Reactable & { authorPhotoUrl: string | null; authorFrame: string | null; authorCharm: string | null };
-  media: Array<{ url: string; caption: string | null }>;
+  media: IssueMedia[];
   /** Where the Album's "view in issue" lands for this person's photos. */
   anchor: string;
 };
@@ -236,7 +237,9 @@ function PhotoWall({ title, entries, talk, number }: { title: string; entries: W
   const tiles = entries.flatMap((entry) =>
     entry.media.map((item, mediaIndex) => ({ entry, item, first: mediaIndex === 0 })),
   );
-  const photos: LightboxPhoto[] = tiles.map(({ entry, item }) => ({
+  // Clips play where they are; only photos open in the viewer.
+  const photoTiles = tiles.filter(({ item }) => !item.videoUrl);
+  const photos: LightboxPhoto[] = photoTiles.map(({ entry, item }) => ({
     url: item.url,
     author: entry.reply.author,
     caption: item.caption,
@@ -246,23 +249,35 @@ function PhotoWall({ title, entries, talk, number }: { title: string; entries: W
   return (
     <>
       <div className="grid grid-cols-2 gap-2">
-        {tiles.map(({ entry, item, first }, index) => (
+        {tiles.map((tile) => {
+          const { entry, item, first } = tile;
+          return (
           <figure key={item.url} id={first ? entry.anchor : undefined} className="m-0 scroll-mt-4">
+            {item.videoUrl ? (
+              <VideoClip
+                src={item.videoUrl}
+                posterUrl={item.url}
+                durationMs={item.videoDurationMs}
+                label={text(copy.issue.videoLabel, { author: entry.reply.author, duration: formatAudioDuration(item.videoDurationMs ?? 0) })}
+              />
+            ) : (
             <button
               type="button"
               className="photo-wall-tile"
               aria-label={text(copy.album.openPhoto, { author: entry.reply.author, about: item.caption || title })}
-              onClick={(event) => lightbox.open(index, event.currentTarget)}
+              onClick={(event) => lightbox.open(photoTiles.indexOf(tile), event.currentTarget)}
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={item.url} alt="" loading="lazy" decoding="async" className="w-full rounded-lg border border-line object-cover" />
             </button>
+            )}
             <figcaption className="mt-1 text-[12.5px] leading-snug text-ink-soft">
               <span className="font-bold">{entry.reply.author}</span>
               {item.caption ? `, ${item.caption}` : null}
             </figcaption>
           </figure>
-        ))}
+          );
+        })}
       </div>
       <PhotoLightbox photos={photos} state={lightbox} />
       {/* A read-only copy shows a row only where someone has reacted or commented. */}
@@ -416,7 +431,7 @@ function AnswerCard({
             <li key={choice} className="chip border bg-accent-soft px-2.5 py-1 text-[13px] font-bold text-accent-ink">{choice}</li>
           ))}
         </ul>
-      ) : answer.body || !(answer.link || answer.media) ? (
+      ) : answer.body || !(answer.link || answer.media || answer.video) ? (
         <p className="answer-text mt-2 whitespace-pre-wrap text-[16px] leading-relaxed text-ink">
           {answer.body}
         </p>
@@ -433,8 +448,17 @@ function AnswerCard({
       ) : null}
       {(answer.media ?? []).map((item) => (
         <figure key={item.url} className="m-0 mt-3">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={item.url} alt={item.caption || text(copy.issue.photoAlt, { author: answer.author })} loading="lazy" decoding="async" className="w-full rounded-lg border border-line object-cover" />
+          {item.videoUrl ? (
+            <VideoClip
+              src={item.videoUrl}
+              posterUrl={item.url}
+              durationMs={item.videoDurationMs}
+              label={text(copy.issue.videoLabel, { author: answer.author, duration: formatAudioDuration(item.videoDurationMs ?? 0) })}
+            />
+          ) : (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={item.url} alt={item.caption || text(copy.issue.photoAlt, { author: answer.author })} loading="lazy" decoding="async" className="w-full rounded-lg border border-line object-cover" />
+          )}
           {item.caption ? <figcaption className="mt-1 text-[12.5px] leading-snug text-ink-soft">{item.caption}</figcaption> : null}
         </figure>
       ))}
@@ -447,6 +471,15 @@ function AnswerCard({
           loading="lazy"
           decoding="async"
           className="mt-3 w-full rounded-lg border border-line object-cover"
+        />
+      ) : null}
+      {answer.video ? (
+        <VideoClip
+          className="mt-3"
+          src={answer.video.url}
+          posterUrl={answer.video.posterUrl}
+          durationMs={answer.video.durationMs}
+          label={text(copy.issue.videoLabel, { author: answer.author, duration: formatAudioDuration(answer.video.durationMs) })}
         />
       ) : null}
       {answer.audioUrl ? (

@@ -198,7 +198,7 @@ function PrintAnswer({ answer }: { answer: IssueAnswer }) {
             </li>
           ))}
         </ul>
-      ) : answer.body || !(answer.link || answer.media) ? (
+      ) : answer.body || !(answer.link || answer.media || answer.video) ? (
         <p className="print-body">{answer.body}</p>
       ) : null}
       {answer.link ? <PrintMusic link={answer.link} /> : null}
@@ -206,13 +206,30 @@ function PrintAnswer({ answer }: { answer: IssueAnswer }) {
         <figure key={item.url} className="print-figure">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={item.url} alt={item.caption ? "" : text(copy.issue.photoAlt, { author: answer.author })} />
-          {item.caption ? <figcaption>{item.caption}</figcaption> : null}
+          {item.caption || item.videoUrl ? (
+            <figcaption>
+              {item.videoUrl ? text(copy.print.videoCard, { duration: formatAudioDuration(item.videoDurationMs ?? 0) }) : null}
+              {item.caption && item.videoUrl ? " " : null}
+              {item.caption}
+            </figcaption>
+          ) : null}
         </figure>
       ))}
       {answer.photoUrl ? (
         <figure className="print-figure">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={answer.photoUrl} alt={text(copy.issue.photoAlt, { author: answer.author })} />
+        </figure>
+      ) : null}
+      {answer.video ? (
+        // Paper can't play it: the still, and where to watch.
+        <figure className="print-figure">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={answer.video.posterUrl} alt={text(copy.issue.videoLabel, { author: answer.author, duration: formatAudioDuration(answer.video.durationMs) })} />
+          <figcaption>
+            <span aria-hidden="true">▶ </span>
+            {text(copy.print.videoCard, { duration: formatAudioDuration(answer.video.durationMs) })}
+          </figcaption>
         </figure>
       ) : null}
       {answer.audioUrl ? (

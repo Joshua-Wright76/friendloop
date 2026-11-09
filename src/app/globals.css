@@ -669,6 +669,9 @@ html:has(.wizard-navigation) { scroll-padding-block-end: min(calc(96px + env(saf
 .album-grid > .album-voice { grid-column: 1 / -1; }
 .album-tile { display: block; width: 100%; aspect-ratio: 1; padding: 0; overflow: hidden; border: 1px solid var(--line-strong); border-radius: 6px; background: var(--accent-soft); cursor: pointer; box-shadow: var(--shadow); }
 .album-tile > img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.album-video { border-color: var(--line-strong); border-radius: 6px; box-shadow: var(--shadow); }
+.album-video video { aspect-ratio: 1; object-fit: cover; }
+.album-video[data-started] video { object-fit: contain; }
 .album-avatar { width: 22px; height: 22px; font-size: 11px; }
 .album-viewer { width: min(920px, calc(100vw - 20px)); max-width: none; max-height: calc(100dvh - 20px); margin: auto; padding: clamp(14px, 3vw, 22px); overflow-y: auto; border: 1px solid var(--line-strong); border-radius: 8px; background: var(--card); color: var(--ink); box-shadow: var(--shadow-lift); }
 .photo-wall-tile { display: block; width: 100%; padding: 0; border: 0; border-radius: 8px; background: none; cursor: zoom-in; }
@@ -800,6 +803,15 @@ html:has(.wizard-navigation) { scroll-padding-block-end: min(calc(96px + env(saf
 .voice-note__track::-moz-range-progress { height: 5px; border-radius: 999px; background: var(--accent); }
 .voice-note__track::-webkit-slider-thumb { width: 16px; height: 16px; margin-top: -5.5px; border: 2px solid var(--card); border-radius: 50%; background: var(--accent); appearance: none; -webkit-appearance: none; }
 .voice-note__track::-moz-range-thumb { width: 12px; height: 12px; border: 2px solid var(--card); border-radius: 50%; background: var(--accent); }
+
+/* A video clip: the browser's player on a card-coloured mat, its length on the still until it plays. */
+.video-clip { position: relative; overflow: hidden; border: 1px solid var(--line); border-radius: 8px; background: var(--accent-soft); }
+.video-clip video { display: block; width: 100%; max-height: 70dvh; background: #140c0e; }
+.video-clip__length { position: absolute; top: 8px; left: 8px; display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 999px; background: rgb(20 12 14 / .72); color: #fff; font-size: 12px; font-weight: 800; line-height: 1.5; pointer-events: none; }
+.video-clip[data-started] .video-clip__length { display: none; }
+/* A clip waiting in a photo-wall row on the reply sheet. */
+.wall-video-thumb { position: relative; display: block; flex: none; }
+.wall-video-thumb::after { content: ""; position: absolute; inset: 0; margin: auto; width: 22px; height: 22px; border-radius: 50%; background: rgb(20 12 14 / .62) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M4 2.5v7L9.5 6z' fill='white'/%3E%3C/svg%3E") center / 12px no-repeat; }
 
 /* Evening: pictures and embeds step back so friends' words lead. */
 html[data-theme="dark"] .loop-banner { filter: brightness(.68) saturate(.85); }
