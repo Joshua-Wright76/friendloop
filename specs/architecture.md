@@ -569,6 +569,9 @@ don't appear in those rounds now that drafts are answers. `never_sent` is the on
 thing that keeps them out; the status columns can be dropped in a later release.
 
 Because a half-finished sentence is an answer, a round stays a surprise until it
-goes out: before delivery, the round's page shows each member only their own
-answers (as polls already did), and the owner's loop archive leaves the open round
-out. Everyone sees everything once it is delivered.
+goes out: before delivery, the round's page shows a member only their own answers.
+The owner and admins see everyone's there, as a preview ("Preview round" on the
+overview, "Preview the round" in Rounds), read-only: no reactions or comments on a
+draft, and poll tallies still wait for delivery. The reply sheet says whoever runs
+the loop can read answers before they go out, and the privacy policy says the same.
+Everyone sees everything once it is delivered.

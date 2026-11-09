@@ -26,7 +26,7 @@ test("D4 · the sheet names the deadline in the loop's own clock, and says what 
   // and their own time first when their device is somewhere else.
   await expect(page.getByText(/^Goes out on (.+ your time \()?Fri 9 Jan, 9:05 AM( in Amsterdam\))?$/)).toBeVisible();
   // There is no send step, so half a thought goes out too: the sheet says so beside the deadline.
-  await expect(page.getByText("Everything you write here goes out then, finished or not. Clear an answer to leave it out.")).toBeVisible();
+  await expect(page.getByText("Everything you write here goes out then, finished or not, and whoever runs the loop can read it before. Clear an answer to leave it out.")).toBeVisible();
 });
 
 test("D4 · typing saves the answer into the round, and it survives a reload", async ({ page }) => {

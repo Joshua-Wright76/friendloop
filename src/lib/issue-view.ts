@@ -212,11 +212,12 @@ export async function loadIssue(input: {
   ]);
 
   // A round is a surprise until it goes out. Whatever someone has written counts
-  // as their answer, half-finished sentences included, so before delivery the only
-  // answers anyone sees are their own; poll results wait the same way. Owners-only
-  // items are for the owner and admins.
+  // as their answer, half-finished sentences included, so before delivery a member
+  // sees only their own; the owner and admins see everyone's, as a preview of the
+  // round. Poll results wait for delivery whoever is reading. Owners-only items are
+  // for the owner and admins.
   const delivered = issue.status === "delivered";
-  const visibleNow = (membershipId: string) => delivered || membershipId === viewerMembershipId;
+  const visibleNow = (membershipId: string) => delivered || Boolean(input.viewerIsAdmin) || membershipId === viewerMembershipId;
   const shown = asked.filter((question) => !question.adminOnly || input.viewerIsAdmin);
   const shownIds = new Set(shown.map((question) => question.id));
   const rows = allRows.filter((row) => shownIds.has(row.issueQuestionId) && visibleNow(row.membershipId));

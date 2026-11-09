@@ -634,6 +634,7 @@
     "sendNow": "Send now",
     "answerRound": "Answer round {number}",
     "editAnswers": "Edit your answers",
+    "previewRound": "Preview round",
     "resume": "Resume",
     "pause": "Pause",
     "welcome": "Loop created.",
@@ -934,6 +935,7 @@
     "answer": "1 person answered",
     "answers": "{count} people answered",
     "read": "Read the round",
+    "preview": "Preview the round",
     "empty": "No rounds yet. The first one opens as soon as the loop does.",
     "firstRoundAction": "Back to the loop",
     "rename": "Name this round",
@@ -1029,7 +1031,7 @@
     "nameError": "Your name wasn't saved.",
     "round": "Round {number}",
     "closes": "Goes out {deadline}",
-    "goesOutNote": "Everything you write here goes out then, finished or not. Clear an answer to leave it out.",
+    "goesOutNote": "Everything you write here goes out then, finished or not, and whoever runs the loop can read it before. Clear an answer to leave it out.",
     "viewerTimezone": "your time ({time})",
     "confirmation": {
       "title": "All set",
@@ -1188,6 +1190,10 @@
     "answers": "{count} answers from the group.",
     "deliveredOn": "Delivered {date}.",
     "goesOutOn": "Goes out {date}.",
+    "preview": {
+      "note": "A preview of the round as it stands. People can change their answers until it goes out, and only the owner and admins can read it before then. Reactions and comments open when it goes out.",
+      "back": "Back to the loop"
+    },
     "reading": {
       "label": "Reading this round",
       "peopleLabel": "Show answers from",
@@ -1848,6 +1854,7 @@
   "a11yLabels": {
     "required": "(required)",
     "readRound": "Read the round: {title}",
+    "previewRound": "Preview the round: {title}",
     "renameRound": "Name this round: {title}",
     "renameNamedRound": "Rename {title}",
     "resendInvite": "Resend invite: {name}",
@@ -1971,7 +1978,7 @@
     "privacyLink": "Privacy",
     "termsLink": "Terms",
     "lastUpdated": "Last updated {date}.",
-    "updatedOn": "November 7, 2026",
+    "updatedOn": "November 8, 2026",
     "contactHeading": "Questions",
     "contactBody": "Write to",
     "export": {
@@ -1999,7 +2006,7 @@
         {
           "heading": "Who can see it",
           "paragraphs": [
-            "The people in your loop see the answers you write, your name and photo, your comments and reactions. An answer is part of the round as soon as it saves: nobody else sees it until the round goes out, and then everyone gets it. Clear an answer before then to take it out. The owner and admins also see members' email addresses and who has answered so far.",
+            "The people in your loop see the answers you write, your name and photo, your comments and reactions. An answer is part of the round as soon as it saves: the owner and admins can read it while the round is open, and everyone else sees it when the round goes out. Clear an answer before then to take it out. The owner and admins also see members' email addresses and who has answered so far.",
             "If you reply to a loop's email, your reply goes straight to the loop's owner, since their address is set as the reply-to. So members can see the owner's address when they reply.",
             "If the loop's owner turns on share links, anyone holding a round's share link can read that round. They are off unless the owner turns them on, and the owner can replace them at any time.",
             "Photos and voice notes are stored at long, unguessable web addresses. Anyone given one of those addresses can open that file."
