@@ -122,9 +122,11 @@ jobs:
   # so one runner took ~28 minutes. Shards each get their own runner and their
   # own Postgres, and none of them wait for `verify`: the two gates are
   # independent. Playwright shards by test count, not duration, so slow tests
-  # that sit together in file order all land in one shard. Hence three groups,
-  # each sharded on its own: the flows, the WCAG checks, and the per-page/theme
-  # stationery sweeps, which use four shards now their long loops are split. The
+  # that sit together in file order all land in one shard. In three-worker run
+  # 42578068946, flows 3/3 took 215s (137s suite) and WCAG 3/5 took 203s (116s
+  # suite) behind a 78s shared build, in a 305s overall run. Hence three groups,
+  # each sharded on its own: four flows shards and six WCAG shards to shorten
+  # those tails, plus four stationery shards now their long loops are split. The
   # greps on the shared title prefixes make the groups exact complements. Each job
   # runs three app/browser workers, each with its own database and server
   # (e2e/support/parallel.ts), on the runners' four cores; scripts/e2e-db.mjs sets
@@ -147,14 +149,16 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { group: flows, shard: 1, of: 3 }
-          - { group: flows, shard: 2, of: 3 }
-          - { group: flows, shard: 3, of: 3 }
-          - { group: wcag, shard: 1, of: 5 }
-          - { group: wcag, shard: 2, of: 5 }
-          - { group: wcag, shard: 3, of: 5 }
-          - { group: wcag, shard: 4, of: 5 }
-          - { group: wcag, shard: 5, of: 5 }
+          - { group: flows, shard: 1, of: 4 }
+          - { group: flows, shard: 2, of: 4 }
+          - { group: flows, shard: 3, of: 4 }
+          - { group: flows, shard: 4, of: 4 }
+          - { group: wcag, shard: 1, of: 6 }
+          - { group: wcag, shard: 2, of: 6 }
+          - { group: wcag, shard: 3, of: 6 }
+          - { group: wcag, shard: 4, of: 6 }
+          - { group: wcag, shard: 5, of: 6 }
+          - { group: wcag, shard: 6, of: 6 }
           - { group: stationery, shard: 1, of: 4 }
           - { group: stationery, shard: 2, of: 4 }
           - { group: stationery, shard: 3, of: 4 }
