@@ -85,6 +85,8 @@ const isCard = (item: SheetQuestion) => item.format === "photo_wall" || item.for
 type Props = {
   token: string;
   loopName: string;
+  /** The loop page, when the person signed in here is the one this link belongs to. */
+  loopHref?: string | null;
   loopTimezone: string;
   roundNumber: number;
   roundName: string | null;
@@ -130,6 +132,7 @@ type AudioStatus = "idle" | "recording" | "uploading" | "saved" | "removing" | "
 export function ReplySheet({
   token,
   loopName,
+  loopHref,
   loopTimezone,
   roundNumber,
   roundName,
@@ -175,6 +178,14 @@ export function ReplySheet({
   );
   const [finishFailed, setFinishFailed] = useState(false);
   const musicSaved = useRef<Record<string, string>>({});
+  // A music link on a written answer: what the field holds, and what the server last took.
+  const [links, setLinks] = useState<Record<string, string>>(() =>
+    Object.fromEntries(questions.map((question) => [question.id, question.linkUrl])),
+  );
+  const linksSaved = useRef<Record<string, string>>(Object.fromEntries(questions.map((question) => [question.id, question.linkUrl])));
+  const [linkOpen, setLinkOpen] = useState<Record<string, boolean>>({});
+  const [linkStates, setLinkStates] = useState<Record<string, "idle" | "saving" | "saved" | "error">>({});
+  const [linkErrors, setLinkErrors] = useState<Record<string, string | null>>({});
   const [linkGuard, setLinkGuard] = useState(false);
   const [conflicts, setConflicts] = useState<Record<string, string | null>>({});
   const lastSaved = useRef(new Map(questions.map((question) => [question.id, question.body])));
@@ -303,9 +314,10 @@ export function ReplySheet({
         ? (pollPicks[question.id] ?? []).length > 0 && pollStatuses[question.id] !== "error"
         : (bodies[question.id] ?? "").trim().length > 0 ||
           Boolean(photoUrls[question.id]) ||
-          Boolean(audioUrls[question.id]),
+          Boolean(audioUrls[question.id]) ||
+          (links[question.id] ?? "").trim().length > 0,
     ).map((question) => question.id)),
-    [audioUrls, bodies, photoUrls, pollPicks, pollStatuses, questions],
+    [audioUrls, bodies, links, photoUrls, pollPicks, pollStatuses, questions],
   );
   const cardDone = useCallback((id: string) =>
     (sectionLinks[id] ?? "").trim().length > 0 || (sectionMediaLists[id] ?? []).length > 0,
@@ -371,7 +383,9 @@ export function ReplySheet({
     ? `${atMoment(viewerTime)} ${text(copy.reply.viewerTimezone, { time: `${deadlineMoment} in ${timezonePlace(loopTimezone)}` })}`
     : atMoment(deadlineMoment);
   // A refused music link and an unsaved extra are different problems with different words.
-  const sectionFailed = sections.some((section) => section.kind === "music" && sectionSaveStates[section.id] === "error");
+  const sectionFailed =
+    sections.some((section) => section.kind === "music" && sectionSaveStates[section.id] === "error") ||
+    questions.some((question) => linkStates[question.id] === "error");
   const extraFailed = sections.some((section) => section.kind !== "music" && sectionSaveStates[section.id] === "error");
   const pollFailed = questions.some((question) => pollStatuses[question.id] === "error");
   const attachFailed = questions.some((question) =>
@@ -811,6 +825,30 @@ export function ReplySheet({
     }
   })()), [sectionCaptions, sectionLinks, token, trackSectionSave]);
 
+  // A written answer's music link; an empty one takes it off. Done waits for it like a pick, and one
+  // card's saves go one after another, so a quick change then Remove lands in that order.
+  const linkQueue = useRef<Record<string, Promise<unknown>>>({});
+  const saveLink = useCallback((questionId: string, url: string) => {
+    const send = async () => {
+      setLinkStates((current) => ({ ...current, [questionId]: "saving" }));
+      // Clear first, so the same failure twice is announced twice.
+      setLinkErrors((current) => ({ ...current, [questionId]: null }));
+      const result = await postReply(token, { action: "link", issueQuestionId: questionId, url }, copy.reply.errors.sectionSaveFailed);
+      if (result.ok) {
+        linksSaved.current[questionId] = url;
+        setLinkStates((current) => ({ ...current, [questionId]: "saved" }));
+        forgetPick(token, linkPickId(questionId));
+      } else {
+        setLinkStates((current) => ({ ...current, [questionId]: "error" }));
+        setLinkErrors((current) => ({ ...current, [questionId]: result.error }));
+        rememberPick(token, linkPickId(questionId), { url, caption: "", error: result.error });
+      }
+    };
+    const run = (linkQueue.current[questionId] ?? Promise.resolve()).then(send);
+    linkQueue.current[questionId] = run;
+    trackSectionSave(run);
+  }, [token, trackSectionSave]);
+
   // Words the server hasn't got stay on this device, so a reload or a dropped connection can't lose them.
   useEffect(() => {
     const frame = requestAnimationFrame(() => {
@@ -820,6 +858,14 @@ export function ReplySheet({
         if (kept === null) continue;
         setPollPicks((current) => ({ ...current, [question.id]: JSON.parse(kept) as number[] }));
         setPollStatuses((current) => ({ ...current, [question.id]: "error" }));
+      }
+      for (const question of questions) {
+        if (question.kind === "poll") continue;
+        const kept = recallPick(token, linkPickId(question.id));
+        if (!kept) continue;
+        setLinks((current) => ({ ...current, [question.id]: kept.url }));
+        setLinkStates((current) => ({ ...current, [question.id]: "error" }));
+        setLinkErrors((current) => ({ ...current, [question.id]: kept.error }));
       }
       for (const section of sections) {
         if (section.kind === "music") {
@@ -1171,10 +1217,20 @@ export function ReplySheet({
       setSectionSaveStates((current) => ({ ...current, [section.id]: "idle" }));
       setSectionErrors((current) => ({ ...current, [section.id]: null }));
     }
+    // A written answer keeps the link it last saved, if any.
+    for (const question of questions) {
+      if (linkStates[question.id] !== "error") continue;
+      forgetPick(token, linkPickId(question.id));
+      setLinks((current) => ({ ...current, [question.id]: linksSaved.current[question.id] ?? "" }));
+      setLinkStates((current) => ({ ...current, [question.id]: "idle" }));
+      setLinkErrors((current) => ({ ...current, [question.id]: null }));
+    }
   };
 
   const fixBadLink = () => {
-    const failed = sections.find((section) => section.kind === "music" && sectionSaveStates[section.id] === "error")?.id;
+    const failedSection = sections.find((section) => section.kind === "music" && sectionSaveStates[section.id] === "error")?.id;
+    const failedLink = questions.find((question) => linkStates[question.id] === "error")?.id;
+    const failed = failedSection ? `section-link-${failedSection}` : failedLink ? `link-${failedLink}` : null;
     setLinkGuard(false);
     if (!failed) {
       const question = questions.find((candidate) =>
@@ -1187,7 +1243,7 @@ export function ReplySheet({
       }
     }
     if (failed) {
-      const field = document.getElementById(`section-link-${failed}`);
+      const field = document.getElementById(failed);
       field?.focus({ preventScroll: true });
       field?.scrollIntoView({ block: "center" });
     }
@@ -1391,9 +1447,16 @@ export function ReplySheet({
             </p>
             {droppedPick || sectionFailed ? <p role="status" className="m-0 mt-3 text-[14px] font-bold leading-relaxed text-danger">{copy.reply.pickNotSaved}</p> : null}
             {droppedAttachment || attachFailed ? <p role="status" className="m-0 mt-3 text-[14px] font-bold leading-relaxed text-danger">{copy.reply.attachDropped}</p> : null}
-            <button type="button" onClick={editAnswers} className="btn btn-primary mt-6 min-h-12 w-full sm:w-auto sm:px-8">
-              {copy.reply.confirmation.edit}
-            </button>
+            <div className="mt-6 flex flex-col items-stretch justify-center gap-3 sm:flex-row sm:items-center">
+              <button type="button" onClick={editAnswers} className="btn btn-primary min-h-12 sm:px-8">
+                {copy.reply.confirmation.edit}
+              </button>
+              {loopHref ? (
+                <Link href={loopHref} className="btn btn-quiet min-h-12 sm:px-8">
+                  {text(copy.reply.confirmation.loop, { loop: loopName })}
+                </Link>
+              ) : null}
+            </div>
             <p className="m-0 mt-3">
               <Link href={`/r/${token}/suggest`} className="link">{copy.reply.suggestLink}</Link>
             </p>
@@ -1610,9 +1673,56 @@ export function ReplySheet({
                 />
               ) : null}
 
+              {linkOpen[question.id] || links[question.id] ? (
+                <div className="mt-3">
+                  <label htmlFor={`link-${question.id}`} className="block text-[13px] font-bold text-ink-soft">{copy.reply.linkLabel}</label>
+                  <input
+                    id={`link-${question.id}`}
+                    value={links[question.id] ?? ""}
+                    onChange={(event) => setLinks((current) => ({ ...current, [question.id]: event.target.value }))}
+                    onBlur={(event) => {
+                      // Leaving the field is the save, unless it is for the button that takes the link off.
+                      if ((event.relatedTarget as HTMLElement | null)?.id === `remove-link-${question.id}`) return;
+                      const link = event.currentTarget.value.trim();
+                      if (link !== (linksSaved.current[question.id] ?? "") || linkStates[question.id] === "error") void saveLink(question.id, link);
+                    }}
+                    placeholder={copy.reply.sectionMusicPlaceholder}
+                    inputMode="url"
+                    maxLength={500}
+                    disabled={finishing}
+                    aria-label={forQuestion(copy.reply.linkLabel)}
+                    className="field mt-1 h-[46px] py-0"
+                  />
+                  <div className="flex flex-wrap items-center gap-x-3 empty:hidden">
+                    <button
+                      id={`remove-link-${question.id}`}
+                      type="button"
+                      className="link link--quiet min-h-11 cursor-pointer aria-disabled:cursor-not-allowed aria-disabled:opacity-45"
+                      aria-label={forQuestion(copy.reply.linkRemove)}
+                      aria-disabled={finishing ? true : undefined}
+                      onClick={() => {
+                        if (finishing) return;
+                        // The field goes with the link; the button that opens it again takes focus.
+                        pendingFocus.current = [`add-link-${question.id}`];
+                        setLinks((current) => ({ ...current, [question.id]: "" }));
+                        setLinkOpen((current) => ({ ...current, [question.id]: false }));
+                        forgetPick(token, linkPickId(question.id));
+                        if (linksSaved.current[question.id] || linkStates[question.id] === "error") void saveLink(question.id, "");
+                      }}
+                    >
+                      {copy.reply.linkRemove}
+                    </button>
+                    <span aria-live="polite" className="text-[13px] text-ink-muted empty:hidden">
+                      {linkStates[question.id] === "saving" ? copy.reply.sectionSaving : linkStates[question.id] === "saved" && links[question.id] ? copy.reply.sectionDraftSaved : null}
+                    </span>
+                  </div>
+                  {linkErrors[question.id] ? <p role="alert" className="m-0 text-[13px] leading-relaxed text-danger">{linkErrors[question.id]}</p> : null}
+                </div>
+              ) : null}
+
               {/* Photo and voice share one quiet row inside the card they belong to. */}
               {/* On a phone the three attachment buttons fold behind one, so a long round isn't three buttons a card. */}
-              {!(photoUrl || preview || audioUrl || attachOpen[question.id]) ? (
+              {!(photoUrl || preview || audioUrl || links[question.id] || attachOpen[question.id]) ? (
                 <button
                   type="button"
                   className="attach-toggle"
@@ -1627,7 +1737,7 @@ export function ReplySheet({
                   {copy.reply.addAttachment}
                 </button>
               ) : null}
-              <div className="attach-row" id={`attach-${question.id}`} data-folded={photoUrl || preview || audioUrl || attachOpen[question.id] ? undefined : ""}>
+              <div className="attach-row" id={`attach-${question.id}`} data-folded={photoUrl || preview || audioUrl || links[question.id] || attachOpen[question.id] ? undefined : ""}>
                 <div className="contents">
                   <input
                     id={`photo-${question.id}`}
@@ -1737,6 +1847,23 @@ export function ReplySheet({
                   )}
                 </div>
                 ) : null}
+                {linkOpen[question.id] || links[question.id] ? null : (
+                  <button
+                    id={`add-link-${question.id}`}
+                    type="button"
+                    className="attach-btn aria-disabled:cursor-not-allowed aria-disabled:opacity-45"
+                    aria-label={forQuestion(copy.reply.linkAdd)}
+                    aria-disabled={finishing ? true : undefined}
+                    onClick={() => {
+                      if (finishing) return;
+                      pendingFocus.current = [`link-${question.id}`];
+                      setLinkOpen((current) => ({ ...current, [question.id]: true }));
+                    }}
+                  >
+                    <svg viewBox="0 0 20 20" aria-hidden="true" className="attach-btn__icon"><path d="M8.6 11.4a3 3 0 0 0 4.2 0l2.6-2.6a3 3 0 0 0-4.2-4.2l-.9.9M11.4 8.6a3 3 0 0 0-4.2 0l-2.6 2.6a3 3 0 0 0 4.2 4.2l.9-.9" /></svg>
+                    {copy.reply.attachLink}
+                  </button>
+                )}
               </div>
               {/* Said once, on the first question: the same note under every card is noise. */}
               {!canRecord && !audioUrl && !isRecordingHere && question.id === firstWrittenId ? (
@@ -1891,6 +2018,10 @@ function letGo(key: string) {
 }
 function recall(key: string): string | null {
   try { return localStorage.getItem(key); } catch { return null; }
+}
+/** A written answer's link is kept on the device like a pick, under its own key. */
+function linkPickId(questionId: string) {
+  return `link:${questionId}`;
 }
 function rememberPick(token: string, sectionId: string, pick: KeptPick) {
   try { localStorage.setItem(pickKey(token, sectionId), JSON.stringify(pick)); } catch { /* Private mode: the page still shows it. */ }

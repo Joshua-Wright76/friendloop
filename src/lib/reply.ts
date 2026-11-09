@@ -695,6 +695,27 @@ export async function saveMusicFor(input: {
   return { ok: true, savedAt: at.toISOString() };
 }
 
+/**
+ * A music link on a written answer, beside its words, photo or voice note. The
+ * words are left alone; an empty link takes the link off.
+ */
+export async function saveLinkFor(input: {
+  token: string;
+  issueQuestionId: string;
+  url: string;
+}): Promise<MusicWriteResult> {
+  const gate = await ensureWritableQuestion(input.token, input.issueQuestionId);
+  if (!gate.ok) return gate.result;
+
+  const url = input.url.trim();
+  const check = url ? checkMusicLink(url) : null;
+  if (check && !check.ok) return { ok: false, status: 400, error: check.error };
+
+  const at = await getNow();
+  await touchReply(gate, check?.ok ? { linkUrl: url, linkProvider: check.provider } : { linkUrl: null, linkProvider: null }, at);
+  return { ok: true, savedAt: at.toISOString() };
+}
+
 export type WallPhotoWriteResult =
   | { ok: true; savedAt: string; mediaId: string; url: string }
   | { ok: false; status: 400 | 403 | 404 | 409 | 413 | 415 | 500; error: string };

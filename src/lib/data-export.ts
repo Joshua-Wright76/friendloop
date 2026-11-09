@@ -60,12 +60,13 @@ function photosOf(reply: ReplyRow, media: MediaRow[], includePhotoUrl: boolean) 
   ];
 }
 
-/** What a photo wall or music answer adds to an exported answer. */
+/** What a photo wall, a music pick or a written answer's link adds to an exported answer. */
 function answerExtras(question: QuestionRow, reply: ReplyRow, media: MediaRow[]) {
   const format = formatOf(question);
   if (format === "music") return { linkUrl: reply.linkUrl };
   if (format === "photo_wall") return { photos: photosOf(reply, media, false) };
-  return {};
+  // A written answer can carry a music link too.
+  return reply.linkUrl ? { linkUrl: reply.linkUrl } : {};
 }
 
 async function mediaFor(replyIds: string[]): Promise<MediaRow[]> {

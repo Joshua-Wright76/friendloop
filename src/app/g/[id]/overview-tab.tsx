@@ -172,6 +172,10 @@ export default function OverviewTab({ welcome, nudged }: { welcome?: string; nud
             {answerHref && viewerIsIn ? (
               <Link href={answerHref} prefetch={false} className="btn btn-quiet">{copy.loop.editAnswers}</Link>
             ) : null}
+            {/* The owner and admins can read the round as it stands before it goes out. */}
+            {manages ? (
+              <Link href={`/i/${liveIssue.id}`} prefetch={false} className="btn btn-quiet">{copy.loop.previewRound}</Link>
+            ) : null}
             <Link href={`/g/${group.id}/issues`} className="link">{copy.loop.seeRound}</Link>
           </div>
         </section>

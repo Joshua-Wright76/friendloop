@@ -110,6 +110,15 @@ export default function IssuesTab({
                 >
                   {copy.rounds.read}
                 </Link>
+              ) : membership.access !== "member" ? (
+                <Link
+                  href={`/i/${round.id}`}
+                  prefetch={false}
+                  aria-label={text(copy.a11yLabels.previewRound, { title: issueTitle(copy.rounds.round, round.number, round.name) })}
+                  className="link"
+                >
+                  {copy.rounds.preview}
+                </Link>
               ) : null}
 
             {isOwner ? (
