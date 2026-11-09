@@ -99,6 +99,7 @@ test("every email the product sends has a preview", () => {
     previews.map((preview) => preview.id).sort(),
     [
       "delivery",
+      "deliveryCovered",
       "deliveryMarked",
       "deliveryPeople",
       "deliveryPostmarked",
