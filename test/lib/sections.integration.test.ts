@@ -22,6 +22,7 @@ import { answeredMemberIds } from "../../src/lib/answered.ts";
 import { resetDatabase, rows, seedLoop, setEnv, setupDatabase } from "../support/app.ts";
 import { AFTER_FIRST_SLOT } from "../../e2e/support/clock.ts";
 import { makePng, makeWebm } from "../../e2e/support/audio.ts";
+import { makeUndeletable } from "../support/uploads.ts";
 import { clearRequest, setRequestHeaders } from "../stubs/request.mjs";
 import { copy } from "@/lib/copy";
 
@@ -378,18 +379,14 @@ test("storage failures are warm refusals, never crashes", async (t) => {
 });
 
 test("a photo that cannot be cleaned up still reports the removal, loudly but safely", async (t) => {
-  const { chmod } = await import("node:fs/promises");
-  const uploadsDirectory = path.join(process.cwd(), "public", "uploads");
   const wall = await openSection({ kind: "photo_wall" });
   const saved = await saveWallPhotoFor({ token: wall.token, issueQuestionId: wall.issueSectionId, bytes: png(), contentType: "image/png", caption: "", position: 0 });
   assert.ok(saved.ok);
 
-  // Unlink needs the directory, not the file: take the write bit away and the
-  // removal still answers, it just logs what couldn't leave.
-  await chmod(uploadsDirectory, 0o500);
-  t.after(async () => { await chmod(uploadsDirectory, 0o755).catch(() => undefined); });
+  // The file won't go: the removal still answers, it just logs what couldn't leave.
+  await makeUndeletable(t, saved.url);
   const removed = await removeWallPhotoFor({ token: wall.token, issueQuestionId: wall.issueSectionId, mediaId: saved.mediaId });
-  assert.equal(removed.ok, true);
+  assert.equal(removed.ok, true);  assert.equal(existsSync(uploaded(saved.url)), true, "the file really did refuse");
 });
 
 test("link checks accept the three providers and refuse everything else", () => {

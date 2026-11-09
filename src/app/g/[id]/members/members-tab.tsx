@@ -175,6 +175,8 @@ export default function MembersTab({ notices }: {
           );
         })}
       </ul>
+      {/* The role picker says "Admin"; this says what that means. */}
+      {manages && people.length > 1 ? <p className="mt-3 text-[13px] leading-relaxed text-ink-muted">{copy.members.rolesHint}</p> : null}
     </main>
   );
 }

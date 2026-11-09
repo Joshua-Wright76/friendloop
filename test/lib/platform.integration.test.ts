@@ -17,6 +17,8 @@ import {
   previewCookieValue,
   previewKeyMatches,
   previewSecret,
+  capturedInboxAllowed,
+  requireCapturedInbox,
   requireUiPreview,
   UI_PREVIEW,
   unlockUiInbox,
@@ -295,6 +297,34 @@ test("the inbox gate answers 404 unless the cookie matches", async (t) => {
 
   setRequestCookies({ [previewCookieName()]: previewCookieValue()! });
   await requireUiPreview();
+});
+
+test("production never shows the captured inbox, even with the key", async (t) => {
+  const originalEnv = process.env.NODE_ENV;
+  const originalVercel = process.env.VERCEL_ENV;
+  const originalSecret = process.env.UI_PREVIEW_SECRET;
+  t.after(() => {
+    setEnv("NODE_ENV", originalEnv);
+    if (originalVercel === undefined) delete process.env.VERCEL_ENV;
+    else process.env.VERCEL_ENV = originalVercel;
+    if (originalSecret === undefined) delete process.env.UI_PREVIEW_SECRET;
+    else process.env.UI_PREVIEW_SECRET = originalSecret;
+  });
+
+  setEnv("NODE_ENV", "production");
+  process.env.UI_PREVIEW_SECRET = "s3cret";
+  setRequestCookies({ [previewCookieName()]: previewCookieValue()! });
+
+  process.env.VERCEL_ENV = "preview";
+  assert.equal(capturedInboxAllowed(), true);
+  await requireCapturedInbox();
+
+  process.env.VERCEL_ENV = "production";
+  assert.equal(capturedInboxAllowed(), false);
+  await assert.rejects(requireCapturedInbox(), (error: Error & { digest?: string }) => {
+    assert.equal(error.digest, "NEXT_HTTP_ERROR_FALLBACK;404");
+    return true;
+  });
 });
 
 test("production never seeds the demo or signs anyone in as its owner", async () => {

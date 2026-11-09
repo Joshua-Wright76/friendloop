@@ -5,18 +5,19 @@ import { redirect } from "next/navigation";
 import { getNow } from "@/lib/clock";
 import { saveTheme, type ThemeInput } from "@/lib/identity";
 import { deleteLoop, rotateShareLinks, setPaused, updateLoopSettings } from "@/lib/manage";
-import { viewerFor } from "@/lib/permissions";
+import { atLeast, viewerFor, type Access } from "@/lib/permissions";
 import { isValidTimezone } from "@/lib/timezone";
 
-async function requireOwner(groupId: string) {
+/** Admins run the loop's settings with the owner; deleting the loop stays the owner's. */
+async function requireAccess(groupId: string, required: Access) {
   const viewer = await viewerFor(groupId);
-  if (!viewer || viewer.membership.access !== "owner") redirect(`/g/${groupId}`);
+  if (!viewer || !atLeast(viewer.membership.access, required)) redirect(`/g/${groupId}`);
   return viewer;
 }
 
 export async function settingsAction(formData: FormData) {
   const groupId = String(formData.get("groupId") ?? "");
-  await requireOwner(groupId);
+  await requireAccess(groupId, "admin");
 
   const name = String(formData.get("name") ?? "").trim();
   const timezone = String(formData.get("timezone") ?? "").trim();
@@ -43,7 +44,7 @@ export async function settingsAction(formData: FormData) {
 /** New URLs for every delivered round; the ones already handed out 404. */
 export async function rotateSharesAction(formData: FormData) {
   const groupId = String(formData.get("groupId") ?? "");
-  await requireOwner(groupId);
+  await requireAccess(groupId, "admin");
 
   const rotated = await rotateShareLinks(groupId);
   revalidatePath(`/g/${groupId}`, "layout");
@@ -52,7 +53,7 @@ export async function rotateSharesAction(formData: FormData) {
 
 export async function pauseHereAction(formData: FormData) {
   const groupId = String(formData.get("groupId") ?? "");
-  await requireOwner(groupId);
+  await requireAccess(groupId, "admin");
 
   await setPaused(groupId, formData.get("paused") === "1", await getNow());
   revalidatePath(`/g/${groupId}`, "layout");
@@ -61,7 +62,7 @@ export async function pauseHereAction(formData: FormData) {
 
 export async function deleteAction(formData: FormData) {
   const groupId = String(formData.get("groupId") ?? "");
-  await requireOwner(groupId);
+  await requireAccess(groupId, "owner");
 
   const confirmation = String(formData.get("confirm") ?? "").trim();
   const expected = String(formData.get("name") ?? "").trim();
@@ -71,9 +72,9 @@ export async function deleteAction(formData: FormData) {
   redirect("/you?deleted=1");
 }
 
-/** The paper, colour and marks, saved as they're chosen. Owner only; the page stays put and says how it went. */
+/** The paper, colour and marks, saved as they're chosen. The page stays put and says how it went. */
 export async function saveStationery(groupId: string, choice: ThemeInput): Promise<{ ok: boolean; adjusted: boolean }> {
-  await requireOwner(groupId);
+  await requireAccess(groupId, "admin");
   const result = await saveTheme(groupId, choice);
   if (!result.ok) return { ok: false, adjusted: false };
   revalidatePath(`/g/${groupId}`, "layout");
@@ -82,7 +83,7 @@ export async function saveStationery(groupId: string, choice: ThemeInput): Promi
 
 export async function stationeryAction(formData: FormData) {
   const groupId = String(formData.get("groupId") ?? "");
-  await requireOwner(groupId);
+  await requireAccess(groupId, "admin");
 
   const result = await saveTheme(groupId, {
     preset: String(formData.get("preset") ?? ""),

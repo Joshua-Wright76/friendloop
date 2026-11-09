@@ -1,5 +1,5 @@
 {
-  "id": "a2ced6ff-4569-4ba5-ba5b-5177c0ace490",
+  "id": "6b31ac67-6b8d-4cc7-8b5f-9381e8e5328b",
   "prevId": "03b061bf-82b5-495d-99d5-9c629df4ea6f",
   "version": "7",
   "dialect": "postgresql",
@@ -771,42 +771,6 @@
           "primaryKey": false,
           "notNull": false
         },
-        "motto": {
-          "name": "motto",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "sign_off": {
-          "name": "sign_off",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "seal_style": {
-          "name": "seal_style",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "seal_color": {
-          "name": "seal_color",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "divider": {
-          "name": "divider",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "celebration": {
-          "name": "celebration",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
         "comments_enabled": {
           "name": "comments_enabled",
           "type": "boolean",
@@ -1302,248 +1266,6 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.issue_status_lines": {
-      "name": "issue_status_lines",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "issue_id": {
-          "name": "issue_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "membership_id": {
-          "name": "membership_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "body": {
-          "name": "body",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {
-        "issue_status_lines_unique_idx": {
-          "name": "issue_status_lines_unique_idx",
-          "columns": [
-            {
-              "expression": "issue_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "membership_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "issue_status_lines_issue_id_issues_id_fk": {
-          "name": "issue_status_lines_issue_id_issues_id_fk",
-          "tableFrom": "issue_status_lines",
-          "tableTo": "issues",
-          "columnsFrom": [
-            "issue_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "issue_status_lines_membership_id_memberships_id_fk": {
-          "name": "issue_status_lines_membership_id_memberships_id_fk",
-          "tableFrom": "issue_status_lines",
-          "tableTo": "memberships",
-          "columnsFrom": [
-            "membership_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.issue_stickers": {
-      "name": "issue_stickers",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "issue_id": {
-          "name": "issue_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "reply_id": {
-          "name": "reply_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "membership_id": {
-          "name": "membership_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "sticker": {
-          "name": "sticker",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "side": {
-          "name": "side",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "offset": {
-          "name": "offset",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "default": 0
-        },
-        "tilt": {
-          "name": "tilt",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "default": 0
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {
-        "issue_stickers_issue_idx": {
-          "name": "issue_stickers_issue_idx",
-          "columns": [
-            {
-              "expression": "issue_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "issue_stickers_member_idx": {
-          "name": "issue_stickers_member_idx",
-          "columns": [
-            {
-              "expression": "issue_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "membership_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "issue_stickers_issue_id_issues_id_fk": {
-          "name": "issue_stickers_issue_id_issues_id_fk",
-          "tableFrom": "issue_stickers",
-          "tableTo": "issues",
-          "columnsFrom": [
-            "issue_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "issue_stickers_reply_id_replies_id_fk": {
-          "name": "issue_stickers_reply_id_replies_id_fk",
-          "tableFrom": "issue_stickers",
-          "tableTo": "replies",
-          "columnsFrom": [
-            "reply_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "issue_stickers_membership_id_memberships_id_fk": {
-          "name": "issue_stickers_membership_id_memberships_id_fk",
-          "tableFrom": "issue_stickers",
-          "tableTo": "memberships",
-          "columnsFrom": [
-            "membership_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
     "public.issues": {
       "name": "issues",
       "schema": "",
@@ -1569,18 +1291,6 @@
         },
         "name": {
           "name": "name",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "cover_sticker": {
-          "name": "cover_sticker",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "cover_tint": {
-          "name": "cover_tint",
           "type": "text",
           "primaryKey": false,
           "notNull": false
@@ -1919,18 +1629,6 @@
         },
         "avatar_frame": {
           "name": "avatar_frame",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "signature": {
-          "name": "signature",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "signature_png_url": {
-          "name": "signature_png_url",
           "type": "text",
           "primaryKey": false,
           "notNull": false
@@ -2999,12 +2697,6 @@
         },
         "link_provider": {
           "name": "link_provider",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "sticker": {
-          "name": "sticker",
           "type": "text",
           "primaryKey": false,
           "notNull": false

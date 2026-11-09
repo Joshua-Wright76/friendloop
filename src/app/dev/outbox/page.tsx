@@ -2,7 +2,7 @@ import { desc } from "drizzle-orm";
 import { db } from "@/db";
 import { outbox } from "@/db/schema";
 import { copy } from "@/lib/copy";
-import { requireUiPreview } from "@/lib/ui-preview";
+import { requireCapturedInbox } from "@/lib/ui-preview";
 
 export const instant = false;
 
@@ -11,10 +11,11 @@ export const instant = false;
  *
  * Every send is recorded before it leaves, so this lists real mail: sign-in
  * links included. That makes it useful and dangerous in equal measure, so it
- * sits behind the same /dev key as the rest of the preview.
+ * sits behind the same /dev key as the rest of the preview, and production
+ * never shows it: there it would be real people's loops.
  */
 export default async function DevOutboxPage() {
-  await requireUiPreview();
+  await requireCapturedInbox();
 
   const rows = await db
     .select({

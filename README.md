@@ -221,7 +221,7 @@ npm run e2e:fast -- e2e/flows/A1.spec.ts  # normal Playwright file/filter argume
 npm run check:flows -- --strict   # what CI enforces on every run
 npx playwright test e2e/accessibility.spec.ts  # WCAG 2.2 AA axe checks, both themes
 npx playwright test e2e/wcag-sweep.spec.ts e2e/wcag-states.spec.ts --project=desktop  # what axe cannot judge: see below
-E2E_BASE_URL=https://friendloop.dev npx playwright test --grep @probe   # read-only production smoke
+E2E_BASE_URL=https://friendloop.dev npm run e2e:probe   # read-only production smoke
 ```
 
 `npm run e2e` remains the clean full-validation path: it builds the current
@@ -423,8 +423,9 @@ without it.
   hours, 503 with counts and ages otherwise. Never names a recipient.
 - **`GET /api/version`**: public, the commit this deployment was built from. After
   each push to `main`, the Verify production deploy workflow waits for it to report
-  that commit and fails if it doesn't within 15 minutes, because a merge can go green
-  on dev without ever deploying production.
+  that commit, live tests it, and rolls production back if those tests fail. It
+  fails within 15 minutes if the commit never reaches production, because a merge
+  can go green on dev without ever deploying production.
 - **`GET /api/healthz`**: public, no details — 200 when the deployment can reach
   its database. Point an uptime monitor at it.
 - **[`.github/workflows/monitor.yml`](.github/workflows/monitor.yml)** probes
@@ -456,6 +457,35 @@ because reverting a deploy reverts code, not the database. The same check also f
 on a journal entry that would be silently skipped, and it runs in the Vercel build
 before anything is migrated.
 
+Vercel ships `main` independently of CI, so a red CI run can still be live. What
+follows it is [`.github/workflows/verify-deploy.yml`](.github/workflows/verify-deploy.yml),
+on every push to `main`:
+
+1. **Wait for production** to report the commit on `/api/version`.
+2. **Live test it** with the read-only `@probe` Playwright checks against
+   https://friendloop.dev, plus `/api/healthz` (the deployment can reach its
+   database). `/api/health` stays with `monitor.yml`: its sweep/outbox conditions
+   can be red for hours when the sweep schedule lapses, and a rollback does not
+   fix that.
+3. **Roll back on failure**: `scripts/rollback-deploy.mjs` points production at the
+   newest earlier READY deployment with a different commit, through
+   `POST /v1/projects/{id}/rollback/{deploymentId}`, then waits for `/api/version`
+   to stop reporting the failed commit. The workflow then checks `/api/healthz`
+   and re-runs the probes against the restored deployment; a rollback target that
+   also fails them is reported for a person, not rolled back again. The script
+   does nothing if a newer deploy is already live, and fails loudly if there is
+   no earlier deployment to return to.
+
+The probes never write, so this catches a release that will not render or cannot
+reach its database — not one whose write path is broken. `dev` is not tested.
+Rollback reverts code, not schema, which is why migrations must be additive.
+
+Setup: the `VERCEL_TOKEN` repository secret (an account token that can roll
+back). The project name defaults to `friendloop`; set the `VERCEL_PROJECT_ID` or
+`VERCEL_PROJECT` repository variable when that is wrong, and `VERCEL_TEAM_ID`
+when the project belongs to a team. Set the `AUTO_ROLLBACK_DISABLED` repository
+variable to `true` to keep the live tests but leave a failed release in place.
+
 What CI does **not** do, so nobody is surprised by a bad deploy:
 
 - **It does not block the deploy.** Vercel builds and ships `main` on push,
@@ -463,9 +493,6 @@ What CI does **not** do, so nobody is surprised by a bad deploy:
   check a merge gate needs branch protection plus pull requests, and this repo has
   neither — its history is linear commits pushed straight to `main`. That is a
   deliberate trade: fast to ship, not self-enforcing.
-- **No preview-deployment test run and no automatic rollback.** Vercel runs only
-  `next build` (see `package.json`). `e2e/probes.spec.ts` holds read-only
-  production probes (`--grep @probe` against `E2E_BASE_URL`), but nothing runs
-  them on a schedule; an earlier version of this section described a probe calling
-  `POST /v1/projects/{id}/rollback` on two consecutive failures, which was never
-  written. Do not plan around it.
+- **No preview-deployment test run.** Vercel runs only `next build` (see
+  `package.json`). The live tests above run against production after it is live,
+  not against a preview before promotion, and `dev.friendloop.dev` is not probed.

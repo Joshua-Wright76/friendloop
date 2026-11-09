@@ -75,7 +75,7 @@ export function LoopNav({ id, name, access, active, nameIsHeading = false, snaps
       </header>
       <Motto text={motto} />
       <nav className="loop-nav no-print" aria-label={copy.common.navigation.ariaLabel}>
-        {items.filter(([key]) => key !== "Settings" || access === "owner").map(([key, path, label]) => (
+        {items.filter(([key]) => key !== "Settings" || access !== "member").map(([key, path, label]) => (
           <Link key={key} href={`/g/${id}${path}`} aria-current={key === active ? "page" : undefined}>
             <svg viewBox="0 0 22 22" aria-hidden="true" className="loop-nav__icon" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">{ICONS[key]}</svg>
             {label}

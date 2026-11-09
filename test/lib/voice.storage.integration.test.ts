@@ -11,6 +11,7 @@ import { deleteStoredAudio, isManagedBlobAudioUrl, storeAudio } from "../../src/
 import { resetDatabase, rows, seedLoop, seedOpenIssue, setupDatabase, setEnv } from "../support/app.ts";
 import { AFTER_FIRST_SLOT } from "../../e2e/support/clock.ts";
 import { makeWebm } from "../../e2e/support/audio.ts";
+import { makeUndeletable, onDisk } from "../support/uploads.ts";
 import { clearRequest, setRequestHeaders } from "../stubs/request.mjs";
 import { calls as blobCalls, reset as resetBlob } from "../stubs/vercel-blob.mjs";
 
@@ -147,25 +148,19 @@ test("another question's url is refused, and removing clears it", async () => {
 });
 
 test("a voice note replacement accepts quietly even when the old file refuses to leave", async (t) => {
-  const { chmod, writeFile, mkdir } = await import("node:fs/promises");
-  const uploadsDirectory = path.join(process.cwd(), "public", "uploads");
   const firstUrl = "/uploads/" + "e".repeat(64) + ".webm";
 
   const { alice, question } = await openLoop();
 
   // The invite is not accepted yet, so the first write accepts it.
   await rows("update memberships set accepted_at = null where id = $1", [alice.id]);
-  await mkdir(uploadsDirectory, { recursive: true });
-  await writeFile(path.join(uploadsDirectory, firstUrl.split("/").at(-1)!), "bytes");
   const first = await saveAudioFor({ token: alice.token, issueQuestionId: question.id, audioUrl: firstUrl, audioDurationMs: 700 });
   assert.equal(first.ok, true);
   const [accepted] = await rows<{ accepted_at: string | null }>("select accepted_at from memberships where id = $1", [alice.id]);
   assert.ok(accepted.accepted_at, "the first write accepts the invite");
 
-  // Without the write bit on the uploads directory, the replaced file stays
-  // put — the save still lands and reports success.
-  await chmod(uploadsDirectory, 0o500);
-  t.after(async () => { await chmod(uploadsDirectory, 0o755).catch(() => undefined); });
+  // The replaced file stays put, and the save still lands and reports success.
+  await makeUndeletable(t, firstUrl);
   const replaced = await saveAudioFor({
     token: alice.token,
     issueQuestionId: question.id,
@@ -175,15 +170,13 @@ test("a voice note replacement accepts quietly even when the old file refuses to
   assert.equal(replaced.ok, true);
   const [stored] = await rows<{ audio_url: string }>("select audio_url from replies where audio_url is not null");
   assert.equal(stored.audio_url, "/uploads/" + "f".repeat(64) + ".webm");
+  assert.equal(existsSync(onDisk(firstUrl)), true, "the old file really did refuse");
 
   // The same grace applies to removal.
   await saveAudioFor({ token: alice.token, issueQuestionId: question.id, audioUrl: firstUrl, audioDurationMs: 900 });
-  await chmod(uploadsDirectory, 0o755);
-  await writeFile(path.join(uploadsDirectory, firstUrl.split("/").at(-1)!), "bytes");
-  await chmod(uploadsDirectory, 0o500);
   const removed = await removeAudioFor({ token: alice.token, issueQuestionId: question.id });
   assert.equal(removed.ok, true);
-  void firstUrl;
+  assert.equal(existsSync(onDisk(firstUrl)), true, "the removed file really did refuse");
 });
 
 test("audio removal only touches urls owned by this app", async () => {

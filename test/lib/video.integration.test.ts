@@ -2,8 +2,7 @@ import { test, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import { randomBytes } from "node:crypto";
 import { existsSync } from "node:fs";
-import { chmod, mkdir, writeFile } from "node:fs/promises";
-import path from "node:path";
+import { mkdir, writeFile } from "node:fs/promises";
 import {
   authorizeVideoForReply,
   removeVideoFor,
@@ -28,6 +27,7 @@ import { parseAlbumFilters } from "../../src/lib/album-query.ts";
 import { replyLinkExport } from "../../src/lib/data-export.ts";
 import { leaveLoop } from "../../src/lib/erasure.ts";
 import { addSection } from "../support/items.ts";
+import { makeUndeletable, onDisk, UPLOADS } from "../support/uploads.ts";
 import { videoUploadRefused } from "../../src/lib/upload-limit.ts";
 import { LIMITS } from "../../src/lib/rate-limit-policy.ts";
 import { resetDatabase, rows, seedDeliveredIssue, seedLoop, setEnv, setupDatabase } from "../support/app.ts";
@@ -53,10 +53,8 @@ beforeEach(async () => {
 
 const { sweep } = await import("../../src/lib/sweep.ts");
 
-const UPLOADS = path.join(process.cwd(), "public", "uploads");
 const MP4_HEAD = new Uint8Array([0, 0, 0, 0x20, ...Buffer.from("ftypisom"), ...new Array(20).fill(0)]);
 const local = (hex: string, extension = "mp4") => `/uploads/${hex.repeat(64)}.${extension}`;
-const onDisk = (url: string) => path.join(UPLOADS, url.split("/").at(-1)!);
 
 async function put(url: string, bytes: Uint8Array | string = "bytes") {
   await mkdir(UPLOADS, { recursive: true });
@@ -245,11 +243,11 @@ test("a clip whose file won't go still comes off the answer", async (t) => {
   const { alice, questionId } = await openLoop();
   await put(local("1"));
   assert.equal((await saveVideoFor({ token: alice.token, issueQuestionId: questionId, videoUrl: local("1"), posterUrl: local("2", "jpg"), durationMs: 1000 })).ok, true);
-  await chmod(UPLOADS, 0o500);
-  t.after(async () => { await chmod(UPLOADS, 0o755).catch(() => undefined); });
+  await makeUndeletable(t, local("1"));
   assert.equal((await removeVideoFor({ token: alice.token, issueQuestionId: questionId })).ok, true);
   const [row] = await rows<{ video_url: string | null }>("select video_url from replies where membership_id = $1 and issue_question_id = $2", [alice.id, questionId]);
   assert.equal(row.video_url, null);
+  assert.equal(existsSync(onDisk(local("1"))), true, "the file really did refuse");
 });
 
 test("a clip alone is an answer: the round, the album and the export all carry it", async () => {

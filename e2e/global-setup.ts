@@ -8,6 +8,11 @@ import { WORKERS } from "./support/parallel";
  * whole run, so the stub stays up until `globalTeardown` closes it.
  */
 export default async function globalSetup() {
+  // Probes against a deployed URL (`E2E_BASE_URL`) are read-only: there is no
+  // database to rebuild and no mail stub to start, and playwright.config.ts
+  // starts no webServer for them.
+  if (process.env.E2E_BASE_URL) return;
+
   await startFakeResend();
   await resetSchema();
   await migrate();

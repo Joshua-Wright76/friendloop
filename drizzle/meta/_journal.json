@@ -195,7 +195,14 @@
       "idx": 27,
       "version": "7",
       "when": 1794210062000,
-      "tag": "0027_more_looks",
+      "tag": "0027_forget_sent_bodies",
+      "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "7",
+      "when": 1794254000000,
+      "tag": "0028_more_looks",
       "breakpoints": true
     }
   ]
