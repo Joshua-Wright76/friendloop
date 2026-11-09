@@ -965,11 +965,11 @@
     "coverSaved": "Round named, and it has its cover.",
     "cover": {
       "legend": "Cover",
-      "hint": "A sticker and a colour for this round: on its page, in this list and at the top of its email.",
+      "hint": "A sticker and a color for this round: on its page, in this list and at the top of its email.",
       "needsName": "Covers go on named rounds. Give it a name first.",
       "sticker": "Sticker",
       "none": "No cover",
-      "tint": "Colour",
+      "tint": "Color",
       "tints": {
         "moss": "Moss",
         "sky": "Sky",
