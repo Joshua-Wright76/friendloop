@@ -24,7 +24,7 @@ test("E1 · a delivered round shows every answer and marks your own", async ({ p
   await expect(page.getByText("The cat fist bump.")).toBeVisible();
   await expect(page.getByText("A very long lunch.")).toBeVisible();
   await expect(page.getByText("2 answers from the group.")).toBeVisible();
-  await expect(page.getByText(/Delivered Fri 30 Oct\./)).toBeVisible();
+  await expect(page.getByText(/Went out Fri 30 Oct\./)).toBeVisible();
   await expect(page.getByText("You", { exact: true })).toBeVisible();
   // Scoped to the answers: the reading controls above them also name Bob.
   await expect(page.locator(".answer-card").getByText("Bob", { exact: true })).toBeVisible();

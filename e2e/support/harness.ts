@@ -168,10 +168,10 @@ export async function fillItem(page: Page, scope: Locator, item: CardItem): Prom
   }
   if (item.multiple) await scope.getByLabel("People can pick more than one").check();
   if (item.emoji !== undefined || item.description !== undefined || item.adminOnly !== undefined) {
-    await unfoldIn(scope, "Emoji, description and who answers");
+    await unfoldIn(scope, "Emoji, description, and who answers");
     if (item.emoji !== undefined) await scope.getByLabel("Emoji").fill(item.emoji);
     if (item.description !== undefined) await scope.getByLabel("Description").fill(item.description);
-    if (item.adminOnly !== undefined) await scope.getByLabel("Owner and admins only").setChecked(item.adminOnly);
+    if (item.adminOnly !== undefined) await scope.getByLabel("Only the owner and admins answer this").setChecked(item.adminOnly);
   }
 }
 
@@ -180,7 +180,7 @@ export async function addWithCard(page: Page, item: CardItem): Promise<void> {
   const card = addCard(page);
   await fillItem(page, card, item);
   if (item.thisRound !== undefined) await card.getByLabel("Ask it this round too").setChecked(item.thisRound);
-  await card.getByRole("button", { name: "Add", exact: true }).click();
+  await card.getByRole("button", { name: "Add question", exact: true }).click();
   await expect(page.getByRole("status").filter({ hasText: /^Added/ })).toBeVisible();
 }
 

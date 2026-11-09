@@ -20,7 +20,7 @@ test("B1 · creating a loop saves its cadence and makes you its owner", async ({
   await page.getByRole("button", { name: NEXT }).click();
   await expect(progress).toHaveAttribute("aria-valuenow", "1");
 
-  await page.getByLabel("Loop title").fill("The Sunday Loop");
+  await page.getByLabel("Loop name").fill("The Sunday Loop");
   await page.getByRole("button", { name: "Quarterly (13 weeks)" }).click();
   await page.getByRole("button", { name: NEXT }).click();
   await expect(progress).toHaveAttribute("aria-valuenow", "2");
@@ -28,7 +28,7 @@ test("B1 · creating a loop saves its cadence and makes you its owner", async ({
   await page.getByRole("button", { name: "Go to the previous setup step" }).click();
   await expect(progress).toHaveAttribute("aria-valuenow", "1");
   // The name is still there, so going back never costs anyone their typing.
-  await expect(page.getByLabel("Loop title")).toHaveValue("The Sunday Loop");
+  await expect(page.getByLabel("Loop name")).toHaveValue("The Sunday Loop");
 
   await page.getByRole("button", { name: NEXT }).click();
   await expect(progress).toHaveAttribute("aria-valuenow", "2");

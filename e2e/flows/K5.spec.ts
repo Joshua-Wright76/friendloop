@@ -21,9 +21,9 @@ test("K5 · a music link is validated warmly, then saved", async ({ page }) => {
   await page.goto(`/r/${alice.token}`);
 
   // A non-music URL bounces with the plain-language error.
-  await page.getByPlaceholder("Spotify, Bandcamp or Qobuz link").fill("https://example.com/album/123");
+  await page.getByPlaceholder("Spotify, Bandcamp, or Qobuz link").fill("https://example.com/album/123");
   // Leaving the field is the save.
-  await page.getByPlaceholder("Spotify, Bandcamp or Qobuz link").blur();
+  await page.getByPlaceholder("Spotify, Bandcamp, or Qobuz link").blur();
   await expect(page.getByText("That link isn't a Spotify, Bandcamp, or Qobuz page.")).toBeVisible();
 
   // Nothing is stored while the link is invalid.
@@ -33,10 +33,10 @@ test("K5 · a music link is validated warmly, then saved", async ({ page }) => {
   expect(nothing[0].count).toBe(0);
 
   // A real Spotify link saves quietly, then clears.
-  await page.getByPlaceholder("Spotify, Bandcamp or Qobuz link").fill("https://open.spotify.com/album/1DFixLWuPkv3KT3TnV35m3");
+  await page.getByPlaceholder("Spotify, Bandcamp, or Qobuz link").fill("https://open.spotify.com/album/1DFixLWuPkv3KT3TnV35m3");
   await page.getByLabel("A line about it").first().fill("Our road trip record");
   await page.getByLabel("A line about it").first().blur();
-  await expect(page.getByText("Saved.").first()).toBeVisible();
+  await expect(page.getByText("Saved", { exact: true }).first()).toBeVisible();
 
   const saved = await rows<{ link_url: string; link_provider: string }>(
     "select link_url, link_provider from replies where link_url is not null limit 1",

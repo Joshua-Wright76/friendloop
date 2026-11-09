@@ -20,7 +20,7 @@ test("B8 · past the day's invitations, the form says so and nothing else is sen
   await page.goto(`/g/${loop.groupId}/members`);
   await page.getByLabel("Invite people by email").first().fill("one-too-many@friendloop.test");
   await page.getByRole("button", { name: "Send invitations" }).click();
-  await expect(page.getByText(/you've reached today's limit of 50 invitations/)).toBeVisible();
+  await expect(page.getByText(/you've sent today's 50/)).toBeVisible();
 
   const sent = await rows(`select id from outbox where "to" = 'one-too-many@friendloop.test'`);
   expect(sent).toHaveLength(0);

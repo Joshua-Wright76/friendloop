@@ -67,6 +67,6 @@ test("U2 · a hard bounce suppresses the address, links to the outbox row, and s
 
   await signIn(page, "owner@friendloop.test");
   await page.goto(`/g/${loop.groupId}/members`);
-  await expect(page.getByText("Bouncing", { exact: true })).toBeVisible();
-  await expect(page.getByText(/Remove them and invite the right address/)).toBeVisible();
+  await expect(page.getByText("Emails bouncing", { exact: true })).toBeVisible();
+  await expect(page.getByText(/remove them and invite the right one/)).toBeVisible();
 });

@@ -79,7 +79,7 @@ test("N1 · an accent that would be hard to read is nudged, validated, saved, an
   await page.getByRole("radio", { name: /Lilac Linen/ }).check();
   await expect(page.getByText("Saved. Everyone sees it on their next visit.")).toBeVisible();
   await page.getByLabel("Accent color as a hex code").fill("#ffee00");
-  await expect(page.getByText(/a little hard to read, so we nudged it/)).toBeVisible();
+  await expect(page.getByText(/a little hard to read, so we adjusted it/)).toBeVisible();
   await page.getByLabel("Accent color as a hex code").fill("yellow-ish");
   await expect(page.getByText("Use a hex code like #3366cc.")).toBeVisible();
   // Leaving the field with something unusable saves nothing.
@@ -89,13 +89,13 @@ test("N1 · an accent that would be hard to read is nudged, validated, saved, an
   // Leaving it with a real colour saves that, and the nudge stays said.
   await page.getByLabel("Accent color as a hex code").fill("#ffee00");
   await page.getByLabel("Accent color as a hex code").blur();
-  await expect(page.getByText(/a little hard to read, so we nudged it/)).toBeVisible();
+  await expect(page.getByText(/a little hard to read, so we adjusted it/)).toBeVisible();
   const accent = () => rows<{ theme_accent: string | null }>("select theme_accent from groups where id = $1", [loop.groupId]).then(([row]) => row.theme_accent);
   await expect.poll(accent).toBe("#ffee00");
 
   // Reset returns the paper's own accent.
-  await page.getByRole("button", { name: "Use the paper's own" }).click();
-  await expect(page.getByText("Using the paper's own accent.")).toBeVisible();
+  await page.getByRole("button", { name: "Use the color set's own" }).click();
+  await expect(page.getByText("Using the color set's own accent.")).toBeVisible();
   await expect.poll(accent).toBeNull();
 });
 

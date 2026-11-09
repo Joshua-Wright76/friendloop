@@ -185,7 +185,7 @@ test("an answer must belong to this issue, be submitted, and (for polls) be visi
   });
   const [elsewhere] = await rows<{ id: string }>("select id from replies where issue_id = $1", [other.issueId]);
   const wrongIssue = await postComment({ issueId: issue.issueId, viewerToken: alice.token, body: "x", replyId: elsewhere.id });
-  assert.deepEqual(wrongIssue, { ok: false, status: 404, error: "That answer isn't there to comment on." });
+  assert.deepEqual(wrongIssue, { ok: false, status: 404, error: "That answer was removed. Reload to see the latest." });
 
   const notReal = await postComment({ issueId: issue.issueId, viewerToken: alice.token, body: "x", replyId: "nope" });
   assert.equal(notReal.ok === false && notReal.status, 404);
@@ -316,7 +316,7 @@ test("posting the same comment twice is one comment and one email", async () => 
 
   // And someone else cannot take over that id.
   const stolen = await postComment({ issueId: issue.issueId, viewerToken: bob.token, id, body: "mine now" });
-  assert.deepEqual(stolen, { ok: false, status: 409, error: "That didn't go through. Try again?" });
+  assert.deepEqual(stolen, { ok: false, status: 409, error: "That didn't go through. Try again." });
   const [still] = await rows<{ body: string }>("select body from comments where id = $1", [id]);
   assert.match(still.body, /^Hey @\[/);
 });
@@ -384,7 +384,7 @@ test("a photo rides along under the same caps as an answer's", async (t) => {
   assert.equal(view?.comments[0].photoUrl, saved.photo_url);
 
   const text = await postComment({ issueId: issue.issueId, viewerToken: alice.token, body: "x", photo: { bytes: new TextEncoder().encode("not an image"), type: "image/png" } });
-  assert.deepEqual(text, { ok: false, status: 415, error: "Use a JPEG, PNG, WebP or GIF photo." });
+  assert.deepEqual(text, { ok: false, status: 415, error: "Use a JPEG, PNG, WebP, or GIF photo." });
   const mismatch = await postComment({ issueId: issue.issueId, viewerToken: alice.token, body: "x", photo: { bytes: PNG, type: "image/jpeg" } });
   assert.equal(mismatch.ok === false && mismatch.status, 415);
   const big = new Uint8Array(MAX_PHOTO_BYTES + 1);
@@ -425,7 +425,7 @@ test("a retried photo comment keeps one file; a storage failure is a plain error
     console.error = originalError;
   });
   const failed = await postComment({ issueId: issue.issueId, viewerToken: alice.token, body: "x", photo: { bytes: PNG, type: "image/png" } });
-  assert.deepEqual(failed, { ok: false, status: 500, error: "The photo didn't make it. Try again?" });
+  assert.deepEqual(failed, { ok: false, status: 500, error: "The photo didn't make it. Try again." });
 });
 
 test("a member posting faster than the limit is refused with 429, and others are not", async () => {

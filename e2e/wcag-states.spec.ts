@@ -83,7 +83,7 @@ testEverywhere("WCAG AA states · every step of the new-loop wizard, and its val
   await page.getByRole("button", { name: NEXT }).click();
   await expect(page.getByText("Give the loop a name.")).toBeVisible();
   out.push(...(await axeProblems(page, `wizard error ${label}`)));
-  await page.getByLabel("Loop title").fill("The Sunday Loop");
+  await page.getByLabel("Loop name").fill("The Sunday Loop");
   const progress = page.getByRole("progressbar", { name: "Loop setup progress" });
   const total = Number(await progress.getAttribute("aria-valuemax"));
   expect(total, "the wizard reports no steps").toBeGreaterThan(1);

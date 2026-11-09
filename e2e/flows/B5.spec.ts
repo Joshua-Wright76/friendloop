@@ -13,7 +13,7 @@ test("B5 · resending an invite sends again without a second membership", async 
   await signIn(page, "owner@friendloop.test");
 
   await page.goto(`/g/${loop.groupId}/members`);
-  await page.getByRole("button", { name: "Resend invite" }).click();
+  await page.getByRole("button", { name: "Resend invitation" }).click();
   await expect(page.getByText("Invitation sent again.")).toBeVisible();
 
   const sent = await rows<{ count: number }>(

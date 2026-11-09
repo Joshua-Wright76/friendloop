@@ -181,7 +181,7 @@ test("a named round replaces its number in the subject, headings and sentences",
     groupName: "Friday Loop", issueNumber: 2, url: "https://friendloop.dev/issue",
     answers: [{ question: "q", author: "Dev", body: "b" }],
   });
-  assert.equal(unnamed.subject, "Friday Loop · round 2");
+  assert.equal(unnamed.subject, "Friday Loop · Round 2");
   assert.match(unnamed.html, /<h1[^>]*>Round 2<\/h1>/);
 
   const prompt = promptEmail({

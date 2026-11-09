@@ -39,7 +39,7 @@ test("V2 · a signed-in person deletes their account, and every round stops show
   await page.getByLabel("Type your email address to confirm").fill("Wren@Friendloop.test");
   await page.getByRole("button", { name: "Delete my account forever" }).click();
   await expect(page).toHaveURL(/\/goodbye$/);
-  await expect(page.getByRole("heading", { name: "It's all gone." })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Everything you wrote is gone." })).toBeVisible();
 
   expect(await rows("select id from users where email = 'wren@friendloop.test'")).toHaveLength(0);
   expect(await rows("select id from memberships where email = 'wren@friendloop.test'")).toHaveLength(0);

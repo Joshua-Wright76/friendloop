@@ -58,7 +58,7 @@ test("S1 · an unsent note survives cancelling, and a blank one cannot be sent",
   await expect(page.getByRole("button", { name: "Send", exact: true })).toBeDisabled();
 
   await page.getByLabel("Your message").fill("Half a thought");
-  await page.getByRole("button", { name: "Cancel" }).click();
+  await page.getByRole("button", { name: "Never mind" }).click();
   await page.getByRole("button", { name: "Send feedback" }).click();
   await expect(page.getByLabel("Your message")).toHaveValue("Half a thought");
   expect(await notes()).toHaveLength(0);
@@ -70,7 +70,7 @@ test("S1 · a failed send keeps the words and says so", async ({ page }) => {
   await page.getByRole("button", { name: "Send feedback" }).click();
   await page.getByLabel("Your message").fill("Please keep this");
   await page.getByRole("button", { name: "Send", exact: true }).click();
-  await expect(page.getByRole("dialog").getByRole("alert")).toHaveText("That didn't go through. Please try again.");
+  await expect(page.getByRole("dialog").getByRole("alert")).toHaveText("That didn't go through. Check your connection and try again.");
   await expect(page.getByLabel("Your message")).toHaveValue("Please keep this");
 });
 

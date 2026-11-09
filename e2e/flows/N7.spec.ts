@@ -24,7 +24,7 @@ test("N7 · a contributor picks a charm and frame on their reply sheet, and they
   await expect.poll(() => lookOf(alice.id)).toEqual({ charm: "frog", avatar_frame: null });
   await look.getByRole("radio", { name: "Doily" }).check();
   await expect.poll(() => lookOf(alice.id)).toEqual({ charm: "frog", avatar_frame: "doily" });
-  await expect(look.getByText("Saved.")).toBeVisible();
+  await expect(look.getByText("Saved")).toBeVisible();
   await expect(page.locator("details.reply-identity summary .avatar")).toHaveAttribute("data-frame", "doily");
 
   const axe = await new AxeBuilder({ page }).include('[data-testid="member-look"]').withTags(["wcag2a", "wcag2aa", "wcag22aa"]).analyze();

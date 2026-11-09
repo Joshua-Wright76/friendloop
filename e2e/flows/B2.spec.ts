@@ -7,7 +7,7 @@ const NEXT = "Continue to the next setup step";
 
 async function moveToDetails(page: import("@playwright/test").Page, title: string) {
   await page.goto("/g/new");
-  await page.getByLabel("Loop title").fill(title);
+  await page.getByLabel("Loop name").fill(title);
   await page.getByRole("button", { name: NEXT }).click();
   // The optional paper-and-picture step: leave it alone.
   await page.getByRole("button", { name: NEXT }).click();
@@ -31,7 +31,7 @@ test("B2 · defaults and a quick idea become the ordered question pool", async (
   await expect(questions.nth(0)).toBeChecked();
   await expect(questions.nth(1)).toBeChecked();
   // The ideas sit on the same step and are stored as the plain question.
-  const idea = page.getByRole("button", { name: /What was one good moment from your week\?/ });
+  const idea = page.getByRole("button", { name: /What was one good moment recently\?/ });
   await idea.click();
   await expect(idea).toHaveAttribute("aria-pressed", "true");
   await page.getByRole("button", { name: NEXT }).click();
@@ -40,7 +40,7 @@ test("B2 · defaults and a quick idea become the ordered question pool", async (
   await page.getByRole("button", { name: "Preview the first round" }).click();
   const preview = page.getByRole("dialog", { name: "A first look" });
   await expect(preview.getByText("Book Club")).toBeVisible();
-  await expect(preview.getByText("What was one good moment from your week?")).toBeVisible();
+  await expect(preview.getByText("What was one good moment recently?")).toBeVisible();
   await preview.getByRole("button", { name: "Close round preview" }).click();
   await page.getByRole("button", { name: "Create loop" }).click();
   await expect(page).toHaveURL(/\/g\/[0-9a-f-]+/);
@@ -53,7 +53,7 @@ test("B2 · defaults and a quick idea become the ordered question pool", async (
   expect(pool.map((row) => row.text)).toEqual([
     "What made you laugh this week?",
     "What are you looking forward to?",
-    "What was one good moment from your week?",
+    "What was one good moment recently?",
   ]);
   expect(pool.map((row) => row.position)).toEqual([0, 1, 2]);
 });

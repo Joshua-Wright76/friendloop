@@ -29,7 +29,7 @@ test("I1 · a contributor suggests a question from the reply sheet", async ({ pa
   // The owner's queue already shows it, attributed.
   await signIn(page, "owner@friendloop.test");
   await page.goto(`/g/${loop.groupId}/questions`);
-  await unfold(page, "1 suggested by a member");
+  await unfold(page, "1 suggested by someone in the loop");
   await expect(page.getByRole("textbox", { name: "Suggested question" })).toHaveValue(
     "Who taught the dog to open doors?",
   );

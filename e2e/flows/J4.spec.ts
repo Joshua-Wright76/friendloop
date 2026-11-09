@@ -28,7 +28,7 @@ test("J4 · without a recorder, the file picker answers", async ({ page }) => {
     buffer: makeMp3(),
   });
 
-  await expect(page.getByText("Voice note saved.").first()).toBeVisible();
+  await expect(page.getByText("Voice note saved").first()).toBeVisible();
   const [reply] = await rows<{ audio_url: string; audio_duration_ms: number }>(
     "select audio_url, audio_duration_ms from replies where audio_url is not null limit 1",
   );
@@ -47,7 +47,7 @@ test("J4 · a page that isn't https says so, and a blocked or missing microphone
     Object.defineProperty(navigator, "mediaDevices", { get: () => undefined });
   });
   await page.goto(`/r/${alice.token}`);
-  await expect(page.getByText("Recording only works on a secure (https) page").first()).toBeVisible();
+  await expect(page.getByText("Recording doesn't work on this page").first()).toBeVisible();
   await expect(page.getByText("This browser can't record here")).toHaveCount(0);
   await expect(page.getByLabel("Choose an audio file").first()).toBeAttached();
 });

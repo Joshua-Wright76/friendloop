@@ -79,7 +79,7 @@ test("C1 · a refused item says what to fix", async ({ page }) => {
   const card = page.getByRole("region", { name: "Add something to ask" });
   const { fillItem } = await import("../support/harness");
   await fillItem(page, card, { text: "Last week's party", frequency: "On a date", date: "2025-12-20" });
-  await card.getByRole("button", { name: "Add", exact: true }).click();
+  await card.getByRole("button", { name: "Add question", exact: true }).click();
   await expect(page.getByRole("alert").filter({ hasText: "That date has already gone by." })).toBeVisible();
   expect(await rows("select 1 from questions where frequency = 'on_date'")).toHaveLength(0);
 });

@@ -15,7 +15,7 @@ test("J2 · a voice note can be replaced, then removed", async ({ page }) => {
 
   await page.goto(`/r/${alice.token}`);
   await recordOnFirstQuestion(page);
-  await expect(page.getByText("Voice note saved.").first()).toBeVisible();
+  await expect(page.getByText("Voice note saved").first()).toBeVisible();
   const [first] = await rows<{ audio_url: string }>(
     "select audio_url from replies where audio_url is not null limit 1",
   );
@@ -24,7 +24,7 @@ test("J2 · a voice note can be replaced, then removed", async ({ page }) => {
   await page.getByRole("button", { name: "Record again" }).first().click();
   await expect(page.getByText(/Recording… 0:0/)).toBeVisible();
   await page.getByRole("button", { name: "Stop recording" }).click();
-  await expect(page.getByText("Voice note saved.").first()).toBeVisible();
+  await expect(page.getByText("Voice note saved").first()).toBeVisible();
   const [second] = await rows<{ audio_url: string }>(
     "select audio_url from replies where audio_url is not null limit 1",
   );
@@ -32,7 +32,7 @@ test("J2 · a voice note can be replaced, then removed", async ({ page }) => {
 
   // Removing clears the note and the row.
   await page.getByRole("button", { name: "Remove voice note" }).first().click();
-  await expect(page.getByText("Voice note removed.").first()).toBeVisible();
+  await expect(page.getByText("Voice note removed").first()).toBeVisible();
   const after = await rows<{ count: number }>(
     "select count(*)::int as count from replies where audio_url is not null",
   );

@@ -16,7 +16,7 @@ test("L1 · the owner adds a poll that lives in the queue like any question", as
 
   // Two options that read the same are one option: the page says so plainly.
   await fillItem(page, card, { text: "Where should we camp?", format: "Poll", options: ["The lake", "the lake"] });
-  await card.getByRole("button", { name: "Add", exact: true }).click();
+  await card.getByRole("button", { name: "Add question", exact: true }).click();
   await expect(page.getByText("A poll needs two to six different options, each under 80 characters.")).toBeVisible();
   expect(await rows("select 1 from questions where format = 'poll'")).toHaveLength(0);
 
@@ -27,7 +27,7 @@ test("L1 · the owner adds a poll that lives in the queue like any question", as
   await expect(card.getByLabel("Option 3")).toBeFocused();
   await card.getByLabel("Option 3").fill("The coast");
   await card.getByLabel("People can pick more than one").check();
-  await card.getByRole("button", { name: "Add", exact: true }).click();
+  await card.getByRole("button", { name: "Add question", exact: true }).click();
   await expect(page.getByText("Added. It's in Up next.")).toBeVisible();
 
   const [poll] = await rows<{ text: string; poll_options: string[]; poll_multiple: boolean; kind: string }>(

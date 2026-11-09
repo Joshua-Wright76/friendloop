@@ -33,18 +33,18 @@ test("R3 · a contributor turns their reminder off and on with one switch, and t
   await expect(page.locator("#reminders input")).toHaveCount(1);
 
   await reminder.uncheck();
-  await expect(page.getByText("Saved.", { exact: true })).toBeVisible();
+  await expect(page.getByText("Saved", { exact: true })).toBeVisible();
   expect(await preferenceOf(bob.id)).toBe("none");
   await page.reload();
   await waitForSheet(page);
   await expect(page.getByRole("switch", SWITCH)).not.toBeChecked();
 
   await page.getByRole("switch", SWITCH).check();
-  await expect(page.getByText("Saved.", { exact: true })).toBeVisible();
+  await expect(page.getByText("Saved", { exact: true })).toBeVisible();
   expect(await preferenceOf(bob.id)).toBe("all");
 
   // The control never promises more than the loop sends.
-  await expect(page.getByText(/Whoever runs the loop can still nudge you by hand/)).toBeVisible();
+  await expect(page.getByText(/Whoever runs the loop can still nudge you/)).toBeVisible();
 });
 
 test("R3 · the reminder email points at the control, and the control is where it says", async ({ page }) => {
@@ -84,7 +84,7 @@ test("R3 · the loop's reminder follows each choice, never repeats, and leaves t
   await page.goto(`/r/${alice.token}`);
   await waitForSheet(page);
   await page.getByRole("switch", SWITCH).uncheck();
-  await expect(page.getByText("Saved.", { exact: true })).toBeVisible();
+  await expect(page.getByText("Saved", { exact: true })).toBeVisible();
   await rows("update memberships set reminder_preference = 'last' where id = $1", [bob.id]);
 
   const at = new Date(issue.deliversAt.getTime() - 24 * HOUR);

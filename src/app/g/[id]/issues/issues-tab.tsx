@@ -85,7 +85,7 @@ export default function IssuesTab({
           <li key={round.id} className="card p-4 sm:p-5">
             <div className="flex items-start justify-between gap-3">
               <h2 className="text-ink"><DisplayDigits>{issueTitle(copy.rounds.round, round.number, round.name)}</DisplayDigits></h2>
-              <span className={`chip flex-none border px-2.5 py-1 text-[13px] font-bold capitalize ${round.status === "open" ? "bg-accent-soft text-accent-ink" : "bg-card text-ink-soft"}`}>
+              <span className={`chip flex-none border px-2.5 py-1 text-[13px] font-bold ${round.status === "open" ? "bg-accent-soft text-accent-ink" : "bg-card text-ink-soft"}`}>
                 {round.status === "open" && group.pausedAt ? copy.loop.paused : copy.common.issueStatus[round.status]}
               </span>
             </div>

@@ -20,7 +20,7 @@ test("F3 · removing someone revokes their link but keeps what they wrote", asyn
   const bobCard = page.locator(".card").filter({ hasText: "bob@friendloop.test" });
   await bobCard.getByRole("button", { name: "Remove" }).click();
   await bobCard.getByRole("button", { name: /^Yes, remove/ }).click(); // removing asks first
-  await expect(page.getByText("They're out of the loop.")).toBeVisible();
+  await expect(page.getByText("Removed. Their past answers stay")).toBeVisible();
 
   await page.goto(`/r/${bob.token}`);
   await expect(page.getByRole("heading", { name: /doesn't work anymore/i })).toBeVisible();

@@ -17,7 +17,7 @@ test("J1 · a recorded voice note attaches and survives a reload", async ({ page
   await page.goto(`/r/${alice.token}`);
   await recordOnFirstQuestion(page);
 
-  await expect(page.getByText("Voice note saved.").first()).toBeVisible();
+  await expect(page.getByText("Voice note saved").first()).toBeVisible();
   await expect(page.locator("audio").first()).toBeAttached();
   await expect(page.getByRole("button", { name: /^Play voice note/ }).first()).toBeVisible();
 
@@ -43,7 +43,7 @@ test("J1 · a voice note on its own is an answer: it sends, and the round goes o
   await page.setExtraHTTPHeaders(clockHeaders(AFTER_FIRST_SLOT));
   await page.goto(`/r/${alice.token}`);
   await recordOnFirstQuestion(page);
-  await expect(page.getByText("Voice note saved.").first()).toBeVisible();
+  await expect(page.getByText("Voice note saved").first()).toBeVisible();
   await page.getByRole("button", { name: "Done", exact: true }).click();
   await expect(page.getByRole("heading", { name: "All set", exact: true })).toBeVisible();
 

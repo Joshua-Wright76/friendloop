@@ -23,14 +23,14 @@ test("V3 · someone with only a reply link leaves the loop and takes their answe
 
   await page.goto(`/r/${alice.token}`);
   await waitForSheet(page);
-  await page.getByRole("link", { name: "Leave this loop and delete my answers" }).click();
+  await page.getByRole("link", { name: "Leave this loop and delete everything I wrote" }).click();
   await expect(page).toHaveURL(new RegExp(`/r/${alice.token}/leave$`));
   await expect(page.getByRole("heading", { level: 1, name: "Leave Friday Loop?" })).toBeVisible();
 
   // Opening the page changed nothing; the checkbox is the confirmation.
   expect(await rows("select id from memberships where id = $1", [alice.id])).toHaveLength(1);
   await page.getByLabel("I understand everything I wrote in Friday Loop will be deleted").check();
-  await page.getByRole("button", { name: "Leave and delete my answers" }).click();
+  await page.getByRole("button", { name: "Leave and delete everything I wrote" }).click();
   await expect(page).toHaveURL(/\/goodbye$/);
 
   expect(await rows("select id from memberships where id = $1", [alice.id])).toHaveLength(0);
@@ -51,6 +51,6 @@ test("V3 · the owner cannot leave through their link", async ({ page }) => {
 
   await page.goto(`/r/${loop.ownerToken}/leave`);
   await expect(page.getByRole("heading", { name: "You own Friday Loop" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Leave and delete my answers" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Leave and delete everything I wrote" })).toHaveCount(0);
   await expect(page.getByRole("link", { name: "Open the loop's settings" })).toHaveAttribute("href", `/g/${loop.groupId}/settings`);
 });

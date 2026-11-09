@@ -14,9 +14,9 @@ type Page = import("@playwright/test").Page;
 
 async function toLookStep(page: Page, title: string) {
   await page.goto("/g/new");
-  await page.getByLabel("Loop title").fill(title);
+  await page.getByLabel("Loop name").fill(title);
   await page.getByRole("button", { name: NEXT }).click();
-  await expect(page.getByRole("heading", { name: "Choose its paper and picture" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Pick its stationery" })).toBeVisible();
 }
 
 /** From the paper step through the questions, invitations and note to the end. */
@@ -74,8 +74,8 @@ test("B7 · skipping the step changes nothing, and a bad accent or an oversize p
   await page.getByRole("button", { name: NEXT }).click();
   await expect(page.getByText("Use a hex code like #3366cc.")).toBeVisible();
   await expect(page.getByLabel("Accent color as a hex code")).toBeFocused();
-  await expect(page.getByRole("heading", { name: "Choose its paper and picture" })).toBeVisible();
-  await page.getByRole("button", { name: "Use the paper's own" }).click();
+  await expect(page.getByRole("heading", { name: "Pick its stationery" })).toBeVisible();
+  await page.getByRole("button", { name: "Use the color set's own" }).click();
 
   // A picture that cannot be read is refused before anything is sent.
   await chooseFile(page, "Choose a header picture", {

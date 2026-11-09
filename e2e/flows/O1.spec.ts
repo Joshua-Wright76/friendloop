@@ -53,7 +53,7 @@ test("O1 · the owner adds a birthday and a one-time event and sees them coming 
   // A date that has already gone by is refused, and the page says so.
   const card = addCard(page);
   await fillItem(page, card, { text: "Last week's party", frequency: "On a date", date: "2025-12-20" });
-  await card.getByRole("button", { name: "Add", exact: true }).click();
+  await card.getByRole("button", { name: "Add question", exact: true }).click();
   await expect(page.getByText("That date has already gone by.")).toBeVisible();
   await expect(items).toHaveCount(1);
 });

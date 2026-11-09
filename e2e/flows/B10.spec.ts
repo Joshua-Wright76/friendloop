@@ -41,7 +41,7 @@ test("B10 · the owner copies the loop's link, and a friend joins with just thei
   await friend.getByRole("button", { name: "Sign in" }).click();
 
   await expect(friend).toHaveURL(new RegExp(`/g/${loop.groupId}\\?welcome=joined$`));
-  await expect(friend.getByText("You're in! Answer the round whenever you like.", { exact: false })).toBeVisible();
+  await expect(friend.getByText("You're in. Answer whenever you like", { exact: false })).toBeVisible();
   const [member] = await rows<{ name: string; access: string; participation: string; accepted_at: Date | null }>(
     "select name, access, participation, accepted_at from memberships where email = 'nia@friendloop.test'",
   );

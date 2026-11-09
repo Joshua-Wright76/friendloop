@@ -101,7 +101,7 @@ test("a header picture is stored, replaced without leaving the old file, and cle
 test("a header picture must be a real image under its own cap, for a loop that exists", async (t) => {
   const loop = await seedLoop();
   const text = await setHeaderImage(loop.groupId, { bytes: new TextEncoder().encode("not an image"), type: "image/png" });
-  assert.deepEqual(text, { ok: false, status: 415, error: "Use a JPEG, PNG, WebP or GIF picture." });
+  assert.deepEqual(text, { ok: false, status: 415, error: "Use a JPEG, PNG, WebP, or GIF picture." });
   const mismatch = await setHeaderImage(loop.groupId, { bytes: PNG, type: "image/jpeg" });
   assert.equal(mismatch.ok === false && mismatch.status, 415);
 
@@ -253,7 +253,7 @@ test("a profile photo is refused when it is not an image, is over 2 MB, or has n
   const alice = loop.members.find((member) => member.email.startsWith("alice"))!;
 
   const text = await setMemberPhoto(alice.id, { bytes: new TextEncoder().encode("nope"), type: "image/png" });
-  assert.deepEqual(text, { ok: false, status: 415, error: "Use a JPEG, PNG, WebP or GIF picture." });
+  assert.deepEqual(text, { ok: false, status: 415, error: "Use a JPEG, PNG, WebP, or GIF picture." });
   const big = new Uint8Array(MAX_AVATAR_BYTES + 1);
   big.set(PNG);
   const tooBig = await setMemberPhoto(alice.id, { bytes: big, type: "image/png" });

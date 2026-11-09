@@ -31,7 +31,7 @@ test("I2 · the owner accepts with an edit, or turns a suggestion down", async (
   await signIn(page, "owner@friendloop.test");
   await page.goto(`/g/${loop.groupId}/questions`);
 
-  await unfold(page, "2 suggested by members");
+  await unfold(page, "2 suggested by people in the loop");
   // The anonymous suggestion shows its chip, but the owner still sees who asked.
   await expect(page.getByText("from Bob")).toBeVisible();
   await expect(page.getByText("anonymous")).toBeVisible();
@@ -45,7 +45,7 @@ test("I2 · the owner accepts with an edit, or turns a suggestion down", async (
   await expect(page.getByText("Who taught the dog to open doors, and when?").first()).toBeVisible();
 
   // Decline what is left: the queue empties out.
-  await page.getByRole("button", { name: "Decline" }).click();
-  await expect(page.getByText("Suggestion declined.")).toBeVisible();
+  await page.getByRole("button", { name: "Pass" }).click();
+  await expect(page.getByText("Passed. It won't be asked.")).toBeVisible();
   await expect(page.getByText(/suggested by/)).toHaveCount(0);
 });

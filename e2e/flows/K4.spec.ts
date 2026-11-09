@@ -27,7 +27,7 @@ test("K4 · a photo wall takes several photos, captions optional", async ({ page
     mimeType: "image/png",
     buffer: makePng(),
   });
-  await expect(page.getByText("Photo added.")).toBeVisible();
+  await expect(page.getByText("Photo added")).toBeVisible();
   await expect(wall.getByRole("button", { name: "Remove" })).toHaveCount(1);
 
   // A caption can go on the next one.

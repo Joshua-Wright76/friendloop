@@ -30,12 +30,12 @@ test("N3 · the owner hands the loop to an admin, names them in the confirmation
   await expect(page.getByRole("option", { name: "Owner", exact: true })).toHaveCount(0);
   await page.keyboard.press("Escape");
 
-  // The confirmation names the person and says what you give up; "Not yet" backs out.
+  // The confirmation names the person and says what you give up; "Never mind" backs out.
   await page.getByRole("button", { name: "Make heir the owner" }).click();
   const question = page.getByRole("group", { name: /Hand .* to heir\?/ });
   await expect(page.getByText(/^Hand .* to heir\?$/)).toBeFocused();
   await expect(question).toContainText("heir becomes the owner and you become an admin. Only heir can hand it back.");
-  await question.getByRole("button", { name: "Not yet" }).click();
+  await question.getByRole("button", { name: "Never mind" }).click();
   await expect(page.getByRole("button", { name: "Make heir the owner" })).toBeVisible();
   expect((await roles(loop.groupId)).find((row) => row.email.startsWith("owner"))!.access).toBe("owner");
 

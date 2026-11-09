@@ -31,7 +31,7 @@ test("D5 · Done confirms what goes out and when", async ({ page }) => {
   await expect(
     page.getByText(/^Everything you wrote for Round 1 goes out on (.+ your time \()?Fri 9 Jan, 9:05 AM( in Amsterdam\))?\.$/),
   ).toBeVisible();
-  await expect(page.getByText("Until then you can change anything. Clear an answer to leave it out.")).toBeVisible();
+  await expect(page.getByText("You can change anything until then.")).toBeVisible();
   await expect(page.getByLabel("What made you laugh this week?")).toBeHidden();
   // Nobody is signed in here, so there is no loop page to offer.
   await expect(page.getByRole("link", { name: /^Go to / })).toHaveCount(0);

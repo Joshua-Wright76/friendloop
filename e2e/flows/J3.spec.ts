@@ -45,5 +45,5 @@ test("J3 · duration and size caps answer with the same warm error, never a 500"
 
   await page.goto(`/r/${alice.token}`);
   await expect(page.locator("audio")).toHaveCount(0);
-  await expect(page.getByText("Voice note saved.")).toHaveCount(0);
+  await expect(page.getByText("Voice note saved")).toHaveCount(0);
 });

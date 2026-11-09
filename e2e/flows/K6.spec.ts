@@ -26,10 +26,10 @@ test("K6 · a delivered issue renders a music card that opens the provider", asy
     .insert(musicLinks)
     .values({ url: link, provider: "spotify", title: "Our road trip record", artworkUrl: null, fetchedAt: new Date() });
 
-  await page.getByPlaceholder("Spotify, Bandcamp or Qobuz link").fill(link);
+  await page.getByPlaceholder("Spotify, Bandcamp, or Qobuz link").fill(link);
   await page.getByLabel("A line about it").first().fill("Our road trip record");
   await page.getByLabel("A line about it").first().blur();
-  await expect(page.getByText("Saved.").first()).toBeVisible();
+  await expect(page.getByText("Saved", { exact: true }).first()).toBeVisible();
 
   await page.getByRole("button", { name: "Done", exact: true }).click();
   await expect(page.getByRole("heading", { name: "All set", exact: true })).toBeVisible();

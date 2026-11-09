@@ -41,12 +41,12 @@ test("B6 · the people page shows no invitation state: a quiet note for a contri
   await page.goto(`/g/${loop.groupId}/members`);
 
   const quiet = page.locator(".member-list > li").filter({ hasText: "quiet@friendloop.test" });
-  await expect(quiet.getByText("Hasn't answered yet")).toBeVisible();
+  await expect(quiet.getByText("Hasn't answered anything yet")).toBeVisible();
   const reader = page.locator(".member-list > li").filter({ hasText: "rae@friendloop.test" });
-  await expect(reader.getByText("Hasn't answered yet")).toHaveCount(0);
+  await expect(reader.getByText("Hasn't answered anything yet")).toHaveCount(0);
   await expect(page.getByText(/expired|not opened/i)).toHaveCount(0);
   // The same link can always be sent again.
-  await expect(reader.getByRole("button", { name: "Resend invite" })).toBeVisible();
+  await expect(reader.getByRole("button", { name: "Resend invitation" })).toBeVisible();
 });
 
 test("B6 · removing someone is what ends a link", async ({ page }) => {

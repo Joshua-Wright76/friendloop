@@ -23,7 +23,7 @@ test("C4 · the owner edits this round directly: remove, reorder, add, and rewor
 
   // Someone wrote in Q1: it says who, and offers no bin.
   const first = thisRound(page).locator(":scope > li").first();
-  await expect(first).toContainText("Alice has written here, so it stays");
+  await expect(first).toContainText("Alice already wrote here, so it stays");
   await expect(page.getByRole("button", { name: "Remove from this round: Q1" })).toHaveCount(0);
 
   // Q2 comes out, and goes first in line for the next round.
