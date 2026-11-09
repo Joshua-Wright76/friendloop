@@ -8,6 +8,7 @@ import { TransferControl } from "./transfer-control";
 import { Avatar, NameCharm } from "@/components/avatar";
 import { ProfilePhoto } from "@/components/profile-photo";
 import { InviteForm } from "./invite-form";
+import { InviteLinkCard } from "./invite-link-card";
 import { ChangeMemberEmail } from "./change-member-email";
 import { LoopNav } from "@/components/loop-nav";
 import { NoticeFocus } from "@/components/notice-focus";
@@ -16,9 +17,9 @@ import { useLoopData } from "../loop-data";
 import { SubmitButton } from "@/components/submit-button";
 
 export default function MembersTab({ notices }: {
-  notices: { invited?: string; resent?: string; removed?: string; transferred?: string; transferError?: string; limited?: string; addressChanged?: string };
+  notices: { invited?: string; resent?: string; removed?: string; transferred?: string; transferError?: string; limited?: string; addressChanged?: string; linkReset?: string };
 }) {
-  const { group, membership, people } = useLoopData();
+  const { group, membership, people, inviteUrl } = useLoopData();
   const id = group.id;
   const manages = membership.access !== "member";
   const isOwner = membership.access === "owner";
@@ -27,11 +28,14 @@ export default function MembersTab({ notices }: {
     <main className="loop-page mx-auto w-full max-w-[680px] px-4 pb-16 pt-5 sm:px-6 lg:max-w-[1040px]">
       <LoopNav id={id} name={group.name} access={membership.access} active="People">
         <h1>{copy.members.title}</h1>
-        {/* Inviting is the owner's most common job here: one line, right under the title. */}
+        {/* Inviting is the owner's most common job here, right under the title. The link comes
+            first: most people don't know everyone's email, and a group chat is one paste. */}
+        {manages && inviteUrl ? <InviteLinkCard groupId={id} url={inviteUrl} /> : null}
         {manages ? <InviteForm groupId={id} /> : null}
       </LoopNav>
 
       {notices.invited ? <NoticeFocus>{copy.members.invitedNotice}</NoticeFocus> : null}
+      {notices.linkReset ? <NoticeFocus>{copy.members.inviteLink.resetNotice}</NoticeFocus> : null}
       {notices.resent ? <NoticeFocus>{copy.members.resentNotice}</NoticeFocus> : null}
       {notices.removed ? <NoticeFocus>{copy.members.removedNotice}</NoticeFocus> : null}
       {notices.addressChanged ? <NoticeFocus>{copy.members.changeEmail.notice}</NoticeFocus> : null}

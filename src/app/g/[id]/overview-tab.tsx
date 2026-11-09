@@ -37,6 +37,10 @@ export default function OverviewTab({ welcome, nudged }: { welcome?: string; nud
     <main className="loop-page mx-auto w-full max-w-[680px] px-4 pb-16 pt-5 sm:px-6 lg:max-w-[1040px]">
       <LoopNav id={group.id} name={group.name} access={membership.access} active="Overview" nameIsHeading snapshotUrl={group.headerImageUrl} />
 
+      {welcome === "joined" ? (
+        <NoticeFocus spacing="mt-4">{copy.loop.welcomeJoined}</NoticeFocus>
+      ) : null}
+
       {welcome === "1" || welcome === "no-picture" ? (
         <NoticeFocus spacing="mt-4">
           {people.length > 1 ? copy.loop.welcomeInvited : copy.loop.welcome}
@@ -62,7 +66,7 @@ export default function OverviewTab({ welcome, nudged }: { welcome?: string; nud
           <h2 className="text-ink">{copy.loop.firstRunTitle}</h2>
           <p className="mt-1.5 max-w-[56ch] text-[15px] leading-relaxed text-ink-soft">{copy.loop.firstRunBody}</p>
           <div className="mt-4 flex flex-wrap gap-2.5">
-            <Link href={`/g/${group.id}/members#invite-people`} className="btn btn-primary">{copy.loop.firstRunInvite}</Link>
+            <Link href={`/g/${group.id}/members#invite-link`} className="btn btn-primary">{copy.loop.firstRunInvite}</Link>
             <Link href={`/g/${group.id}/questions`} className="btn btn-quiet">{copy.loop.firstRunQuestions}</Link>
           </div>
         </section>

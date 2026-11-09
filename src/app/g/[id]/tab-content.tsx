@@ -31,7 +31,7 @@ export function LoopTabContent(props: Props) {
       return <OverviewTab welcome={welcome} nudged={nudged} />;
     }
     case "members":
-      return <MembersTab notices={read("limited", "addressChanged", "invited", "resent", "removed", "transferred", "transferError")} />;
+      return <MembersTab notices={read("limited", "addressChanged", "invited", "resent", "removed", "transferred", "transferError", "linkReset")} />;
     case "questions":
       // Each return from a form is a fresh page: forms empty, editors closed.
       return <QuestionsTab key={params.get("n") ?? ""} notices={read("done", "problem", "fromPacks", "suggestion")} />;

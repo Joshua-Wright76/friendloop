@@ -43,6 +43,7 @@ const TABLES = [
   "issues",
   "sections",
   "questions",
+  "invite_links",
   "memberships",
   "groups",
   "sessions",

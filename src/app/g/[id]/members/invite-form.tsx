@@ -141,7 +141,7 @@ export function InviteForm({ groupId }: { groupId: string }) {
         // from under a finger mid-tap. Keeping focus put means the first tap sends.
         onMouseDown={(event) => event.preventDefault()}
         aria-disabled={pending ? true : undefined}
-        className="btn btn-primary flex-none aria-disabled:cursor-not-allowed aria-disabled:opacity-45">{pending ? copy.common.loading : copy.members.sendInvitations}</button>
+        className="btn btn-quiet flex-none aria-disabled:cursor-not-allowed aria-disabled:opacity-45">{pending ? copy.common.loading : copy.members.sendInvitations}</button>
       </div>
       <InviteParticipation value={participation} onChange={setParticipation} disabled={pending} className="mt-1.5" />
       <p role="status" className="mt-2 text-[13px] text-ink-soft empty:mt-0">{status}</p>

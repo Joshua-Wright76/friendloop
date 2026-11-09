@@ -14,7 +14,8 @@ import { currentUser } from "@/lib/auth";
 import { getNow } from "@/lib/clock";
 import { membersOf } from "@/lib/manage";
 import { describeDeadline, groupSchedule, nextSlot, weekdayName } from "@/lib/schedule";
-import { url } from "@/lib/urls";
+import { joinUrl, url } from "@/lib/urls";
+import { inviteLinkToken } from "@/lib/invite-link";
 import { ownAnswerHref } from "@/lib/answer-link";
 import LoopLoading from "./loading";
 import { LoopTheme } from "@/components/loop-theme";
@@ -94,7 +95,7 @@ async function LoadedGroupLayout({ children, params }: Props) {
   // "Now" belongs to this request, never to a prerender.
   await connection();
   const at = await getNow();
-  const [people, questionsPage, roundRows, answerRows, suggestionRows, answeredIn, heldEmails] = await Promise.all([
+  const [people, questionsPage, roundRows, answerRows, suggestionRows, answeredIn, heldEmails, inviteToken] = await Promise.all([
     membersOf(group.id),
     questionsPageOf({ group, viewer: membership, at }),
     db.select({
@@ -119,6 +120,8 @@ async function LoadedGroupLayout({ children, params }: Props) {
     deliveredRoundsAnsweredByEveryone({ groupId: group.id, includeAdminOnly: membership.access !== "member" }),
     // Whoever sends this loop's mail should hear when it's waiting; members can't act on it.
     membership.access === "member" ? 0 : heldMailFor(group.id),
+    // Only those who can invite get the link; it never reaches a member's browser.
+    membership.access === "member" ? null : inviteLinkToken(group.id),
   ]);
 
   const answeredBy = new Map(answerRows.map((row) => [row.issueId, row.people]));
@@ -186,6 +189,7 @@ async function LoadedGroupLayout({ children, params }: Props) {
       hasOpenRound: openIssue !== null,
     }),
     heldEmails,
+    inviteUrl: inviteToken ? joinUrl(inviteToken) : null,
   };
 
   return (

@@ -110,6 +110,11 @@ export const magicLinks = pgTable(
     usedAt: timestamp("used_at", { withTimezone: true }),
     /** The six-digit code sent with the link, keyed-hashed with the address. Null for links with no code. */
     codeHash: text("code_hash"),
+    /**
+     * Set when this link was asked for from a loop's invite link (`invite_links.token`).
+     * Using it also joins that loop, if the invite link is still the loop's current one.
+     */
+    joinToken: text("join_token"),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => [uniqueIndex("magic_links_token_hash_idx").on(t.tokenHash), index("magic_links_email_idx").on(t.email)],
@@ -222,6 +227,25 @@ export const memberships = pgTable(
     uniqueIndex("memberships_group_email_idx").on(t.groupId, t.email),
     index("memberships_user_idx").on(t.userId),
   ],
+);
+
+/**
+ * A loop's shareable invite link, `/join/<token>`. Anyone holding it can ask to
+ * join with their email; they're in once they confirm it. One per loop, made the
+ * first time a manager looks, and replaced (the old one stops working) on reset.
+ * Kept apart from `groups` so the token never rides along with the loop's row to
+ * every member's browser.
+ */
+export const inviteLinks = pgTable(
+  "invite_links",
+  {
+    groupId: uuid("group_id")
+      .references(() => groups.id, { onDelete: "cascade" })
+      .primaryKey(),
+    token: text("token").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [uniqueIndex("invite_links_token_idx").on(t.token)],
 );
 
 export const questions = pgTable(

@@ -28,7 +28,13 @@ function legacyCopy(value: string): boolean {
  * One tap instead of a fiddly text selection on a phone — which is where this
  * link gets sent from.
  */
-export function CopyLink({ url, className = "" }: { url: string; className?: string }) {
+export function CopyLink({ url, label = copy.common.copyLink, primary = false, className = "" }: {
+  url: string;
+  label?: string;
+  /** The page's main action (the invite link), rather than a small helper beside a link. */
+  primary?: boolean;
+  className?: string;
+}) {
   const [state, setState] = useState<CopyState>("idle");
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -59,13 +65,13 @@ export function CopyLink({ url, className = "" }: { url: string; className?: str
         type="button"
         onClick={() => void copyUrl()}
         title={state === "failed" ? copy.common.copyFailed : undefined}
-        className={`btn btn-quiet h-11 min-h-11 flex-none whitespace-nowrap px-3 text-[13px] ${className}`}
+        className={`btn ${primary ? "btn-primary px-4" : "btn-quiet h-11 min-h-11 px-3 text-[13px]"} flex-none whitespace-nowrap ${className}`}
       >
         {state === "copied"
           ? copy.common.copied
           : state === "failed"
             ? copy.common.copyFailedShort
-            : copy.common.copyLink}
+            : label}
       </button>
       {/* Outside the button, and always mounted, so the result is spoken without moving focus. */}
       <span role="status" aria-live="polite" className="sr-only">

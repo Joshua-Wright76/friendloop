@@ -15,6 +15,7 @@ import {
   transferOwnership,
 } from "@/lib/manage";
 import { viewerFor } from "@/lib/permissions";
+import { resetInviteLink } from "@/lib/invite-link";
 
 async function requireManager(groupId: string) {
   const viewer = await viewerFor(groupId);
@@ -48,6 +49,15 @@ export async function inviteAction(formData: FormData) {
   } catch {
     return { ok: false as const, message: "failed" as const };
   }
+}
+
+/** A new invite link; the old one stops working. */
+export async function resetInviteLinkAction(formData: FormData) {
+  const groupId = String(formData.get("groupId") ?? "");
+  await requireManager(groupId);
+  await resetInviteLink(groupId, await getNow());
+  revalidatePath(`/g/${groupId}`, "layout");
+  redirect(`/g/${groupId}/members?linkReset=1`);
 }
 
 export async function resendAction(formData: FormData) {

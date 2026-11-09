@@ -2,7 +2,8 @@
 
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { CHECK_EMAIL_COOKIE, confirmSignInCode, LINK_HOURS, normalizeEmail, requestMagicLink } from "@/lib/auth";
+import { CHECK_EMAIL_COOKIE, confirmSignInCode, type JoinResult, LINK_HOURS, normalizeEmail, requestMagicLink } from "@/lib/auth";
+import { joinDestination } from "@/lib/invite-link";
 import { copy } from "@/lib/copy";
 import { requestIp } from "@/lib/rate-limit";
 
@@ -20,17 +21,7 @@ export async function requestLink(
 
   const outcome = await requestMagicLink(email, { ip: await requestIp() });
   if (outcome === "busy") return { error: copy.signIn.tooMany };
-  // The next page repeats the address back, so a typo is caught there. It is only
-  // ever what this browser just typed, never anything looked up, and it is set
-  // whether or not the address has an account.
-  (await cookies()).set(CHECK_EMAIL_COOKIE, normalizeEmail(email), {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
-    path: "/signin",
-    // As long as the code it pairs with, so the code box still knows the address days later.
-    maxAge: LINK_HOURS * 60 * 60,
-  });
+  await rememberCheckEmail(email);
   // Same destination whether or not the address has ever been seen, and whether
   // or not this address has had too many links lately.
   redirect("/signin/check-email");
@@ -53,7 +44,7 @@ export async function enterCode(_previous: CodeState, formData: FormData): Promi
 
   if (result.ok === true) {
     await forgetCheckEmail();
-    redirect("/you");
+    redirect(signedInDestination(result.join));
   }
   if (result.ok === "name") redirect(`/signin/confirm?token=${encodeURIComponent(result.token)}`);
   const errors = { busy: copy.checkEmail.codeBusy, locked: copy.checkEmail.codeLocked, wrong: copy.checkEmail.codeWrong };
@@ -63,4 +54,25 @@ export async function enterCode(_previous: CodeState, formData: FormData): Promi
 /** Once someone is in, the address they asked for needn't sit in a cookie for days (a shared computer). */
 export async function forgetCheckEmail(): Promise<void> {
   (await cookies()).delete({ name: CHECK_EMAIL_COOKIE, path: "/signin" });
+}
+
+/**
+ * The next page repeats the address back, so a typo is caught there. It is only
+ * ever what this browser just typed, never anything looked up, and it is set
+ * whether or not the address has an account.
+ */
+export async function rememberCheckEmail(email: string): Promise<void> {
+  (await cookies()).set(CHECK_EMAIL_COOKIE, normalizeEmail(email), {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    path: "/signin",
+    // As long as the code it pairs with, so the code box still knows the address days later.
+    maxAge: LINK_HOURS * 60 * 60,
+  });
+}
+
+/** Your loops, or, for someone who came from an invite link, the loop they joined. */
+function signedInDestination(join: JoinResult | undefined): string {
+  return join ? joinDestination(join.joinToken, join.outcome) : "/you";
 }

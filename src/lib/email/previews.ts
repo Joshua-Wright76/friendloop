@@ -10,6 +10,7 @@ import {
   promptEmail,
   reminderEmail,
   signInEmail,
+  joinEmail,
   type AnswerBlock,
   type RenderedEmail,
   type SectionEmailBlock,
@@ -102,6 +103,10 @@ export function emailPreviews(): EmailPreview[] {
     {
       id: "signIn",
       email: signInEmail("https://friendloop.dev/signin/confirm?token=preview-token", "418093"),
+    },
+    {
+      id: "join",
+      email: joinEmail("Saturday Club", "https://friendloop.dev/signin/confirm?token=preview-token", "418093"),
     },
     {
       id: "inviteContributor",

@@ -43,7 +43,9 @@ test.beforeEach(async () => {
 
 test("WCAG AA · public and authentication pages", async ({ page }) => {
   test.setTimeout(90_000);
-  await auditThemes(page, ["/", "/signin", "/signin/check-email", "/signin/confirm?problem=unknown", "/r/invalid", "/privacy", "/terms", "/goodbye"]);
+  const loop = await seedLoop({ name: "Join Club" });
+  await rows("insert into invite_links (group_id, token) values ($1, 'a11y-join-token')", [loop.groupId]);
+  await auditThemes(page, ["/", "/signin", "/signin/check-email", "/signin/confirm?problem=unknown", "/r/invalid", "/join/a11y-join-token", "/join/not-a-token", "/privacy", "/terms", "/goodbye"]);
 });
 
 test("WCAG AA · loop management, creation, and reply pages", async ({ page }) => {

@@ -8,10 +8,11 @@ import { hashToken, newToken, safeEqual } from "./tokens";
 import { getNow } from "./clock";
 import { cleanDisplayName } from "./names";
 import { isValidTimezone } from "./timezone";
-import { signInEmail } from "./email/templates";
+import { joinEmail, signInEmail } from "./email/templates";
 import { sendEmail } from "./email/send";
 import { signInUrl } from "./urls";
 import { consume, LIMITS, limitKey } from "./rate-limit";
+import { joinWithInvite, loopForInvite, type JoinOutcome } from "./invite-link";
 
 export const SESSION_COOKIE = "fl_session";
 /** The address a sign-in link was just sent to, echoed on the check-email page. */
@@ -82,7 +83,8 @@ async function isBlocked(email: string): Promise<boolean> {
 
 export async function requestMagicLink(
   rawEmail: string,
-  options: { ip?: string } = {},
+  /** `joinToken`: asked for from a loop's invite link, so using the link also joins that loop. */
+  options: { ip?: string; joinToken?: string } = {},
 ): Promise<MagicLinkOutcome> {
   const email = normalizeEmail(rawEmail);
   const at = await getNow();
@@ -91,6 +93,7 @@ export async function requestMagicLink(
   if (!(await consume(limitKey.signInEmail(email), LIMITS.signInEmail, at)).allowed) return "quiet";
   if (await isBlocked(email)) return "quiet";
 
+  const loop = options.joinToken ? await loopForInvite(options.joinToken) : null;
   const token = newToken();
   const code = newSignInCode();
   await db.insert(magicLinks).values({
@@ -98,9 +101,10 @@ export async function requestMagicLink(
     tokenHash: hashToken(token),
     codeHash: hashSignInCode(email, code),
     expiresAt: new Date(at.getTime() + LINK_HOURS * 60 * 60 * 1000),
+    joinToken: loop ? options.joinToken : null,
   });
 
-  const rendered = signInEmail(signInUrl(token), code);
+  const rendered = loop ? joinEmail(loop.groupName, signInUrl(token), code) : signInEmail(signInUrl(token), code);
   await sendEmail({
     ...rendered,
     to: email,
@@ -110,8 +114,11 @@ export async function requestMagicLink(
   return "sent";
 }
 
+/** The loop an invite link asked to join, and how that went; absent for a plain sign-in. */
+export type JoinResult = { joinToken: string; outcome: JoinOutcome };
+
 export type ConfirmResult =
-  | { ok: true; user: CurrentUser }
+  | { ok: true; user: CurrentUser; join?: JoinResult }
   | { ok: false; reason: "expired" | "unknown" };
 
 /** What the browser can tell us at sign-in, so we never have to ask later. */
@@ -149,11 +156,18 @@ export async function confirmMagicLink(
     .set({ usedAt: at })
     .where(and(eq(magicLinks.id, link.id), isNull(magicLinks.usedAt)));
 
-  return { ok: true, user: await signInAs(link.email, profile, at) };
+  const user = await signInAs(link.email, profile, at);
+  return { ok: true, user, join: await joinIfAsked(link.joinToken, user, at) };
+}
+
+/** Signed in from an invite link's email: now that the address is proven, join the loop. */
+async function joinIfAsked(joinToken: string | null, user: CurrentUser, at: Date): Promise<JoinResult | undefined> {
+  if (!joinToken) return undefined;
+  return { joinToken, outcome: await joinWithInvite({ token: joinToken, user, at }) };
 }
 
 export type CodeResult =
-  | { ok: true; user: CurrentUser }
+  | { ok: true; user: CurrentUser; join?: JoinResult }
   /** Someone new: the confirm page asks their name, through a short link of its own. */
   | { ok: "name"; token: string }
   | { ok: false; reason: "wrong" | "busy" | "locked" };
@@ -186,7 +200,7 @@ export async function confirmSignInCode(
   }
 
   const [newest] = await db
-    .select({ id: magicLinks.id, codeHash: magicLinks.codeHash })
+    .select({ id: magicLinks.id, codeHash: magicLinks.codeHash, joinToken: magicLinks.joinToken })
     .from(magicLinks)
     .where(and(eq(magicLinks.email, email), gt(magicLinks.expiresAt, at), isNotNull(magicLinks.codeHash)))
     .orderBy(desc(magicLinks.createdAt), desc(magicLinks.id))
@@ -198,13 +212,18 @@ export async function confirmSignInCode(
   await db.update(magicLinks).set({ usedAt: at }).where(and(eq(magicLinks.id, match.id), isNull(magicLinks.usedAt)));
 
   const [known] = await db.select({ name: users.name }).from(users).where(eq(users.email, email)).limit(1);
-  if (known?.name) return { ok: true, user: await signInAs(email, options.profile ?? {}, at) };
+  if (known?.name) {
+    const user = await signInAs(email, options.profile ?? {}, at);
+    return { ok: true, user, join: await joinIfAsked(match.joinToken, user, at) };
+  }
 
   const token = newToken();
   await db.insert(magicLinks).values({
     email,
     tokenHash: hashToken(token),
     expiresAt: new Date(at.getTime() + CODE_LINK_MINUTES * 60 * 1000),
+    // The name step's link joins the same loop the code was for.
+    joinToken: match.joinToken,
   });
   return { ok: "name", token };
 }

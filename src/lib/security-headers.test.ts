@@ -76,7 +76,7 @@ test("every route gets the base headers; HSTS only in production", () => {
 test("credential and loop routes send no referrer, after the site-wide rule", () => {
   const rules = securityHeaders({ nodeEnv: "production" });
   assert.equal(rules[0].source, "/:path*");
-  for (const source of ["/r/:path*", "/u/:path*", "/s/:path*", "/i/:path*", "/album/:path*", "/signin/:path*"]) {
+  for (const source of ["/r/:path*", "/u/:path*", "/s/:path*", "/i/:path*", "/album/:path*", "/signin/:path*", "/join/:path*"]) {
     assert.ok((PRIVATE_ROUTES as readonly string[]).includes(source), source);
     assert.equal(headersFor(rules, source)["Referrer-Policy"], "no-referrer");
   }
