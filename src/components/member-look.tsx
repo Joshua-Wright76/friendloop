@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { copy } from "@/lib/copy";
 import { CHARM_KEYS, FRAME_KEYS, stickerSrc } from "@/lib/stickers";
 import { Avatar } from "./avatar";
+import { SignaturePad } from "./signature-pad";
 
 type Look = { charm: string; frame: string };
 type Status = "idle" | "saving" | "saved" | "error";
@@ -18,6 +19,7 @@ export function MemberLook({
   photoUrl,
   charm,
   frame,
+  signature = null,
   refresh,
   onFrame,
 }: {
@@ -26,6 +28,8 @@ export function MemberLook({
   photoUrl: string | null;
   charm: string | null;
   frame: string | null;
+  /** Their signature's strokes in this loop, or null. */
+  signature?: number[][] | null;
   /** Called once the server has it, so anything else on the page showing them can follow. */
   refresh?: () => void;
   onFrame?: (frame: string | null) => void;
@@ -118,6 +122,11 @@ export function MemberLook({
       </p>
       {/* The same rising note as the stationery's, so a pick visibly lands. Decorative: the line above already speaks. */}
       {status === "saved" ? <p aria-hidden="true" className="toast">{copy.identity.look.savedToast}</p> : null}
+
+      {/* Beside the photo's address is the signature's: the same person, the same loop. */}
+      <div className="mt-3 border-t border-dashed border-line pt-3">
+        <SignaturePad endpoint={endpoint.replace(/\/profile-photo$/, "/signature")} initial={signature} onSaved={refresh} />
+      </div>
     </div>
   );
 }

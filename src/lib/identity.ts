@@ -260,7 +260,12 @@ export async function setMemberSignature(membershipId: string, strokes: unknown,
     await discard(stored.url);
     return { ok: false, status: 404, error: copy.identity.signature.failed };
   }
-  await db.update(memberships).set({ signature, signaturePngUrl: stored.url }).where(eq(memberships.id, membershipId));
+  // Cast by hand: a jsonb column written through the bundled driver can land as one JSON
+  // string rather than the array itself, which reads back fine here but not to SQL.
+  await db
+    .update(memberships)
+    .set({ signature: sql`${JSON.stringify(signature)}::jsonb`, signaturePngUrl: stored.url })
+    .where(eq(memberships.id, membershipId));
   await discard(before.url);
   return { ok: true, signature, url: stored.url };
 }

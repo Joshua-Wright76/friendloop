@@ -71,6 +71,7 @@ async function LoadedGroupLayout({ children, params }: Props) {
         photoUrl: memberships.photoUrl,
         charm: memberships.charm,
         avatarFrame: memberships.avatarFrame,
+        signature: memberships.signature,
         access: memberships.access,
         participation: memberships.participation,
         invitedAt: memberships.invitedAt,

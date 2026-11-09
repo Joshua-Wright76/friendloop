@@ -13,6 +13,7 @@ import { IssuePrint } from "../../i/[id]/issue-print";
 import { DisplayDigits } from "@/components/display-digits";
 import { marksOf } from "@/lib/looks";
 import { Motto, RoundMark, SignOff } from "@/components/round-marks";
+import { RollCall, SignedCard } from "@/components/member-marks";
 
 export const instant = false;
 
@@ -97,7 +98,13 @@ export default async function SharePage({
         barTitle={issueTitle(copy.share.round, view.issue.number, view.issue.name)}
         commentsEnabled={false}
         mentionables={[]}
-        closing={marks.signOff ? <SignOff text={marks.signOff} /> : undefined}
+        opening={view.statusLines ? <RollCall lines={view.statusLines} /> : undefined}
+        closing={view.signatures || marks.signOff ? (
+          <>
+            <SignedCard signatures={view.signatures} round={view.issue.number} />
+            <SignOff text={marks.signOff} />
+          </>
+        ) : undefined}
       />
 
 

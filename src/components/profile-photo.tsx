@@ -21,6 +21,7 @@ export function ProfilePhoto({
   photoUrl: initial,
   charm,
   frame,
+  signature = null,
   refresh = false,
   compact = false,
   onFrame,
@@ -30,6 +31,8 @@ export function ProfilePhoto({
   photoUrl: string | null;
   charm: string | null;
   frame: string | null;
+  /** Their signature in this loop, for the pad beside the charm and frame. */
+  signature?: number[][] | null;
   /** Tells the page when the frame changes, for a picture it shows elsewhere. */
   onFrame?: (frame: string | null) => void;
   /** Re-render the surrounding server data after a change (the members list shows the photo too). */
@@ -100,6 +103,7 @@ export function ProfilePhoto({
       photoUrl={photoUrl}
       charm={charm}
       frame={frame}
+      signature={signature}
       refresh={refresh ? () => router.refresh() : undefined}
       onFrame={(next) => {
         setFrameNow(next);

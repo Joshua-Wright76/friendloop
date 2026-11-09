@@ -38,6 +38,8 @@ import { removeReplySectionMedia, uploadReplySectionPhoto } from "@/lib/section-
 import { PollCard, type PollCardStatus } from "./poll-card";
 import { DisplayDigits } from "@/components/display-digits";
 import { Celebration } from "@/components/celebration";
+import { StickerControl } from "@/components/sticker-sheet";
+import { StatusLineField, type LineStatus } from "./status-line";
 
 /**
  * One item of the round, in round order. Written and poll items are answered on
@@ -66,6 +68,8 @@ export type SheetQuestion = {
   pollMultiple: boolean;
   pollOptions: string[];
   pollChoices: number[];
+  /** The sticker on this answer, or null. */
+  sticker?: string | null;
 };
 
 type SheetSection = {
@@ -79,6 +83,7 @@ type SheetSection = {
   linkUrl: string;
   linkProvider: string;
   media: Array<{ id: string; url: string; caption: string | null }>;
+  sticker: string | null;
 };
 
 const isCard = (item: SheetQuestion) => item.format === "photo_wall" || item.format === "music";
@@ -93,6 +98,10 @@ type Props = {
   photoUrl: string | null;
   charm: string | null;
   frame: string | null;
+  /** Their signature in this loop, for the pad beside the charm and frame. */
+  signature?: number[][] | null;
+  /** Their line for this round, so far. */
+  statusLine?: string;
   deadlineMoment: string;
   deliversAtIso: string;
   displayName: string;
@@ -142,6 +151,8 @@ export function ReplySheet({
   photoUrl,
   charm,
   frame,
+  signature = null,
+  statusLine = "",
   deadlineMoment,
   deliversAtIso,
   displayName,
@@ -164,8 +175,10 @@ export function ReplySheet({
     linkUrl: item.linkUrl,
     linkProvider: item.linkProvider,
     media: item.media,
+    sticker: item.sticker ?? null,
   })), [items]);
   const [frameNow, setFrameNow] = useState(frame);
+  const [lineStatus, setLineStatus] = useState<LineStatus>("idle");
   const [bodies, setBodies] = useState<Record<string, string>>(() =>
     Object.fromEntries(questions.map((question) => [question.id, question.body])),
   );
@@ -388,12 +401,13 @@ export function ReplySheet({
     (photoStates[question.id] === "uploadError" && retryablePhotos[question.id]) ||
     (audioStates[question.id] === "uploadError" && retryableAudio[question.id]));
   const status: SaveStatus = useMemo(() => {
-    const states = Object.values(questionStatuses);
+    // The line this round saves like an answer, so the bar speaks for it too.
+    const states = [...Object.values(questionStatuses), lineStatus];
     if (finishFailed || states.includes("error")) return "error";
     if (states.includes("saving")) return "saving";
     if (states.includes("saved")) return "saved";
     return "idle";
-  }, [questionStatuses, finishFailed]);
+  }, [questionStatuses, finishFailed, lineStatus]);
 
   // A control that unmounts takes keyboard focus with it, so the handler names its successor.
   useEffect(() => {
@@ -1334,6 +1348,15 @@ export function ReplySheet({
                       </p>
                     </div>
                   ) : null}
+                  <StickerControl
+                    token={token}
+                    questionId={section.id}
+                    initial={section.sticker}
+                    answered={cardDone(section.id)}
+                    disabled={finishing}
+                    forQuestion={(label) => text(copy.a11yLabels.forQuestionNumber, { label, n: index + 1 })}
+                    track={trackSectionSave}
+                  />
                 </section>
               );
   };
@@ -1477,6 +1500,7 @@ export function ReplySheet({
                   photoUrl={photoUrl}
                   charm={charm}
                   frame={frame}
+                  signature={signature}
                   onFrame={setFrameNow}
                 />
               </div>
@@ -1496,6 +1520,7 @@ export function ReplySheet({
         </p>
 
         <div ref={questionList} className="mt-5 flex flex-col gap-6">
+          <StatusLineField token={token} initial={statusLine} disabled={finishing} onStatus={setLineStatus} track={trackSectionSave} />
           {items.map((item, index) => {
             const section = sections.find((candidate) => candidate.id === item.id);
             if (section) return renderSection(section, index);
@@ -1513,7 +1538,17 @@ export function ReplySheet({
                   status={pollStatuses[question.id] ?? "idle"}
                   disabled={finishing}
                   onChange={(next) => void choosePoll(question.id, next)}
-                />
+                >
+                  <StickerControl
+                    token={token}
+                    questionId={question.id}
+                    initial={question.sticker ?? null}
+                    answered={answeredIds.has(question.id)}
+                    disabled={finishing}
+                    forQuestion={(label) => text(copy.a11yLabels.forQuestionNumber, { label, n: index + 1 })}
+                    track={trackSectionSave}
+                  />
+                </PollCard>
               );
             }
             // Names carry the card's number, not its text, so each stays unique and none repeats the question.
@@ -1813,6 +1848,15 @@ export function ReplySheet({
                   {audioState === "removeError" ? copy.reply.voiceRetryRemove : copy.reply.voiceRetryUpload}
                 </button>
               ) : null}
+              <StickerControl
+                token={token}
+                questionId={question.id}
+                initial={question.sticker ?? null}
+                answered={answeredIds.has(question.id)}
+                disabled={finishing}
+                forQuestion={forQuestion}
+                track={trackSectionSave}
+              />
             </section>
             );
           })}

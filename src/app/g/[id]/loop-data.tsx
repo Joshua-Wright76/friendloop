@@ -8,7 +8,10 @@ import type { Deadline } from "@/lib/schedule";
 type Group = typeof groups.$inferSelect;
 type Membership = Pick<typeof memberships.$inferSelect,
   "id" | "groupId" | "userId" | "email" | "name" | "photoUrl" | "charm" | "avatarFrame" | "access" | "participation" | "invitedAt" | "acceptedAt"
->;
+> & {
+  /** The viewer's own signature in this loop, for the pad beside their charm and frame. */
+  signature?: number[][] | null;
+};
 
 export type LoopPerson = Pick<Membership,
   "id" | "email" | "name" | "photoUrl" | "charm" | "avatarFrame" | "access" | "participation" | "invitedAt" | "acceptedAt" | "userId"

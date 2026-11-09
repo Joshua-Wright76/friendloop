@@ -15,6 +15,7 @@ import { EmojiPicker } from "@/components/emoji-picker";
 import { MusicCard } from "@/components/music-card";
 import { PhotoLightbox, useLightbox, type LightboxPhoto } from "@/components/photo-lightbox";
 import { Tape } from "@/components/stationery";
+import { AnswerSticker, SignOffSignature, StatusBubble } from "@/components/member-marks";
 import { copy, text } from "@/lib/copy";
 
 type Props = {
@@ -40,6 +41,10 @@ type Props = {
   barTitle?: string;
   /** The owner's sign-off, closing the round before the talk about it. */
   closing?: ReactNode;
+  /** Opens the round, above the first card: the roll call of everyone's lines. */
+  opening?: ReactNode;
+  /** Each person's line and signature, by membership id, for reading by person. */
+  people?: Record<string, { line?: string; signature?: number[][] }>;
 };
 
 export function IssueBody({
@@ -58,6 +63,8 @@ export function IssueBody({
   readingNote,
   barTitle,
   closing,
+  opening,
+  people,
 }: Props) {
   const answered = blocks.filter((block) => block.answers.length > 0);
   const talk: Conversation = { issueId, viewerToken, canInteract, commentsEnabled, mentionables };
@@ -86,6 +93,7 @@ export function IssueBody({
     <div className="mt-3 flex flex-col gap-6">
       <IssueBar contents={contents} reading={reading} readingLabel={readingLabel} title={barTitle} />
       {readingNote}
+      {opening}
 
       {groups
         ? groups.map((group, index) => (
@@ -96,6 +104,7 @@ export function IssueBody({
                 {group.name}
                 <NameCharm charm={group.charm} />
               </h2>
+              <StatusBubble body={people?.[group.id]?.line} />
               <div className="mt-3">
                 {group.entries.map((entry) =>
                   entry.kind === "answer" ? (
@@ -121,6 +130,7 @@ export function IssueBody({
                   ),
                 )}
               </div>
+              <SignOffSignature name={group.name} strokes={people?.[group.id]?.signature} />
             </section>
           ))
         : null}
@@ -225,7 +235,7 @@ export function IssueBody({
 }
 
 type WallEntry = {
-  reply: Reactable & { authorPhotoUrl: string | null; authorFrame: string | null; authorCharm: string | null };
+  reply: Reactable & { authorPhotoUrl: string | null; authorFrame: string | null; authorCharm: string | null; sticker?: string };
   media: Array<{ url: string; caption: string | null }>;
   /** Where the Album's "view in issue" lands for this person's photos. */
   anchor: string;
@@ -264,6 +274,7 @@ function PhotoWall({ title, entries, talk, number }: { title: string; entries: W
             </button>
             <figcaption className="mt-1 text-[12.5px] leading-snug text-ink-soft">
               <span className="font-bold">{entry.reply.author}</span>
+              {first ? <AnswerSticker sticker={entry.reply.sticker} /> : null}
               {item.caption ? `, ${item.caption}` : null}
             </figcaption>
           </figure>
@@ -288,14 +299,15 @@ function PhotoWall({ title, entries, talk, number }: { title: string; entries: W
 /** One person's answer to a standard or music section, with its link card, photos, reactions and thread. */
 function SectionReplyCard({ reply, label, talk, number }: { reply: IssueSectionReplyBlock; label?: string; talk: Conversation; number?: number }) {
   return (
-    <div id={`section-reply-${reply.replyId}`} className="divided mt-4 scroll-mt-4 border-t border-line pt-4 first:border-t-0">
+    <div id={`section-reply-${reply.replyId}`} className={`divided mt-4 scroll-mt-4 border-t border-line pt-4 first:border-t-0${reply.sticker ? " has-sticker" : ""}`}>
       {label ? (
-        <h3 className="m-0 text-[22px] leading-tight text-ink">{label}</h3>
+        <h3 className="m-0 text-[22px] leading-tight text-ink">{label}<AnswerSticker sticker={reply.sticker} /></h3>
       ) : (
         <div className="flex items-center gap-2.5">
           <Avatar name={reply.author} photoUrl={reply.authorPhotoUrl} frame={reply.authorFrame} />
           <p className="m-0 text-[14px] font-extrabold text-ink-soft">{reply.author}</p>
           <NameCharm charm={reply.authorCharm} />
+          <AnswerSticker sticker={reply.sticker} />
         </div>
       )}
       {reply.body ? (
@@ -402,15 +414,16 @@ function AnswerCard({
   editHref?: string | null;
 }) {
   return (
-    <article id={`answer-${answer.replyId}`} className="answer-card divided mt-4 scroll-mt-4 border-t border-line pt-4 first:border-t-0">
+    <article id={`answer-${answer.replyId}`} className={`answer-card divided mt-4 scroll-mt-4 border-t border-line pt-4 first:border-t-0${answer.sticker ? " has-sticker" : ""}`}>
       {questionLabel ? (
         // Reading by person: the card is already theirs, so the question leads and the byline would only repeat.
-        <h3 className="m-0 text-[22px] leading-tight text-ink">{questionLabel}</h3>
+        <h3 className="m-0 text-[22px] leading-tight text-ink">{questionLabel}<AnswerSticker sticker={answer.sticker} /></h3>
       ) : (
         <div className="flex flex-wrap items-center gap-x-2.5">
           <Avatar name={answer.author} photoUrl={answer.authorPhotoUrl} frame={answer.authorFrame} />
           <p className="m-0 text-[14px] font-extrabold text-ink-soft">{answer.author}</p>
           <NameCharm charm={answer.authorCharm} />
+          <AnswerSticker sticker={answer.sticker} />
           {editHref ? <EditLink href={editHref} /> : null}
         </div>
       )}

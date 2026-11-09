@@ -8,7 +8,7 @@ import { Brand, Tape } from "@/components/stationery";
 import { ReplySheet } from "./reply-sheet";
 import { MutedNotice } from "@/components/muted-notice";
 import { copy, text } from "@/lib/copy";
-import { marksOf } from "@/lib/looks";
+import { marksOf, parseSignature } from "@/lib/looks";
 
 // One indexed query behind this page; a blocking route is faster than a skeleton.
 export const instant = false;
@@ -21,7 +21,7 @@ export const metadata: Metadata = {
   referrer: "no-referrer",
 };
 
-type Person = { token: string; name: string; photoUrl: string | null; charm: string | null; frame: string | null };
+type Person = { token: string; name: string; photoUrl: string | null; charm: string | null; frame: string | null; signature: number[][] | null };
 
 function Closed({ title, body, next, person, leaveHref, children }: { title: string; body: string; next?: string; person?: Person; leaveHref?: string; children?: React.ReactNode }) {
   return (
@@ -39,7 +39,7 @@ function Closed({ title, body, next, person, leaveHref, children }: { title: str
           // as a reader). Their photo is still theirs to set, so it is offered here.
           <div className="mt-4 border-t border-dashed border-line pt-4">
             <p className="mb-2 text-[13px] font-medium text-ink-soft">{copy.identity.profile.title}</p>
-            <ProfilePhoto endpoint={`/api/reply/${person.token}/profile-photo`} name={person.name} photoUrl={person.photoUrl} charm={person.charm} frame={person.frame} />
+            <ProfilePhoto endpoint={`/api/reply/${person.token}/profile-photo`} name={person.name} photoUrl={person.photoUrl} charm={person.charm} frame={person.frame} signature={person.signature} />
           </div>
         ) : null}
       </div>
@@ -55,8 +55,8 @@ function Closed({ title, body, next, person, leaveHref, children }: { title: str
   );
 }
 
-function personOf(token: string, membership: { name: string | null; email: string; photoUrl: string | null; charm: string | null; avatarFrame: string | null }): Person {
-  return { token, name: membership.name ?? membership.email.split("@")[0], photoUrl: membership.photoUrl, charm: membership.charm, frame: membership.avatarFrame };
+function personOf(token: string, membership: { name: string | null; email: string; photoUrl: string | null; charm: string | null; avatarFrame: string | null; signature: unknown }): Person {
+  return { token, name: membership.name ?? membership.email.split("@")[0], photoUrl: membership.photoUrl, charm: membership.charm, frame: membership.avatarFrame, signature: parseSignature(membership.signature) };
 }
 
 export default async function ReplyPage({ params }: { params: Promise<{ token: string }> }) {
@@ -121,6 +121,8 @@ export default async function ReplyPage({ params }: { params: Promise<{ token: s
       photoUrl={context.membership.photoUrl}
       charm={context.membership.charm}
       frame={context.membership.avatarFrame}
+      signature={parseSignature(context.membership.signature)}
+      statusLine={sheet.line}
       deadlineMoment={formatMoment(issue.deliversAt, context.group.timezone)}
       deliversAtIso={issue.deliversAt.toISOString()}
       displayName={context.membership.name ?? context.membership.email.split("@")[0]}
@@ -149,6 +151,7 @@ export default async function ReplyPage({ params }: { params: Promise<{ token: s
         pollMultiple: question.pollMultiple,
         pollOptions: question.pollOptions,
         pollChoices: question.pollChoices,
+        sticker: question.sticker,
       }))}
     />
     </>

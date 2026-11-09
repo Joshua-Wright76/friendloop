@@ -5,6 +5,7 @@ import { currentUser } from "@/lib/auth";
 import { issueGroupId, loadIssue, membershipForViewer, nextRoundFor } from "@/lib/issue-view";
 import { marksOf } from "@/lib/looks";
 import { Motto, RoundMark, SignOff } from "@/components/round-marks";
+import { RollCall, SignedCard } from "@/components/member-marks";
 import { MutedNotice } from "@/components/muted-notice";
 import { formatDate } from "@/lib/format";
 import { IssueBody } from "./issue-body";
@@ -102,6 +103,10 @@ export default async function IssuePage({
   // The owner's marks belong to a round that has gone out; the sign-off may say what's next.
   const marks = marksOf(view.group);
   const next = delivered && marks.signOff ? await nextRoundFor(view.group.id) : null;
+  // What people added themselves: a line each and a signature, for reading by person.
+  const marked: Record<string, { line?: string; signature?: number[][] }> = {};
+  for (const line of view.statusLines ?? []) marked[line.id] = { line: line.body };
+  for (const signature of view.signatures ?? []) marked[signature.id] = { ...marked[signature.id], signature: signature.strokes };
 
   return (
     <main className="mx-auto w-full max-w-[680px] px-4 pb-16 pt-4 sm:px-6">
@@ -151,11 +156,18 @@ export default async function IssuePage({
         mentionables={view.mentionables}
         editHref={editHref}
         barTitle={issueTitle(copy.issue.round, view.issue.number, view.issue.name)}
-        closing={delivered && marks.signOff ? (
-          <SignOff
-            text={marks.signOff}
-            next={next ? text(copy.issue.signOffNext, { round: text(copy.issue.round, { number: next.number }), date: formatDate(next.deliversAt, view.group.timezone) }) : null}
-          />
+        opening={view.statusLines ? <RollCall lines={view.statusLines} /> : undefined}
+        people={view.statusLines || view.signatures ? marked : undefined}
+        closing={view.signatures || (delivered && marks.signOff) ? (
+          <>
+            <SignedCard signatures={view.signatures} round={view.issue.number} />
+            {delivered && marks.signOff ? (
+              <SignOff
+                text={marks.signOff}
+                next={next ? text(copy.issue.signOffNext, { round: text(copy.issue.round, { number: next.number }), date: formatDate(next.deliversAt, view.group.timezone) }) : null}
+              />
+            ) : null}
+          </>
         ) : undefined}
         reading={people.length > 1 ? (
           <ReadingControls base={`/i/${id}`} token={m ?? null} people={people} reading={effective} focus={arranged.focus} />
