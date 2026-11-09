@@ -228,7 +228,7 @@ export function PaperFields({ preset, onPreset, accent, onAccent, onAccentCommit
       <LookGroup title={copy.stationery.mascotLegend} value={named(copy.stickers, looks.mascot)}>
       <MascotPicker value={looks.mascot} onChange={(mascot) => onLooks({ mascot })} loopName={loopName} />
       </LookGroup>
-      <LookGroup title={copy.stationery.wordsLegend} value={[marks.motto.trim(), marks.signOff.trim()].filter(Boolean).join(" · ") || copy.stationery.wordsNone}>
+      <LookGroup title={copy.stationery.wordsLegend} value={[marks.motto.trim() ? copy.stationery.mottoLabel : "", marks.signOff.trim() ? copy.stationery.signOffLabel : ""].filter(Boolean).join(" · ") || copy.stationery.wordsNone}>
       <WordsFields marks={marks} onMarks={onMarks} />
       </LookGroup>
       <LookGroup title={copy.stationery.sealLegend} value={copy.stationery.seals[(marks.sealStyle || "none") as keyof typeof copy.stationery.seals].name}>

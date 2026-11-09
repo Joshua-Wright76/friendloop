@@ -1201,8 +1201,8 @@ html[data-theme="dark"] .album-viewer::before { opacity: .6; }
   .look-group:last-child { border-bottom: 1px dashed var(--line-strong); }
   .look-group__summary { display: flex; min-height: 52px; align-items: center; gap: 10px; padding: 6px 2px; cursor: pointer; list-style: none; }
   .look-group__summary::-webkit-details-marker { display: none; }
-  .look-group__title { flex: none; color: var(--ink); font-size: 15px; font-weight: 800; }
-  .look-group__value { min-width: 0; flex: 1; color: var(--ink-soft); font-size: 14px; font-weight: 700; line-height: 1.3; text-align: right; overflow-wrap: anywhere; }
+  .look-group__title { flex: 0 1 auto; color: var(--ink); font-size: 15px; font-weight: 800; }
+  .look-group__value { min-width: 0; flex: 1; color: var(--ink-soft); font-size: 14px; font-weight: 700; line-height: 1.3; text-align: right; overflow-wrap: break-word; }
   .look-group__chevron { width: 18px; height: 18px; flex: none; color: var(--ink-muted); transition: transform 160ms ease; }
   .look-group[open] .look-group__chevron { transform: rotate(180deg); }
   .look-group__body { padding: 2px 0 16px; }
