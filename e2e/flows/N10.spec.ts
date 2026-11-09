@@ -1,8 +1,8 @@
 import { test, expect, type Locator, type Page } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
-import { copy, text } from "@/lib/copy";
+import { copy, copyPattern, text } from "@/lib/copy";
 import { COVER_TINTS, SCRAPBOOK_PER_ROUND } from "@/lib/looks";
-import { issueTitle } from "@/lib/issue-name";
+import { issueHeading, issueTitle } from "@/lib/issue-name";
 import { resetDatabase, rows } from "../support/db";
 import { DELIVERY_DAY, runSweep, signIn } from "../support/harness";
 import { gotoScheme, seedWorld } from "../support/identity";
@@ -65,7 +65,7 @@ test("N10 · the owner gives a named round a cover, and it's on the round, the r
   const preview = form.locator(".round-cover--preview");
   await expect(preview).toContainText("Camping weekend");
   await expect(preview).toHaveAttribute("data-tint", "plum");
-  await expect(form.locator(".email-line")).toHaveText(text(copy.emails.delivery.subject, { groupName: LOOP_NAME, issueRef: "Camping weekend" }));
+  await expect(form.locator(".email-line")).toHaveText(text(copy.emails.delivery.subject, { groupName: LOOP_NAME, issueHeading: issueHeading(open.number, "Camping weekend") }));
   await expectAccessible(page, "cover picker", "details.round-rename[open]");
   await form.scrollIntoViewIfNeeded();
   await shot(page, "cover-picker", form);
@@ -98,7 +98,7 @@ test("N10 · the owner gives a named round a cover, and it's on the round, the r
   const [mail] = await rows<{ html: string }>("select html from outbox where kind = 'delivery' and issue_id = $1 and \"to\" = 'bob@friendloop.test'", [open.issueId]);
   expect(mail.html).toContain(`bgcolor="${COVER_TINTS.plum.tint}"`);
   expect(mail.html).toContain("/stickers/png/mushroom.png");
-  expect(mail.html).toMatch(new RegExp(`<h1 style="[^"]*color:${COVER_TINTS.plum.ink};[^"]*">Camping weekend</h1>`));
+  expect(mail.html).toMatch(new RegExp(`<h1 style="[^"]*color:${COVER_TINTS.plum.ink};[^"]*">${copyPattern(text(copy.emails.delivery.heading, { issueHeading: "Camping weekend" })).source}</h1>`));
   if (process.env.SHOTS_DIR) {
     const origin = new URL(page.url()).origin;
     await page.setViewportSize({ width: 680, height: 900 });
@@ -281,7 +281,7 @@ test("N10 · members stick, move and peel stickers in a delivered round's margin
   // A share link shows them, read-only; an open round has no way to stick at all.
   await page.goto("/s/world-share-token");
   await expect(page.locator(".scrap-sticker")).toHaveCount(1);
-  await expect(page.getByRole("button", { name: new RegExp(words.stick) })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: copyPattern(words.stick) })).toHaveCount(0);
 });
 
 test("N10 · on a phone stickers sit half off the card's edge, clear of the words, and drag by touch", async ({ browser }) => {

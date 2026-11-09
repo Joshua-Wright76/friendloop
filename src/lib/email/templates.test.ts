@@ -343,6 +343,9 @@ test("a charm sits beside the name in the answers, and never in the plain text",
 /* ------------------------------ the owner's marks ----------------------------- */
 
 const ROUND = { number: 14, deliveredAt: new Date("2026-11-08T03:00:00Z") };
+/** Copy as the email's HTML escapes it, as a pattern source. */
+const inHtml = (value: string) => copyPattern(value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;")).source;
+const roundOf = (number: number) => text(copy.issue.round, { number });
 const LOOP = { themePreset: null, themeMascot: "frog", timezone: "America/Los_Angeles" };
 const delivered = (marks?: ReturnType<typeof emailMarksOf>) =>
   deliveryEmail({
@@ -368,7 +371,8 @@ test("the motto sits under the loop's name, in the hand and the accent, escaped,
   const email = delivered(emailMarksOf({ ...LOOP, motto: "est. 2019 <still> terrible" }, ROUND, null));
   assert.match(email.html, /Friday Loop<\/td><\/tr>\n<tr><td style="padding:0 8px 20px;font:700 17px\/1\.3 'Noteworthy'[^"]*;color:#cc3456">est\. 2019 &lt;still&gt; terrible<\/td><\/tr>/);
   assert.ok(email.html.indexOf("est. 2019") < email.html.indexOf("<h1"));
-  assert.match(email.text, /^Friday Loop · round 14\nest\. 2019 <still> terrible\n/);
+  const top = text(copy.emails.delivery.text, { groupName: "Friday Loop", issueHeading: text(copy.emails.roundHeading, { number: 14 }) }).split("\n")[0];
+  assert.ok(email.text.startsWith(`${top}\nest. 2019 <still> terrible\n`));
 });
 
 test("a wax seal tops the round's card as a picture of this mascot in this wax", () => {
@@ -384,7 +388,7 @@ test("a postmark is the mascot's stamp with the round and the loop's own day wri
   const email = delivered(emailMarksOf({ ...LOOP, sealStyle: "postmark" }, ROUND, null));
   assert.match(email.html, /<img src="http[^"]*\/seals\/stamp-frog\.png" alt="" width="52" height="62"/);
   // Delivered at 03:00 UTC on the 8th: the 7th in Los Angeles.
-  assert.match(email.html, /border-radius:50%[^>]*>Round 14<br \/><span style="font-size:13px">7 NOV<\/span><br \/>2026<\/td>/);
+  assert.match(email.html, new RegExp(`border-radius:50%[^>]*>${inHtml(roundOf(14))}<br \\/><span style="font-size:13px">7 NOV<\\/span><br \\/>2026<\\/td>`));
 });
 
 test("a divider runs between answers as its preset's strip; the first answer has none", () => {
@@ -398,13 +402,14 @@ test("a divider runs between answers as its preset's strip; the first answer has
 test("the sign-off closes the round with the mascot and when the next one goes out, in HTML and plain text", () => {
   const next = { number: 15, deliversAt: new Date("2026-11-20T17:00:00Z") };
   const email = delivered(emailMarksOf({ ...LOOP, signOff: "xo, the <Friday> crew" }, ROUND, next));
-  assert.match(email.html, /\/stickers\/png\/frog\.png[\s\S]*xo, the &lt;Friday&gt; crew<\/p><p[^>]*>Round 15 goes out Fri 20 Nov\.<\/p>/);
+  const nextLine = text(copy.issue.signOffNext, { round: roundOf(15), date: "Fri 20 Nov" });
+  assert.match(email.html, new RegExp(`/stickers/png/frog\\.png[\\s\\S]*xo, the &lt;Friday&gt; crew</p><p[^>]*>${inHtml(nextLine)}</p>`));
   assert.ok(email.html.indexOf("xo, the") > email.html.indexOf("Bob"));
-  assert.ok(email.html.indexOf("xo, the") < email.html.indexOf("open the round to read and comment"));
-  assert.match(email.text, /Bob: Fine\.\n\nxo, the <Friday> crew\nRound 15 goes out Fri 20 Nov\./);
+  assert.ok(email.html.indexOf("xo, the") < email.html.indexOf(text(copy.emails.delivery.replyFooter, { groupName: "Friday Loop" })));
+  assert.ok(email.text.includes(`Bob: Fine.\n\nxo, the <Friday> crew\n${nextLine}`));
   // Without a next round to promise, the sign-off stands alone.
   const alone = delivered(emailMarksOf({ ...LOOP, signOff: "xo" }, ROUND, null));
-  assert.doesNotMatch(alone.html, /goes out/);
+  assert.doesNotMatch(alone.html, copyPattern(copy.issue.signOffNext));
   assert.match(alone.text, /Bob: Fine\.\n\nxo$/m);
   // A next round with no sign-off says nothing extra.
   assert.equal(emailMarksOf({ ...LOOP }, ROUND, next).nextLine, null);
@@ -429,27 +434,34 @@ test("nobody's line, signature or sticker leaves the round email exactly as it w
 
 test("the roll call opens the round as a plain table of names and lines, above the answers and in the text", () => {
   const email = deliveryEmail({ ...ROUND_INPUT(), rollCall: [{ name: "Alice", line: "📚 reading <Middlemarch>" }, { name: "Bob", line: "off to Lisbon" }] });
-  assert.match(email.html, />Who&#39;s here this round<\/h2>/);
+  const title = new RegExp(`>${inHtml(copy.emails.rollCallTitle)}</h2>`);
+  assert.match(email.html, title);
   assert.match(email.html, /white-space:nowrap">Alice<\/td><td[^>]*>📚 reading &lt;Middlemarch&gt;<\/td>/);
-  assert.ok(email.html.indexOf("Who&#39;s here") > email.html.indexOf("<h1"));
-  assert.ok(email.html.indexOf("Who&#39;s here") < email.html.indexOf("How was it?"));
-  assert.match(email.text, /Who's here this round\nAlice: 📚 reading <Middlemarch>\nBob: off to Lisbon\n\nHow was it\?/);
+  assert.ok(email.html.search(title) > email.html.indexOf("<h1"));
+  assert.ok(email.html.search(title) < email.html.indexOf("How was it?"));
+  const lines = [
+    text(copy.emails.rollCallText, { name: "Alice", line: "📚 reading <Middlemarch>" }),
+    text(copy.emails.rollCallText, { name: "Bob", line: "off to Lisbon" }),
+  ];
+  assert.ok(email.text.includes(`${copy.emails.rollCallTitle}\n${lines.join("\n")}\n\nHow was it?`));
 });
 
 test("the signed card closes the round with each signature's picture, its name under it, three to a row", () => {
   const next = { number: 15, deliversAt: new Date("2026-11-20T17:00:00Z") };
   const email = deliveryEmail({ ...ROUND_INPUT(), signatures: SIGNED, marks: emailMarksOf({ ...LOOP, signOff: "xo" }, ROUND, next) });
-  assert.match(email.html, />Signed, sealed, delivered<\/h2>/);
-  assert.match(email.html, />Everyone who wrote in Round 14<\/p>/);
-  assert.match(email.html, /<img src="https:\/\/friendloop\.dev\/uploads\/a\.png" alt="Signed, Alice" width="150" height="48"/);
-  assert.match(email.html, /alt="Signed, Bob &lt;b&gt;"[^>]*\/><div[^>]*>Bob &lt;b&gt;<\/div>/);
-  assert.equal((email.html.match(/alt="Signed, /g) ?? []).length, 4);
+  const title = new RegExp(`>${inHtml(copy.emails.signedTitle)}</h2>`);
+  const signedAlt = (name: string) => `alt="${inHtml(text(copy.signatures.signed, { name }))}"`;
+  assert.match(email.html, title);
+  assert.match(email.html, new RegExp(`>${inHtml(text(copy.signatures.cardNote, { round: roundOf(14) }))}</p>`));
+  assert.match(email.html, new RegExp(`<img src="https://friendloop\\.dev/uploads/a\\.png" ${signedAlt("Alice")} width="150" height="48"`));
+  assert.match(email.html, new RegExp(`${signedAlt("Bob <b>")}[^>]*/><div[^>]*>Bob &lt;b&gt;</div>`));
+  assert.equal(SIGNED.filter((signature) => new RegExp(signedAlt(signature.name)).test(email.html)).length, 4);
   // Three signatures fill a row; the fourth starts the next.
   assert.match(email.html, /c\.png[^<]*<div[^>]*>Cleo<\/div><\/td><\/tr><tr><td/);
   // After the answers, before the owner's sign-off.
-  assert.ok(email.html.indexOf("Signed, sealed") > email.html.indexOf("Bob</div>"));
-  assert.ok(email.html.indexOf("Signed, sealed") < email.html.indexOf(">xo</p>"));
-  assert.match(email.text, /Bob: Fine\.\n\nSigned, sealed, delivered: Alice, Bob <b>, Cleo, Dee\n\nxo\n/);
+  assert.ok(email.html.search(title) > email.html.indexOf("Bob</div>"));
+  assert.ok(email.html.search(title) < email.html.indexOf(">xo</p>"));
+  assert.ok(email.text.includes(`Bob: Fine.\n\n${text(copy.emails.signedText, { names: "Alice, Bob <b>, Cleo, Dee" })}\n\nxo\n`));
 });
 
 test("a sticker on an answer sits beside its author's name as a picture, and never in the plain text", () => {
@@ -486,7 +498,7 @@ test("a named round's cover opens its email: the tint as a flat band, the sticke
   assert.match(email.html, new RegExp(`<table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="${tint}" style="[^"]*background:${tint}`));
   assert.match(email.html, new RegExp(`color:${ink}[^"]*">${text(copy.emails.roundHeading, { number: 14 })}</p>`));
   assert.match(email.html, /<img src="http[^"]*\/stickers\/png\/mushroom\.png" alt="" width="72" height="72"/);
-  assert.match(email.html, new RegExp(`<h1 style="[^"]*color:${ink};[^"]*">Camping &lt;weekend&gt;</h1>`));
+  assert.match(email.html, new RegExp(`<h1 style="[^"]*color:${ink};[^"]*">${inHtml(text(copy.emails.delivery.heading, { issueHeading: name }))}</h1>`));
   // In place of the plain heading, not beside it, and above the answers.
   assert.equal((email.html.match(/<h1/g) ?? []).length, 1);
   assert.doesNotMatch(email.html, /border-bottom:2px dashed[^>]*>Camping/);

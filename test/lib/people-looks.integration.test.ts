@@ -14,6 +14,7 @@ import { loadIssue } from "../../src/lib/issue-view.ts";
 import { loopArchive, replyLinkExport } from "../../src/lib/data-export.ts";
 import { sweep } from "../../src/lib/sweep.ts";
 import { MAX_AVATAR_BYTES } from "../../src/lib/photo-validation.ts";
+import { copy, copyPattern, text as copyText } from "../../src/lib/copy.ts";
 import {
   AFTER_FIRST_SLOT,
   DELIVERY_DAY,
@@ -37,6 +38,8 @@ beforeEach(async () => {
 
 const PNG = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 0]);
 const JPEG = new Uint8Array([0xff, 0xd8, 0xff, 0x00, 0x01]);
+/** Copy as the email's HTML escapes it. */
+const inHtml = (value: string) => value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 const STROKES = [[100, 120, 140, 80, 200, 130, 260, 90], [300, 100]];
 const file = (url: string) => path.join(process.cwd(), "public", "uploads", url.split("/").at(-1)!);
 
@@ -83,7 +86,7 @@ test("a signature is its strokes and their picture: it replaces cleanly, clears,
 
 test("a signature is refused when its strokes aren't strokes, its picture isn't a PNG or is too big, or nobody owns it", async () => {
   const { alice } = await openLoop();
-  const invalid = "That signature didn't come through. Clear it and draw it again.";
+  const invalid = copy.identity.signature.invalid;
   assert.deepEqual(await setMemberSignature(alice.id, "<svg/>", { bytes: PNG, type: "image/png" }), { ok: false, status: 400, error: invalid });
   assert.deepEqual(await setMemberSignature(alice.id, [[1, 2, 3]], { bytes: PNG, type: "image/png" }), { ok: false, status: 400, error: invalid });
   assert.deepEqual(await setMemberSignature(alice.id, STROKES, { bytes: JPEG, type: "image/jpeg" }), { ok: false, status: 415, error: invalid });
@@ -93,10 +96,10 @@ test("a signature is refused when its strokes aren't strokes, its picture isn't 
   assert.deepEqual(await setMemberSignature(alice.id, STROKES, { bytes: big, type: "image/png" }), {
     ok: false,
     status: 413,
-    error: "That signature is too big to save. Clear it and draw a simpler one.",
+    error: copy.identity.signature.tooLarge,
   });
   const missing = await setMemberSignature("00000000-0000-4000-8000-000000000000", STROKES, { bytes: PNG, type: "image/png" });
-  assert.deepEqual(missing, { ok: false, status: 404, error: "Your signature didn't save. Try again." });
+  assert.deepEqual(missing, { ok: false, status: 404, error: copy.identity.signature.failed });
   assert.equal((await rows<{ signature: unknown }>("select signature from memberships where id = $1", [alice.id]))[0].signature, null);
 });
 
@@ -112,7 +115,7 @@ test("a sticker sticks to an answer, peels off, and only ours are taken", async 
   assert.deepEqual(await stickerOf(first.id), { sticker: "frog", body: "A goose." }, "the words stay as they were");
 
   const refused = await saveStickerFor({ token: alice.token, issueQuestionId: first.id, sticker: "frog.svg" });
-  assert.deepEqual(refused, { ok: false, status: 400, error: "That isn't one of our stickers." });
+  assert.deepEqual(refused, { ok: false, status: 400, error: copy.reply.errors.sticker });
   assert.equal((await stickerOf(first.id)).sticker, "frog");
 
   await saveStickerFor({ token: alice.token, issueQuestionId: first.id, sticker: "" });
@@ -228,14 +231,16 @@ test("the round's email opens with the roll call, puts stickers by names and clo
   const mails = await rows<{ to: string; html: string; text: string }>("select \"to\", html, text from outbox where kind = 'delivery' and issue_id = $1", [issue.issueId]);
   const to = (who: string) => mails.find((mail) => mail.to === who)!;
   const forAlice = to("alice@friendloop.test");
-  assert.match(forAlice.html, />Who&#39;s here this round<\/h2>/);
+  assert.ok(forAlice.html.includes(`>${inHtml(copy.emails.rollCallTitle)}</h2>`));
   assert.match(forAlice.html, />Alice<\/td><td[^>]*>📚 reading Middlemarch<\/td>/);
   assert.match(forAlice.html, /\/stickers\/png\/peach\.png/);
-  assert.match(forAlice.html, new RegExp(`<img src="${signed.url.replace(/[.?]/g, "\\$&")}" alt="Signed, Alice"`));
-  assert.doesNotMatch(forAlice.html, /alt="Signed, Bob"/, "Bob signs only where his words are shown");
-  assert.match(forAlice.text, /Who's here this round\nAlice: 📚 reading Middlemarch\nBob: off to Lisbon\n/);
-  assert.match(forAlice.text, /Signed, sealed, delivered: Alice$/m);
-  assert.match(to("owner@friendloop.test").html, /alt="Signed, Bob"/);
+  assert.ok(forAlice.html.includes(`<img src="${signed.url}" alt="${inHtml(copyText(copy.signatures.signed, { name: "Alice" }))}"`));
+  const bobsAlt = `alt="${inHtml(copyText(copy.signatures.signed, { name: "Bob" }))}"`;
+  assert.ok(!forAlice.html.includes(bobsAlt), "Bob signs only where his words are shown");
+  const rollCall = [copy.emails.rollCallTitle, ...[["Alice", "📚 reading Middlemarch"], ["Bob", "off to Lisbon"]].map(([name, line]) => copyText(copy.emails.rollCallText, { name, line }))];
+  assert.ok(forAlice.text.includes(`${rollCall.join("\n")}\n`));
+  assert.match(forAlice.text, copyPattern(copy.emails.signedText, { values: { names: "Alice" }, end: true, flags: "m" }));
+  assert.ok(to("owner@friendloop.test").html.includes(bobsAlt));
 });
 
 /* ------------------------------ in the export ------------------------------ */

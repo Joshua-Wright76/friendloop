@@ -1,6 +1,8 @@
 import { test, expect, type Page } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 import { resetDatabase, rows } from "../support/db";
+import { copy, copyPattern, text } from "@/lib/copy";
+import { STATUS_LINE_MAX } from "@/lib/looks";
 import { DELIVERY_DAY, runSweep, signIn, waitForSheet } from "../support/harness";
 import { gotoScheme, seedWorld } from "../support/identity";
 
@@ -11,6 +13,12 @@ test.beforeEach(async () => {
 });
 
 const TAGS = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"];
+const signature = copy.identity.signature;
+const signedBy = (name: string) => text(copy.signatures.signed, { name });
+/** "🧳 off to…": the starter fills the field without its ellipsis, and the rest is typed after it. */
+const STARTER = copy.reply.statusLine.starters[3];
+const TYPED = "Lisbon on Thursday";
+const LINE = `${STARTER.replace(/…$/, "").trimEnd()} ${TYPED}`;
 
 async function expectAccessible(page: Page, label: string, include?: string) {
   const builder = new AxeBuilder({ page }).withTags(TAGS);
@@ -20,7 +28,7 @@ async function expectAccessible(page: Page, label: string, include?: string) {
 
 /** Sign the pad with the mouse: a few loops and an underline, each stroke found afresh (its buttons appear as it's drawn). */
 async function drawSignature(page: Page) {
-  const pad = page.getByRole("img", { name: /Signature pad/ });
+  const pad = page.getByRole("img", { name: signature.padLabel });
   const stroke = async (points: Array<[number, number]>) => {
     await pad.scrollIntoViewIfNeeded();
     const box = (await pad.boundingBox())!;
@@ -47,36 +55,36 @@ test("N9 · a contributor signs, writes a line and sticks a sticker while answer
   await waitForSheet(page);
 
   // The line: a starter fills the field and the rest is typed; it saves like an answer.
-  await page.getByRole("button", { name: "🧳 off to…" }).click();
-  await expect(page.getByRole("textbox", { name: /Your line this round/ })).toBeFocused();
-  await page.keyboard.type("Lisbon on Thursday");
-  await expect(page.getByText(`${[..."🧳 off to Lisbon on Thursday"].length} / 60`)).toBeVisible();
-  await expect.poll(async () => (await rows<{ body: string }>("select body from issue_status_lines where membership_id = $1", [alice.id]))[0]?.body).toBe("🧳 off to Lisbon on Thursday");
+  await page.getByRole("button", { name: STARTER }).click();
+  await expect(page.getByRole("textbox", { name: copyPattern(copy.reply.statusLine.label) })).toBeFocused();
+  await page.keyboard.type(TYPED);
+  await expect(page.getByText(text(copy.reply.statusLine.count, { count: [...LINE].length, max: STATUS_LINE_MAX }))).toBeVisible();
+  await expect.poll(async () => (await rows<{ body: string }>("select body from issue_status_lines where membership_id = $1", [alice.id]))[0]?.body).toBe(LINE);
 
   // A sticker: the sheet is a modal dialog, Escape closes it and focus comes back.
-  const stick = page.getByRole("button", { name: "Add a sticker, question 1" });
+  const stick = page.getByRole("button", { name: text(copy.a11yLabels.forQuestionNumber, { label: copy.reply.sticker.addLabel, n: 1 }) });
   await stick.click();
-  const sheet = page.getByRole("dialog", { name: "Stick something on it" });
+  const sheet = page.getByRole("dialog", { name: copy.reply.sticker.sheetTitle });
   await expect(sheet).toBeVisible();
   await expectAccessible(page, "sticker sheet", ".sticker-picker");
   await page.keyboard.press("Escape");
   await expect(sheet).toBeHidden();
   await expect(stick).toBeFocused();
   await stick.click();
-  await sheet.getByRole("button", { name: "Frog" }).click();
-  await expect(page.getByText("Frog stuck on.")).toBeVisible();
+  await sheet.getByRole("button", { name: copy.stickers.frog }).click();
+  await expect(page.getByText(text(copy.reply.sticker.stuck, { sticker: copy.stickers.frog }))).toBeVisible();
   await expect.poll(async () => (await rows<{ sticker: string | null }>("select sticker from replies where membership_id = $1 and issue_id = $2 and body <> ''", [alice.id, open.issueId]))[0]?.sticker).toBe("frog");
   // A card with nothing in it says so instead of opening the sheet.
   // aria-disabled, so it stays in the tab order and can say why.
-  await page.getByRole("button", { name: "Add a sticker, question 2" }).click({ force: true });
-  await expect(page.getByText("Write something first, then you can stick a sticker on it.")).toBeVisible();
+  await page.getByRole("button", { name: text(copy.a11yLabels.forQuestionNumber, { label: copy.reply.sticker.addLabel, n: 2 }) }).click({ force: true });
+  await expect(page.getByText(copy.reply.sticker.needsAnswer)).toBeVisible();
   await expect(sheet).toBeHidden();
 
   // The signature, drawn on the pad beside the charm and frame.
   await page.locator("details.reply-identity summary").click();
   await drawSignature(page);
-  await page.getByRole("button", { name: "Use this signature" }).click();
-  await expect(page.getByText("Saved. It signs your answers in every round.")).toBeVisible();
+  await page.getByRole("button", { name: signature.use }).click();
+  await expect(page.getByText(signature.saved)).toBeVisible();
   const signed = await signatureOf(alice.id);
   expect(signed.kind).toBe("array");
   const png = await page.request.get(signed.url!);
@@ -87,22 +95,22 @@ test("N9 · a contributor signs, writes a line and sticks a sticker while answer
   // The round goes out; the email opens with the roll call and closes with the signed card.
   await runSweep(DELIVERY_DAY);
   const [mail] = await rows<{ html: string; text: string }>("select html, text from outbox where kind = 'delivery' and issue_id = $1 and \"to\" = 'bob@friendloop.test'", [open.issueId]);
-  expect(mail.html).toContain("Who&#39;s here this round");
-  expect(mail.html).toContain("🧳 off to Lisbon on Thursday");
+  expect(mail.html).toContain(copy.emails.rollCallTitle.replaceAll("'", "&#39;"));
+  expect(mail.html).toContain(LINE);
   expect(mail.html).toContain("/stickers/png/frog.png");
-  expect(mail.html).toContain(`<img src="${signed.url}" alt="Signed, Alice"`);
-  expect(mail.text).toContain("Alice: 🧳 off to Lisbon on Thursday");
-  expect(mail.text).toContain("Signed, sealed, delivered: Alice");
+  expect(mail.html).toContain(`<img src="${signed.url}" alt="${signedBy("Alice")}"`);
+  expect(mail.text).toContain(text(copy.emails.rollCallText, { name: "Alice", line: LINE }));
+  expect(mail.text).toContain(text(copy.emails.signedText, { names: "Alice" }));
 
   // Bob reads it: the roll call at the top, the sticker by Alice's answer, the signed card at the end.
   for (const scheme of ["light", "dark"] as const) {
     await gotoScheme(page, `/i/${open.issueId}?m=${bob.token}`, scheme);
-    const rollCall = page.getByRole("region", { name: "Who's here this round" });
+    const rollCall = page.getByRole("region", { name: copy.issue.rollCallTitle });
     await expect(rollCall).toContainText("Alice");
-    await expect(rollCall).toContainText("🧳 off to Lisbon on Thursday");
+    await expect(rollCall).toContainText(LINE);
     await expect(page.locator("article.answer-card.has-sticker img.answer-sticker[src='/stickers/frog.svg']")).toBeVisible();
-    const card = page.getByRole("region", { name: "Signed, sealed, delivered" });
-    await expect(card.getByRole("img", { name: "Signed, Alice" })).toBeVisible();
+    const card = page.getByRole("region", { name: copy.signatures.cardTitle });
+    await expect(card.getByRole("img", { name: signedBy("Alice") })).toBeVisible();
     await expectAccessible(page, `round ${scheme}`);
   }
   // On a wide screen the sticker is slapped on the answer's corner.
@@ -112,8 +120,8 @@ test("N9 · a contributor signs, writes a line and sticks a sticker while answer
   // By person: the line as a bubble under Alice's name and her signature closing her answers.
   await page.goto(`/i/${open.issueId}?m=${bob.token}&sort=member`);
   const hers = page.getByRole("region", { name: "Alice", exact: true });
-  await expect(hers.locator(".status-bubble")).toHaveText("currently 🧳 off to Lisbon on Thursday");
-  await expect(hers.locator(".signature-sign-off").getByRole("img", { name: "Signed, Alice" })).toBeVisible();
+  await expect(hers.locator(".status-bubble")).toHaveText(`${copy.issue.currently} ${LINE}`);
+  await expect(hers.locator(".signature-sign-off").getByRole("img", { name: signedBy("Alice") })).toBeVisible();
   // Under reduced motion the ink is simply there, never waiting to draw.
   await expect(hers.locator(".signature-sign-off svg")).toHaveAttribute("data-ink", "still");
 });
@@ -143,20 +151,20 @@ test("N9 · a signed-in member signs on the people page and can take it away aga
   await signIn(page, "owner@friendloop.test");
   await page.goto(`/g/${loop.groupId}/members`);
   expect((await signatureOf(owner.id)).kind).toBeNull();
-  await page.getByText("Charm and frame").click();
+  await page.getByText(copy.identity.look.open).click();
   await drawSignature(page);
   // Clear starts over; nothing is saved until it's used.
-  await page.getByRole("button", { name: "Clear" }).click();
-  await expect(page.getByRole("button", { name: "Use this signature" })).toHaveCount(0);
+  await page.getByRole("button", { name: signature.clear }).click();
+  await expect(page.getByRole("button", { name: signature.use })).toHaveCount(0);
   expect((await signatureOf(owner.id)).kind).toBeNull();
   await drawSignature(page);
-  await page.getByRole("button", { name: "Use this signature" }).click();
-  await expect(page.getByText("Saved. It signs your answers in every round.")).toBeVisible();
+  await page.getByRole("button", { name: signature.use }).click();
+  await expect(page.getByText(signature.saved)).toBeVisible();
   const { url } = await signatureOf(owner.id);
   expect(url).toBeTruthy();
 
-  await page.getByRole("button", { name: "Remove signature" }).click();
-  await expect(page.getByText("Removed. Your answers go out unsigned.")).toBeVisible();
+  await page.getByRole("button", { name: signature.remove }).click();
+  await expect(page.getByText(signature.removed)).toBeVisible();
   expect(await signatureOf(owner.id)).toEqual({ kind: null, url: null });
   expect((await page.request.get(url!)).status()).toBe(404);
 });
