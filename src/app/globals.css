@@ -274,7 +274,7 @@ select.field { cursor: pointer; }
 /* Long names, emails and URLs wrap instead of truncating: an ellipsis loses text once spacing or zoom changes (1.4.4, 1.4.12). */
 .wrap-any { min-width: 0; overflow-wrap: anywhere; }
 /* A control that is blocked but still focusable (aria-disabled) is dimmed; its focus ring must not be. */
-.btn[aria-disabled="true"]:focus-visible { opacity: 1; }
+:is(.btn, .attach-btn)[aria-disabled="true"]:focus-visible { opacity: 1; }
 /* In flight, not unavailable: keep it readable and say so with the cursor. */
 .btn[aria-busy="true"] { opacity: .7; cursor: progress; }
 
@@ -1403,10 +1403,13 @@ html[data-theme="dark"] .divider-tile { --divider: var(--divider-dark); }
    ------------------------------------------------------------------------------ */
 
 /* The pad: the board's own 3:1 shape, a dashed line to sign on, and touch taken over only here. */
-.signature-pad { position: relative; aspect-ratio: 3 / 1; overflow: hidden; border: 1.5px solid var(--line-strong); border-radius: 8px; background: var(--field); color: var(--accent-ink); }
+.signature-pad { position: relative; isolation: isolate; aspect-ratio: 3 / 1; overflow: hidden; border: 1.5px solid var(--line-strong); border-radius: 8px; background: var(--field); color: var(--accent-ink); }
 .signature-pad::after { content: ""; position: absolute; left: 7%; right: 5%; bottom: 26%; border-bottom: 2px dashed var(--line-strong); pointer-events: none; }
-.signature-pad__x { position: absolute; left: 3%; bottom: 27%; color: var(--line-strong); font-family: var(--font-display); font-size: 22px; font-weight: 700; line-height: 1; pointer-events: none; }
-.signature-pad__hint { position: absolute; inset: 0 0 26% 0; display: none; place-items: center; color: var(--ink-muted); font-size: 13px; font-weight: 800; pointer-events: none; }
+/* The × is a drawn mark, not a letter. */
+.signature-pad__x { position: absolute; left: 3%; bottom: calc(26% + 4px); width: 14px; height: 14px; fill: none; stroke: var(--line-strong); stroke-width: 2.6; stroke-linecap: round; pointer-events: none; }
+/* "Draw here" sits above the canvas on its own patch of the pad's fill, so the words are measured against a colour, never the ink. */
+.signature-pad__hint { position: absolute; z-index: 1; inset: 0 0 26% 0; display: none; place-items: center; pointer-events: none; }
+.signature-pad__hint > span { padding: 2px 8px; border-radius: 6px; background: var(--field); color: var(--ink-muted); font-size: 13px; font-weight: 800; }
 .signature-pad[data-empty] .signature-pad__hint { display: grid; }
 .signature-pad canvas { position: absolute; inset: 0; display: block; width: 100%; height: 100%; color: inherit; cursor: crosshair; touch-action: none; }
 
@@ -1441,11 +1444,10 @@ html[data-theme="dark"] .divider-tile { --divider: var(--divider-dark); }
 .status-starter { display: inline-flex; min-height: 44px; align-items: center; padding: 0 12px; border: 0; border-radius: 999px; background: var(--card); box-shadow: inset 0 0 0 1px var(--line-strong); color: var(--ink-soft); font-size: 13.5px; font-weight: 700; cursor: pointer; }
 .status-starter:hover:not(:disabled) { background: var(--accent-soft); color: var(--ink); }
 .status-starter:disabled { opacity: .45; cursor: not-allowed; }
+/* On a phone they wrap rather than scroll sideways (1.4.10), packed a little tighter so they stay short. */
 @media (max-width: 639px) {
-  /* One row that scrolls sideways, so the starters never push the first question down. */
-  .status-starters { flex-wrap: nowrap; margin-inline: -16px; padding: 0 16px 2px; overflow-x: auto; scrollbar-width: none; overscroll-behavior-x: contain; }
-  .status-starters::-webkit-scrollbar { display: none; }
-  .status-starter { flex: none; white-space: nowrap; }
+  .status-starters { gap: 6px 4px; }
+  .status-starter { padding: 0 10px; font-size: 13px; }
 }
 
 /* A sticker on an answer: beside the name on a phone, slapped on the answer's corner with a die-cut edge when there's room. */

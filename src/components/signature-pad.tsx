@@ -253,8 +253,8 @@ export function SignaturePad({
       <p id={`${id}-legend`} className="m-0 mb-0.5 text-[13px] font-bold text-ink-soft">{copy.identity.signature.legend}</p>
       <p id={`${id}-hint`} className="m-0 mb-2 text-[13px] leading-relaxed text-ink-muted">{copy.identity.signature.hint}</p>
       <div className="signature-pad" data-empty={strokes.length === 0 && !inking ? "" : undefined}>
-        <span className="signature-pad__x" aria-hidden="true">×</span>
-        <span className="signature-pad__hint" aria-hidden="true">{copy.identity.signature.padHint}</span>
+        <svg className="signature-pad__x" viewBox="0 0 14 14" aria-hidden="true"><path d="M2 2l10 10M12 2 2 12" /></svg>
+        <span className="signature-pad__hint" aria-hidden="true"><span>{copy.identity.signature.padHint}</span></span>
         <canvas
           ref={canvas}
           role="img"
