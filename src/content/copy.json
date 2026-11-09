@@ -1497,6 +1497,7 @@
     "plainText": "Show plain text",
     "previews": {
       "signIn": "Sign-in link",
+      "join": "Join a loop from its invite link",
       "inviteContributor": "Invitation, as a contributor",
       "inviteReader": "Invitation, as a reader",
       "inviteThemed": "Invitation from a loop with its own stationery",

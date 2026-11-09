@@ -28,8 +28,9 @@ test("H1 · with the key, the screens and email previews open at their routes", 
 
   await page.getByRole("link", { name: "Email templates" }).click();
   await expect(page).toHaveURL(/\/dev\/emails$/);
-  await expect(page.locator("iframe")).toHaveCount(11);
+  await expect(page.locator("iframe")).toHaveCount(12);
   await expect(page.getByRole("heading", { name: "Sign-in link" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Join a loop from its invite link" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Delivered round with a share link" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Someone mentioned you" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Delivered round with its own stationery and a name" })).toBeVisible();
