@@ -1524,8 +1524,11 @@ html[data-theme="dark"] .sticker-picker::backdrop { background: rgb(6 3 5 / .68)
 .zine-cover img { width: 40px; height: 40px; transform: rotate(-6deg); filter: drop-shadow(1px 0 0 #fff) drop-shadow(-1px 0 0 #fff) drop-shadow(0 1px 0 #fff) drop-shadow(0 -1px 0 #fff); }
 .zine-cover__name { display: -webkit-box; overflow: hidden; color: var(--cover-ink); font-family: var(--font-display); font-size: 15px; font-weight: 700; line-height: 1.05; overflow-wrap: anywhere; -webkit-box-orient: vertical; -webkit-line-clamp: 3; }
 .zine-cover__no { color: var(--cover-ink); font-size: 11px; font-weight: 800; letter-spacing: .04em; }
-@media (max-width: 420px) {
-  .round-card--covered { grid-template-columns: 68px minmax(0, 1fr); gap: 12px; }
+@media (max-width: 520px) {
+  /* On a phone the words wrap around the zine, and an open rename form takes the card's full width below it. */
+  .round-card--covered { display: flow-root; }
+  .round-card--covered > .zine-cover { float: left; width: 68px; margin: 2px 12px 8px 0; }
+  .round-card--covered > div > :has(> .round-rename[open]) { clear: both; }
   .zine-cover img { width: 30px; height: 30px; }
   .zine-cover__name { font-size: 13px; -webkit-line-clamp: 2; }
   .zine-cover__no { font-size: 10.5px; }
