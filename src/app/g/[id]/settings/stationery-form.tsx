@@ -4,6 +4,8 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { LoopBanner } from "@/components/loop-theme";
 import { PaperFields, type StationeryLooks } from "@/components/paper-fields";
+import { draftOf, type MarksDraft } from "@/components/mark-pickers";
+import type { LoopMarks } from "@/lib/looks";
 import { copy } from "@/lib/copy";
 import { readUploadResponse } from "@/lib/upload-response";
 import { PHOTO_ACCEPT } from "@/lib/photo-validation";
@@ -23,17 +25,18 @@ type Props = {
   tapePack: string | null;
   mascot: string | null;
   headerImageUrl: string | null;
+  marks: LoopMarks;
 };
 
 type SaveStatus = "idle" | "saving" | "saved" | "adjusted" | "error";
-type Choice = StationeryLooks & { preset: string; accent: string };
+type Choice = StationeryLooks & MarksDraft & { preset: string; accent: string };
 
-const sameChoice = (a: Choice, b: Choice) =>
-  a.preset === b.preset && a.accent === b.accent && a.background === b.background &&
-  a.paperPack === b.paperPack && a.tapePack === b.tapePack && a.mascot === b.mascot;
+const CHOICE_KEYS = ["preset", "accent", "background", "paperPack", "tapePack", "mascot", "motto", "signOff", "sealStyle", "sealColor", "divider", "celebration"] as const;
+const sameChoice = (a: Choice, b: Choice) => CHOICE_KEYS.every((key) => a[key] === b[key]);
 
-export function StationeryForm({ groupId, loopName, preset: savedPreset, accent: savedAccent, background, paperPack, tapePack, mascot, headerImageUrl }: Props) {
+export function StationeryForm({ groupId, loopName, preset: savedPreset, accent: savedAccent, background, paperPack, tapePack, mascot, headerImageUrl, marks: savedMarks }: Props) {
   const initial: Choice = {
+    ...draftOf(savedMarks),
     preset: savedPreset ?? DEFAULT_PRESET,
     accent: normalizeHex(savedAccent ?? "") ?? "",
     background: background ?? DEFAULT_BACKGROUND,
@@ -49,6 +52,7 @@ export function StationeryForm({ groupId, loopName, preset: savedPreset, accent:
     tapePack: initial.tapePack,
     mascot: initial.mascot,
   });
+  const [marks, setMarks] = useState<MarksDraft>(() => draftOf(savedMarks));
   const [status, setStatus] = useState<SaveStatus>("idle");
   const [, startSaving] = useTransition();
   // What the server has, the newest choice, and whether a save is on its way.
@@ -88,6 +92,7 @@ export function StationeryForm({ groupId, loopName, preset: savedPreset, accent:
         setPreset(confirmed.current.preset);
         setAccent(confirmed.current.accent);
         setLooks(confirmed.current);
+        setMarks(confirmed.current);
         setStatus("error");
       } finally {
         saving.current = false;
@@ -108,6 +113,7 @@ export function StationeryForm({ groupId, loopName, preset: savedPreset, accent:
     setPreset(wanted.preset);
     setAccent(wanted.accent);
     setLooks(wanted);
+    setMarks(wanted);
     latest.current = wanted;
     flush();
   }
@@ -158,6 +164,11 @@ export function StationeryForm({ groupId, loopName, preset: savedPreset, accent:
             commit(change);
           }}
           loopName={loopName}
+          marks={marks}
+          onMarks={(change, typing) => {
+            setMarks((current) => ({ ...current, ...change }));
+            if (!typing) commit(change);
+          }}
         />
       </form>
     </section>

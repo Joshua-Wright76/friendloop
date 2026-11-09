@@ -11,6 +11,8 @@ import { LoopSnapshot, LoopTheme } from "@/components/loop-theme";
 import { printHref, wantsPrint, webHref } from "@/lib/print-view";
 import { IssuePrint } from "../../i/[id]/issue-print";
 import { DisplayDigits } from "@/components/display-digits";
+import { marksOf } from "@/lib/looks";
+import { Motto, RoundMark, SignOff } from "@/components/round-marks";
 
 export const instant = false;
 
@@ -49,6 +51,8 @@ export default async function SharePage({
     );
   }
 
+  const marks = marksOf(view.group);
+
   return (
     <main className="mx-auto w-full max-w-[680px] px-4 pb-16 pt-5 sm:px-6">
       <LoopTheme group={view.group} />
@@ -60,6 +64,7 @@ export default async function SharePage({
             <span className="loop-head__name wrap-any">{view.group.name}</span>
           </span>
         </div>
+        <Motto text={marks.motto} />
         <div className="loop-head__page">
           <h1><DisplayDigits>{issueTitle(copy.share.round, view.issue.number, view.issue.name)}</DisplayDigits></h1>
           <p className="numeric">
@@ -70,6 +75,15 @@ export default async function SharePage({
             })}
           </p>
           <p className="shared-note">{text(copy.share.sharedNote, { loop: view.group.name })}</p>
+          <RoundMark
+            sealStyle={marks.sealStyle}
+            sealColor={marks.sealColor}
+            mascot={view.group.themeMascot}
+            number={view.issue.number}
+            loopName={view.group.name}
+            deliveredAt={view.issue.deliveredAt ?? view.issue.deliversAt}
+            timezone={view.group.timezone}
+          />
         </div>
       </header>
 
@@ -83,7 +97,9 @@ export default async function SharePage({
         barTitle={issueTitle(copy.share.round, view.issue.number, view.issue.name)}
         commentsEnabled={false}
         mentionables={[]}
+        closing={marks.signOff ? <SignOff text={marks.signOff} /> : undefined}
       />
+
 
       <footer className="card mt-6 flex flex-wrap items-center justify-center gap-x-6 gap-y-0 px-4 py-2 text-[14px] text-ink-soft">
         <Link href={printHref(`/s/${token}`)} className="link link--quiet">{copy.print.action}</Link>

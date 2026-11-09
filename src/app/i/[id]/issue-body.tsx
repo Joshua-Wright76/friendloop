@@ -38,6 +38,8 @@ type Props = {
   readingNote?: ReactNode;
   /** Keeps the name of what you're reading in view on the bar. */
   barTitle?: string;
+  /** The owner's sign-off, closing the round before the talk about it. */
+  closing?: ReactNode;
 };
 
 export function IssueBody({
@@ -55,6 +57,7 @@ export function IssueBody({
   readingLabel,
   readingNote,
   barTitle,
+  closing,
 }: Props) {
   const answered = blocks.filter((block) => block.answers.length > 0);
   const talk: Conversation = { issueId, viewerToken, canInteract, commentsEnabled, mentionables };
@@ -199,6 +202,8 @@ export function IssueBody({
         </section>
       ))}
 
+      {closing}
+
       {commentsEnabled ? (
         <section className="card mt-2 p-5">
           <h2 className="text-ink">{copy.issue.comments}</h2>
@@ -267,7 +272,7 @@ function PhotoWall({ title, entries, talk, number }: { title: string; entries: W
       <PhotoLightbox photos={photos} state={lightbox} />
       {/* A read-only copy shows a row only where someone has reacted or commented. */}
       {entries.filter((entry) => talk.canInteract || entry.reply.comments.length > 0 || entry.reply.reactions.some((reaction) => reaction.count > 0)).map((entry) => (
-        <div key={entry.reply.replyId} className="mt-4 border-t border-line pt-3">
+        <div key={entry.reply.replyId} className="divided mt-4 border-t border-line pt-3">
           <div className="flex items-center gap-2.5">
             <Avatar name={entry.reply.author} photoUrl={entry.reply.authorPhotoUrl} frame={entry.reply.authorFrame} />
             <p className="m-0 text-[14px] font-extrabold text-ink-soft">{entry.reply.author}</p>
@@ -283,7 +288,7 @@ function PhotoWall({ title, entries, talk, number }: { title: string; entries: W
 /** One person's answer to a standard or music section, with its link card, photos, reactions and thread. */
 function SectionReplyCard({ reply, label, talk, number }: { reply: IssueSectionReplyBlock; label?: string; talk: Conversation; number?: number }) {
   return (
-    <div id={`section-reply-${reply.replyId}`} className="mt-4 scroll-mt-4 border-t border-line pt-4 first:border-t-0">
+    <div id={`section-reply-${reply.replyId}`} className="divided mt-4 scroll-mt-4 border-t border-line pt-4 first:border-t-0">
       {label ? (
         <h3 className="m-0 text-[22px] leading-tight text-ink">{label}</h3>
       ) : (
@@ -397,7 +402,7 @@ function AnswerCard({
   editHref?: string | null;
 }) {
   return (
-    <article id={`answer-${answer.replyId}`} className="answer-card mt-4 scroll-mt-4 border-t border-line pt-4 first:border-t-0">
+    <article id={`answer-${answer.replyId}`} className="answer-card divided mt-4 scroll-mt-4 border-t border-line pt-4 first:border-t-0">
       {questionLabel ? (
         // Reading by person: the card is already theirs, so the question leads and the byline would only repeat.
         <h3 className="m-0 text-[22px] leading-tight text-ink">{questionLabel}</h3>

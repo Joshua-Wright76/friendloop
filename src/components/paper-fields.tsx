@@ -13,6 +13,9 @@ import {
   type SchemeTokens,
 } from "@/lib/theme";
 import { pageLayers, paperVars, tapeVars } from "@/lib/stationery";
+import { dividerBorder } from "@/lib/dividers";
+import { CelebrationPicker, DividerPicker, SealPicker, WordsFields, type MarksDraft, type OnMarks } from "@/components/mark-pickers";
+import { Postmark, WaxSeal } from "@/components/round-marks";
 
 /** Everything besides colour, chosen together. */
 export type StationeryLooks = { background: string; paperPack: string; tapePack: string; mascot: string };
@@ -30,10 +33,16 @@ type Props = {
   onLooks: (change: Partial<StationeryLooks>) => void;
   /** Shown in the mascot's little previews. */
   loopName: string;
+  /** The owner's marks on every round: words, seal, divider and celebration. */
+  marks: MarksDraft;
+  onMarks: OnMarks;
 };
 
+/** The preview's round: fixed, so it never claims anything about a real one. */
+const PREVIEW_DATE = new Date("2026-11-06T17:00:00Z");
+
 /** A small round of the interface in one scheme's tokens: what the owner is choosing. */
-function PreviewCard({ label, tokens, looks }: { label: string; tokens: SchemeTokens; looks: StationeryLooks }) {
+function PreviewCard({ label, tokens, looks, marks, loopName, dark = false }: { label: string; tokens: SchemeTokens; looks: StationeryLooks; marks: MarksDraft; loopName: string; dark?: boolean }) {
   const page = pageLayers(looks.background, tokens);
   return (
     <div
@@ -42,6 +51,11 @@ function PreviewCard({ label, tokens, looks }: { label: string; tokens: SchemeTo
         ...(cssVars(tokens) as CSSProperties),
         ...(paperVars(looks.paperPack) as CSSProperties),
         ...(tapeVars(looks.tapePack) as CSSProperties),
+        ...({
+          "--divider": dividerBorder(marks.divider, tokens, 13),
+          "--postmark-ink": dark ? "rgb(214 222 248 / .78)" : "rgb(47 56 92 / .72)",
+          "--stamp-paper": dark ? "#ece2d6" : "#fffdf7",
+        } as CSSProperties),
         backgroundColor: tokens.page,
         backgroundImage: page.image,
         backgroundSize: page.size,
@@ -51,16 +65,25 @@ function PreviewCard({ label, tokens, looks }: { label: string; tokens: SchemeTo
       data-testid={`stationery-preview-${label.toLowerCase()}`}
     >
       <p className="m-0 text-[13px] font-extrabold" style={{ color: tokens.inkMuted }}>{label}</p>
-      <div className="card mt-5 p-3 pt-4" data-paper="answer">
+      <div className="card relative mt-5 p-3 pt-4 flow-root" data-paper="answer">
         <Tape tone="dots" position="right" />
-        <p className="m-0 font-display text-[22px] font-bold leading-tight" style={{ color: tokens.ink }}>
+        {marks.sealStyle === "wax" ? <WaxSeal mascot={looks.mascot} color={marks.sealColor} className="preview-mark" /> : null}
+        {marks.sealStyle === "postmark" ? (
+          <Postmark mascot={looks.mascot} number={12} loopName={loopName} deliveredAt={PREVIEW_DATE} timezone="UTC" className="preview-mark" />
+        ) : null}
+        <p className="preview-heading m-0 font-display text-[22px] font-bold leading-tight" style={{ color: tokens.ink }}>
           {copy.stationery.previewHeading}
         </p>
+        {marks.motto.trim() ? <p className="preview-motto" style={{ color: tokens.accentInk }} data-testid="preview-motto">{marks.motto}</p> : null}
         <div className="mt-2 flex items-center gap-2">
           <Avatar name={copy.stationery.previewAnswerName} className="!h-7 !w-7 !text-[13px]" />
           <p className="m-0 text-[13px] font-extrabold" style={{ color: tokens.inkSoft }}>{copy.stationery.previewAnswerName}</p>
         </div>
         <p className="answer-text mt-1 text-[14px] leading-snug" style={{ color: tokens.ink }}>{copy.stationery.previewAnswer}</p>
+        <div className="divided mt-3 border-t pt-3" style={{ borderColor: tokens.line }} aria-hidden="true">
+          <i className="pack-line" style={{ width: "58%" }} />
+        </div>
+        {marks.signOff.trim() ? <p className="preview-sign-off" style={{ color: tokens.accentInk }} data-testid="preview-sign-off">{marks.signOff}</p> : null}
         <span className="btn btn-primary mt-3 h-9 min-h-9 text-[13px]" aria-hidden="true">{copy.stationery.previewButton}</span>
       </div>
     </div>
@@ -95,7 +118,7 @@ function LookGroup({ title, value, startOpen = false, children }: { title: strin
   );
 }
 
-export function PaperFields({ preset, onPreset, accent, onAccent, onAccentCommit, looks, onLooks, loopName }: Props) {
+export function PaperFields({ preset, onPreset, accent, onAccent, onAccentCommit, looks, onLooks, loopName, marks, onMarks }: Props) {
   const pickerTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hex = normalizeHex(accent);
   const accentInvalid = accent.trim() !== "" && !hex;
@@ -108,8 +131,8 @@ export function PaperFields({ preset, onPreset, accent, onAccent, onAccentCommit
       <div className="look-preview">
         <p className="mb-2 text-[13px] font-medium text-ink-soft">{copy.stationery.previewTitle}</p>
         <div className="grid gap-2 sm:grid-cols-2">
-          <PreviewCard label={copy.stationery.previewLight} tokens={theme.light} looks={looks} />
-          <PreviewCard label={copy.stationery.previewDark} tokens={theme.dark} looks={looks} />
+          <PreviewCard label={copy.stationery.previewLight} tokens={theme.light} looks={looks} marks={marks} loopName={loopName} />
+          <PreviewCard label={copy.stationery.previewDark} tokens={theme.dark} looks={looks} marks={marks} loopName={loopName} dark />
         </div>
       </div>
 
@@ -204,6 +227,18 @@ export function PaperFields({ preset, onPreset, accent, onAccent, onAccentCommit
       </LookGroup>
       <LookGroup title={copy.stationery.mascotLegend} value={named(copy.stickers, looks.mascot)}>
       <MascotPicker value={looks.mascot} onChange={(mascot) => onLooks({ mascot })} loopName={loopName} />
+      </LookGroup>
+      <LookGroup title={copy.stationery.wordsLegend} value={[marks.motto.trim(), marks.signOff.trim()].filter(Boolean).join(" · ") || copy.stationery.wordsNone}>
+      <WordsFields marks={marks} onMarks={onMarks} />
+      </LookGroup>
+      <LookGroup title={copy.stationery.sealLegend} value={copy.stationery.seals[(marks.sealStyle || "none") as keyof typeof copy.stationery.seals].name}>
+      <SealPicker marks={marks} onMarks={onMarks} mascot={looks.mascot} loopName={loopName} />
+      </LookGroup>
+      <LookGroup title={copy.stationery.dividerLegend} value={named(copy.stationery.dividers, marks.divider || "stitches")}>
+      <DividerPicker value={marks.divider} onChange={(divider) => onMarks({ divider })} theme={theme} />
+      </LookGroup>
+      <LookGroup title={copy.stationery.celebrationLegend} value={named(copy.stationery.celebrations, marks.celebration || "none")}>
+      <CelebrationPicker value={marks.celebration} onChange={(celebration) => onMarks({ celebration })} mascot={looks.mascot} />
       </LookGroup>
     </>
   );

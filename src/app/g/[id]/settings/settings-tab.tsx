@@ -14,6 +14,7 @@ import { Picker } from "@/components/picker";
 import { ConfirmAction } from "@/components/confirm-action";
 import { copy, text } from "@/lib/copy";
 import { formatHour } from "@/lib/format";
+import { marksOf } from "@/lib/looks";
 import { useLoopData } from "../loop-data";
 import { SubmitButton } from "@/components/submit-button";
 
@@ -148,6 +149,7 @@ export default function SettingsTab({ notices }: { notices: { saved?: string; er
         tapePack={group.themeTapePack}
         mascot={group.themeMascot}
         headerImageUrl={group.headerImageUrl}
+        marks={marksOf(group)}
       />
       {/* The owner's own look lives with their card on People; this is the way there from the loop's look. */}
       <section className="card mt-4 p-5" aria-labelledby="your-look-title">

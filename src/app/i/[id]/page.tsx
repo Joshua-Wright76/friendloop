@@ -2,7 +2,9 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { currentUser } from "@/lib/auth";
-import { issueGroupId, loadIssue, membershipForViewer } from "@/lib/issue-view";
+import { issueGroupId, loadIssue, membershipForViewer, nextRoundFor } from "@/lib/issue-view";
+import { marksOf } from "@/lib/looks";
+import { Motto, RoundMark, SignOff } from "@/components/round-marks";
 import { MutedNotice } from "@/components/muted-notice";
 import { formatDate } from "@/lib/format";
 import { IssueBody } from "./issue-body";
@@ -97,6 +99,9 @@ export default async function IssuePage({
   const answeredHere =
     view.blocks.some((block) => block.answers.some((answer) => answer.isYou)) ||
     view.sections.some((section) => section.replies.some((reply) => reply.isYou));
+  // The owner's marks belong to a round that has gone out; the sign-off may say what's next.
+  const marks = marksOf(view.group);
+  const next = delivered && marks.signOff ? await nextRoundFor(view.group.id) : null;
 
   return (
     <main className="mx-auto w-full max-w-[680px] px-4 pb-16 pt-4 sm:px-6">
@@ -110,6 +115,7 @@ export default async function IssuePage({
             <span className="loop-head__name wrap-any">{view.group.name}</span>
           </span>
         </div>
+        <Motto text={marks.motto} />
         <div className="loop-head__page">
           <h1><DisplayDigits>{issueTitle(copy.issue.round, view.issue.number, view.issue.name)}</DisplayDigits></h1>
           <p className="numeric">
@@ -119,6 +125,17 @@ export default async function IssuePage({
               date: formatDate(view.issue.deliveredAt ?? view.issue.deliversAt, view.group.timezone),
             })}
           </p>
+          {delivered ? (
+            <RoundMark
+              sealStyle={marks.sealStyle}
+              sealColor={marks.sealColor}
+              mascot={view.group.themeMascot}
+              number={view.issue.number}
+              loopName={view.group.name}
+              deliveredAt={view.issue.deliveredAt ?? view.issue.deliversAt}
+              timezone={view.group.timezone}
+            />
+          ) : null}
         </div>
       </header>
 
@@ -134,6 +151,12 @@ export default async function IssuePage({
         mentionables={view.mentionables}
         editHref={editHref}
         barTitle={issueTitle(copy.issue.round, view.issue.number, view.issue.name)}
+        closing={delivered && marks.signOff ? (
+          <SignOff
+            text={marks.signOff}
+            next={next ? text(copy.issue.signOffNext, { round: text(copy.issue.round, { number: next.number }), date: formatDate(next.deliversAt, view.group.timezone) }) : null}
+          />
+        ) : undefined}
         reading={people.length > 1 ? (
           <ReadingControls base={`/i/${id}`} token={m ?? null} people={people} reading={effective} focus={arranged.focus} />
         ) : undefined}

@@ -8,6 +8,7 @@ import { Brand, Tape } from "@/components/stationery";
 import { ReplySheet } from "./reply-sheet";
 import { MutedNotice } from "@/components/muted-notice";
 import { copy, text } from "@/lib/copy";
+import { marksOf } from "@/lib/looks";
 
 // One indexed query behind this page; a blocking route is faster than a skeleton.
 export const instant = false;
@@ -126,6 +127,8 @@ export default async function ReplyPage({ params }: { params: Promise<{ token: s
       initialName={context.membership.name}
       reminderPreference={context.membership.reminderPreference}
       mutedUnsubscribeToken={context.membership.mutedAt ? context.membership.unsubscribeToken : null}
+      celebration={marksOf(context.group).celebration}
+      mascot={context.group.themeMascot}
       questions={sheet.questions.map((question, index) => ({
         id: question.id,
         index: index + 1,

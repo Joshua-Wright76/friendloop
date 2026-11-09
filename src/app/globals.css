@@ -1285,3 +1285,114 @@ html[data-theme="dark"] .toast { background: var(--card); color: var(--ink); box
 @media (prefers-reduced-motion: reduce) {
   .mic-help :is(.mic-help__screen, .mic-help__row--hit, .mic-help__check, .mic-help__switch, .mic-help__knob, .mic-help__tap, .mic-help__tap::after) { animation: none; }
 }
+
+/* ------------------------------------------------------------------------------
+   The owner's marks on a round (src/lib/looks.ts): a motto, a seal or postmark, a
+   divider between answers, a sign-off, and a send celebration. Each only exists on
+   the page when it was chosen; a loop that chose none never meets these rules.
+   ------------------------------------------------------------------------------ */
+.loop-motto { margin: -2px 0 0; padding-left: 36px; color: var(--accent-ink); font-family: var(--font-display); font-size: 20px; font-weight: 700; line-height: 1.15; overflow-wrap: anywhere; }
+@media (max-width: 520px) { .loop-motto { padding-left: 0; font-size: 19px; } }
+
+/* The seal or postmark sits beside the round's title; the words keep their column. */
+.loop-head__page:has(> .round-mark) { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 12px; align-items: start; }
+.loop-head__page > .round-mark { grid-column: 2; grid-row: 1 / span 3; align-self: center; }
+.loop-head__page:has(> .round-mark) > :not(.round-mark) { grid-column: 1; }
+.wax-seal { display: block; width: 84px; height: 84px; flex: none; transform: rotate(-8deg); }
+.wax-seal > svg { display: block; width: 100%; height: 100%; overflow: visible; }
+html[data-theme="dark"] .wax-seal > svg { filter: drop-shadow(0 0 .6px rgb(255 255 255 / .22)); }
+.postmark-mark { position: relative; display: block; width: 132px; height: 92px; flex: none; }
+.postmark-mark__stamp { position: absolute; top: 2px; right: 2px; width: 64px; transform: rotate(4deg); }
+.postmark-mark__cancel { position: absolute; top: 18px; left: 0; width: 120px; transform: rotate(-9deg); }
+.postmark-mark svg { display: block; width: 100%; height: auto; overflow: visible; }
+/* The stamp and the cancellation's ink carry their own fallbacks (seal-art.ts); evening dims the one and lightens the other. */
+html[data-theme="dark"] { --stamp-paper: #ece2d6; --postmark-ink: rgb(214 222 248 / .78); }
+html[data-theme="dark"] .postmark-mark__stamp { filter: brightness(.9); }
+@media (max-width: 520px) {
+  .wax-seal { width: 68px; height: 68px; }
+  .postmark-mark { width: 104px; height: 74px; }
+  .postmark-mark__stamp { width: 52px; }
+  .postmark-mark__cancel { top: 14px; width: 96px; }
+}
+
+/* A chosen divider is drawn along the top edge of each answer; unchosen, the border is the stitches as ever. */
+.divided:not(:first-child) { border-image: var(--divider, none); }
+
+.sign-off { margin-top: 0; padding: 20px 20px 18px; text-align: center; }
+.sign-off__mark { display: block; width: 44px; height: 44px; margin: 0 auto 6px; }
+.sign-off__words { margin: 0; color: var(--accent-ink); font-family: var(--font-display); font-size: 30px; font-weight: 700; line-height: 1.15; overflow-wrap: anywhere; transform: rotate(-1.5deg); }
+.sign-off__next { margin: 8px 0 0; color: var(--ink-muted); font-size: 13.5px; font-weight: 700; line-height: 1.45; }
+@media (max-width: 520px) { .sign-off__words { font-size: 26px; } }
+
+/* Send celebrations: a layer of a few nodes over the page, gone after one play. */
+.celebration { position: fixed; z-index: 60; inset: 0; overflow: hidden; pointer-events: none; }
+.celebration--contained { position: absolute; z-index: 2; border-radius: inherit; }
+.fx { position: absolute; display: block; will-change: transform, opacity; animation-delay: var(--delay, 0s); animation-fill-mode: both; }
+.fx > svg, .fx > img { display: block; width: 100%; height: 100%; }
+.fx--confetti { top: calc(100% - 64px); width: 8px; height: 13px; border-radius: 2px; animation: fx-confetti var(--dur) cubic-bezier(.2, .7, .4, 1); }
+@keyframes fx-confetti { 0% { opacity: 1; transform: translate(0, 0) rotate(0); } 38% { opacity: 1; transform: translate(calc(var(--dx) * .7), var(--dy)) rotate(calc(var(--rot) * .5)); } 100% { opacity: 0; transform: translate(var(--dx), calc(var(--dy) + 460px)) rotate(var(--rot)); } }
+.fx--petal { top: -28px; width: 14px; height: 19px; border-radius: 80% 0 80% 0; box-shadow: inset 0 0 0 1px rgb(0 0 0 / .05); animation: fx-petal var(--dur) ease-in; }
+@keyframes fx-petal { 0% { opacity: 0; transform: translate(0, 0) rotate(0); } 8% { opacity: 1; } 30% { transform: translate(var(--sway), 30vh) rotate(170deg); } 60% { transform: translate(calc(var(--sway) * -1), 62vh) rotate(320deg); } 100% { opacity: .5; transform: translate(var(--sway), 108vh) rotate(560deg); } }
+.fx--star { top: calc(100% - 80px); left: calc(50% - 11px); width: 22px; height: 22px; animation: fx-star var(--dur) cubic-bezier(.15, .8, .3, 1); }
+@keyframes fx-star { 0% { opacity: 1; transform: translate(0, 0) scale(.2) rotate(0); } 60% { opacity: 1; } 100% { opacity: 0; transform: translate(var(--dx), var(--dy)) scale(var(--scale)) rotate(var(--rot)); } }
+.fx--hop { top: calc(100% - 170px); left: 50%; width: 88px; height: 88px; transform-origin: 50% 100%; animation: fx-hop 1.6s cubic-bezier(.3, 0, .3, 1); filter: drop-shadow(0 0 1.2px #fff) drop-shadow(0 0 1.2px #fff) drop-shadow(0 6px 6px rgb(61 42 48 / .25)); }
+@keyframes fx-hop { 0% { opacity: 0; transform: translate(-50%, 40px) scale(1, 1); } 12% { opacity: 1; transform: translate(-50%, 0) scale(1.16, .8); } 22% { transform: translate(-50%, 0) scale(.9, 1.12); } 45% { transform: translate(-50%, -160px) scale(1, 1) rotate(-8deg); } 66% { transform: translate(-50%, 0) scale(1.18, .8); } 76% { transform: translate(-50%, -26px) scale(1, 1); } 86% { transform: translate(-50%, 0) scale(1.06, .94); } 94% { opacity: 1; transform: translate(-50%, 0) scale(1); } 100% { opacity: 0; transform: translate(-50%, 0) scale(1); } }
+.fx--heart { top: calc(100% - 180px); width: 20px; height: 18px; animation: fx-heart 1.6s ease-out; }
+@keyframes fx-heart { 0% { opacity: 0; transform: translate(0, 0) scale(.4); } 20% { opacity: 1; } 100% { opacity: 0; transform: translate(var(--dx), -190px) scale(1.15); } }
+.fx--envelope { top: calc(100% - 150px); left: 50%; width: 76px; color: var(--accent-ink); animation: fx-envelope 1.5s cubic-bezier(.5, 0, .6, 1); }
+.fx--envelope .envelope { width: 100%; margin: 0; color: inherit; }
+@keyframes fx-envelope { 0% { opacity: 0; transform: translate(-50%, 0) scale(.6) rotate(0); } 15% { opacity: 1; transform: translate(-50%, -20px) scale(1) rotate(-6deg); } 35% { transform: translate(-50%, -30px) scale(1) rotate(-10deg); } 100% { opacity: 0; transform: translate(190px, -560px) scale(.5) rotate(24deg); } }
+.fx--trail { top: calc(100% - 120px); left: calc(50% + 6px); width: 6px; height: 6px; border-radius: 50%; background: var(--accent); animation: fx-trail 1.6s ease-out; }
+@keyframes fx-trail { 0% { opacity: 0; transform: translate(var(--x), var(--y)) scale(.4); } 15% { opacity: 1; transform: translate(var(--x), var(--y)) scale(1); } 100% { opacity: 0; transform: translate(var(--x), var(--y)) scale(1); } }
+.celebration--contained .fx--confetti, .celebration--contained .fx--star { top: calc(100% - 24px); }
+.celebration--contained .fx--hop { top: calc(100% - 92px); width: 56px; height: 56px; }
+.celebration--contained .fx--heart { top: calc(100% - 96px); }
+.celebration--contained .fx--envelope { top: calc(100% - 70px); width: 48px; }
+.celebration--contained .fx--trail { top: calc(100% - 60px); }
+@media (prefers-reduced-motion: reduce) { .celebration { display: none; } }
+
+/* The marks' pickers, in the stationery settings and the wizard. */
+.mark-tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+@media (min-width: 560px) { .mark-tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.mark-tile { position: relative; display: flex; min-width: 0; min-height: 44px; flex-direction: column; align-items: center; gap: 2px; padding: 10px 6px 9px; border: 2px solid var(--line-strong); border-radius: 6px; background: var(--card); cursor: pointer; text-align: center; }
+.mark-tile > input { position: absolute; z-index: 3; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
+.mark-tile:has(> input:focus-visible) { outline: 3px solid var(--accent-ink); outline-offset: 2px; }
+.mark-tile:has(> input:checked) { border-color: var(--accent-ink); box-shadow: 0 0 0 1px var(--accent-ink); }
+.mark-tile .pick-mark { top: 5px; right: 5px; width: 20px; height: 20px; }
+.mark-tile__art { display: grid; height: 78px; place-items: center; }
+.mark-tile__art .wax-seal { width: 66px; height: 66px; }
+.mark-tile__art .postmark-mark { width: 104px; height: 72px; }
+.mark-tile__art .postmark-mark__stamp { width: 50px; }
+.mark-tile__art .postmark-mark__cancel { top: 14px; width: 94px; }
+.mark-tile__none { display: block; width: 54px; height: 54px; border: 2px dashed var(--line-strong); border-radius: 50%; }
+.mark-tile__name { color: var(--ink); font-size: 13px; font-weight: 800; line-height: 1.2; overflow-wrap: anywhere; }
+.mark-tile__desc { color: var(--ink-muted); font-size: 12px; line-height: 1.3; }
+.mark-tile--text { justify-content: center; padding: 12px 24px 12px 8px; }
+.mark-tiles--seals { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+@media (max-width: 400px) { .mark-tiles--seals .mark-tile__desc { display: none; } }
+.wax-tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+@media (min-width: 560px) { .wax-tiles { grid-template-columns: repeat(6, minmax(0, 1fr)); } }
+.wax-tile .wax-seal { width: 46px; height: 46px; }
+.wax-tile:has(> input:checked) { border-color: var(--accent-ink); box-shadow: 0 0 0 1px var(--accent-ink); }
+.wax-tile:has(> input:focus-visible) { outline: 3px solid var(--accent-ink); outline-offset: 2px; }
+.divider-tile { --divider: var(--divider-light); }
+html[data-theme="dark"] .divider-tile { --divider: var(--divider-dark); }
+.divider-tile__scrap { display: flex; width: 100%; flex-direction: column; gap: 0; padding: 10px 12px 4px; border: 1px solid var(--line); border-radius: 4px; background: var(--card); }
+.divider-tile__line { display: block; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--line); }
+.celebration-stage { position: relative; display: grid; height: 120px; margin-bottom: 8px; place-items: center; overflow: hidden; border: 1px dashed var(--line-strong); border-radius: 6px; background: var(--card); }
+.celebration-stage__check { color: var(--success); }
+.preview-mark { position: relative; z-index: 1; float: right; margin: -4px -4px 4px 6px; }
+.preview-mark.wax-seal { width: 46px; height: 46px; }
+.preview-mark.postmark-mark { width: 84px; height: 58px; }
+.preview-mark .postmark-mark__stamp { width: 40px; }
+.preview-mark .postmark-mark__cancel { top: 12px; width: 76px; }
+@media (max-width: 520px) {
+  .preview-mark.wax-seal { width: 34px; height: 34px; }
+  .preview-mark.postmark-mark { width: 52px; height: 38px; }
+  .preview-mark .postmark-mark__stamp { width: 26px; }
+  .preview-mark .postmark-mark__cancel { top: 8px; width: 46px; }
+  .preview-motto { font-size: 13.5px; }
+  .preview-sign-off { font-size: 17px; }
+}
+.preview-motto { margin: 0; font-family: var(--font-display); font-size: 17px; font-weight: 700; line-height: 1.15; overflow-wrap: anywhere; }
+.preview-sign-off { margin: 10px 0 0; font-family: var(--font-display); font-size: 20px; font-weight: 700; line-height: 1.15; text-align: center; overflow-wrap: anywhere; }

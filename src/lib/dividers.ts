@@ -27,7 +27,7 @@ const DRAWINGS: Record<string, Drawing> = {
   ricrac: {
     width: 22,
     height: 12,
-    art: (c) => `<path d='M0 6Q5.5-1 11 6T22 6' fill='none' stroke='${c.accent}' stroke-width='3' stroke-linecap='round'/>`,
+    art: (c) => `<path d='M0 6Q5.5-1 11 6T22 6' fill='none' stroke='${c.accent}' stroke-width='2.4' stroke-linecap='round'/>`,
   },
   // A doily's edge: scallops with a punched hole in each.
   lace: {

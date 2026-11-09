@@ -1644,7 +1644,7 @@
   },
   "stationery": {
     "title": "Stationery",
-    "intro": "Pick what your loop is written on: the page behind it, its colors, its paper and tape, and its mascot.",
+    "intro": "Pick what your loop is written on: the page behind it, its colors, its paper and tape, its mascot, and the marks every round goes out with.",
     "paperLegend": "Colors",
     "presets": {
       "gingham": {

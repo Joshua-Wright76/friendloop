@@ -37,6 +37,7 @@ import {
 import { removeReplySectionMedia, uploadReplySectionPhoto } from "@/lib/section-client";
 import { PollCard, type PollCardStatus } from "./poll-card";
 import { DisplayDigits } from "@/components/display-digits";
+import { Celebration } from "@/components/celebration";
 
 /**
  * One item of the round, in round order. Written and poll items are answered on
@@ -100,6 +101,10 @@ type Props = {
   /** Set when this member turned off the loop's emails: offers the way back. */
   mutedUnsubscribeToken?: string | null;
   questions: SheetQuestion[];
+  /** The owner's send celebration (`CELEBRATION_KEYS`); null is the sent stamp alone. */
+  celebration?: string | null;
+  /** The loop's mascot, for the celebration that hops. */
+  mascot?: string | null;
 };
 
 type NameStatus = "idle" | "saving" | "saved" | "error";
@@ -144,6 +149,8 @@ export function ReplySheet({
   reminderPreference,
   mutedUnsubscribeToken,
   questions: items,
+  celebration = null,
+  mascot = null,
 }: Props) {
   const questions = useMemo(() => items.filter((item) => !isCard(item)), [items]);
   const sections = useMemo(() => items.filter(isCard).map((item): SheetSection => ({
@@ -233,6 +240,9 @@ export function ReplySheet({
   const [pollStatuses, setPollStatuses] = useState<Record<string, PollCardStatus>>({});
   const pollRevisions = useRef(new Map<string, number>());
   const [animateSentStamp, setAnimateSentStamp] = useState(false);
+  // Counts each Done that earned the owner's celebration; zero when none is playing.
+  const [celebrating, setCelebrating] = useState(0);
+  const endCelebration = useCallback(() => setCelebrating(0), []);
   // Done steps the sheet aside for a confirmation; "Back to my answers" brings it back.
   // The sheet stays mounted (only hidden) so nothing in it — words, photos, previews — is lost.
   const [confirmation, setConfirmation] = useState(false);
@@ -1132,6 +1142,8 @@ export function ReplySheet({
 
       setConfirmation(true);
       setAnimateSentStamp(true);
+      // Never for anyone who asked for less motion: the confirmation says it all.
+      if (celebration && !window.matchMedia("(prefers-reduced-motion: reduce)").matches) setCelebrating((count) => count + 1);
       setAnnouncement(copy.a11yStatus.doneAnnouncement);
     } catch {
       setError(copy.reply.genericError);
@@ -1139,7 +1151,7 @@ export function ReplySheet({
     } finally {
       setFinishing(false);
     }
-  }, [bodies, name, pollPicks, pollStatuses, questionStatuses, questions, token, writeDraft, writePoll]);
+  }, [bodies, celebration, name, pollPicks, pollStatuses, questionStatuses, questions, token, writeDraft, writePoll]);
 
   // Each view starts at the top with focus on its heading, so a screen reader hears the change.
   useEffect(() => {
@@ -1366,6 +1378,9 @@ export function ReplySheet({
         </div>
       </header>
 
+      {celebrating > 0 && celebration ? (
+        <Celebration key={celebrating} kind={celebration} mascot={mascot} seed={celebrating} onEnd={endCelebration} />
+      ) : null}
       {confirmation ? (
         <main className="mx-auto w-full max-w-[600px] px-4 pb-16 pt-4" aria-labelledby="reply-confirmation-heading">
           <section className="card relative mt-2 p-6 pt-8 text-center sm:p-8 sm:pt-10">
