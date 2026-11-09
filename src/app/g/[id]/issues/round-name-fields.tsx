@@ -2,7 +2,7 @@
 
 import { useState, type CSSProperties } from "react";
 import { copy, text } from "@/lib/copy";
-import { issueRef, MAX_ISSUE_NAME } from "@/lib/issue-name";
+import { issueHeading, MAX_ISSUE_NAME } from "@/lib/issue-name";
 import { COVER_TINTS, COVER_TINT_KEYS, coverOf } from "@/lib/looks";
 import { CHARM_KEYS, stickerSrc } from "@/lib/stickers";
 import { RoundCoverBand } from "@/components/round-cover";
@@ -35,7 +35,7 @@ export function RoundNameFields({
   const [tint, setTint] = useState(saved?.tint ?? COVER_TINT_KEYS[0]);
   const named = name.trim() !== "";
   const cover = coverOf({ name: named ? name : null, coverSticker: sticker || null, coverTint: tint });
-  const subject = text(copy.emails.delivery.subject, { groupName: loopName, issueRef: issueRef(number, named ? name.trim() : null) });
+  const subject = text(copy.emails.delivery.subject, { groupName: loopName, issueHeading: issueHeading(number, named ? name.trim() : null) });
 
   return (
     <>
