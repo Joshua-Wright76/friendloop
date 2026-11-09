@@ -1036,7 +1036,8 @@
       "body": "Everything you wrote for {round} goes out {deadline}.",
       "change": "Until then you can change anything. Clear an answer to leave it out.",
       "skipNote": " Questions you leave blank are simply skipped.",
-      "edit": "Back to my answers"
+      "edit": "Back to my answers",
+      "loop": "Go to {loop}"
     },
     "placeholder": "Write a little or a lot",
     "saving": "Saving…",

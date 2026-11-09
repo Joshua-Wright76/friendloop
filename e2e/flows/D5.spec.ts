@@ -33,6 +33,8 @@ test("D5 · Done confirms what goes out and when", async ({ page }) => {
   ).toBeVisible();
   await expect(page.getByText("Until then you can change anything. Clear an answer to leave it out.")).toBeVisible();
   await expect(page.getByLabel("What made you laugh this week?")).toBeHidden();
+  // Nobody is signed in here, so there is no loop page to offer.
+  await expect(page.getByRole("link", { name: /^Go to / })).toHaveCount(0);
 
   // "Back to my answers" brings the sheet back, answers intact, ready to change.
   await page.getByRole("button", { name: "Back to my answers" }).click();
@@ -65,6 +67,35 @@ test("D5 · the owner counts an answer as soon as it saves, before any Done", as
 
   await page.goto(`/g/${loop.groupId}`);
   await expect(page.getByText("1 of 3 people in")).toBeVisible();
+});
+
+test("D5 · someone signed in on their own link can go on to the loop", async ({ page }, testInfo) => {
+  // The loop page is not a phone surface in this suite (see playwright.config.ts).
+  test.skip(testInfo.project.name === "phone", "loop page runs on desktop");
+  const loop = await seedLoop();
+  await seedOpenIssue(loop, { openedAt: AFTER_FIRST_SLOT });
+  const alice = loop.members.find((member) => member.email.startsWith("alice"))!;
+
+  // Signed in on the real clock, as above.
+  await signIn(page, "owner@friendloop.test");
+  await freezeClock(page, AFTER_FIRST_SLOT);
+
+  // Someone else's link, even opened while signed in, offers no way into the loop.
+  await page.goto(`/r/${alice.token}`);
+  await waitForSheet(page);
+  await page.getByLabel("What made you laugh this week?").fill("Not mine to write.");
+  await page.getByRole("button", { name: "Done", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "All set", exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: /^Go to / })).toHaveCount(0);
+
+  // Their own link does, and it lands on the loop.
+  await page.goto(`/r/${loop.ownerToken}`);
+  await waitForSheet(page);
+  await page.getByLabel("What made you laugh this week?").fill("My own words.");
+  await page.getByRole("button", { name: "Done", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "All set", exact: true })).toBeVisible();
+  await page.getByRole("link", { name: /^Go to / }).click();
+  await expect(page).toHaveURL(new RegExp(`/g/${loop.groupId}$`));
 });
 
 test("D5 · Done with nothing written points at the first question", async ({ page }) => {

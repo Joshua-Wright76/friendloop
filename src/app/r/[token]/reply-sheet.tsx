@@ -85,6 +85,8 @@ const isCard = (item: SheetQuestion) => item.format === "photo_wall" || item.for
 type Props = {
   token: string;
   loopName: string;
+  /** The loop page, when the person signed in here is the one this link belongs to. */
+  loopHref?: string | null;
   loopTimezone: string;
   roundNumber: number;
   roundName: string | null;
@@ -130,6 +132,7 @@ type AudioStatus = "idle" | "recording" | "uploading" | "saved" | "removing" | "
 export function ReplySheet({
   token,
   loopName,
+  loopHref,
   loopTimezone,
   roundNumber,
   roundName,
@@ -1391,9 +1394,16 @@ export function ReplySheet({
             </p>
             {droppedPick || sectionFailed ? <p role="status" className="m-0 mt-3 text-[14px] font-bold leading-relaxed text-danger">{copy.reply.pickNotSaved}</p> : null}
             {droppedAttachment || attachFailed ? <p role="status" className="m-0 mt-3 text-[14px] font-bold leading-relaxed text-danger">{copy.reply.attachDropped}</p> : null}
-            <button type="button" onClick={editAnswers} className="btn btn-primary mt-6 min-h-12 w-full sm:w-auto sm:px-8">
-              {copy.reply.confirmation.edit}
-            </button>
+            <div className="mt-6 flex flex-col items-stretch justify-center gap-3 sm:flex-row sm:items-center">
+              <button type="button" onClick={editAnswers} className="btn btn-primary min-h-12 sm:px-8">
+                {copy.reply.confirmation.edit}
+              </button>
+              {loopHref ? (
+                <Link href={loopHref} className="btn btn-quiet min-h-12 sm:px-8">
+                  {text(copy.reply.confirmation.loop, { loop: loopName })}
+                </Link>
+              ) : null}
+            </div>
             <p className="m-0 mt-3">
               <Link href={`/r/${token}/suggest`} className="link">{copy.reply.suggestLink}</Link>
             </p>

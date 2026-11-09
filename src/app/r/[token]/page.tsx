@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { formatMoment } from "@/lib/format";
 import { resolveToken, sheetFor } from "@/lib/reply";
+import { currentUser } from "@/lib/auth";
 import { LoopTheme } from "@/components/loop-theme";
 import { ProfilePhoto } from "@/components/profile-photo";
 import { Brand, Tape } from "@/components/stationery";
@@ -86,7 +87,7 @@ export default async function ReplyPage({ params }: { params: Promise<{ token: s
     );
   }
 
-  const sheet = await sheetFor(token);
+  const [sheet, user] = await Promise.all([sheetFor(token), currentUser()]);
   if (!sheet || !sheet.context.issue) {
     return (
       <>
@@ -113,6 +114,8 @@ export default async function ReplyPage({ params }: { params: Promise<{ token: s
     <ReplySheet
       token={token}
       loopName={context.group.name}
+      // Only the account this link belongs to can open the loop page, so only it is offered the way there.
+      loopHref={user && user.id === context.membership.userId ? `/g/${context.group.id}` : null}
       loopTimezone={context.group.timezone}
       roundNumber={issue.number}
       roundName={issue.name}
