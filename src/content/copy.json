@@ -1545,6 +1545,7 @@
       "deliveryThemed": "Delivered round with its own stationery and a name",
       "deliveryMarked": "Delivered round with a motto, wax seal, divider and sign-off",
       "deliveryPostmarked": "Delivered round with a postmark",
+      "deliveryPeople": "Delivered round with everyone's lines, stickers and signatures",
       "paused": "Empty round, loop paused"
     }
   },

@@ -100,6 +100,7 @@ test("every email the product sends has a preview", () => {
     [
       "delivery",
       "deliveryMarked",
+      "deliveryPeople",
       "deliveryPostmarked",
       "deliveryShared",
       "deliveryThemed",

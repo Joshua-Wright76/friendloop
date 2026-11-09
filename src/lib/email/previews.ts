@@ -97,7 +97,8 @@ function withLocalStickers<T extends { html: string }>(email: T): T {
     .replace(/src="[^"]*\/stickers\/png\/([a-z]+\.png)"/g, (_, file: string) => `src="${inline("stickers/png", file)}"`)
     .replace(/url\('[^']*\/patterns\/email\/([a-z]+-[a-z]+\.png)'\)/g, (_, file: string) => `url('${inline("patterns/email", file)}')`)
     .replace(/url\('[^']*\/dividers\/email\/([a-z]+-[a-z]+\.png)'\)/g, (_, file: string) => `url('${inline("dividers/email", file)}')`)
-    .replace(/src="[^"]*\/seals\/([a-z]+-[a-z]+(?:-[a-z]+)?\.png)"/g, (_, file: string) => `src="${inline("seals", file)}"`);
+    .replace(/src="[^"]*\/seals\/([a-z]+-[a-z]+(?:-[a-z]+)?\.png)"/g, (_, file: string) => `src="${inline("seals", file)}"`)
+    .replace(/src="[^"]*\/dev-preview\/(signature\.png)"/g, (_, file: string) => `src="${inline("dev-preview", file)}"`);
   return { ...email, html };
 }
 
@@ -255,6 +256,25 @@ export function emailPreviews(): EmailPreview[] {
         ),
       })),
     })),
+    {
+      // What people add themselves: everyone's line, stickers on answers, and the signed card.
+      id: "deliveryPeople",
+      email: withLocalStickers(deliveryEmail({
+        groupName: "Saturday Club",
+        issueNumber: 11,
+        url: "https://friendloop.dev/i/preview",
+        unsubscribeUrl: PREVIEW_STOP_URL,
+        answers: ANSWERS.map((answer, index) => ({ ...answer, sticker: ["peach", null, "frog"][index] ?? null })),
+        rollCall: [
+          { name: "Alex", line: "🧳 off to Lisbon on Thursday" },
+          { name: "Alice", line: "📚 halfway through Middlemarch, again" },
+        ],
+        signatures: [
+          { name: "Alex", src: "https://friendloop.dev/dev-preview/signature.png", width: 150, height: 32 },
+          { name: "Alice", src: "https://friendloop.dev/dev-preview/signature.png", width: 120, height: 26 },
+        ],
+      })),
+    },
     {
       id: "paused",
       email: pausedEmail({
