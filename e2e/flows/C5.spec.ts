@@ -2,6 +2,7 @@ import { test, expect } from "@playwright/test";
 import { resetDatabase, rows } from "../support/db";
 import { seedLoop, seedReplies } from "../support/seed";
 import { AFTER_FIRST_SLOT, DAY, pickOption, runSweep, sendNow, signIn } from "../support/harness";
+import { copy } from "@/lib/copy";
 
 const QUESTIONS = ["Q1", "Q2", "Q3", "Q4", "Q5"];
 
@@ -30,8 +31,8 @@ test("C5 · a question count rotates scheduled rounds and wraps", async ({ page 
 
   await page.goto(`/g/${loop.groupId}/questions`);
   // Choosing a count in Up next saves it.
-  await pickOption(page, "Questions per round", "2");
-  await expect(page.getByText("Questions per round updated.")).toBeVisible();
+  await pickOption(page, copy.questions.upNext.countLabel, "2");
+  await expect(page.getByText(copy.questions.done.count)).toBeVisible();
 
   await runSweep(AFTER_FIRST_SLOT);
   expect(await questionsForRound(loop.groupId, 1)).toEqual(["Q1", "Q2"]);
@@ -60,8 +61,8 @@ test("C5 · saving an unchanged count keeps the queue", async ({ page }) => {
 
   await page.goto(`/g/${loop.groupId}/questions`);
   // Choosing the count it already has still saves, and must leave the queue alone.
-  await pickOption(page, "Questions per round", "2");
-  await expect(page.getByText("Questions per round updated.")).toBeVisible();
+  await pickOption(page, copy.questions.upNext.countLabel, "2");
+  await expect(page.getByText(copy.questions.done.count)).toBeVisible();
 
   expect(await queue(loop.groupId)).toEqual(["Q5", "Q4", "Q1", "Q2", "Q3"]);
 });

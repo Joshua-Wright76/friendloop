@@ -3,6 +3,7 @@ import { resetDatabase, rows } from "../support/db";
 import { seedLoop, seedOpenIssue, seedReplies } from "../support/seed";
 import { seedSuggestion } from "../support/suggestions";
 import { runSweep } from "../support/harness";
+import { copy, text as copyText } from "@/lib/copy";
 
 test.beforeEach(async () => {
   await resetDatabase();
@@ -46,5 +47,5 @@ test("I3 · a delivered issue credits named suggestions, not anonymous ones", as
   expect(report.delivered).toBe(1);
 
   await page.goto(`/i/${first.id}?m=${alice.token}`);
-  await expect(page.getByText("asked by Alice")).toBeVisible();
+  await expect(page.getByText(copyText(copy.issue.askedBy, { name: "Alice" }))).toBeVisible();
 });

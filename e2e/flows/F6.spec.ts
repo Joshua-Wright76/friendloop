@@ -2,6 +2,7 @@ import { test, expect } from "@playwright/test";
 import { resetDatabase, rows } from "../support/db";
 import { seedDeliveredIssue, seedLoop } from "../support/seed";
 import { openPart, signIn } from "../support/harness";
+import { copy } from "@/lib/copy";
 
 test.beforeEach(async () => {
   await resetDatabase();
@@ -21,13 +22,13 @@ test("F6 · resetting share links retires every URL that was handed out", async 
 
   await signIn(page, "owner@friendloop.test");
   await page.goto(`/g/${loop.groupId}/settings`);
-  await openPart(page, "Reset and delete");
-  await page.getByRole("button", { name: "Reset share links" }).click();
-  await page.getByRole("button", { name: "Yes, reset share links" }).click(); // resetting asks first
-  await expect(page.getByText("New share links. Old ones no longer work.")).toBeVisible();
+  await openPart(page, copy.settings.groupDanger);
+  await page.getByRole("button", { name: copy.settings.sharesReset }).click();
+  await page.getByRole("button", { name: copy.a11yLabels.resetSharesConfirm }).click(); // resetting asks first
+  await expect(page.getByText(copy.settings.sharesResetNotice)).toBeVisible();
 
   await page.goto("/s/old-share-token");
-  await expect(page.getByText("This shared round isn't available")).toBeVisible();
+  await expect(page.getByText(copy.share.goneTitle)).toBeVisible();
 
   const [row] = await rows<{ share_token: string }>(
     "select share_token from issues where id = $1",
@@ -51,5 +52,5 @@ test("F6 · turning sharing off closes links that already exist", async ({ page 
   await rows("update groups set share_enabled = false where id = $1", [loop.groupId]);
   await page.goto("/s/live-share-token");
   await expect(page.getByText("Private again.")).toHaveCount(0);
-  await expect(page.getByText("This shared round isn't available")).toBeVisible();
+  await expect(page.getByText(copy.share.goneTitle)).toBeVisible();
 });

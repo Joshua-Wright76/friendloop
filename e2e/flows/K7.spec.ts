@@ -2,6 +2,7 @@ import { test, expect } from "@playwright/test";
 import { resetDatabase, rows } from "../support/db";
 import { seedLoop } from "../support/seed";
 import { addWithCard, runSweep, signIn } from "../support/harness";
+import { copy } from "@/lib/copy";
 
 test.beforeEach(async () => {
   await resetDatabase();
@@ -12,7 +13,7 @@ test("K7 · owners-only items stay invisible to regular members", async ({ page 
 
   await signIn(page, "owner@friendloop.test");
   await page.goto(`/g/${loop.groupId}/questions`);
-  await addWithCard(page, { text: "Committee notes", frequency: "Every round", adminOnly: true });
+  await addWithCard(page, { text: "Committee notes", frequency: copy.questions.item.frequencies.every_round, adminOnly: true });
   await runSweep(new Date("2026-01-02T08:00:00Z"));
   const [section] = await rows<{ id: string }>("select id from issue_questions where text = 'Committee notes' limit 1");
 
@@ -40,8 +41,8 @@ test("K7 · owners-only items stay invisible to regular members", async ({ page 
   await page.goto(`/r/${loop.ownerToken}`);
   await expect(page.getByText("Committee notes")).toBeVisible();
   await page.getByRole("textbox", { name: "Committee notes" }).fill("Budget looks fine.");
-  await page.getByRole("button", { name: "Done", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "All set", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: copy.reply.done, exact: true }).click();
+  await expect(page.getByRole("heading", { name: copy.reply.confirmation.title, exact: true })).toBeVisible();
 
   // Once it goes out, the owner reads it; Alice still doesn't.
   await runSweep(new Date("2026-01-16T09:00:00Z"));

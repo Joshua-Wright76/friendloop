@@ -4,6 +4,7 @@ import { openPart, signIn, unfold } from "../support/harness";
 import { chooseFile, seedWorld } from "../support/identity";
 import { cameraPhoto, measureUpload } from "../support/camera";
 import { TINY_PNG } from "../support/comments";
+import { copy, text, copyPattern } from "@/lib/copy";
 
 test.use({ viewport: { width: 1280, height: 900 } });
 
@@ -22,9 +23,9 @@ test("T1 · a full-size camera photo goes up everywhere a photo can, and is stor
   expect(photo.buffer.length).toBeGreaterThan(6 * MB);
 
   // An answer photo.
-  const firstQuestion = page.locator("section").filter({ hasText: "What made you laugh this week" });
+  const firstQuestion = page.locator("section").filter({ hasText: copy.questionPacks[0].questions[0] });
   await chooseFile(page, "Add a photo", photo, firstQuestion);
-  await expect(page.getByText("Photo saved").first()).toBeVisible({ timeout: 60_000 });
+  await expect(page.getByText(copy.reply.photoSaved).first()).toBeVisible({ timeout: 60_000 });
   const [reply] = await rows<{ photo_url: string }>(
     "select photo_url from replies where membership_id = $1 and photo_url is not null",
     [alice.id],
@@ -36,9 +37,9 @@ test("T1 · a full-size camera photo goes up everywhere a photo can, and is stor
   expect(answer.width / answer.height).toBeCloseTo(4 / 3, 1);
 
   // A profile picture, from the same link.
-  await unfold(page, /Answering as/);
+  await unfold(page, copyPattern(copy.reply.answeringAs));
   await chooseFile(page, "Choose a photo of yourself", photo);
-  await expect(page.getByText("Photo saved.")).toBeVisible({ timeout: 60_000 });
+  await expect(page.getByText(copy.identity.profile.saved)).toBeVisible({ timeout: 60_000 });
   const [member] = await rows<{ photo_url: string }>("select photo_url from memberships where id = $1", [alice.id]);
   const avatar = await measureUpload(page, member.photo_url);
   expect(avatar.bytes).toBeLessThanOrEqual(1 * MB);
@@ -46,11 +47,11 @@ test("T1 · a full-size camera photo goes up everywhere a photo can, and is stor
 
   // A photo on a comment.
   await page.goto(`/i/${delivered.issueId}?m=${alice.token}`);
-  const form = page.getByLabel("Comment", { exact: true }).locator("xpath=ancestor::form");
-  await form.getByLabel("Comment", { exact: true }).fill("Look at this one.");
+  const form = page.getByLabel(copy.issue.commentAriaLabel, { exact: true }).locator("xpath=ancestor::form");
+  await form.getByLabel(copy.issue.commentAriaLabel, { exact: true }).fill("Look at this one.");
   await form.locator('input[type="file"]').setInputFiles(photo);
-  await expect(page.getByText("Photo: IMG_4021.jpg")).toBeVisible({ timeout: 60_000 });
-  await page.getByRole("button", { name: "Post", exact: true }).click();
+  await expect(page.getByText(text(copy.issue.photoChosen, { name: "IMG_4021.jpg" }))).toBeVisible({ timeout: 60_000 });
+  await page.getByRole("button", { name: copy.issue.post, exact: true }).click();
   await expect(page.getByRole("img", { name: /Photo from .* comment/ })).toBeVisible({ timeout: 60_000 });
   const [comment] = await rows<{ photo_url: string }>("select photo_url from comments where membership_id = $1", [alice.id]);
   expect((await measureUpload(page, comment.photo_url)).bytes).toBeLessThanOrEqual(3.5 * MB);
@@ -58,9 +59,9 @@ test("T1 · a full-size camera photo goes up everywhere a photo can, and is stor
   // The header picture, from the owner's settings.
   await signIn(page, "owner@friendloop.test");
   await page.goto(`/g/${loop.groupId}/settings`);
-  await openPart(page, "Stationery");
+  await openPart(page, copy.settings.groupPaper);
   await chooseFile(page, "Choose a header picture", photo);
-  await expect(page.getByText("Header picture saved.")).toBeVisible({ timeout: 60_000 });
+  await expect(page.getByText(copy.stationery.headerSaved)).toBeVisible({ timeout: 60_000 });
   const [group] = await rows<{ header_image_url: string }>("select header_image_url from groups where id = $1", [loop.groupId]);
   const banner = await measureUpload(page, group.header_image_url);
   expect(banner.bytes).toBeLessThanOrEqual(3 * MB);
@@ -77,9 +78,9 @@ test("T1 · a camera photo loses its location even when it already fits, a small
   const app1 = Buffer.concat([Buffer.from([0xff, 0xe1, (exif.length + 2) >> 8, (exif.length + 2) & 0xff]), exif]);
   const tagged = Buffer.concat([plain.subarray(0, 2), app1, plain.subarray(2)]);
   expect(tagged.includes("HOME-ADDRESS")).toBe(true);
-  const located = page.locator("section").filter({ hasText: "What are you looking forward to" });
+  const located = page.locator("section").filter({ hasText: copy.questionPacks[0].questions[1] });
   await chooseFile(page, "Add a photo", { name: "IMG_0001.JPG", mimeType: "image/jpeg", buffer: tagged }, located);
-  await expect(located.getByText("Photo saved")).toBeVisible({ timeout: 30_000 });
+  await expect(located.getByText(copy.reply.photoSaved)).toBeVisible({ timeout: 30_000 });
   const [stored] = await rows<{ photo_url: string }>(
     "select photo_url from replies where membership_id = $1 and photo_url is not null",
     [alice.id],
@@ -89,10 +90,10 @@ test("T1 · a camera photo loses its location even when it already fits, a small
 
   // A small PNG (a screenshot, a drawing) is sent byte for byte.
   await page.goto(`/i/${delivered.issueId}?m=${alice.token}`);
-  const form = page.getByLabel("Comment", { exact: true }).locator("xpath=ancestor::form");
+  const form = page.getByLabel(copy.issue.commentAriaLabel, { exact: true }).locator("xpath=ancestor::form");
   await form.locator('input[type="file"]').setInputFiles({ name: "sketch.png", mimeType: "image/png", buffer: TINY_PNG });
-  await expect(page.getByText("Photo: sketch.png")).toBeVisible();
-  await page.getByRole("button", { name: "Post", exact: true }).click();
+  await expect(page.getByText(text(copy.issue.photoChosen, { name: "sketch.png" }))).toBeVisible();
+  await page.getByRole("button", { name: copy.issue.post, exact: true }).click();
   await expect(page.getByRole("img", { name: /Photo from .* comment/ })).toBeVisible();
   const [comment] = await rows<{ photo_url: string }>("select photo_url from comments where membership_id = $1", [alice.id]);
   expect(Buffer.compare(await (await page.request.get(comment.photo_url)).body(), TINY_PNG)).toBe(0);
@@ -100,13 +101,13 @@ test("T1 · a camera photo loses its location even when it already fits, a small
   await page.goto(`/r/${alice.token}`);
 
   // Not an image at all: said plainly, nothing stored.
-  const firstQuestion = page.locator("section").filter({ hasText: "What made you laugh this week" });
+  const firstQuestion = page.locator("section").filter({ hasText: copy.questionPacks[0].questions[0] });
   await chooseFile(page, "Add a photo", { name: "notes.txt", mimeType: "text/plain", buffer: Buffer.from("hello") }, firstQuestion);
-  await expect(page.getByText("We couldn't read that photo. Try a JPEG or PNG.")).toBeVisible();
+  await expect(page.getByText(copy.issue.errors.photoUnreadable)).toBeVisible();
   // Still only the one photo from above.
   expect(await rows("select 1 from replies where membership_id = $1 and photo_url is not null", [alice.id])).toHaveLength(1);
 
   // Bytes that claim to be a huge PNG but aren't: also kind, never a spinner that doesn't end.
   await chooseFile(page, "Add a photo", { name: "broken.png", mimeType: "image/png", buffer: Buffer.alloc(6 * MB) }, firstQuestion);
-  await expect(page.getByText("We couldn't read that photo. Try a JPEG or PNG.")).toBeVisible();
+  await expect(page.getByText(copy.issue.errors.photoUnreadable)).toBeVisible();
 });

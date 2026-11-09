@@ -1,6 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { resetDatabase, rows } from "../support/db";
 import { PQ1, PQ2, seedKeepsake } from "../support/print";
+import { copy, text } from "@/lib/copy";
 
 test.beforeEach(async () => {
   await resetDatabase();
@@ -15,7 +16,7 @@ test("Q2 · the print view is the web round as it is now, old late additions mar
   await page.goto(printPath);
   await expect(page.getByText("A goose on the towpath")).toBeVisible();
   // Sam's and Bob's additions to the original ones: marked, in the same words as the web round says it.
-  const markedAtStart = await page.getByText("Added late, after the round went out").count();
+  const markedAtStart = await page.getByText(copy.print.late).count();
   expect(markedAtStart).toBe(2);
   await expect(page.locator(".print-answer").filter({ hasText: "the shed finally stood up" })).toContainText("Added late");
   await expect(page.locator(".print-answer").filter({ hasText: "Added a day later." })).toContainText("Added late");
@@ -48,28 +49,28 @@ test("Q2 · the print view is the web round as it is now, old late additions mar
   await expect(page.getByText("A goose on the towpath")).toHaveCount(0);
   const late = page.locator(".print-answer").filter({ hasText: "Seeing everyone in June" });
   await expect(late).toContainText("Alice");
-  await expect(late).toContainText("Added late, after the round went out");
+  await expect(late).toContainText(copy.print.late);
   await expect(page.locator(".print-answer").filter({ hasText: "A goose, and then a swan" })).toContainText("Added late");
   // The two from the start, plus Alice's two.
-  await expect(page.getByText("Added late, after the round went out")).toHaveCount(4);
+  await expect(page.getByText(copy.print.late)).toHaveCount(4);
   await expect(page.getByText("Agreed!")).toHaveCount(0);
   await expect(page.getByText("What a round!")).toBeVisible();
 
   // The web round says exactly as many things were added late.
   await page.goto(`/i/${world.issueId}?m=${world.alice.token}`);
-  await expect(page.getByText("added after the round went out", { exact: true })).toHaveCount(4);
+  await expect(page.getByText(copy.issue.addedLater, { exact: true })).toHaveCount(4);
 
   // Commenting off hides threads on paper exactly as on the web; the words stay stored.
   await rows("update groups set comments_enabled = false where id = $1", [world.loop.groupId]);
   await page.goto(printPath);
   await expect(page.getByText("What a round!")).toHaveCount(0);
   await expect(page.getByText("Best goose ever")).toHaveCount(0);
-  await expect(page.getByRole("heading", { level: 2, name: "Comments" })).toHaveCount(0);
+  await expect(page.getByRole("heading", { level: 2, name: copy.print.commentsHeading })).toHaveCount(0);
   await expect(page.getByText("A goose, and then a swan")).toBeVisible();
 
   // Renaming the round is picked up too: the print view holds no copy of anything.
   await rows("update issues set name = 'Camping weekend, again' where id = $1", [world.issueId]);
   await page.goto(printPath);
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Camping weekend, again");
-  await expect(page).toHaveTitle("Camping weekend, again · Friday Loop");
+  await expect(page).toHaveTitle(text(copy.print.documentTitle, { title: "Camping weekend, again", loop: "Friday Loop" }));
 });

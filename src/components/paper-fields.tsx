@@ -42,7 +42,8 @@ type Props = {
 const PREVIEW_DATE = new Date("2026-11-06T17:00:00Z");
 
 /** A small round of the interface in one scheme's tokens: what the owner is choosing. */
-function PreviewCard({ label, tokens, looks, marks, loopName, dark = false }: { label: string; tokens: SchemeTokens; looks: StationeryLooks; marks: MarksDraft; loopName: string; dark?: boolean }) {
+function PreviewCard({ scheme, label, tokens, looks, marks, loopName }: { scheme: "light" | "dark"; label: string; tokens: SchemeTokens; looks: StationeryLooks; marks: MarksDraft; loopName: string }) {
+  const dark = scheme === "dark";
   const page = pageLayers(looks.background, tokens);
   return (
     <div
@@ -62,7 +63,7 @@ function PreviewCard({ label, tokens, looks, marks, loopName, dark = false }: { 
         borderColor: tokens.lineStrong,
         color: tokens.ink,
       }}
-      data-testid={`stationery-preview-${label.toLowerCase()}`}
+      data-testid={`stationery-preview-${scheme}`}
     >
       <p className="m-0 text-[13px] font-extrabold" style={{ color: tokens.inkMuted }}>{label}</p>
       <div className="card relative mt-5 p-3 pt-4 flow-root" data-paper="answer">
@@ -131,8 +132,8 @@ export function PaperFields({ preset, onPreset, accent, onAccent, onAccentCommit
       <div className="look-preview">
         <p className="mb-2 text-[13px] font-medium text-ink-soft">{copy.stationery.previewTitle}</p>
         <div className="grid gap-2 sm:grid-cols-2">
-          <PreviewCard label={copy.stationery.previewLight} tokens={theme.light} looks={looks} marks={marks} loopName={loopName} />
-          <PreviewCard label={copy.stationery.previewDark} tokens={theme.dark} looks={looks} marks={marks} loopName={loopName} dark />
+          <PreviewCard scheme="light" label={copy.stationery.previewLight} tokens={theme.light} looks={looks} marks={marks} loopName={loopName} />
+          <PreviewCard scheme="dark" label={copy.stationery.previewDark} tokens={theme.dark} looks={looks} marks={marks} loopName={loopName} />
         </div>
       </div>
 

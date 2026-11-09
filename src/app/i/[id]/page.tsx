@@ -64,6 +64,9 @@ export default async function IssuePage({
   if (!view) notFound();
 
   const delivered = view.issue.status === "delivered";
+  const manages = membership?.access === "owner" || membership?.access === "admin";
+  // The owner and admins read an open round as it stands; nobody can react to a draft.
+  const preview = !delivered && manages;
 
   // A keepsake is only ever made of a round that has gone out. An open round asked
   // for as `?print` is simply the round.
@@ -158,10 +161,17 @@ export default async function IssuePage({
         </div>
       </header>
 
+      {preview ? (
+        <p role="note" className="card m-0 mt-4 px-4 py-3 text-[14px] leading-relaxed text-ink-soft">
+          {copy.issue.preview.note}{" "}
+          <Link href={`/g/${groupId}`} className="link">{copy.issue.preview.back}</Link>
+        </p>
+      ) : null}
+
       <IssueBody
         issueId={view.issue.id}
         viewerToken={m ?? null}
-        canInteract={Boolean(membership)}
+        canInteract={Boolean(membership) && !preview}
         blocks={arranged.blocks}
         sections={arranged.sections}
         groups={arranged.groups}

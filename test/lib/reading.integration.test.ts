@@ -8,6 +8,7 @@ import { requestMagicLink, confirmMagicLink } from "../../src/lib/auth.ts";
 import { latestOutbox } from "../support/app.ts";
 import { AFTER_FIRST_SLOT, E2E_NOW } from "../../e2e/support/clock.ts";
 import { clearRequest, setRequestHeaders } from "../stubs/request.mjs";
+import { copy } from "@/lib/copy";
 
 beforeEach(async () => {
   await resetDatabase();
@@ -161,7 +162,7 @@ test("a delivered round renders for a member, marking their own answers", async 
   const allAnswers = view.blocks.flatMap((block) => block.answers);
   const mine = allAnswers.find((answer) => answer.isYou)!;
   assert.equal(mine.body, "Alice's answer.");
-  assert.equal(mine.author, "You");
+  assert.equal(mine.author, copy.issue.you);
 
   const theirs = allAnswers.find((answer) => !answer.isYou)!;
   assert.equal(theirs.author, "Bob");

@@ -6,8 +6,9 @@ import { groups } from "@/db/schema";
 import { resetDatabase, rows } from "./support/db";
 import { addMember, seedDeliveredIssue, seedLoop, seedOpenIssue } from "./support/seed";
 import { seedPoll, seedPollVote } from "./support/polls";
-import { pickIn, signIn } from "./support/harness";
+import { pickIn, signIn, triggerName, inOrder } from "./support/harness";
 import { seedAlbum } from "./support/album";
+import { copy, text as copyText, copyPattern } from "@/lib/copy";
 
 const TAGS = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"];
 
@@ -25,15 +26,17 @@ async function audit(page: Page, path: string, navigate = true) {
   ).toEqual([]);
 }
 
+async function auditTheme(page: Page, path: string, theme: "light" | "dark") {
+  await page.goto(path);
+  if (await page.locator("html").getAttribute("data-theme") !== theme) {
+    await page.getByRole("button", { name: theme === "light" ? copyPattern(copy.common.theme.switchToLight) : copyPattern(copy.common.theme.switchToDark) }).click();
+  }
+  await audit(page, path);
+}
+
 async function auditThemes(page: Page, paths: string[]) {
   for (const theme of ["light", "dark"] as const) {
-    for (const path of paths) {
-      await page.goto(path);
-      if (await page.locator("html").getAttribute("data-theme") !== theme) {
-        await page.getByRole("button", { name: theme === "light" ? /switch to light mode/ : /switch to dark mode/ }).click();
-      }
-      await audit(page, path);
-    }
+    for (const path of paths) await auditTheme(page, path, theme);
   }
 }
 
@@ -41,50 +44,92 @@ test.beforeEach(async () => {
   await resetDatabase();
 });
 
-test("WCAG AA · public and authentication pages", async ({ page }) => {
-  test.setTimeout(90_000);
+async function seedPublicPages() {
   const loop = await seedLoop({ name: "Join Club" });
   await rows("insert into invite_links (group_id, token) values ($1, 'a11y-join-token')", [loop.groupId]);
-  await auditThemes(page, ["/", "/signin", "/signin/check-email", "/signin/confirm?problem=unknown", "/r/invalid", "/join/a11y-join-token", "/join/not-a-token", "/privacy", "/terms", "/goodbye"]);
-});
+}
 
-test("WCAG AA · loop management, creation, and reply pages", async ({ page }) => {
-  test.setTimeout(120_000);
+const PUBLIC_PAGES = [
+  ["Home", "/"],
+  ["Sign in", "/signin"],
+  ["Check email", "/signin/check-email"],
+  ["Confirm sign-in problem", "/signin/confirm?problem=unknown"],
+  ["Invalid reply", "/r/invalid"],
+  ["Valid invitation", "/join/a11y-join-token"],
+  ["Invalid invitation", "/join/not-a-token"],
+  ["Privacy", "/privacy"],
+  ["Terms", "/terms"],
+  ["Goodbye", "/goodbye"],
+] as const;
+
+for (const [name, path] of PUBLIC_PAGES) {
+  for (const theme of ["light", "dark"] as const) {
+    test(`WCAG AA · public and authentication pages · ${name} · ${theme}`, async ({ page }) => {
+      test.setTimeout(90_000);
+      await seedPublicPages();
+      await auditTheme(page, path, theme);
+    });
+  }
+}
+
+async function seedLoopManagement() {
   const loop = await seedLoop();
   // Polls on the pool list and the reply sheet, single and multiple choice.
   await seedPoll(loop, { text: "Where should we camp?", options: ["The lake", "The mountains", "The coast"] });
   await seedPoll(loop, { text: "Which weekends work?", options: ["June", "July", "August"], multiple: true });
   await seedOpenIssue(loop, { openedAt: new Date("2026-10-23T07:00:00Z") });
+  return loop;
+}
+
+type SeededLoop = Awaited<ReturnType<typeof seedLoop>>;
+const LOOP_MANAGEMENT_PAGES: Array<[string, (loop: SeededLoop) => string]> = [
+  ["Your loops", () => "/you"],
+  ["New loop", () => "/g/new"],
+  ["Overview", (loop) => `/g/${loop.groupId}`],
+  ["Members", (loop) => `/g/${loop.groupId}/members`],
+  ["Questions", (loop) => `/g/${loop.groupId}/questions`],
+  ["Rounds", (loop) => `/g/${loop.groupId}/issues`],
+  ["Settings", (loop) => `/g/${loop.groupId}/settings`],
+  ["Reply", (loop) => `/r/${loop.ownerToken}`],
+  ["Delete account", () => "/you/delete"],
+  ["Owner leaves", (loop) => `/r/${loop.ownerToken}/leave`],
+  ["Member leaves", (loop) => `/r/${loop.members[1].token}/leave`],
+];
+
+for (const [name, path] of LOOP_MANAGEMENT_PAGES) {
+  for (const theme of ["light", "dark"] as const) {
+    test(`WCAG AA · loop management, creation, and reply pages · ${name} · ${theme}`, async ({ page }) => {
+      test.setTimeout(120_000);
+      const loop = await seedLoopManagement();
+      await signIn(page, "owner@friendloop.test");
+      await auditTheme(page, path(loop), theme);
+    });
+  }
+}
+
+test("WCAG AA · loop creation pickers and member-role focus in dark mode", async ({ page }) => {
+  test.setTimeout(120_000);
+  const loop = await seedLoop();
   await signIn(page, "owner@friendloop.test");
 
-  await auditThemes(page, [
-    "/you",
-    "/g/new",
-    `/g/${loop.groupId}`,
-    `/g/${loop.groupId}/members`,
-    `/g/${loop.groupId}/questions`,
-    `/g/${loop.groupId}/issues`,
-    `/g/${loop.groupId}/settings`,
-    `/r/${loop.ownerToken}`,
-    "/you/delete",
-    `/r/${loop.ownerToken}/leave`,
-    `/r/${loop.members[1].token}/leave`,
-  ]);
-
   await page.goto("/g/new");
-  await page.getByRole("button", { name: /^Timezone:/ }).click();
+  // The original combined audit ended its theme loop in dark mode. Preserve that
+  // state explicitly for both picker audits and all subsequent focus interactions.
+  await page.getByRole("button", { name: copyPattern(copy.common.theme.switchToDark) }).click();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+  await page.getByRole("button", { name: triggerName(copy.newLoop.timezone) }).click();
   await audit(page, "/g/new?picker=open", false);
 
   await page.keyboard.press("Escape");
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.getByRole("button", { name: /^Timezone:/ }).click();
-  const pickerSheet = page.getByRole("dialog", { name: "Timezone" });
+  await page.getByRole("button", { name: triggerName(copy.newLoop.timezone) }).click();
+  const pickerSheet = page.getByRole("dialog", { name: copy.newLoop.timezone });
   await expect(pickerSheet).toBeVisible();
   await audit(page, "/g/new?picker=phone", false);
-  const timezoneTrigger = page.getByRole("button", { name: /^Timezone:/ });
-  const closePicker = pickerSheet.getByRole("button", { name: "Close" });
+  const timezoneTrigger = page.getByRole("button", { name: triggerName(copy.newLoop.timezone) });
+  const closePicker = pickerSheet.getByRole("button", { name: copy.common.close });
   const activeOption = pickerSheet.locator('[role="option"][aria-selected="true"]');
-  const searchBox = pickerSheet.getByRole("textbox", { name: "Search timezones…" });
+  const searchBox = pickerSheet.getByRole("textbox", { name: copy.common.picker.searchTimezones });
 
   // The sheet contains keyboard focus in both directions, including when the
   // active option is the last focusable control.
@@ -116,9 +161,9 @@ test("WCAG AA · loop management, creation, and reply pages", async ({ page }) =
 
   // Updating a member role must preserve the trigger node and keyboard focus.
   await page.goto(`/g/${loop.groupId}/members`);
-  const roleTrigger = page.getByRole("button", { name: /^Role for .+:/ }).first();
+  const roleTrigger = page.getByRole("button", { name: triggerName(copy.members.roleAriaLabel) }).first();
   await roleTrigger.click();
-  await page.getByRole("option", { name: "Admin" }).first().click();
+  await page.getByRole("option", { name: copy.common.roles.admin }).first().click();
   await expect(roleTrigger).toBeFocused();
 });
 
@@ -134,14 +179,14 @@ test("WCAG AA · stationery, handover, round names and profile photos", async ({
   for (const theme of ["light", "dark"] as const) {
     await page.goto(`/g/${loop.groupId}/members`);
     if ((await page.locator("html").getAttribute("data-theme")) !== theme) {
-      await page.getByRole("button", { name: theme === "light" ? /switch to light mode/ : /switch to dark mode/ }).click();
+      await page.getByRole("button", { name: theme === "light" ? copyPattern(copy.common.theme.switchToLight) : copyPattern(copy.common.theme.switchToDark) }).click();
     }
-    await page.getByRole("button", { name: "Make heir the owner" }).click();
+    await page.getByRole("button", { name: copyText(copy.members.transferAction, { name: "heir" }) }).click();
     await expect(page.getByRole("group", { name: /Hand .* to heir/ })).toBeVisible();
     await audit(page, `members with the handover question open (${theme})`, false);
 
     await page.goto(`/g/${loop.groupId}/issues`);
-    await page.getByText("Rename", { exact: true }).first().click();
+    await page.getByText(copy.rounds.renameNamed, { exact: true }).first().click();
     await audit(page, `rounds with the name form open (${theme})`, false);
   }
 });
@@ -162,11 +207,11 @@ test("WCAG AA · a picker keeps focus across a save that disables it", async ({ 
   });
 
   await page.goto(`/g/${loop.groupId}/members`);
-  const roleTrigger = page.getByRole("button", { name: /^Role for .+:/ }).first();
+  const roleTrigger = page.getByRole("button", { name: triggerName(copy.members.roleAriaLabel) }).first();
   await roleTrigger.click();
-  await page.getByRole("option", { name: "Admin" }).first().click();
+  await page.getByRole("option", { name: copy.common.roles.admin }).first().click();
 
-  await expect(roleTrigger).toHaveAccessibleName(/Role for .+: Admin/);
+  await expect(roleTrigger).toHaveAccessibleName(inOrder(copy.members.roleAriaLabel, `: ${copy.common.roles.admin}`));
   await expect(roleTrigger).toBeEnabled();
   await expect(roleTrigger).toBeFocused();
 });
@@ -213,14 +258,14 @@ test("WCAG AA · comments: an open answer thread, the mention list, a quote, lig
   for (const theme of ["light", "dark"] as const) {
     await page.goto(`/i/${issue.issueId}?m=${alice.token}`);
     if (await page.locator("html").getAttribute("data-theme") !== theme) {
-      await page.getByRole("button", { name: theme === "light" ? /switch to light mode/ : /switch to dark mode/ }).click();
+      await page.getByRole("button", { name: theme === "light" ? copyPattern(copy.common.theme.switchToLight) : copyPattern(copy.common.theme.switchToDark) }).click();
     }
     const answer = page.locator("article").filter({ hasText: "Bob rebuilt the shed." });
-    await answer.getByRole("button", { name: "2 comments" }).click();
-    await answer.getByRole("button", { name: "Reply to Bob" }).click();
-    const box = answer.getByLabel("Comment on Bob's answer");
+    await answer.getByRole("button", { name: copyText(copy.issue.commentCount, { count: "2" }) }).click();
+    await answer.getByRole("button", { name: copyText(copy.issue.commentReplyLabel, { author: "Bob" }) }).click();
+    const box = answer.getByLabel(copyText(copy.issue.threadComposerLabel, { owner: copyText(copy.issue.ownerOther, { author: "Bob" }) }));
     await box.pressSequentially("hello @");
-    await expect(page.getByRole("listbox", { name: "People to mention" })).toBeVisible();
+    await expect(page.getByRole("listbox", { name: copy.issue.mentionListLabel })).toBeVisible();
     await audit(page, "comments", false);
   }
 });
@@ -236,10 +281,10 @@ test("WCAG AA · events and birthdays: a date open for editing and the add card 
   for (const theme of ["light", "dark"] as const) {
     await page.goto(`/g/${loop.groupId}/questions`);
     if ((await page.locator("html").getAttribute("data-theme")) !== theme) {
-      await page.getByRole("button", { name: theme === "light" ? /switch to light mode/ : /switch to dark mode/ }).click();
+      await page.getByRole("button", { name: theme === "light" ? copyPattern(copy.common.theme.switchToLight) : copyPattern(copy.common.theme.switchToDark) }).click();
     }
-    await page.getByRole("button", { name: /^Edit Alice's birthday/ }).last().click();
-    await pickIn(page.getByRole("region", { name: "Add something to ask" }), page, "How often", "On a date");
+    await page.getByRole("button", { name: copyPattern(`${copy.questions.item.editPrefix} ${copyText(copy.events.birthdayRow, { name: "Alice" })}`, { start: true }) }).last().click();
+    await pickIn(page.getByRole("region", { name: copy.questions.add.title }), page, copy.questions.item.frequencyLabel, copy.questions.item.frequencies.on_date);
     await audit(page, `the dates with an editor and the add card's date fields open (${theme})`, false);
   }
 });
@@ -258,10 +303,10 @@ test("WCAG AA · the Album: gallery, empty result, inbox link and the open viewe
   for (const theme of ["light", "dark"] as const) {
     await page.goto(`/g/${world.loop.groupId}/album`);
     if ((await page.locator("html").getAttribute("data-theme")) !== theme) {
-      await page.getByRole("button", { name: theme === "light" ? /switch to light mode/ : /switch to dark mode/ }).click();
+      await page.getByRole("button", { name: theme === "light" ? copyPattern(copy.common.theme.switchToLight) : copyPattern(copy.common.theme.switchToDark) }).click();
     }
-    await page.getByRole("button", { name: /^Open photo from Bob/ }).click();
-    await expect(page.getByRole("dialog", { name: "Photo viewer" })).toBeVisible();
+    await page.getByRole("button", { name: copyPattern(copy.album.openPhoto, { values: { author: "Bob" }, start: true }) }).click();
+    await expect(page.getByRole("dialog", { name: copy.album.viewer.label })).toBeVisible();
     await audit(page, `album viewer open (${theme})`, false);
     await page.keyboard.press("Escape");
   }

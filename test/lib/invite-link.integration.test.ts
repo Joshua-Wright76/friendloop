@@ -13,6 +13,7 @@ import { MAX_MEMBERS_PER_LOOP } from "../../src/lib/rate-limit.ts";
 import { joinUrl } from "../../src/lib/urls.ts";
 import { addMember, E2E_NOW, latestOutbox, rows, seedLoop, setupDatabase } from "../support/app.ts";
 import { clearRequest, setRequestHeaders } from "../stubs/request.mjs";
+import { copy, copyPattern } from "@/lib/copy";
 
 setupDatabase();
 
@@ -30,7 +31,8 @@ async function newUser(email: string, name: string | null = null) {
 }
 
 const tokenIn = (html: string) => decodeURIComponent(/token=([A-Za-z0-9_%-]+)/.exec(html)![1]);
-const codeIn = (body: string) => /Or type this code: (\d{6})/.exec(body)![1];
+const codeIn = (body: string) =>
+  [copy.emails.signIn.text, copy.emails.join.text].map((template) => copyPattern(template, { values: { code: /(\d{6})/ } }).exec(body)?.[1]).find(Boolean)!;
 
 test("a loop has one invite link until it's reset, and a reset link stops working", async () => {
   const loop = await seedLoop({ members: [] });
@@ -148,7 +150,7 @@ test("asking from the link sends a join email, and using its link joins the loop
 
   await requestMagicLink("New@friendloop.test", { joinToken: token });
   const mail = await latestOutbox("signin:");
-  assert.match(mail.subject, /^Join Book Club: \d{6}$/);
+  assert.match(mail.subject, copyPattern(copy.emails.join.subject, { values: { groupName: "Book Club", code: /\d{6}/ }, start: true, end: true }));
   const [link] = await rows<{ join_token: string }>("select join_token from magic_links");
   assert.equal(link.join_token, token);
 
@@ -171,7 +173,7 @@ test("a plain sign-in joins nothing, and a link asked for from a reset invite is
   await resetInviteLink(loop.groupId, E2E_NOW);
   await requestMagicLink("late@friendloop.test", { joinToken: old });
   const mail = await latestOutbox("signin:");
-  assert.match(mail.subject, /^Sign in to Friendloop/);
+  assert.match(mail.subject, copyPattern(copy.emails.signIn.heading, { start: true }));
   const [link] = await rows<{ join_token: string | null }>("select join_token from magic_links where email = 'late@friendloop.test'");
   assert.equal(link.join_token, null);
 });

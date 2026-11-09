@@ -5,11 +5,12 @@ import { answeredCountSql, replyHasContentCondition, replyHasContentSql } from "
 
 const render = (query: Parameters<PgDialect["sqlToQuery"]>[0]) => new PgDialect().sqlToQuery(query).sql;
 
-test("an answer is non-blank text, a photo, a voice note, a poll pick, a music link or a wall photo, never a draft left unsent", () => {
+test("an answer is non-blank text, a photo, a voice note, a video, a poll pick, a music link or a wall photo, never a draft left unsent", () => {
   const sql = render(replyHasContentCondition());
   assert.match(sql, /"replies"\."body" ~ '\\S'/, "spaces alone are not an answer");
   assert.match(sql, /"photo_url" is not null/i);
   assert.match(sql, /"audio_url" is not null/i);
+  assert.match(sql, /"video_url" is not null/i);
   assert.match(sql, /jsonb_array_length\("replies"\."poll_choices"\) > 0/);
   assert.match(sql, /"link_url" is not null/i);
   assert.match(sql, /exists \(select 1 from "reply_media"/);
@@ -21,6 +22,7 @@ test("an answer is non-blank text, a photo, a voice note, a poll pick, a music l
 test("the hand-written forms say the same thing over an alias", () => {
   const rule = render(replyHasContentSql("r"));
   assert.match(rule, /not r\.never_sent and \(r\.body ~ '\\S' or r\.photo_url is not null/);
+  assert.match(rule, /r\.video_url is not null/);
   assert.match(rule, /r\.link_url is not null or exists \(select 1 from reply_media rm_any where rm_any\.reply_id = r\.id\)/);
   const count = render(answeredCountSql("i"));
   assert.match(count, /count\(distinct r\.membership_id\)/);

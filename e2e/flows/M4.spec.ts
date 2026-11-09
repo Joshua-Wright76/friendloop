@@ -1,6 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { resetDatabase, rows } from "../support/db";
 import { seedConversation, TINY_PNG } from "../support/comments";
+import { copy, text } from "@/lib/copy";
 
 test.beforeEach(async () => {
   await resetDatabase();
@@ -14,27 +15,27 @@ test("M4 · replying quotes the comment into the composer, and a comment carries
   ]);
 
   await page.goto(`/i/${issue.issueId}?m=${alice.token}`);
-  await page.getByRole("button", { name: "Reply to Bob" }).click();
+  await page.getByRole("button", { name: text(copy.issue.commentReplyLabel, { author: "Bob" }) }).click();
 
-  await expect(page.getByText("Replying to Bob")).toBeVisible();
-  const box = page.getByLabel("Comment", { exact: true });
+  await expect(page.getByText(text(copy.issue.replyingTo, { author: "Bob" }))).toBeVisible();
+  const box = page.getByLabel(copy.issue.commentAriaLabel, { exact: true });
   await expect(box).toBeFocused();
   await box.fill("Yes, and I'll bring the snacks.");
 
-  await page.getByLabel("Comment", { exact: true }).locator("xpath=ancestor::form").locator('input[type="file"]').setInputFiles({
+  await page.getByLabel(copy.issue.commentAriaLabel, { exact: true }).locator("xpath=ancestor::form").locator('input[type="file"]').setInputFiles({
     name: "beach.png",
     mimeType: "image/png",
     buffer: TINY_PNG,
   });
-  await expect(page.getByText("Photo: beach.png")).toBeVisible();
-  await page.getByRole("button", { name: "Post", exact: true }).click();
+  await expect(page.getByText(text(copy.issue.photoChosen, { name: "beach.png" }))).toBeVisible();
+  await page.getByRole("button", { name: copy.issue.post, exact: true }).click();
 
   // The new comment shows the quote above it, and the photo below.
   await expect(page.locator("blockquote")).toContainText("Bob wrote");
   await expect(page.locator("blockquote")).toContainText("Anyone fancy a trip to the coast?");
   await expect(page.getByRole("img", { name: /Photo from .* comment/ })).toBeVisible();
   await expect(page.locator("p", { hasText: "Yes, and I'll bring the snacks." })).toBeVisible();
-  await expect(page.getByText("Replying to Bob")).toHaveCount(0);
+  await expect(page.getByText(text(copy.issue.replyingTo, { author: "Bob" }))).toHaveCount(0);
 
   const [saved] = await rows<{ quote_comment_id: string | null; photo_url: string | null }>(
     "select quote_comment_id, photo_url from comments where membership_id = $1",
@@ -59,26 +60,26 @@ test("M4 · a photo that can't be read is turned away plainly, a quote can be ca
 
   await page.goto(`/i/${issue.issueId}?m=${alice.token}`);
   await expect(page.getByText("Said, then unsaid.")).toHaveCount(0);
-  await expect(page.locator("blockquote")).toContainText("A comment that has since been removed.");
+  await expect(page.locator("blockquote")).toContainText(copy.issue.quoteRemoved);
   await expect(page.getByText("Agreed!")).toBeVisible();
 
   const file = page.locator('input[type="file"]');
   // Bytes that cannot be read as a picture are turned away plainly (a real big photo is shrunk: see T1).
   await file.setInputFiles({ name: "huge.png", mimeType: "image/png", buffer: Buffer.alloc(5 * 1024 * 1024 + 1) });
-  await expect(page.locator("p[role=alert]")).toContainText("We couldn't read that photo.");
-  await expect(page.getByText("Photo: huge.png")).toHaveCount(0);
+  await expect(page.locator("p[role=alert]")).toContainText(copy.issue.errors.photoUnreadable);
+  await expect(page.getByText(text(copy.issue.photoChosen, { name: "huge.png" }))).toHaveCount(0);
 
   await file.setInputFiles({ name: "notes.txt", mimeType: "text/plain", buffer: Buffer.from("hello") });
-  await expect(page.locator("p[role=alert]")).toContainText("We couldn't read that photo.");
+  await expect(page.locator("p[role=alert]")).toContainText(copy.issue.errors.photoUnreadable);
 
   // Choose a photo, then change your mind.
   await file.setInputFiles({ name: "beach.png", mimeType: "image/png", buffer: TINY_PNG });
-  await page.getByRole("button", { name: "Remove photo" }).click();
-  await expect(page.getByText("Photo: beach.png")).toHaveCount(0);
+  await page.getByRole("button", { name: copy.issue.removePhoto }).click();
+  await expect(page.getByText(text(copy.issue.photoChosen, { name: "beach.png" }))).toHaveCount(0);
 
   // And quoting can be cancelled before posting.
-  await page.getByRole("button", { name: "Reply to You" }).click();
-  await expect(page.getByText("Replying to You")).toBeVisible();
-  await page.getByRole("button", { name: "Cancel reply" }).click();
-  await expect(page.getByText("Replying to You")).toHaveCount(0);
+  await page.getByRole("button", { name: text(copy.issue.commentReplyLabel, { author: copy.issue.you }) }).click();
+  await expect(page.getByText(text(copy.issue.replyingTo, { author: copy.issue.you }))).toBeVisible();
+  await page.getByRole("button", { name: copy.issue.replyingToCancel }).click();
+  await expect(page.getByText(text(copy.issue.replyingTo, { author: copy.issue.you }))).toHaveCount(0);
 });

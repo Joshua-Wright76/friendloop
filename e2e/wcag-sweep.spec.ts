@@ -1,11 +1,15 @@
 import { expect, test, type Page } from "@playwright/test";
-import { copy } from "@/lib/copy";
+import AxeBuilder from "@axe-core/playwright";
+import type { RunOptions } from "axe-core";
+import { copy, copyPattern } from "@/lib/copy";
 import { THEME_PRESET_KEYS, previewTheme } from "@/lib/theme";
 import { UI_PREVIEW } from "@/lib/ui-preview";
 import { resetDatabase, rows } from "./support/db";
 import {
+  ENFORCED_RULES,
   ZOOM_400,
   axeProblems,
+  ignorePseudoOptions,
   keyboardProblems,
   reflowProblems,
   textSpacingProblems,
@@ -66,13 +70,32 @@ async function enterPreview(page: Page) {
 
 async function setTheme(page: Page, theme: "light" | "dark") {
   if ((await page.locator("html").getAttribute("data-theme")) === theme) return;
-  await page.getByRole("button", { name: theme === "light" ? /switch to light mode/ : /switch to dark mode/ }).click();
+  await page.getByRole("button", { name: theme === "light" ? copyPattern(copy.common.theme.switchToLight) : copyPattern(copy.common.theme.switchToDark) }).click();
   await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
 }
 
-async function settle(page: Page) {
-  await page.waitForLoadState("networkidle").catch(() => undefined);
+async function applicationReady(page: Page) {
+  await expect(page.locator("h1").first()).toBeVisible();
+  await page.evaluate(async () => { await document.fonts.ready; });
 }
+
+function builderOptions(builder: AxeBuilder): RunOptions {
+  return (builder as unknown as { option: RunOptions }).option;
+}
+
+test("axe primary and fixed-bar contrast builders keep independent options", ({ page }) => {
+  const primary = new AxeBuilder({ page }).options(ignorePseudoOptions()).withRules(ENFORCED_RULES);
+  const reaudit = new AxeBuilder({ page }).options(ignorePseudoOptions()).withRules(["color-contrast"]);
+  const primaryOptions = builderOptions(primary);
+  const reauditOptions = builderOptions(reaudit);
+
+  expect(ENFORCED_RULES).toHaveLength(73);
+  expect(primaryOptions).not.toBe(reauditOptions);
+  expect(primaryOptions.runOnly).toEqual({ type: "rule", values: ENFORCED_RULES });
+  expect(reauditOptions.runOnly).toEqual({ type: "rule", values: ["color-contrast"] });
+  expect(primaryOptions).toMatchObject({ checks: { "color-contrast": { options: { ignorePseudo: true } } } });
+  expect(reauditOptions).toMatchObject({ checks: { "color-contrast": { options: { ignorePseudo: true } } } });
+});
 
 /**
  * Headings that mean the page rendered a "not here / closed / sign in" card instead of the screen under test.
@@ -104,7 +127,7 @@ async function sweep(
 
   await page.setViewportSize({ width: 1280, height: 800 });
   const response = await page.goto(href);
-  await settle(page);
+  await applicationReady(page);
   await setTheme(page, theme);
   // An audit of the sign-in page (or a 404) in place of the screen would pass for the wrong reason.
   expect(new URL(page.url()).pathname, `${label} redirected away from ${href}`).toBe(wanted);
@@ -126,7 +149,6 @@ async function sweep(
   if (options.stationery) {
     // Contrast at phone width as well: the bottom navigation only exists there.
     await page.setViewportSize(ZOOM_400);
-    await settle(page);
     problems.push(...(await axeProblems(page, `${label} 320px`)));
     return problems;
   }
@@ -142,7 +164,6 @@ async function sweep(
   // 400% zoom: reflow, and the keyboard pass again, because the fixed feedback and
   // theme buttons and the sticky reply bars cover far more of a window this small.
   await page.setViewportSize(ZOOM_400);
-  await settle(page);
   problems.push(...(await reflowProblems(page, label)));
   problems.push(...(await axeProblems(page, `${label} 320px`)));
   problems.push(...(await keyboardProblems(page, `${label} 320px`)));
@@ -167,21 +188,23 @@ test("the sweep covers every screen /dev/screens links to", async ({ page }) => 
 });
 
 for (const [name, href, status, closedCard] of SCREENS) {
-  test(`WCAG AA sweep · ${name}`, async ({ page }) => {
-    test.setTimeout(10 * 60_000);
-    await enterPreview(page);
-    const problems: Problems = [];
-    for (const theme of ["light", "dark"] as const) problems.push(...(await sweep(page, name, href, theme, status, { closedCard })));
+  for (const theme of ["light", "dark"] as const) {
+    test(`WCAG AA sweep · ${name} · ${theme}`, async ({ page }) => {
+      test.setTimeout(10 * 60_000);
+      await enterPreview(page);
+      const problems = await sweep(page, name, href, theme, status, { closedCard });
+      expect(problems, `\n${problems.join("\n")}\n`).toEqual([]);
+    });
+  }
+}
+
+for (const theme of ["light", "dark"] as const) {
+  test(`WCAG AA sweep · Sign in, signed out · ${theme}`, async ({ page }) => {
+    test.setTimeout(5 * 60_000);
+    const problems = await sweep(page, "Sign in", "/signin", theme);
     expect(problems, `\n${problems.join("\n")}\n`).toEqual([]);
   });
 }
-
-test("WCAG AA sweep · Sign in, signed out", async ({ page }) => {
-  test.setTimeout(5 * 60_000);
-  const problems: Problems = [];
-  for (const theme of ["light", "dark"] as const) problems.push(...(await sweep(page, "Sign in", "/signin", theme)));
-  expect(problems, `\n${problems.join("\n")}\n`).toEqual([]);
-});
 
 // The loop pages render in whichever stationery the owner chose, and the accent is
 // derived per paper, so every preset (and two hostile accents) is checked for what colour
@@ -193,24 +216,27 @@ const STATIONERY: Array<[string, string | null, string | null]> = [
   ["a near-black accent", "lilac", "#1b1b1b"],
 ];
 
+const STATIONERY_SURFACES = [
+  ["Overview", `/g/${P.groupId}`],
+  ["Members", `/g/${P.groupId}/members`],
+  ["Rounds", `/g/${P.groupId}/issues`],
+  ["Settings", `/g/${P.groupId}/settings?stationery=open`],
+  ["Reply", `/r/${OWNER}`],
+  ["Round", `/i/${P.deliveredIssueId}?m=${OWNER}`],
+] as const;
+
+// Each paper/page/theme is independently schedulable. Both the desktop and 320px
+// axe passes stay together so the second viewport needs no extra navigation.
 for (const [label, preset, accent] of STATIONERY) {
-  test(`WCAG AA sweep · stationery · ${label}`, async ({ page }) => {
-    test.setTimeout(10 * 60_000);
-    await enterPreview(page);
-    await rows("update groups set theme_preset = $1, theme_accent = $2 where id = $3", [preset, accent, P.groupId]);
-    const problems: Problems = [];
-    for (const [name, href] of [
-      ["Overview", `/g/${P.groupId}`],
-      ["Members", `/g/${P.groupId}/members`],
-      ["Rounds", `/g/${P.groupId}/issues`],
-      ["Settings", `/g/${P.groupId}/settings?stationery=open`],
-      ["Reply", `/r/${OWNER}`],
-      ["Round", `/i/${P.deliveredIssueId}?m=${OWNER}`],
-    ] as const) {
-      for (const theme of ["light", "dark"] as const) {
-        problems.push(...(await sweep(page, `${name} (${label})`, href, theme, 200, { stationery: { preset, accent } })));
-      }
+  for (const [name, href] of STATIONERY_SURFACES) {
+    for (const theme of ["light", "dark"] as const) {
+      test(`WCAG AA sweep · stationery · ${label} · ${name} · ${theme}`, async ({ page }) => {
+        test.setTimeout(10 * 60_000);
+        await enterPreview(page);
+        await rows("update groups set theme_preset = $1, theme_accent = $2 where id = $3", [preset, accent, P.groupId]);
+        const problems = await sweep(page, `${name} (${label})`, href, theme, 200, { stationery: { preset, accent } });
+        expect(problems, `\n${problems.join("\n")}\n`).toEqual([]);
+      });
     }
-    expect(problems, `\n${problems.join("\n")}\n`).toEqual([]);
-  });
+  }
 }

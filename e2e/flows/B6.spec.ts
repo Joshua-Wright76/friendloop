@@ -2,6 +2,7 @@ import { test, expect } from "@playwright/test";
 import { resetDatabase, rows } from "../support/db";
 import { addMember, seedLoop, seedOpenIssue } from "../support/seed";
 import { AFTER_FIRST_SLOT, freezeClock, signIn, waitForSheet } from "../support/harness";
+import { copy, copyPattern } from "@/lib/copy";
 
 test.beforeEach(async () => {
   await resetDatabase();
@@ -22,8 +23,8 @@ test("B6 · a link nobody opened for months still opens the sheet and takes an a
   await page.goto(`/r/${slow.token}`);
   await waitForSheet(page);
   await expect(page.getByText(/expired/i)).toHaveCount(0);
-  await page.getByLabel("What made you laugh this week?").fill("Better late than never.");
-  await expect(page.getByText("Saved", { exact: true })).toBeVisible();
+  await page.getByLabel(copy.questionPacks[0].questions[0]).fill("Better late than never.");
+  await expect(page.getByText(copy.reply.questionStates.saved, { exact: true })).toBeVisible();
 
   const [written] = await rows<{ count: number }>(
     "select count(*)::int as count from replies r join memberships m on m.id = r.membership_id where m.email = 'slow@friendloop.test'",
@@ -41,12 +42,12 @@ test("B6 · the people page shows no invitation state: a quiet note for a contri
   await page.goto(`/g/${loop.groupId}/members`);
 
   const quiet = page.locator(".member-list > li").filter({ hasText: "quiet@friendloop.test" });
-  await expect(quiet.getByText("Hasn't answered yet")).toBeVisible();
+  await expect(quiet.getByText(copy.members.invitePending)).toBeVisible();
   const reader = page.locator(".member-list > li").filter({ hasText: "rae@friendloop.test" });
-  await expect(reader.getByText("Hasn't answered yet")).toHaveCount(0);
+  await expect(reader.getByText(copy.members.invitePending)).toHaveCount(0);
   await expect(page.getByText(/expired|not opened/i)).toHaveCount(0);
   // The same link can always be sent again.
-  await expect(reader.getByRole("button", { name: "Resend invite" })).toBeVisible();
+  await expect(reader.getByRole("button", { name: copyPattern(copy.a11yLabels.resendInvite, { start: true }) })).toBeVisible();
 });
 
 test("B6 · removing someone is what ends a link", async ({ page }) => {
@@ -55,6 +56,6 @@ test("B6 · removing someone is what ends a link", async ({ page }) => {
   await rows("update memberships set revoked_at = now() where id = $1", [gone.id]);
 
   await page.goto(`/r/${gone.token}`);
-  await expect(page.getByRole("heading", { name: "This link doesn't work anymore" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: copy.reply.invalidTitle })).toBeVisible();
   await expect(page.locator("textarea")).toHaveCount(0);
 });

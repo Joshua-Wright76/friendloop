@@ -2,6 +2,7 @@ import { test, expect } from "@playwright/test";
 import { latestOutbox, linkFrom, resetDatabase, rows } from "../support/db";
 import { uniqueEmail } from "../support/harness";
 import { hashToken } from "../../src/lib/tokens";
+import { copy, text } from "@/lib/copy";
 
 test.beforeEach(async () => {
   await resetDatabase();
@@ -11,8 +12,8 @@ test("A3 · the same link works again, from a second browser", async ({ page, br
   const email = uniqueEmail("owner");
 
   await page.goto("/signin");
-  await page.getByLabel("Your email").fill(email);
-  await page.getByRole("button", { name: "Email me a link" }).click();
+  await page.getByLabel(copy.signIn.emailLabel).fill(email);
+  await page.getByRole("button", { name: copy.signIn.submit }).click();
   // Wait for the action to finish before reading what it wrote — A1 and A2
   // wait for this URL, and reading before it landed is how A3 flaked in CI.
   await expect(page).toHaveURL(/\/signin\/check-email$/);
@@ -21,7 +22,7 @@ test("A3 · the same link works again, from a second browser", async ({ page, br
   const link = linkFrom(mail.html, "/signin/confirm");
 
   await page.goto(link);
-  await page.getByRole("button", { name: "Sign in" }).click();
+  await page.getByRole("button", { name: copy.emails.signIn.cta }).click();
   await expect(page).toHaveURL(/\/you$/);
 
   // The phone opened it first; now the laptop.
@@ -29,9 +30,9 @@ test("A3 · the same link works again, from a second browser", async ({ page, br
   const second = await laptop.newPage();
   await second.goto(link);
   await expect(second.getByText(email)).toBeVisible();
-  await second.getByRole("button", { name: "Sign in" }).click();
+  await second.getByRole("button", { name: copy.emails.signIn.cta }).click();
   await expect(second).toHaveURL(/\/you$/);
-  await expect(second.getByText(`Signed in as ${email}`, { exact: true })).toBeVisible();
+  await expect(second.getByText(text(copy.you.signedInAs, { email }), { exact: true })).toBeVisible();
   await laptop.close();
 });
 
@@ -47,6 +48,6 @@ test("A3 · a link past its 100 hours says it expired and offers a new one", asy
 
   await page.goto(`/signin/confirm?token=${token}`);
   await expect(page.getByRole("heading", { name: /expired/i })).toBeVisible();
-  await page.getByRole("link", { name: "Send me a new link" }).click();
+  await page.getByRole("link", { name: copy.confirm.newLink }).click();
   await expect(page).toHaveURL(/\/signin$/);
 });

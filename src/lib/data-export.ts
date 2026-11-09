@@ -47,7 +47,7 @@ export const EXPORT_FORMAT = "friendloop-export/1";
 
 type QuestionRow = typeof issueQuestions.$inferSelect;
 type ReplyRow = typeof replies.$inferSelect;
-type MediaRow = { replyId: string; url: string; caption: string | null };
+type MediaRow = { replyId: string; url: string; caption: string | null; videoUrl: string | null };
 
 /** A photo wall or music pick says so; written and poll items read as they always have. */
 function formatFields(question: QuestionRow) {
@@ -55,11 +55,15 @@ function formatFields(question: QuestionRow) {
   return format === "photo_wall" || format === "music" ? { format } : {};
 }
 
-/** The photos an answer carries, as links: its one photo, then any photo-wall photos. */
+/** The photos an answer carries, as links: its one photo, then any photo-wall photos. A wall clip adds its own link. */
 function photosOf(reply: ReplyRow, media: MediaRow[], includePhotoUrl: boolean) {
   return [
     ...(includePhotoUrl && reply.photoUrl ? [{ url: absolute(reply.photoUrl), caption: null }] : []),
-    ...media.filter((item) => item.replyId === reply.id).map((item) => ({ url: absolute(item.url), caption: item.caption })),
+    ...media.filter((item) => item.replyId === reply.id).map((item) => ({
+      url: absolute(item.url),
+      caption: item.caption,
+      ...(item.videoUrl ? { videoUrl: absolute(item.videoUrl) } : {}),
+    })),
   ];
 }
 
@@ -68,18 +72,26 @@ function stickerField(reply: ReplyRow) {
   return isStickerKey(reply.sticker) ? { sticker: reply.sticker } : {};
 }
 
-/** What a photo wall or music answer adds to an exported answer. */
+/** A clip on an answer, listed only where there is one. */
+function videoOf(reply: ReplyRow) {
+  return reply.videoUrl
+    ? { video: { url: absolute(reply.videoUrl), posterUrl: absolute(reply.videoPosterUrl), durationMs: reply.videoDurationMs } }
+    : {};
+}
+
+/** What a photo wall, a music pick or a written answer's link adds to an exported answer. */
 function answerExtras(question: QuestionRow, reply: ReplyRow, media: MediaRow[]) {
   const format = formatOf(question);
   if (format === "music") return { linkUrl: reply.linkUrl };
   if (format === "photo_wall") return { photos: photosOf(reply, media, false) };
-  return {};
+  // A written answer can carry a music link and a clip too.
+  return { ...(reply.linkUrl ? { linkUrl: reply.linkUrl } : {}), ...videoOf(reply) };
 }
 
 async function mediaFor(replyIds: string[]): Promise<MediaRow[]> {
   if (replyIds.length === 0) return [];
   return db
-    .select({ replyId: replyMedia.replyId, url: replyMedia.url, caption: replyMedia.caption })
+    .select({ replyId: replyMedia.replyId, url: replyMedia.url, caption: replyMedia.caption, videoUrl: replyMedia.videoUrl })
     .from(replyMedia)
     .where(inArray(replyMedia.replyId, replyIds))
     .orderBy(asc(replyMedia.position), asc(replyMedia.createdAt));

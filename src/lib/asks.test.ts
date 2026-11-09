@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { askedOf, askLabel, formatOf, isSectionLike, legacyActive } from "./asks.ts";
+import { copy } from "./copy.ts";
 
 test("a row's format is its own, or its kind when it predates the column", () => {
   assert.equal(formatOf({ format: "music", kind: "written" }), "music");
@@ -32,7 +33,7 @@ test("owners-only items skip plain members, and a birthday card skips its subjec
 });
 
 test("an item is named by its emoji and words", () => {
-  assert.equal(askLabel({ text: "Photo wall", emoji: "📸" }), "📸 Photo wall");
+  assert.equal(askLabel({ text: copy.questions.item.formats.photo_wall, emoji: "📸" }), `📸 ${copy.questions.item.formats.photo_wall}`);
   assert.equal(askLabel({ text: "What made you laugh?", emoji: null }), "What made you laugh?");
   assert.equal(askLabel({ text: "Blank emoji", emoji: "" }), "Blank emoji");
 });

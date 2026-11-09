@@ -9,6 +9,7 @@ import { removeWallPhotoFor, saveDraftFor, saveMusicFor, saveWallPhotoFor } from
 import { loadIssue } from "../../src/lib/issue-view.ts";
 import { AFTER_FIRST_SLOT, DELIVERY_DAY } from "../../e2e/support/clock.ts";
 import { clearRequest, setRequestHeaders } from "../stubs/request.mjs";
+import { copy } from "@/lib/copy";
 
 /*
  * Sections are items asked every round (docs/questions-unify-design.md): a round
@@ -183,7 +184,7 @@ test("a section from before keeps its quiet placeholder; a new card nobody answe
   assert.ok(email.html.includes("Old corner"));
   // Only the old section says nobody added anything; the empty wall is left out of
   // the issue (it is still listed under the next round's questions).
-  assert.equal(email.html.split("Nothing here yet.").length - 1, 1, "an empty photo wall in a new round is hidden");
+  assert.equal(email.html.split(copy.issue.sectionEmpty).length - 1, 1, "an empty photo wall in a new round is hidden");
   assert.ok(email.html.includes("Next up") && !email.html.split("Next up")[0].includes("The potluck corner"));
 });
 

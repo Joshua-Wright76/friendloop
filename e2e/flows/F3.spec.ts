@@ -2,6 +2,7 @@ import { test, expect } from "@playwright/test";
 import { resetDatabase, rows } from "../support/db";
 import { seedDeliveredIssue, seedLoop } from "../support/seed";
 import { signIn } from "../support/harness";
+import { copy, copyPattern } from "@/lib/copy";
 
 test.beforeEach(async () => {
   await resetDatabase();
@@ -18,9 +19,9 @@ test("F3 · removing someone revokes their link but keeps what they wrote", asyn
 
   await page.goto(`/g/${loop.groupId}/members`);
   const bobCard = page.locator(".card").filter({ hasText: "bob@friendloop.test" });
-  await bobCard.getByRole("button", { name: "Remove" }).click();
-  await bobCard.getByRole("button", { name: /^Yes, remove/ }).click(); // removing asks first
-  await expect(page.getByText("They're out of the loop.")).toBeVisible();
+  await bobCard.getByRole("button", { name: copyPattern(copy.a11yLabels.removeMember, { start: true }) }).click();
+  await bobCard.getByRole("button", { name: copyPattern(copy.a11yLabels.removeMemberConfirm, { start: true }) }).click(); // removing asks first
+  await expect(page.getByText(copy.members.removedNotice)).toBeVisible();
 
   await page.goto(`/r/${bob.token}`);
   await expect(page.getByRole("heading", { name: /doesn't work anymore/i })).toBeVisible();

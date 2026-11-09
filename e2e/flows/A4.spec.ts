@@ -1,6 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { latestOutboxFor, linkFrom, resetDatabase, rows } from "../support/db";
 import { uniqueEmail } from "../support/harness";
+import { copy } from "@/lib/copy";
 
 test.beforeEach(async () => {
   await resetDatabase();
@@ -12,22 +13,22 @@ test("A4 · an unknown address leaves the same trace as a known one", async ({ p
 
   // A known address: sign in once so the account exists.
   await page.goto("/signin");
-  await page.getByLabel("Your email").fill(known);
-  await page.getByRole("button", { name: "Email me a link" }).click();
+  await page.getByLabel(copy.signIn.emailLabel).fill(known);
+  await page.getByRole("button", { name: copy.signIn.submit }).click();
   await expect(page).toHaveURL(/\/signin\/check-email$/);
   const mail = await latestOutboxFor(known);
   await page.goto(linkFrom(mail.html, "/signin/confirm"));
-  await page.getByRole("button", { name: "Sign in" }).click();
+  await page.getByRole("button", { name: copy.emails.signIn.cta }).click();
   await expect(page).toHaveURL(/\/you$/);
 
   await page.context().clearCookies();
 
   // The unknown one gets the identical screen.
   await page.goto("/signin");
-  await page.getByLabel("Your email").fill(unknown);
-  await page.getByRole("button", { name: "Email me a link" }).click();
+  await page.getByLabel(copy.signIn.emailLabel).fill(unknown);
+  await page.getByRole("button", { name: copy.signIn.submit }).click();
   await expect(page).toHaveURL(/\/signin\/check-email$/);
-  await expect(page.getByRole("heading", { name: "Check your inbox" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: copy.checkEmail.title })).toBeVisible();
 
   const accounts = await rows<{ count: number }>(
     "select count(*)::int as count from users where email = $1",

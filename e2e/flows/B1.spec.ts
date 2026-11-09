@@ -1,6 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { resetDatabase, rows } from "../support/db";
 import { signIn, uniqueEmail } from "../support/harness";
+import { copy } from "@/lib/copy";
 
 const NEXT = "Continue to the next setup step";
 
@@ -12,23 +13,23 @@ test("B1 · creating a loop saves its cadence and makes you its owner", async ({
   const email = uniqueEmail("owner");
   await signIn(page, email);
 
-  await page.getByRole("link", { name: "New loop" }).click();
-  const progress = page.getByRole("progressbar", { name: "Loop setup progress" });
+  await page.getByRole("link", { name: copy.you.newLoop }).click();
+  const progress = page.getByRole("progressbar", { name: copy.newLoop.wizard.stepAriaLabel });
   await expect(progress).toHaveAttribute("aria-valuenow", "1");
 
   // Step one holds its ground until the loop has a name.
   await page.getByRole("button", { name: NEXT }).click();
   await expect(progress).toHaveAttribute("aria-valuenow", "1");
 
-  await page.getByLabel("Loop title").fill("The Sunday Loop");
-  await page.getByRole("button", { name: "Quarterly (13 weeks)" }).click();
+  await page.getByLabel(copy.newLoop.nameLabel).fill("The Sunday Loop");
+  await page.getByRole("button", { name: copy.newLoop.cadences[3].label }).click();
   await page.getByRole("button", { name: NEXT }).click();
   await expect(progress).toHaveAttribute("aria-valuenow", "2");
 
   await page.getByRole("button", { name: "Go to the previous setup step" }).click();
   await expect(progress).toHaveAttribute("aria-valuenow", "1");
   // The name is still there, so going back never costs anyone their typing.
-  await expect(page.getByLabel("Loop title")).toHaveValue("The Sunday Loop");
+  await expect(page.getByLabel(copy.newLoop.nameLabel)).toHaveValue("The Sunday Loop");
 
   await page.getByRole("button", { name: NEXT }).click();
   await expect(progress).toHaveAttribute("aria-valuenow", "2");
@@ -39,7 +40,7 @@ test("B1 · creating a loop saves its cadence and makes you its owner", async ({
   await page.getByRole("button", { name: NEXT }).click();
   await expect(progress).toHaveAttribute("aria-valuenow", "5");
   await expect(progress).toHaveAttribute("aria-valuemax", "5");
-  await page.getByRole("button", { name: "Create loop" }).click();
+  await page.getByRole("button", { name: copy.newLoop.wizard.create }).click();
 
   await expect(page).toHaveURL(/\/g\/[0-9a-f-]+\?welcome=1/);
   await expect(page.getByRole("heading", { name: "The Sunday Loop" })).toBeVisible();

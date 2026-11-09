@@ -3,6 +3,7 @@ import { resetDatabase, rows } from "../support/db";
 import { seedLoop } from "../support/seed";
 import { seedPoll } from "../support/polls";
 import { AFTER_FIRST_SLOT, DELIVERY_DAY, latestOutboxBody, runSweep } from "../support/harness";
+import { copy, text as copyText } from "@/lib/copy";
 
 test.beforeEach(async () => {
   await resetDatabase();
@@ -32,14 +33,14 @@ test("L3 · a delivered poll shows every pick by name beside a quiet tally, to m
   // Members see each person's pick next to their name, and the tally.
   await page.goto(`/i/${issueId}?m=${alice.token}`);
   const question = page.locator("section").filter({ hasText: "Which weekends work?" });
-  await expect(question.getByText("Results · 2 votes")).toBeVisible();
-  const results = question.getByRole("list", { name: "Results" });
+  await expect(question.getByText(`${copy.polls.issue.results} · ${copyText(copy.polls.issue.votesMany, { count: 2 })}`)).toBeVisible();
+  const results = question.getByRole("list", { name: copy.polls.issue.results });
   await expect(results.locator("li").nth(0)).toContainText("June");
   await expect(results.locator("li").nth(0)).toContainText("1");
   await expect(results.locator("li").nth(1)).toContainText("0");
   await expect(results.locator("li").nth(2)).toContainText("2");
 
-  const aliceCard = question.locator("article").filter({ hasText: "You" });
+  const aliceCard = question.locator("article").filter({ hasText: copy.issue.you });
   await expect(aliceCard.getByRole("list", { name: "Chose June, August" })).toBeVisible();
   const bobCard = question.locator("article").filter({ hasText: "Bob" });
   await expect(bobCard.getByRole("list", { name: "Chose August" })).toBeVisible();
@@ -51,12 +52,12 @@ test("L3 · a delivered poll shows every pick by name beside a quiet tally, to m
   );
   await page.goto(`/s/${shareToken}`);
   const shared = page.locator("section").filter({ hasText: "Which weekends work?" });
-  await expect(shared.getByText("Results · 2 votes")).toBeVisible();
+  await expect(shared.getByText(`${copy.polls.issue.results} · ${copyText(copy.polls.issue.votesMany, { count: 2 })}`)).toBeVisible();
   await expect(shared.getByRole("list", { name: "Chose June, August" })).toBeVisible();
   await expect(shared.getByText("Alice", { exact: true })).toBeVisible();
 
   // The email says the same in words.
   const email = await latestOutboxBody("delivery:");
-  expect(email).toContain("Chose: June, August");
-  expect(email).toContain("Results: June: 1 · July: 0 · August: 2");
+  expect(email).toContain(copyText(copy.polls.emails.chose, { choices: "June, August" }));
+  expect(email).toContain(copyText(copy.polls.emails.results, { tally: ([["June", 1], ["July", 0], ["August", 2]] as const).map(([option, votes]) => copyText(copy.polls.issue.tallyLabel, { option, votes })).join(" · ") }));
 });

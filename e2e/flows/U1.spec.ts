@@ -2,6 +2,7 @@ import { test, expect } from "@playwright/test";
 import { resetDatabase, rows } from "../support/db";
 import { seedLoop, seedOpenIssue, seedDeliveredIssue } from "../support/seed";
 import { APP, DELIVERY_DAY, HOUR, runSweep, signIn, waitForSheet } from "../support/harness";
+import { copy, text as copyText } from "@/lib/copy";
 
 test.beforeEach(async () => {
   await resetDatabase();
@@ -36,7 +37,7 @@ test("U1 · loop emails carry one-click headers and a footer link; sign-in email
     "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
   });
   expect(reminder.html).toContain(`href="${APP}/u/${bobToken}"`);
-  expect(reminder.html).toContain("Stop emails from this loop");
+  expect(reminder.html).toContain(copy.emails.stopLink);
   expect(reminder.text).toContain(`Stop emails from this loop: ${APP}/u/${bobToken}`);
 
   // The unsubscribe token is not the reply credential.
@@ -52,20 +53,20 @@ test("U1 · the footer link asks first, mutes on confirm, and the member can tur
 
   // GET never mutates: neither the page nor the one-click URL opened in a browser.
   await page.goto(`/u/${token}`);
-  await expect(page.getByRole("heading", { name: "Stop emails from Friday Loop?" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: copyText(copy.unsubscribe.title, { groupName: "Friday Loop" }) })).toBeVisible();
   const viaHeader = await request.get(`/api/unsubscribe/${token}`, { maxRedirects: 0 });
   expect(viaHeader.status()).toBe(303);
   expect(viaHeader.headers()["location"]).toBe(`${APP}/u/${token}`);
   expect(await mutedAt(alice.email)).toBeNull();
 
-  await page.getByRole("button", { name: "Stop emails" }).click();
-  await expect(page.getByRole("heading", { name: "Emails from Friday Loop are off" })).toBeVisible();
+  await page.getByRole("button", { name: copy.unsubscribe.confirm }).click();
+  await expect(page.getByRole("heading", { name: copyText(copy.unsubscribe.mutedTitle, { groupName: "Friday Loop" }) })).toBeVisible();
   expect(await mutedAt(alice.email)).not.toBeNull();
 
   // Still in the loop: the reply link works and offers the way back.
   await page.goto(`/r/${alice.token}`);
   await waitForSheet(page);
-  await expect(page.getByText("You've turned off emails from this loop.")).toBeVisible();
+  await expect(page.getByText(copy.unsubscribe.notice)).toBeVisible();
 
   // Muted: the loop's reminder is recorded but never sent.
   await runSweep(new Date(DELIVERY_DAY.getTime() - 24 * HOUR));
@@ -79,13 +80,13 @@ test("U1 · the footer link asks first, mutes on confirm, and the member can tur
   const ownerPage = await page.context().browser()!.newPage();
   await signIn(ownerPage, "owner@friendloop.test");
   await ownerPage.goto(`/g/${loop.groupId}/members`);
-  await expect(ownerPage.getByText("Emails off")).toHaveCount(1);
+  await expect(ownerPage.getByText(copy.members.muted)).toHaveCount(1);
   await ownerPage.close();
 
-  await page.getByRole("button", { name: "Turn emails back on" }).click();
+  await page.getByRole("button", { name: copy.unsubscribe.unmute }).click();
   await expect(page).toHaveURL(new RegExp(`/r/${alice.token}$`));
   await waitForSheet(page);
-  await expect(page.getByText("You've turned off emails from this loop.")).toHaveCount(0);
+  await expect(page.getByText(copy.unsubscribe.notice)).toHaveCount(0);
   expect(await mutedAt(alice.email)).toBeNull();
 });
 
@@ -115,12 +116,12 @@ test("U1 · a one-click POST mutes with no confirmation, and an unknown token is
 
   // The unsubscribe page offers the way back, and a bad link says so plainly.
   await page.goto(`/u/${token}`);
-  await page.getByRole("button", { name: "Turn emails back on" }).click();
-  await expect(page.getByRole("heading", { name: "Stop emails from Friday Loop?" })).toBeVisible();
+  await page.getByRole("button", { name: copy.unsubscribe.unmute }).click();
+  await expect(page.getByRole("heading", { name: copyText(copy.unsubscribe.title, { groupName: "Friday Loop" }) })).toBeVisible();
   expect(await mutedAt(bob.email)).toBeNull();
 
   await page.goto(`/u/not-a-real-token`);
-  await expect(page.getByRole("heading", { name: "This link doesn't work" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: copy.unsubscribe.invalidTitle })).toBeVisible();
 });
 
 test("U1 · a muted member can turn emails back on from a delivered round", async ({ page }) => {
@@ -133,9 +134,9 @@ test("U1 · a muted member can turn emails back on from a delivered round", asyn
   await rows("update memberships set muted_at = now() where id = $1", [alice.id]);
 
   await page.goto(`/i/${issue.issueId}?m=${encodeURIComponent(alice.token)}`);
-  await expect(page.getByText("You've turned off emails from this loop.")).toBeVisible();
-  await page.getByRole("button", { name: "Turn emails back on" }).click();
+  await expect(page.getByText(copy.unsubscribe.notice)).toBeVisible();
+  await page.getByRole("button", { name: copy.unsubscribe.unmute }).click();
   await expect(page).toHaveURL(new RegExp(`/i/${issue.issueId}\\?m=`));
-  await expect(page.getByText("You've turned off emails from this loop.")).toHaveCount(0);
+  await expect(page.getByText(copy.unsubscribe.notice)).toHaveCount(0);
   expect(await mutedAt(alice.email)).toBeNull();
 });

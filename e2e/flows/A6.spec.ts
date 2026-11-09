@@ -1,6 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { resetDatabase, rows } from "../support/db";
 import { seedLoop } from "../support/seed";
+import { copy } from "@/lib/copy";
 
 test.beforeEach(async () => {
   await resetDatabase();
@@ -16,5 +17,5 @@ test("A6 · a replaced reply link is refused and leaks nothing", async ({ page }
 
   await expect(page.getByRole("heading", { name: /doesn't work anymore/i })).toBeVisible();
   await expect(page.locator("textarea")).toHaveCount(0);
-  await expect(page.getByText("What made you laugh this week?")).toHaveCount(0);
+  await expect(page.getByText(copy.questionPacks[0].questions[0])).toHaveCount(0);
 });

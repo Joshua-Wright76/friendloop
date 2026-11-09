@@ -2,6 +2,7 @@ import { test, expect } from "@playwright/test";
 import { resetDatabase, rows } from "../support/db";
 import { addMember, seedLoop } from "../support/seed";
 import { signIn } from "../support/harness";
+import { copy, copyPattern } from "@/lib/copy";
 
 test.beforeEach(async () => {
   await resetDatabase();
@@ -15,7 +16,7 @@ test("G3 · an admin manages people but never reaches owner settings", async ({ 
   await page.goto(`/g/${loop.groupId}/members`);
   const card = page.locator(".card").filter({ hasText: "admin@friendloop.test" });
   await card.getByRole("button", { name: /Role for/ }).click();
-  await card.getByRole("option", { name: "Admin", exact: true }).click();
+  await card.getByRole("option", { name: copy.common.roles.admin, exact: true }).click();
   await expect(card.getByRole("button", { name: /Role for.*Admin/ })).toBeVisible();
 
   // The menu shows the choice as soon as it's made, so wait for the write behind it.
@@ -28,10 +29,10 @@ test("G3 · an admin manages people but never reaches owner settings", async ({ 
   await signIn(page, "admin@friendloop.test");
 
   await page.goto(`/g/${loop.groupId}/members`);
-  await expect(page.getByLabel("Invite people by email")).toBeVisible();
+  await expect(page.getByLabel(copy.members.inviteAriaLabel)).toBeVisible();
 
   await page.goto(`/g/${loop.groupId}/questions`);
-  await expect(page.getByLabel(/^What to ask/)).toBeVisible();
+  await expect(page.getByLabel(copyPattern(copy.questions.item.textLabel, { start: true }))).toBeVisible();
 
   await page.goto(`/g/${loop.groupId}/settings`);
   await expect(page).toHaveURL(new RegExp(`/g/${loop.groupId}$`));
@@ -59,12 +60,12 @@ test("G3 · a promotion reaches the other person's live session", async ({ brows
     // The member starts where a plain member starts: the members tab renders,
     // but without the invite form.
     await memberPage.goto(`/g/${loop.groupId}/members`);
-    await expect(memberPage.getByLabel("Invite people by email")).toHaveCount(0);
+    await expect(memberPage.getByLabel(copy.members.inviteAriaLabel)).toHaveCount(0);
 
     await ownerPage.goto(`/g/${loop.groupId}/members`);
     const card = ownerPage.locator(".card").filter({ hasText: "promoted@friendloop.test" });
     await card.getByRole("button", { name: /Role for/ }).click();
-    await card.getByRole("option", { name: "Admin", exact: true }).click();
+    await card.getByRole("option", { name: copy.common.roles.admin, exact: true }).click();
     await expect(card.getByRole("button", { name: /Role for.*Admin/ })).toBeVisible();
     // The menu shows the choice as soon as it's made, so wait for the write behind it.
     await expect.poll(async () => {
@@ -74,7 +75,7 @@ test("G3 · a promotion reaches the other person's live session", async ({ brows
 
     // Same browser session, same cookies, no sign-in in between.
     await memberPage.goto(`/g/${loop.groupId}/members`);
-    await expect(memberPage.getByLabel("Invite people by email")).toBeVisible();
+    await expect(memberPage.getByLabel(copy.members.inviteAriaLabel)).toBeVisible();
   } finally {
     await ownerContext.close();
     await memberContext.close();

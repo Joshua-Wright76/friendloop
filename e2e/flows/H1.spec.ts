@@ -1,5 +1,5 @@
-import { copy } from "@/lib/copy";
 import { test, expect } from "@playwright/test";
+import { copy } from "@/lib/copy";
 
 const SECRET = process.env.UI_PREVIEW_SECRET ?? "e2e-preview-secret";
 
@@ -25,19 +25,19 @@ test("H1 · without the key, nothing under /dev opens and nobody is signed in", 
 test("H1 · with the key, the screens and email previews open at their routes", async ({ page }) => {
   await page.goto(`/dev/ui?key=${SECRET}`);
   await expect(page).toHaveURL(/\/dev\/screens$/);
-  await expect(page.getByRole("heading", { name: "UI preview" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: copy.devUi.title })).toBeVisible();
 
-  await page.getByRole("link", { name: "Email templates" }).click();
+  await page.getByRole("link", { name: copy.devUi.screens.emails }).click();
   await expect(page).toHaveURL(/\/dev\/emails$/);
   await expect(page.locator("iframe")).toHaveCount(Object.keys(copy.devEmails.previews).length);
-  await expect(page.getByRole("heading", { name: "Sign-in link" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Join a loop from its invite link" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Delivered round with a share link" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Someone mentioned you" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Delivered round with its own stationery and a name" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Delivered round with a motto, wax seal, divider and sign-off" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Empty round, loop paused" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Invitation from a loop with its own stationery" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: copy.devEmails.previews.signIn })).toBeVisible();
+  await expect(page.getByRole("heading", { name: copy.devEmails.previews.join })).toBeVisible();
+  await expect(page.getByRole("heading", { name: copy.devEmails.previews.deliveryShared })).toBeVisible();
+  await expect(page.getByRole("heading", { name: copy.devEmails.previews.mention })).toBeVisible();
+  await expect(page.getByRole("heading", { name: copy.devEmails.previews.deliveryThemed })).toBeVisible();
+  await expect(page.getByRole("heading", { name: copy.devEmails.previews.deliveryMarked })).toBeVisible();
+  await expect(page.getByRole("heading", { name: copy.devEmails.previews.paused })).toBeVisible();
+  await expect(page.getByRole("heading", { name: copy.devEmails.previews.inviteThemed })).toBeVisible();
   await expect(page.getByRole("heading", { name: copy.devEmails.previews.deliveryCovered })).toBeVisible();
 });
 
@@ -50,7 +50,7 @@ test("H1 · the key unlocks the captured inbox", async ({ page }) => {
   await expect(page).toHaveURL(/\/dev\/screens$/);
 
   await page.goto("/dev/outbox");
-  await expect(page.getByRole("heading", { name: "Captured email" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: copy.devUi.screens.outbox })).toBeVisible();
   await expect(page.getByText("live sign-in links")).toBeVisible();
 
   // The cookie proves the key without carrying it.

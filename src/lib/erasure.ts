@@ -59,9 +59,9 @@ function likeTerm(value: string): string {
 
 /**
  * Every stored file a set of memberships put there, or that hangs from what they
- * wrote: their answers' photos, voice notes and photo-wall photos, comment photos,
- * avatars and signatures, and every answer on a birthday card about them, which
- * goes with them.
+ * wrote: their answers' photos, voice notes, videos and photo-wall items, comment
+ * photos, avatars and signatures, and every answer on a birthday card about them,
+ * which goes with them.
  */
 async function membershipMedia(tx: Executor, membershipIds: string[]): Promise<string[]> {
   const aboutThem = tx
@@ -69,7 +69,13 @@ async function membershipMedia(tx: Executor, membershipIds: string[]): Promise<s
     .from(issueQuestions)
     .where(inArray(issueQuestions.aboutMembershipId, membershipIds));
   const doomed = await tx
-    .select({ id: replies.id, photoUrl: replies.photoUrl, audioUrl: replies.audioUrl })
+    .select({
+      id: replies.id,
+      photoUrl: replies.photoUrl,
+      audioUrl: replies.audioUrl,
+      videoUrl: replies.videoUrl,
+      videoPosterUrl: replies.videoPosterUrl,
+    })
     .from(replies)
     .where(or(inArray(replies.membershipId, membershipIds), inArray(replies.issueQuestionId, aboutThem)));
   const replyIds = doomed.map((reply) => reply.id);
@@ -84,7 +90,7 @@ async function membershipMedia(tx: Executor, membershipIds: string[]): Promise<s
     );
 
   const wallPhotos = replyIds.length > 0
-    ? await tx.select({ url: replyMedia.url }).from(replyMedia).where(inArray(replyMedia.replyId, replyIds))
+    ? await tx.select({ url: replyMedia.url, videoUrl: replyMedia.videoUrl }).from(replyMedia).where(inArray(replyMedia.replyId, replyIds))
     : [];
 
   const avatars = await tx
@@ -93,9 +99,9 @@ async function membershipMedia(tx: Executor, membershipIds: string[]): Promise<s
     .where(inArray(memberships.id, membershipIds));
 
   return [
-    ...doomed.flatMap((reply) => [reply.photoUrl, reply.audioUrl]),
+    ...doomed.flatMap((reply) => [reply.photoUrl, reply.audioUrl, reply.videoUrl, reply.videoPosterUrl]),
     ...commentPhotos.map((row) => row.url),
-    ...wallPhotos.map((row) => row.url),
+    ...wallPhotos.flatMap((row) => [row.url, row.videoUrl]),
     ...avatars.flatMap((row) => [row.url, row.signature]),
   ].filter((url): url is string => Boolean(url));
 }

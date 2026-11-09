@@ -60,24 +60,80 @@ jobs:
       # All unit and integration tests, with 100% line and function coverage of
       # src/lib enforced rather than reported.
       - name: Unit and integration tests, with the coverage gate
-        run: npm run test:coverage
+        run: TEST_WORKERS=3 npm run test:coverage
 
       # The release gate README promises: no flow may ship marked `todo`.
       - name: Flow coverage (strict)
         run: npm run check:flows -- --strict
 
+  # Build once from this exact commit while Verify runs independently. The
+  # database is migrated first because Next prerenders routes during the build.
+  e2e-build:
+    name: Build shared end-to-end output
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: friendloop_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/friendloop_test
+      # NEXT_PUBLIC_APP_URL is baked into the shared artifact; shards use these too.
+      E2E_PORT: "3100"
+      E2E_FAKE_MAIL_PORT: "3102"
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build the production output
+        run: npm run e2e:build
+
+      # Runtime output only. In particular, do not share the compiler cache or
+      # any development-server state with the shards.
+      - name: Upload the shared production output
+        uses: actions/upload-artifact@v7
+        with:
+          name: e2e-build-${{ github.sha }}
+          path: |
+            .next/
+            !.next/cache/
+            !.next/dev/
+          if-no-files-found: error
+          include-hidden-files: true
+          retention-days: 1
+
   # The suite runs one test at a time (every test truncates the same database),
   # so one runner took ~28 minutes. Shards each get their own runner and their
   # own Postgres, and none of them wait for `verify`: the two gates are
   # independent. Playwright shards by test count, not duration, so slow tests
-  # that sit together in file order all land in one shard. Hence three groups,
-  # each sharded on its own: the flows, the WCAG checks, and the seven stationery
-  # sweeps (about 1.5 min each), which alone made one shard take 11 minutes. The
+  # that sit together in file order all land in one shard. In three-worker run
+  # 42578068946, flows 3/3 took 215s (137s suite) and WCAG 3/5 took 203s (116s
+  # suite) behind a 78s shared build, in a 305s overall run. Hence three groups,
+  # each sharded on its own: four flows shards and six WCAG shards to shorten
+  # those tails, plus four stationery shards now their long loops are split. The
   # greps on the shared title prefixes make the groups exact complements. Each job
-  # runs two workers, each with its own database and server (e2e/support/parallel.ts),
-  # which suits the runners' four cores; scripts/e2e-db.mjs sets that from CI.
+  # runs three app/browser workers, each with its own database and server
+  # (e2e/support/parallel.ts), on the runners' four cores; scripts/e2e-db.mjs sets
+  # that from CI.
   e2e-shard:
     name: End-to-end (${{ matrix.group }} ${{ matrix.shard }}/${{ matrix.of }})
+    needs: e2e-build
     runs-on: ubuntu-24.04
     # A stalled download should fail the job, not hold it for an hour.
     timeout-minutes: 30
@@ -93,16 +149,20 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { group: flows, shard: 1, of: 3 }
-          - { group: flows, shard: 2, of: 3 }
-          - { group: flows, shard: 3, of: 3 }
-          - { group: wcag, shard: 1, of: 5 }
-          - { group: wcag, shard: 2, of: 5 }
-          - { group: wcag, shard: 3, of: 5 }
-          - { group: wcag, shard: 4, of: 5 }
-          - { group: wcag, shard: 5, of: 5 }
-          - { group: stationery, shard: 1, of: 2 }
-          - { group: stationery, shard: 2, of: 2 }
+          - { group: flows, shard: 1, of: 4 }
+          - { group: flows, shard: 2, of: 4 }
+          - { group: flows, shard: 3, of: 4 }
+          - { group: flows, shard: 4, of: 4 }
+          - { group: wcag, shard: 1, of: 6 }
+          - { group: wcag, shard: 2, of: 6 }
+          - { group: wcag, shard: 3, of: 6 }
+          - { group: wcag, shard: 4, of: 6 }
+          - { group: wcag, shard: 5, of: 6 }
+          - { group: wcag, shard: 6, of: 6 }
+          - { group: stationery, shard: 1, of: 4 }
+          - { group: stationery, shard: 2, of: 4 }
+          - { group: stationery, shard: 3, of: 4 }
+          - { group: stationery, shard: 4, of: 4 }
     services:
       # Deterministic and separate from any dev database. When
       # TEST_DATABASE_URL is set, scripts/e2e-db.mjs stands down and uses this.
@@ -121,6 +181,12 @@ jobs:
       TEST_DATABASE_URL: postgresql://postgres:postgres@postgres:5432/friendloop_test
       # That Postgres lasts one job, so it needn't flush every commit to disk.
       E2E_RELAX_DB: server
+      # Every shard serves the artifact built from this commit, never a rebuild.
+      E2E_SKIP_BUILD: "1"
+      # Match the URL baked by e2e-build; three app workers use 3100 through 3102.
+      E2E_PORT: "3100"
+      # Keep the mail stub off the app workers' ports.
+      E2E_FAKE_MAIL_PORT: "3103"
     steps:
       - uses: actions/checkout@v7
 
@@ -132,6 +198,12 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Download the shared production output
+        uses: actions/download-artifact@v7
+        with:
+          name: e2e-build-${{ github.sha }}
+          path: .next
+
       - name: Check the image matches the lockfile's Playwright
         run: |
           version=$(node -p "require('@playwright/test/package.json').version")
@@ -140,9 +212,8 @@ jobs:
             exit 1
           fi
 
-      # No Next.js build cache. Restoring one from older source left a build
-      # missing new CSS, which failed accessibility checks on main (PR #35), and
-      # keying it to the exact source would only ever help a rerun.
+      # No Next.js build cache is restored. An old cache left a build missing new
+      # CSS (PR #35); this artifact is instead built once from the exact commit.
       - name: Run the suite (${{ matrix.group }}, shard ${{ matrix.shard }} of ${{ matrix.of }})
         env:
           GROUP: ${{ matrix.group }}
@@ -154,6 +225,17 @@ jobs:
             stationery) npm run e2e -- --grep "WCAG AA sweep · stationery" --shard="$SHARD" ;;
             *) echo "::error::Unknown group $GROUP"; exit 1 ;;
           esac
+
+      # Small timing JSON is useful after either outcome. The HTML report (and
+      # any retry traces/videos it references) is still uploaded only on failure.
+      - name: Upload per-shard timing results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: e2e-timings-${{ matrix.group }}-${{ matrix.shard }}
+          path: test-results/e2e-results.json
+          if-no-files-found: ignore
+          retention-days: 30
 
       - name: Upload report on failure
         if: failure()

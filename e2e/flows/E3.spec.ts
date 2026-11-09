@@ -2,6 +2,7 @@ import { test, expect } from "@playwright/test";
 import { resetDatabase, rows } from "../support/db";
 import { seedDeliveredIssue, seedLoop } from "../support/seed";
 import { signIn } from "../support/harness";
+import { copy } from "@/lib/copy";
 
 test.beforeEach(async () => {
   await resetDatabase();
@@ -16,8 +17,8 @@ test("E3 · a member can comment and it sticks", async ({ page }) => {
   const alice = loop.members.find((member) => member.email.startsWith("alice"))!;
 
   await page.goto(`/i/${issue.issueId}?m=${alice.token}`);
-  await page.getByLabel("Comment", { exact: true }).fill("This made my morning.");
-  await page.getByRole("button", { name: "Post" }).click();
+  await page.getByLabel(copy.issue.commentAriaLabel, { exact: true }).fill("This made my morning.");
+  await page.getByRole("button", { name: copy.issue.post }).click();
 
   // The thread, not the box: the typed text is still in the textarea until the post lands.
   await expect(page.locator("p", { hasText: "This made my morning." })).toBeVisible();
@@ -49,8 +50,8 @@ test("E3 · a comment posted in one session is there for another person", async 
     await signIn(bobPage, "bob@friendloop.test");
 
     await alicePage.goto(`/i/${issue.issueId}`);
-    await alicePage.getByLabel("Comment", { exact: true }).fill("Left by Alice, for Bob to read.");
-    await alicePage.getByRole("button", { name: "Post" }).click();
+    await alicePage.getByLabel(copy.issue.commentAriaLabel, { exact: true }).fill("Left by Alice, for Bob to read.");
+    await alicePage.getByRole("button", { name: copy.issue.post }).click();
     await expect(alicePage.locator("p", { hasText: "Left by Alice, for Bob to read." })).toBeVisible();
 
     await bobPage.goto(`/i/${issue.issueId}`);
@@ -58,7 +59,7 @@ test("E3 · a comment posted in one session is there for another person", async 
     await expect(bobPage.getByText("Alice").first()).toBeVisible();
 
     // And the author is not mistaken for the reader.
-    await expect(alicePage.getByText("You").first()).toBeVisible();
+    await expect(alicePage.getByText(copy.issue.you).first()).toBeVisible();
   } finally {
     await aliceContext.close();
     await bobContext.close();

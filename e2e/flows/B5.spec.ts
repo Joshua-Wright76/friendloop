@@ -2,6 +2,7 @@ import { test, expect } from "@playwright/test";
 import { resetDatabase, rows } from "../support/db";
 import { addMember, seedLoop } from "../support/seed";
 import { signIn } from "../support/harness";
+import { copy, copyPattern } from "@/lib/copy";
 
 test.beforeEach(async () => {
   await resetDatabase();
@@ -13,8 +14,8 @@ test("B5 · resending an invite sends again without a second membership", async 
   await signIn(page, "owner@friendloop.test");
 
   await page.goto(`/g/${loop.groupId}/members`);
-  await page.getByRole("button", { name: "Resend invite" }).click();
-  await expect(page.getByText("Invitation sent again.")).toBeVisible();
+  await page.getByRole("button", { name: copyPattern(copy.a11yLabels.resendInvite, { start: true }) }).click();
+  await expect(page.getByText(copy.members.resentNotice)).toBeVisible();
 
   const sent = await rows<{ count: number }>(
     "select count(*)::int as count from outbox where kind = 'invite'",

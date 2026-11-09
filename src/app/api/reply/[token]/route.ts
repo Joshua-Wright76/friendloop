@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import {
   confirmFor,
   saveDraftFor,
+  saveLinkFor,
   saveMusicFor,
   saveNameFor,
   savePollChoicesFor,
@@ -79,6 +80,20 @@ export async function POST(request: Request, { params }: { params: Promise<{ tok
       issueQuestionId: payload.issueQuestionId,
       url: typeof payload.url === "string" ? payload.url : "",
       caption: typeof payload.caption === "string" ? payload.caption : "",
+    });
+    return result.ok
+      ? NextResponse.json({ ok: true, savedAt: result.savedAt })
+      : NextResponse.json({ error: result.error }, { status: result.status });
+  }
+
+  if (payload.action === "link") {
+    if (typeof payload.issueQuestionId !== "string") {
+      return NextResponse.json({ error: copy.reply.errors.missingQuestion }, { status: 400 });
+    }
+    const result = await saveLinkFor({
+      token,
+      issueQuestionId: payload.issueQuestionId,
+      url: typeof payload.url === "string" ? payload.url : "",
     });
     return result.ok
       ? NextResponse.json({ ok: true, savedAt: result.savedAt })

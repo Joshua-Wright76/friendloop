@@ -4,6 +4,7 @@ import { signIn, unfold } from "../support/harness";
 import { chooseFile, seedWorld } from "../support/identity";
 import { seedLoop, seedOpenIssue } from "../support/seed";
 import { TINY_PNG } from "../support/comments";
+import { copy, text as copyText, copyPattern } from "@/lib/copy";
 
 test.beforeEach(async () => {
   await resetDatabase();
@@ -20,10 +21,10 @@ test("N5 · a contributor sets a photo on their reply sheet and it follows their
 
   await page.goto(`/r/${alice.token}`);
   // Who is answering sits folded into one line, with the photo inside.
-  await unfold(page, /Answering as/);
-  await expect(page.getByText("Shown next to your answers and comments in this loop, and nowhere else.")).toBeVisible();
+  await unfold(page, copyPattern(copy.reply.answeringAs));
+  await expect(page.getByText(copy.identity.profile.hint)).toBeVisible();
   await chooseFile(page, "Choose a photo of yourself", { name: "me.png", mimeType: "image/png", buffer: TINY_PNG });
-  await expect(page.getByText("Photo saved.")).toBeVisible();
+  await expect(page.getByText(copy.identity.profile.saved)).toBeVisible();
   const url = await photoOf("alice@friendloop.test", loop.groupId);
   expect(url).toMatch(/\/uploads\/[a-f0-9]{64}\.png$/);
   // The frame choices below show the same picture, so this is the first of several.
@@ -40,9 +41,9 @@ test("N5 · a contributor sets a photo on their reply sheet and it follows their
   await expect(page.locator(".avatar:not(:has(img))", { hasText: "B" }).first()).toBeVisible();
 
   await page.goto(`/r/${alice.token}`);
-  await unfold(page, /Answering as/);
-  await page.getByRole("button", { name: "Remove photo" }).click();
-  await expect(page.getByText("Photo removed.")).toBeVisible();
+  await unfold(page, copyPattern(copy.reply.answeringAs));
+  await page.getByRole("button", { name: copy.issue.removePhoto }).click();
+  await expect(page.getByText(copy.identity.profile.removed)).toBeVisible();
   expect(await photoOf("alice@friendloop.test", loop.groupId)).toBeNull();
   await page.goto(`/i/${delivered.issueId}?m=${alice.token}`);
   await expect(page.locator(".avatar img")).toHaveCount(0);
@@ -54,9 +55,9 @@ test("N5 · an invitee can set a photo straight from the link, while the loop is
   await rows("update groups set paused_at = now() where id = $1", [loop.groupId]);
   const alice = loop.members.find((member) => member.email.startsWith("alice"))!;
   await page.goto(`/r/${alice.token}`);
-  await expect(page.getByRole("heading", { name: "Paused for now" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: copy.reply.pausedTitle })).toBeVisible();
   await chooseFile(page, "Choose a photo of yourself", { name: "me.png", mimeType: "image/png", buffer: TINY_PNG });
-  await expect(page.getByText("Photo saved.")).toBeVisible();
+  await expect(page.getByText(copy.identity.profile.saved)).toBeVisible();
   const url = await photoOf("alice@friendloop.test", loop.groupId);
   expect(url).toMatch(/\/uploads\/[a-f0-9]{64}\.png$/);
   await page.reload();
@@ -67,7 +68,7 @@ test("N5 · an invitee can set a photo straight from the link, while the loop is
   await page.goto(`/r/${alice.token}`);
   await expect(page.getByRole("heading", { name: /You're a reader/ })).toBeVisible();
   await chooseFile(page, "Choose a photo of yourself", { name: "me.png", mimeType: "image/png", buffer: TINY_PNG });
-  await expect(page.getByText("Photo saved.")).toBeVisible();
+  await expect(page.getByText(copy.identity.profile.saved)).toBeVisible();
   expect(await photoOf("alice@friendloop.test", loop.groupId)).toMatch(/\/uploads\//);
 });
 
@@ -80,7 +81,7 @@ test("N5 · a signed-in member sets their own photo on the people page, and nobo
   await expect(page.locator('input[type="file"]')).toHaveCount(1);
   const mine = page.locator(".card").filter({ hasText: "owner@friendloop.test" });
   await chooseFile(page, "Choose a photo of yourself", { name: "me.png", mimeType: "image/png", buffer: TINY_PNG }, mine);
-  await expect(mine.getByText("Photo saved.")).toBeVisible();
+  await expect(mine.getByText(copy.identity.profile.saved)).toBeVisible();
   const url = await photoOf("owner@friendloop.test", loop.groupId);
   // The controls sit under the person's own row, whose avatar is the one picture.
   await expect(page.locator(`.avatar img[src="${url}"]`)).toHaveCount(1);
@@ -88,7 +89,7 @@ test("N5 · a signed-in member sets their own photo on the people page, and nobo
 
   // Bytes that are not a picture (a real oversize photo is shrunk: see T1).
   await chooseFile(page, "Choose a photo of yourself", { name: "big.png", mimeType: "image/png", buffer: Buffer.alloc(2 * 1024 * 1024 + 1) }, mine);
-  await expect(mine.getByText("We couldn't read that picture.")).toBeVisible();
+  await expect(mine.getByText(copy.identity.errors.unreadable)).toBeVisible();
   expect(await photoOf("owner@friendloop.test", loop.groupId)).toBe(url);
 });
 
@@ -128,10 +129,10 @@ test("N5 · someone added by email alone is greeted without their email handle a
   const newcomer = loop.members.find((member) => member.email.startsWith("dabluj76"))!;
 
   await page.goto(`/r/${newcomer.token}`);
-  await expect(page.getByText("Hi there,")).toBeVisible();
+  await expect(page.getByText(copy.reply.hiThere)).toBeVisible();
   await expect(page.getByText("dabluj76")).toHaveCount(0);
   // The name field is already open: no need to find "Edit name and photo".
-  const field = page.getByLabel("What should we call you?");
+  const field = page.getByLabel(copy.reply.nameTitle);
   await expect(field).toBeVisible();
   await field.fill("Dana");
   await field.blur();
@@ -142,6 +143,6 @@ test("N5 · someone added by email alone is greeted without their email handle a
 
   // Next time, with a name on file, the line folds away as usual.
   await page.reload();
-  await expect(page.getByText("Answering as Dana")).toBeVisible();
-  await expect(page.getByLabel("What should we call you?")).toBeHidden();
+  await expect(page.getByText(copyText(copy.reply.answeringAs, { name: "Dana" }))).toBeVisible();
+  await expect(page.getByLabel(copy.reply.nameTitle)).toBeHidden();
 });

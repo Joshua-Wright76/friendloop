@@ -3,6 +3,7 @@ import { resetDatabase, rows } from "../support/db";
 import { addMember } from "../support/seed";
 import { DELIVERY_DAY, runSweep, signIn } from "../support/harness";
 import { seedWorld } from "../support/identity";
+import { copy, text, copyPattern } from "@/lib/copy";
 
 test.beforeEach(async () => {
   await resetDatabase();
@@ -14,18 +15,18 @@ test("N4 · the owner names a round and the name shows on the dashboard, the web
 
   // Unnamed rounds keep their numbers.
   await page.goto(`/g/${loop.groupId}/issues`);
-  await expect(page.getByText("Round 1", { exact: true })).toBeVisible();
-  await expect(page.getByText("Round 2", { exact: true })).toBeVisible();
+  await expect(page.getByText(text(copy.rounds.round, { number: 1 }), { exact: true })).toBeVisible();
+  await expect(page.getByText(text(copy.rounds.round, { number: 2 }), { exact: true })).toBeVisible();
 
   const nameRound = async (number: number, name: string) => {
-    const card = page.locator(".card").filter({ has: page.getByText(`Round ${number}`, { exact: true }) });
-    await card.getByText("Name this round").click();
-    await card.getByLabel(`Name for round ${number}`).fill(name);
-    await card.getByRole("button", { name: "Save name" }).click();
-    await expect(page.getByText("Round named.")).toBeVisible();
+    const card = page.locator(".card").filter({ has: page.getByText(text(copy.rounds.round, { number }), { exact: true }) });
+    await card.getByText(copy.rounds.rename).click();
+    await card.getByLabel(text(copy.rounds.nameLabel, { number })).fill(name);
+    await card.getByRole("button", { name: copy.rounds.nameSave }).click();
+    await expect(page.getByText(copy.rounds.nameSaved)).toBeVisible();
   };
   await nameRound(2, "Spring cleaning");
-  await expect(page.getByText("Spring cleaning is open now.")).toBeVisible();
+  await expect(page.getByText(text(copy.rounds.openNamed, { name: "Spring cleaning" }))).toBeVisible();
   await nameRound(1, "  Camping   weekend ");
 
   // "Round named." may still be up from the round before, so wait for the write itself.
@@ -40,7 +41,7 @@ test("N4 · the owner names a round and the name shows on the dashboard, the web
   await expect(page.getByText("Spring cleaning", { exact: true })).toBeVisible();
   await page.goto(`/i/${delivered.issueId}`);
   await expect(page.getByRole("heading", { level: 1, name: "Camping weekend" })).toBeVisible();
-  await expect(page.getByText(/^Round 1\. /)).toBeVisible();
+  await expect(page.getByText(copyPattern(`${text(copy.issue.round, { number: 1 })}. `, { start: true }))).toBeVisible();
   await page.goto(`/s/${shareToken}`);
   await expect(page.getByRole("heading", { level: 1, name: "Camping weekend" })).toBeVisible();
 
@@ -68,18 +69,18 @@ test("N4 · clearing the name puts the number back, and only the owner is offere
   await page.goto(`/g/${loop.groupId}/issues`);
   const card = page.locator(".card").filter({ has: page.getByText("Camping weekend", { exact: true }) });
   // A named round offers a rename, not a first name.
-  await expect(card.getByText("Name this round")).toHaveCount(0);
-  await card.getByText("Rename", { exact: true }).click();
-  await expect(card.getByLabel("Name for round 1")).toHaveValue("Camping weekend");
-  await card.getByLabel("Name for round 1").fill("   ");
-  await card.getByRole("button", { name: "Save name" }).click();
-  await expect(page.getByText("The name is gone and the round is back to its number.")).toBeVisible();
-  await expect(page.getByText("Round 1", { exact: true })).toBeVisible();
+  await expect(card.getByText(copy.rounds.rename)).toHaveCount(0);
+  await card.getByText(copy.rounds.renameNamed, { exact: true }).click();
+  await expect(card.getByLabel(text(copy.rounds.nameLabel, { number: "1" }))).toHaveValue("Camping weekend");
+  await card.getByLabel(text(copy.rounds.nameLabel, { number: "1" })).fill("   ");
+  await card.getByRole("button", { name: copy.rounds.nameSave }).click();
+  await expect(page.getByText(copy.rounds.nameCleared)).toBeVisible();
+  await expect(page.getByText(text(copy.rounds.round, { number: 1 }), { exact: true })).toBeVisible();
   const [row] = await rows<{ name: string | null }>("select name from issues where id = $1", [delivered.issueId]);
   expect(row.name).toBeNull();
 
   await page.goto(`/i/${delivered.issueId}`);
-  await expect(page.getByRole("heading", { level: 1, name: "Round 1" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: text(copy.issue.round, { number: 1 }) })).toBeVisible();
 
   // An admin reads the rounds but isn't offered the rename.
   await addMember(loop, { email: "admin@friendloop.test", access: "admin" });
@@ -87,8 +88,8 @@ test("N4 · clearing the name puts the number back, and only the owner is offere
   const adminPage = await adminContext.newPage();
   await signIn(adminPage, "admin@friendloop.test");
   await adminPage.goto(`/g/${loop.groupId}/issues`);
-  await expect(adminPage.getByText("Round 1", { exact: true })).toBeVisible();
-  await expect(adminPage.getByText("Name this round")).toHaveCount(0);
-  await expect(adminPage.getByText("Rename", { exact: true })).toHaveCount(0);
+  await expect(adminPage.getByText(text(copy.rounds.round, { number: 1 }), { exact: true })).toBeVisible();
+  await expect(adminPage.getByText(copy.rounds.rename)).toHaveCount(0);
+  await expect(adminPage.getByText(copy.rounds.renameNamed, { exact: true })).toHaveCount(0);
   await adminContext.close();
 });

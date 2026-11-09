@@ -6,6 +6,8 @@ import { copy } from "./copy.ts";
 import { cleanDisplayName } from "./names";
 import { deleteStoredPhoto, storePhoto } from "./photo-storage";
 import { deleteStoredAudio } from "./media-storage.ts";
+import { deleteStoredVideo } from "./video-storage.ts";
+import { WALL_VIDEO_MAX } from "./video-validation.ts";
 import { isMediaReferenced } from "./media-cleanup.ts";
 import { storedReminderPreference } from "./reminders.ts";
 import { checkPollChoices } from "./poll";
@@ -501,6 +503,9 @@ export async function sheetFor(token: string) {
           photoUrl: reply?.photoUrl ?? null,
           audioUrl: reply?.audioUrl ?? null,
           audioDurationMs: reply?.audioDurationMs ?? null,
+          videoUrl: reply?.videoUrl ?? null,
+          videoPosterUrl: reply?.videoPosterUrl ?? null,
+          videoDurationMs: reply?.videoDurationMs ?? null,
           kind: question.kind,
           pollMultiple: question.pollMultiple,
           pollOptions: question.pollOptions ?? [],
@@ -510,7 +515,7 @@ export async function sheetFor(token: string) {
           sticker: reply && isStickerKey(reply.sticker) ? reply.sticker : null,
           media: media
             .filter((item) => reply && item.replyId === reply.id)
-            .map((item) => ({ id: item.id, url: item.url, caption: item.caption })),
+            .map((item) => ({ id: item.id, url: item.url, caption: item.caption, videoUrl: item.videoUrl, videoDurationMs: item.videoDurationMs })),
         };
       }),
   };
@@ -712,6 +717,184 @@ export async function saveStatusLineFor(input: { token: string; body: unknown })
   return { ok: true, savedAt: at.toISOString() };
 }
 
+/* ------------------------------- video clips ------------------------------- */
+
+/**
+ * Check the link and question before a clip is uploaded or attached. A clip
+ * goes on a written answer (beside its words, photo and voice note) or on a
+ * photo wall. A card copied from a section never took voice notes, and its
+ * page has nowhere to play a clip either.
+ */
+export async function authorizeVideoForReply(
+  token: string,
+  issueQuestionId: string,
+): Promise<{ ok: true; format: "written" | "photo_wall" } | Extract<WriteResult, { ok: false }>> {
+  const gate = await ensureWritableQuestion(token, issueQuestionId, ["written", "photo_wall"]);
+  if (!gate.ok) return gate.result;
+  if (gate.question.fromSection) return { ok: false, status: 409, error: copy.reply.errors.wrongQuestion };
+  return { ok: true, format: formatOf(gate.question) === "photo_wall" ? "photo_wall" : "written" };
+}
+
+/** Delete a stored clip only after no row points at it. */
+export async function deleteVideoIfUnreferenced(videoUrl: string): Promise<void> {
+  if (!(await isMediaReferenced(videoUrl))) await deleteStoredVideo(videoUrl);
+}
+
+/**
+ * Remove the files an answer stopped pointing at. One that won't go is logged
+ * and left for later: the save that let go of it still stands.
+ */
+async function dropUnreferenced(files: Array<{ url: string | null | undefined; video?: boolean }>, what: string): Promise<void> {
+  for (const file of files) {
+    if (!file.url) continue;
+    try {
+      if (file.video) await deleteVideoIfUnreferenced(file.url);
+      else await deletePhotoIfUnreferenced(file.url);
+    } catch (error) {
+      log.error(what, error);
+    }
+  }
+}
+
+/** Whether a clip already belongs to some other answer: a link can't claim someone else's upload. */
+async function videoOwnedElsewhere(videoUrl: string, issueId: string, issueQuestionId: string, membershipId: string): Promise<boolean> {
+  const owners = await db
+    .select({ issueId: replies.issueId, issueQuestionId: replies.issueQuestionId, membershipId: replies.membershipId })
+    .from(replies)
+    .leftJoin(replyMedia, eq(replyMedia.replyId, replies.id))
+    .where(sql`${replies.videoUrl} = ${videoUrl} or ${replyMedia.videoUrl} = ${videoUrl}`);
+  return owners.some((owner) =>
+    owner.issueId !== issueId || owner.issueQuestionId !== issueQuestionId || owner.membershipId !== membershipId,
+  );
+}
+
+export type VideoWriteResult =
+  | { ok: true; savedAt: string; videoUrl: string; posterUrl: string; durationMs: number; mediaId?: string }
+  | { ok: false; status: 403 | 404 | 409; error: string };
+
+/** Put a clip on a written answer, replacing any clip it had, without touching its words, photo or voice note. */
+export async function saveVideoFor(input: {
+  token: string;
+  issueQuestionId: string;
+  videoUrl: string;
+  posterUrl: string;
+  durationMs: number;
+}): Promise<VideoWriteResult> {
+  const gate = await ensureWritableQuestion(input.token, input.issueQuestionId);
+  if (!gate.ok) return gate.result;
+  if (gate.question.fromSection) return { ok: false, status: 409, error: copy.reply.errors.wrongQuestion };
+
+  const { context, question } = gate;
+  if (await videoOwnedElsewhere(input.videoUrl, context.issue.id, question.id, context.membership.id)) {
+    return { ok: false, status: 409, error: copy.reply.errors.videoUploadFailed };
+  }
+
+  const at = await getNow();
+  const [previous] = await db
+    .select({ videoUrl: replies.videoUrl, videoPosterUrl: replies.videoPosterUrl })
+    .from(replies)
+    .where(and(
+      eq(replies.issueId, context.issue.id),
+      eq(replies.issueQuestionId, question.id),
+      eq(replies.membershipId, context.membership.id),
+    ))
+    .limit(1);
+  await touchReply(gate, { videoUrl: input.videoUrl, videoPosterUrl: input.posterUrl, videoDurationMs: input.durationMs }, at);
+
+  await dropUnreferenced([
+    { url: previous?.videoUrl === input.videoUrl ? null : previous?.videoUrl, video: true },
+    { url: previous?.videoPosterUrl === input.posterUrl ? null : previous?.videoPosterUrl },
+  ], "Unable to remove a replaced reply video");
+
+  return { ok: true, savedAt: at.toISOString(), videoUrl: input.videoUrl, posterUrl: input.posterUrl, durationMs: input.durationMs };
+}
+
+/** Take the clip off a written answer, leaving everything else on it. */
+export async function removeVideoFor(input: { token: string; issueQuestionId: string }): Promise<WriteResult> {
+  const gate = await ensureWritableQuestion(input.token, input.issueQuestionId);
+  if (!gate.ok) return gate.result;
+
+  const { context, question } = gate;
+  const where = and(
+    eq(replies.issueId, context.issue.id),
+    eq(replies.issueQuestionId, question.id),
+    eq(replies.membershipId, context.membership.id),
+  );
+  const [existing] = await db
+    .select({ videoUrl: replies.videoUrl, videoPosterUrl: replies.videoPosterUrl })
+    .from(replies)
+    .where(where)
+    .limit(1);
+
+  const at = await getNow();
+  if (!existing?.videoUrl) return { ok: true, savedAt: at.toISOString() };
+
+  await db
+    .update(replies)
+    .set({ videoUrl: null, videoPosterUrl: null, videoDurationMs: null, updatedAt: at })
+    .where(where);
+
+  await dropUnreferenced([{ url: existing.videoUrl, video: true }, { url: existing.videoPosterUrl }], "Unable to remove a reply video");
+  await markAccepted(context.membership.id, context.membership.acceptedAt, at);
+  return { ok: true, savedAt: at.toISOString() };
+}
+
+/** Add a clip to a photo wall. It takes one of the six places, and at most two of them can be clips. */
+export async function saveWallVideoFor(input: {
+  token: string;
+  issueQuestionId: string;
+  videoUrl: string;
+  posterUrl: string;
+  durationMs: number;
+  caption: string;
+  position: number;
+}): Promise<VideoWriteResult> {
+  const gate = await ensureWritableQuestion(input.token, input.issueQuestionId, ["photo_wall"]);
+  if (!gate.ok) return gate.result;
+
+  const { context, question } = gate;
+  if (await videoOwnedElsewhere(input.videoUrl, context.issue.id, question.id, context.membership.id)) {
+    return { ok: false, status: 409, error: copy.reply.errors.videoUploadFailed };
+  }
+  const [{ count, videos }] = await db
+    .select({
+      count: sql<number>`count(*)::int`,
+      videos: sql<number>`count(${replyMedia.videoUrl})::int`,
+    })
+    .from(replyMedia)
+    .innerJoin(replies, eq(replies.id, replyMedia.replyId))
+    .where(and(
+      eq(replies.issueId, context.issue.id),
+      eq(replies.issueQuestionId, question.id),
+      eq(replies.membershipId, context.membership.id),
+    ));
+  if (count >= PHOTO_WALL_MAX) return { ok: false, status: 409, error: copy.reply.errors.sectionPhotoCap };
+  if (videos >= WALL_VIDEO_MAX) return { ok: false, status: 409, error: copy.reply.errors.wallVideoCap };
+
+  const at = await getNow();
+  const replyId = await touchReply(gate, {}, at);
+  const [media] = await db
+    .insert(replyMedia)
+    .values({
+      replyId,
+      url: input.posterUrl,
+      videoUrl: input.videoUrl,
+      videoDurationMs: input.durationMs,
+      caption: input.caption.trim().slice(0, 200) || null,
+      position: Math.max(0, Math.min(PHOTO_WALL_MAX - 1, Math.round(input.position) || count)),
+      createdAt: at,
+    })
+    .returning({ id: replyMedia.id });
+  return {
+    ok: true,
+    savedAt: at.toISOString(),
+    videoUrl: input.videoUrl,
+    posterUrl: input.posterUrl,
+    durationMs: input.durationMs,
+    mediaId: media.id,
+  };
+}
+
 /* ------------- music picks and photo walls, and the old section writes ------------- */
 
 async function touchReply(
@@ -763,6 +946,27 @@ export async function saveMusicFor(input: {
     check?.ok ? { linkUrl: url, linkProvider: check.provider, body: caption } : { linkUrl: null, linkProvider: null, body: caption },
     at,
   );
+  return { ok: true, savedAt: at.toISOString() };
+}
+
+/**
+ * A music link on a written answer, beside its words, photo or voice note. The
+ * words are left alone; an empty link takes the link off.
+ */
+export async function saveLinkFor(input: {
+  token: string;
+  issueQuestionId: string;
+  url: string;
+}): Promise<MusicWriteResult> {
+  const gate = await ensureWritableQuestion(input.token, input.issueQuestionId);
+  if (!gate.ok) return gate.result;
+
+  const url = input.url.trim();
+  const check = url ? checkMusicLink(url) : null;
+  if (check && !check.ok) return { ok: false, status: 400, error: check.error };
+
+  const at = await getNow();
+  await touchReply(gate, check?.ok ? { linkUrl: url, linkProvider: check.provider } : { linkUrl: null, linkProvider: null }, at);
   return { ok: true, savedAt: at.toISOString() };
 }
 
@@ -841,7 +1045,7 @@ export async function removeWallPhotoFor(input: {
 
   const { context, question } = gate;
   const [media] = await db
-    .select({ id: replyMedia.id, url: replyMedia.url })
+    .select({ id: replyMedia.id, url: replyMedia.url, videoUrl: replyMedia.videoUrl })
     .from(replyMedia)
     .innerJoin(replies, eq(replies.id, replyMedia.replyId))
     .where(and(
@@ -858,6 +1062,7 @@ export async function removeWallPhotoFor(input: {
   await deletePhotoIfUnreferenced(media.url).catch((error: unknown) => {
     log.error("Unable to remove photo-wall photo", error);
   });
+  await dropUnreferenced([{ url: media.videoUrl, video: true }], "Unable to remove a photo-wall video");
   await markAccepted(context.membership.id, context.membership.acceptedAt, at);
   return { ok: true, savedAt: at.toISOString() };
 }

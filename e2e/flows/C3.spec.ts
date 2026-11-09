@@ -2,6 +2,7 @@ import { test, expect } from "@playwright/test";
 import { resetDatabase, rows } from "../support/db";
 import { seedDeliveredIssue, seedLoop } from "../support/seed";
 import { openItem, signIn, unfold } from "../support/harness";
+import { copy, text as copyText } from "@/lib/copy";
 
 test.beforeEach(async () => {
   await resetDatabase();
@@ -16,20 +17,20 @@ test("C3 · stop asking folds an item into Stopped, past rounds keep it, and Ask
   await signIn(page, "owner@friendloop.test");
   await page.goto(`/g/${loop.groupId}/questions`);
 
-  const row = await openItem(page, "What made you laugh this week?");
-  await row.getByRole("button", { name: "Stop asking: What made you laugh this week?" }).click();
-  await row.getByRole("button", { name: "Yes, stop asking" }).click(); // stopping asks first
-  await expect(page.getByText("Stopped asking. It's under Stopped if you want it back.")).toBeVisible();
+  const row = await openItem(page, copy.questionPacks[0].questions[0]);
+  await row.getByRole("button", { name: copyText(copy.questions.item.stopLabel, { item: copy.questionPacks[0].questions[0] }) }).click();
+  await row.getByRole("button", { name: copy.questions.item.stopConfirm }).click(); // stopping asks first
+  await expect(page.getByText(copy.questions.done.stopped)).toBeVisible();
 
   const asked = await rows<{ text: string }>("select text from questions where group_id = $1 and archived_at is null", [loop.groupId]);
-  expect(asked.map((item) => item.text)).toEqual(["What are you looking forward to?"]);
+  expect(asked.map((item) => item.text)).toEqual([copy.questionPacks[0].questions[1]]);
   const snapshot = await rows<{ text: string }>("select text from issue_questions order by position");
-  expect(snapshot[0].text).toBe("What made you laugh this week?");
+  expect(snapshot[0].text).toBe(copy.questionPacks[0].questions[0]);
 
-  await unfold(page, "Stopped (1)");
-  await page.getByRole("button", { name: "Ask again: What made you laugh this week?" }).click();
-  await expect(page.getByText("Asking it again. It's in Up next.")).toBeVisible();
+  await unfold(page, copyText(copy.questions.item.stoppedTitle, { count: "1" }));
+  await page.getByRole("button", { name: copyText(copy.questions.item.askAgainLabel, { item: copy.questionPacks[0].questions[0] }) }).click();
+  await expect(page.getByText(copy.questions.done.again)).toBeVisible();
   const back = await rows<{ text: string }>("select text from questions where group_id = $1 and archived_at is null order by position", [loop.groupId]);
-  expect(back.map((item) => item.text)).toEqual(["What are you looking forward to?", "What made you laugh this week?"]);
-  await expect(page.getByText("Stopped (1)")).toHaveCount(0);
+  expect(back.map((item) => item.text)).toEqual([copy.questionPacks[0].questions[1], copy.questionPacks[0].questions[0]]);
+  await expect(page.getByText(copyText(copy.questions.item.stoppedTitle, { count: "1" }))).toHaveCount(0);
 });

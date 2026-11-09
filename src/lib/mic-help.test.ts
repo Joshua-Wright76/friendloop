@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { micHelp, micPlatform } from "./mic-help.ts";
+import { copy, copyPattern, text } from "./copy.ts";
 
 const UA = {
   iphoneChrome: "Mozilla/5.0 (iPhone; CPU iPhone OS 18_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) CriOS/141.0.7390.96 Mobile/15E148 Safari/604.1",
@@ -30,25 +31,25 @@ test("an iPad asking for the desktop site still counts as an iPad, but a Mac doe
 
 test("Chrome on an iPhone is walked to Settings, Apps, Chrome, Microphone", () => {
   const help = micHelp({ userAgent: UA.iphoneChrome, host: "friendloop.dev" });
-  assert.match(help.intro, /Chrome on this iPhone/);
+  assert.equal(help.intro, text(copy.micHelp.intro.ios, { app: "Chrome", device: "iPhone" }));
   assert.deepEqual(help.steps.map((step) => step.screen.kind), ["home", "list", "list", "toggle", "retry"]);
-  assert.deepEqual(help.steps[2].screen, { kind: "list", title: "Apps", target: "Chrome", back: true });
-  assert.match(help.steps[2].text, /Find Chrome/);
-  assert.deepEqual(help.steps[3].screen, { kind: "toggle", title: "Chrome", target: "Microphone" });
+  assert.deepEqual(help.steps[2].screen, { kind: "list", title: copy.micHelp.screens.apps, target: "Chrome", back: true });
+  assert.equal(help.steps[2].text, text(copy.micHelp.steps.findApp, { app: "Chrome" }));
+  assert.deepEqual(help.steps[3].screen, { kind: "toggle", title: "Chrome", target: copy.micHelp.screens.microphone });
   assert.match(help.note ?? "", /Chrome/);
 });
 
 test("Safari on an iPhone ends on the website setting, set to Allow", () => {
   const help = micHelp({ userAgent: UA.iphoneSafari, host: "friendloop.dev" });
   assert.deepEqual(help.steps.map((step) => step.screen.kind), ["home", "list", "list", "list", "choice", "retry"]);
-  assert.deepEqual(help.steps[4].screen, { kind: "choice", title: "Microphone", options: ["Ask", "Deny", "Allow"], pick: 2 });
-  assert.match(help.note ?? "", /Website Settings/);
+  assert.deepEqual(help.steps[4].screen, { kind: "choice", title: copy.micHelp.screens.microphone, options: copy.micHelp.screens.choices, pick: 2 });
+  assert.match(help.note ?? "", copyPattern(copy.micHelp.notes.iosSafari));
 });
 
 test("Safari on a Mac uses its menu for this site", () => {
   const help = micHelp({ userAgent: UA.macSafari, host: "friendloop.dev" });
-  assert.deepEqual(help.steps[0].screen, { kind: "list", title: "Safari", target: "Settings for friendloop.dev…" });
-  assert.match(help.steps[0].text, /Settings for friendloop\.dev/);
+  assert.deepEqual(help.steps[0].screen, { kind: "list", title: "Safari", target: text(copy.micHelp.screens.settingsFor, { host: "friendloop.dev" }) });
+  assert.equal(help.steps[0].text, text(copy.micHelp.steps.safariMenu, { host: "friendloop.dev" }));
   assert.equal(help.steps.at(-1)?.screen.kind, "retry");
   assert.equal(help.note, undefined);
 });
@@ -60,5 +61,5 @@ test("Android and desktop browsers start from the icon beside the address", () =
 
   const desktop = micHelp({ userAgent: UA.windows, host: "dev.friendloop.dev" });
   assert.deepEqual(desktop.steps.map((step) => step.screen.kind), ["address", "toggle", "retry"]);
-  assert.deepEqual(desktop.steps[1].screen, { kind: "toggle", title: "dev.friendloop.dev", target: "Microphone" });
+  assert.deepEqual(desktop.steps[1].screen, { kind: "toggle", title: "dev.friendloop.dev", target: copy.micHelp.screens.microphone });
 });

@@ -13,6 +13,7 @@ import { openRound } from "../../src/lib/rounds.ts";
 import { sweep } from "../../src/lib/sweep.ts";
 import { AFTER_FIRST_SLOT, DELIVERY_DAY, rows, seedLoop, setupDatabase } from "../support/app.ts";
 import { clearRequest, setRequestHeaders } from "../stubs/request.mjs";
+import { copy, text as copyText } from "@/lib/copy";
 
 setupDatabase();
 
@@ -105,7 +106,7 @@ test("a birthday inside the window becomes a card titled with the member's name,
   await sweep({ at: AFTER_FIRST_SLOT });
   const found = await eventSections();
   assert.equal(found.length, 1);
-  assert.equal(found[0].title, "Alice's birthday");
+  assert.equal(found[0].title, copyText(copy.events.birthdayRow, { name: "Alice" }));
   assert.equal(found[0].about, (await aliceOf(loop)).id);
   assert.equal(found[0].emoji, "🎉");
   assert.equal(found[0].event_date, "2026-01-06");
@@ -206,7 +207,7 @@ test("editing or removing a date, or renaming the member, never rewrites an issu
     at: AFTER_FIRST_SLOT,
   });
   let found = await eventSections();
-  assert.equal(found[0].title, "Alice's birthday");
+  assert.equal(found[0].title, copyText(copy.events.birthdayRow, { name: "Alice" }));
   assert.equal(found[0].emoji, "🎉");
   assert.equal(found[0].event_date, "2026-01-06");
 
@@ -214,7 +215,7 @@ test("editing or removing a date, or renaming the member, never rewrites an issu
   await db.delete(questions).where(eq(questions.id, event.id));
   found = await eventSections();
   assert.equal(found.length, 1);
-  assert.equal(found[0].title, "Alice's birthday");
+  assert.equal(found[0].title, copyText(copy.events.birthdayRow, { name: "Alice" }));
   assert.equal(found[0].event_id, null);
 });
 
@@ -251,7 +252,7 @@ test("an event added while a round is open joins that round when its date is ins
   await addBirthday(loop, "1990-01-07");
   await addBirthday(loop, "1990-03-01", "bob");
   const found = await eventSections();
-  assert.deepEqual(found.map((row) => row.title), ["Alice's birthday"]);
+  assert.deepEqual(found.map((row) => row.title), [copyText(copy.events.birthdayRow, { name: "Alice" })]);
 
   // A round asks an item once: moving the date to another day in the same round
   // keeps the card it already has, as it was.
@@ -275,7 +276,7 @@ test("a birthday card is answered on the reply sheet like any question and deliv
   const bob = loop.members.find((member) => member.email.startsWith("bob"))!;
 
   const sheet = await sheetFor(bob.token);
-  const card = sheet!.questions.find((item) => item.text === "Alice's birthday")!;
+  const card = sheet!.questions.find((item) => item.text === copyText(copy.events.birthdayRow, { name: "Alice" }))!;
   assert.equal(card.format, "written");
   assert.equal(card.emoji, "🎉");
 
@@ -285,7 +286,7 @@ test("a birthday card is answered on the reply sheet like any question and deliv
   const delivered = await sweep({ at: DELIVERY_DAY });
   assert.equal(delivered.delivered, 1);
   const [email] = await rows<{ html: string }>("select html from outbox where kind = 'delivery' limit 1");
-  assert.ok(email.html.includes("Alice&#39;s birthday") || email.html.includes("Alice's birthday"));
+  assert.ok(email.html.includes("Alice&#39;s birthday") || email.html.includes(copyText(copy.events.birthdayRow, { name: "Alice" })));
   assert.ok(email.html.includes("Happy birthday, Alice!"));
 });
 
@@ -297,7 +298,7 @@ test("the birthday person never sees or fills in their own card", async () => {
   const bob = loop.members.find((member) => member.email.startsWith("bob"))!;
 
   // Everyone else is asked; Alice isn't, so the surprise holds.
-  const card = (await sheetFor(bob.token))!.questions.find((item) => item.text === "Alice's birthday");
+  const card = (await sheetFor(bob.token))!.questions.find((item) => item.text === copyText(copy.events.birthdayRow, { name: "Alice" }));
   assert.ok(card);
   assert.equal((await sheetFor(alice.token))!.questions.some((item) => item.id === card.id), false);
 
@@ -317,7 +318,7 @@ test("the list is soonest first, finished one-time events last, with labels and 
   await db.update(memberships).set({ name: null }).where(eq(memberships.id, alice.id));
 
   const list = await eventsOf(group, new Date("2026-01-10T12:00:00Z"));
-  assert.deepEqual(list.map((item) => item.label), ["Zebra party", "alice's birthday", "Aardvark party"]);
+  assert.deepEqual(list.map((item) => item.label), ["Zebra party", copyText(copy.events.birthdayRow, { name: "alice" }), "Aardvark party"]);
   assert.equal(list[0].nextLabel, "Tue, Jan 20");
   assert.equal(list[1].nextDate, "2026-03-09");
   assert.equal(list[1].inputDate, "2026-03-09");
@@ -327,7 +328,7 @@ test("the list is soonest first, finished one-time events last, with labels and 
   // Two finished events order by name.
   await createEvent({ kind: "once", title: "Another one", emoji: "", date: "2026-01-02", membershipId: null, group, at: BEFORE_ANY_ISSUE });
   const later = await eventsOf(group, new Date("2026-02-01T12:00:00Z"));
-  assert.deepEqual(later.map((item) => item.label), ["alice's birthday", "Aardvark party", "Another one", "Zebra party"]);
+  assert.deepEqual(later.map((item) => item.label), [copyText(copy.events.birthdayRow, { name: "alice" }), "Aardvark party", "Another one", "Zebra party"]);
 });
 
 test("an event form is checked against the loop", async () => {
@@ -430,7 +431,7 @@ test("several events in one window follow the calendar, after the questions and 
   await sweep({ at: AFTER_FIRST_SLOT });
 
   const order = await rows<{ title: string }>("select text as title from issue_questions order by position asc");
-  assert.deepEqual(order.map((row) => row.title), ["Q1", "The potluck corner", "Alice's birthday", "Bob's birthday"]);
+  assert.deepEqual(order.map((row) => row.title), ["Q1", "The potluck corner", copyText(copy.events.birthdayRow, { name: "Alice" }), copyText(copy.events.birthdayRow, { name: "Bob" })]);
 });
 
 test("a stopped date is not placed, and a date's own words and emoji ride into the card", async () => {

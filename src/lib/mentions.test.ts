@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { bodyParts, excerpt, isUuid, markMentions, mentionIds, plainBody } from "./mentions.ts";
 import { activeMention, insertMention, matchMentionables, MENTION_RESULTS } from "./mention-picker.ts";
+import { copy } from "./copy.ts";
 
 const MAYA = "11111111-1111-4111-8111-111111111111";
 const SAM = "22222222-2222-4222-8222-222222222222";
@@ -42,18 +43,18 @@ test("stored bodies read back as parts, ids, and plain text", () => {
   assert.deepEqual(mentionIds(body), [MAYA, SAM]);
 
   const names = new Map([[MAYA, "Maya"]]);
-  assert.deepEqual(bodyParts(body, names, "someone"), [
+  assert.deepEqual(bodyParts(body, names, copy.issue.unknownMention), [
     { type: "text", text: "Hi " },
     { type: "mention", id: MAYA, name: "Maya" },
     { type: "text", text: " and " },
-    { type: "mention", id: SAM, name: "someone" },
+    { type: "mention", id: SAM, name: copy.issue.unknownMention },
     { type: "text", text: "! " },
     { type: "mention", id: MAYA, name: "Maya" },
     { type: "text", text: " again" },
   ]);
-  assert.equal(plainBody(body, names, "someone"), "Hi @Maya and @someone! @Maya again");
-  assert.deepEqual(bodyParts("plain", names, "someone"), [{ type: "text", text: "plain" }]);
-  assert.deepEqual(bodyParts("", names, "someone"), []);
+  assert.equal(plainBody(body, names, copy.issue.unknownMention), `Hi @Maya and @${copy.issue.unknownMention}! @Maya again`);
+  assert.deepEqual(bodyParts("plain", names, copy.issue.unknownMention), [{ type: "text", text: "plain" }]);
+  assert.deepEqual(bodyParts("", names, copy.issue.unknownMention), []);
 });
 
 test("uuid check and excerpts", () => {

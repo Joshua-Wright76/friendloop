@@ -16,30 +16,29 @@ import {
 } from "./templates.ts";
 import { emailPatternTiles } from "../stationery.ts";
 import { COVER_TINTS, coverOf } from "../looks.ts";
-import { copy, text } from "../copy.ts";
+import { copy, text, copyPattern, text as copyText } from "../copy.ts";
 
 test("sign-in email carries the link and the code, and says how long both last", () => {
   const email = signInEmail("https://friendloop.dev/signin/confirm?token=test", "042917");
-  const note = "The link and code work for 4 days, as many times as you need. If you didn't ask to sign in, you can ignore this email.";
+  const note = copy.emails.signIn.note;
+  const cta = `>${copy.emails.signIn.cta}</a>`;
 
   // In the subject, so a phone's notification (and its code autofill) has it without opening the email.
-  assert.equal(email.subject, "Sign in to Friendloop: 042917");
-  assert.match(email.html, /Sign in to Friendloop/);
-  assert.match(email.html, />Sign in<\/a>/);
+  assert.equal(email.subject, text(copy.emails.signIn.subject, { code: "042917" }));
+  assert.match(email.html, copyPattern(copy.emails.signIn.heading));
+  assert.ok(email.html.includes(cta));
   assert.match(email.html, /letter-spacing:8px;[^>]*>042917<\/td>/);
   assert.ok(email.html.includes(note.replace("'", "&#39;")));
-  assert.ok(email.html.indexOf(">Sign in</a>") < email.html.indexOf(">042917<"));
-  assert.match(email.text, /Sign in: https:\/\/friendloop\.dev\/signin\/confirm\?token=test/);
-  assert.match(email.text, /Or type this code: 042917/);
-  assert.ok(email.text.includes(note));
+  assert.ok(email.html.indexOf(cta) < email.html.indexOf(">042917<"));
+  assert.ok(email.text.includes(text(copy.emails.signIn.text, { url: "https://friendloop.dev/signin/confirm?token=test", code: "042917", note })));
 });
 
 test("join email names the loop and carries the link and the code", () => {
   const email = joinEmail("Friday Loop", "https://friendloop.dev/signin/confirm?token=test", "042917");
-  assert.equal(email.subject, "Join Friday Loop: 042917");
-  assert.match(email.html, />Join Friday Loop<\/a>/);
+  assert.equal(email.subject, text(copy.emails.join.subject, { groupName: "Friday Loop", code: "042917" }));
+  assert.ok(email.html.includes(`>${text(copy.emails.join.cta, { groupName: "Friday Loop" })}</a>`));
   assert.match(email.html, /letter-spacing:8px;[^>]*>042917<\/td>/);
-  assert.match(email.text, /Confirm and join: https:\/\/friendloop\.dev\/signin\/confirm\?token=test/);
+  assert.ok(email.text.includes(text(copy.emails.join.text, { groupName: "Friday Loop", url: "https://friendloop.dev/signin/confirm?token=test", code: "042917", note: copy.emails.join.note })));
   assert.match(email.text, /Or type this code: 042917/);
 });
 
@@ -78,7 +77,7 @@ test("invite email includes a personal note without treating it as markup", () =
     personalNote: note,
   });
 
-  assert.ok(email.html.includes("A note from Dev: A short hello &lt;from me&gt;"));
+  assert.ok(email.html.includes(text(copy.emails.invite.personalNote, { inviterName: "Dev", personalNote: "A short hello &lt;from me&gt;" })));
   assert.ok(email.text.includes(`A note from Dev: ${note}`));
 });
 
@@ -90,7 +89,7 @@ test("delivery email points to web comments without promising inbound replies", 
     answers: [{ question: "What made you laugh?", author: "Dev", body: "The cat fist bump." }],
   });
 
-  assert.match(email.html, /open the round to read and comment/);
+  assert.match(email.html, copyPattern(copy.emails.delivery.replyFooter));
   assert.doesNotMatch(email.html, /reply to this email/);
 });
 
@@ -104,10 +103,10 @@ test("a mention email names who said it, quotes it, and links to the issue", () 
     url: "https://friendloop.dev/i/1?m=token",
   });
 
-  assert.equal(email.subject, "Alex mentioned you in Friday Loop");
+  assert.equal(email.subject, text(copy.emails.mention.subject, { authorName: "Alex", groupName: "Friday Loop" }));
   assert.match(email.html, /@Maya &lt;b&gt;this&lt;\/b&gt; is yours/);
-  assert.match(email.html, /See the comment/);
-  assert.match(email.text, /Maya, Alex mentioned you in a comment on round 4 of Friday Loop:/);
+  assert.match(email.html, copyPattern(copy.emails.mention.cta));
+  assert.match(email.text, copyPattern(copy.emails.mention.text, { values: { memberName: "Maya", authorName: "Alex", issueRef: text(copy.emails.roundRef, { number: 4 }), groupName: "Friday Loop" } }));
   assert.match(email.text, /https:\/\/friendloop\.dev\/i\/1\?m=token/);
 });
 
@@ -176,29 +175,30 @@ test("a named round replaces its number in the subject, headings and sentences",
     groupName: "Friday Loop", issueNumber: 2, issueName: "Camping weekend", url: "https://friendloop.dev/issue",
     answers: [{ question: "q", author: "Dev", body: "b" }],
   });
-  assert.equal(delivery.subject, "Friday Loop · Camping weekend");
-  assert.match(delivery.html, /<h1[^>]*>Camping weekend<\/h1>/);
-  assert.match(delivery.text, /Friday Loop · Camping weekend/);
+  assert.equal(delivery.subject, text(copy.emails.delivery.subject, { groupName: "Friday Loop", issueHeading: "Camping weekend" }));
+  assert.match(delivery.html, new RegExp(`<h1[^>]*>${copyPattern(copy.emails.delivery.heading, { values: { issueHeading: "Camping weekend" } }).source}</h1>`));
+  assert.match(delivery.text, copyPattern(copy.emails.delivery.text, { values: { groupName: "Friday Loop", issueHeading: "Camping weekend" } }));
 
   const unnamed = deliveryEmail({
     groupName: "Friday Loop", issueNumber: 2, url: "https://friendloop.dev/issue",
     answers: [{ question: "q", author: "Dev", body: "b" }],
   });
-  assert.equal(unnamed.subject, "Friday Loop · round 2");
-  assert.match(unnamed.html, /<h1[^>]*>Round 2<\/h1>/);
+  const roundTwo = text(copy.emails.roundHeading, { number: 2 });
+  assert.equal(unnamed.subject, text(copy.emails.delivery.subject, { groupName: "Friday Loop", issueHeading: roundTwo }));
+  assert.match(unnamed.html, new RegExp(`<h1[^>]*>${copyPattern(copy.emails.delivery.heading, { values: { issueHeading: roundTwo } }).source}</h1>`));
 
   const prompt = promptEmail({
     groupName: "Friday Loop", memberName: "Dev", issueNumber: 3, issueName: "Camping weekend", questionCount: 2,
     url: "https://friendloop.dev/answer", deadlineLabel: "Friday",
   });
-  assert.match(prompt.html, /Camping weekend is open/);
-  assert.match(prompt.text, /Friday Loop Camping weekend is open/);
+  assert.match(prompt.html, copyPattern(copy.emails.prompt.heading, { values: { issueHeading: "Camping weekend" } }));
+  assert.match(prompt.text, copyPattern(copy.emails.prompt.text, { values: { groupName: "Friday Loop", issueRef: "Camping weekend" } }));
 
   const mention = mentionEmail({
     groupName: "Friday Loop", memberName: "Dev", authorName: "Alex", issueNumber: 2, issueName: "Camping weekend",
     excerpt: "hi", url: "https://friendloop.dev/i/1",
   });
-  assert.match(mention.text, /a comment on Camping weekend of Friday Loop/);
+  assert.match(mention.text, copyPattern(copy.emails.mention.text, { values: { memberName: "Dev", authorName: "Alex", issueRef: "Camping weekend", groupName: "Friday Loop" } }));
 });
 
 test("the delivery email asks each question once and shows a poll's results once", () => {
@@ -216,8 +216,9 @@ test("the delivery email asks each question once and shows a poll's results once
   assert.equal(email.html.split("Where should we camp?").length - 1, 1);
   assert.equal(email.html.split(results).length - 1, 1);
   assert.match(email.html, /Dev[\s\S]*The cat\.[\s\S]*Sam[\s\S]*The geese\./);
-  assert.ok(email.text.includes(`What made you laugh?\nDev: The cat.\nSam: The geese.`));
-  assert.ok(email.text.includes(`Where should we camp?\n${results}\nDev: Chose: The lake\nSam: Chose: The lake`));
+  const line = (author: string, body: string) => text(copy.emails.delivery.textAnswer, { author, body });
+  assert.ok(email.text.includes(`What made you laugh?\n${line("Dev", "The cat.")}\n${line("Sam", "The geese.")}`));
+  assert.ok(email.text.includes(`Where should we camp?\n${results}\n${line("Dev", copyText(copy.polls.emails.chose, { choices: "The lake" }))}\n${line("Sam", "Chose: The lake")}`));
 });
 
 test("a music pick's link says where it opens", () => {
@@ -231,16 +232,30 @@ test("a music pick's link says where it opens", () => {
       ],
     }],
   });
-  assert.match(email.html, />Open in Spotify<\/a>/);
-  assert.match(email.html, />Open in Bandcamp<\/a>/);
-  assert.doesNotMatch(email.html, /Listen on the web/);
+  const openIn = (provider: string) => `>${text(copy.emails.openIn, { provider })}</a>`;
+  assert.ok(email.html.includes(openIn(copy.emails.musicProviders.spotify)));
+  assert.ok(email.html.includes(openIn(copy.emails.musicProviders.bandcamp)));
+  assert.doesNotMatch(email.html, copyPattern(copy.emails.voiceNoteListen));
+});
+
+test("a written answer's music link goes out with it, in HTML and plain text", () => {
+  const email = deliveryEmail({
+    groupName: "Friday Loop", issueNumber: 2, url: "https://friendloop.dev/i/1",
+    answers: [
+      { question: "What's on repeat?", author: "Dev", body: "This, all week.", linkUrl: "https://open.spotify.com/playlist/abc", linkTitle: "Summer <3" },
+      { question: "What's on repeat?", author: "Sam", body: "Nothing new." },
+    ],
+  });
+  assert.match(email.html, /This, all week\.[\s\S]*<strong>Summer &lt;3<\/strong> <a href="https:\/\/open\.spotify\.com\/playlist\/abc"[^>]*>Open in Spotify<\/a>/);
+  assert.equal(email.html.split(copyText(copy.emails.openIn, { provider: copy.emails.musicProviders.spotify })).length - 1, 1);
+  assert.ok(email.text.includes("Dev: This, all week. https://open.spotify.com/playlist/abc\nSam: Nothing new."));
 });
 
 test("music link labels fall back to a plain one", async () => {
   const { musicLinkLabel } = await import("./templates.ts");
-  assert.equal(musicLinkLabel("https://play.qobuz.com/album/1"), "Open in Qobuz");
-  assert.equal(musicLinkLabel("https://example.com/song"), "Open the link");
-  assert.equal(musicLinkLabel("not a url"), "Open the link");
+  assert.equal(musicLinkLabel("https://play.qobuz.com/album/1"), text(copy.emails.openIn, { provider: copy.emails.musicProviders.qobuz }));
+  assert.equal(musicLinkLabel("https://example.com/song"), copy.emails.openLink);
+  assert.equal(musicLinkLabel("not a url"), copy.emails.openLink);
 });
 
 test("every loop email can carry a visible 'stop emails' link in HTML and plain text; sign-in never does", () => {
@@ -256,16 +271,16 @@ test("every loop email can carry a visible 'stop emails' link in HTML and plain 
   ];
   for (const email of loopEmails) {
     assert.ok(email.html.includes(`href="${stop}"`), email.subject);
-    assert.ok(email.html.includes("Stop emails from this loop"), email.subject);
+    assert.ok(email.html.includes(copy.emails.stopLink), email.subject);
     assert.ok(email.text.includes(`Stop emails from this loop: ${stop}`), email.subject);
     assert.match(email.text, /Privacy: \S+\/privacy\nTerms: \S+\/terms$/, email.subject);
   }
 
   const withoutLink = promptEmail({ groupName: "G", memberName: "M", issueNumber: 1, questionCount: 2, url: "https://x/r/t", deadlineLabel: "Fri" });
-  assert.ok(!withoutLink.html.includes("Stop emails from this loop"));
-  assert.ok(!withoutLink.text.includes("Stop emails"));
+  assert.ok(!withoutLink.html.includes(copy.emails.stopLink));
+  assert.ok(!withoutLink.text.includes(copy.unsubscribe.confirm));
   const signIn = signInEmail("https://x/signin", "123456");
-  assert.ok(!signIn.html.includes("Stop emails from this loop"));
+  assert.ok(!signIn.html.includes(copy.emails.stopLink));
   assert.match(signIn.text, /Privacy: \S+\/privacy\nTerms: \S+\/terms$/);
 });
 
@@ -285,10 +300,10 @@ test("a music pick in the delivery email carries its title when the provider gav
   const base = { groupName: "Loop", issueNumber: 1, url: "https://example.com/i/1", answers: [] };
   const titled = deliveryEmail({ ...base, sections: [{ title: "Songs", emoji: null, answers: [{ author: "Alice", body: "On repeat", linkUrl: "https://open.spotify.com/track/1", linkTitle: "Rain & Song" }] }] });
   assert.match(titled.html, /Rain &amp; Song/);
-  assert.match(titled.html, /Open in Spotify/);
+  assert.match(titled.html, copyPattern(copy.emails.openIn, { values: { provider: copy.emails.musicProviders.spotify } }));
   const untitled = deliveryEmail({ ...base, sections: [{ title: "Songs", emoji: null, answers: [{ author: "Alice", body: "", linkUrl: "https://open.spotify.com/track/1", linkTitle: null }] }] });
   assert.doesNotMatch(untitled.html, /<strong>/);
-  assert.match(untitled.html, /Open in Spotify/);
+  assert.match(untitled.html, copyPattern(copy.emails.openIn, { values: { provider: copy.emails.musicProviders.spotify } }));
 });
 
 test("a mascot goes out as a picture from the app's own address; the cherries stay the emoji they were", () => {
@@ -498,3 +513,24 @@ function ROUND_INPUT() {
     ] as Parameters<typeof deliveryEmail>[0]["answers"],
   };
 }
+
+test("a video in the delivery email is its still, linked to the web issue with its length", () => {
+  const email = deliveryEmail({
+    groupName: "Loop",
+    issueNumber: 3,
+    url: "https://friendloop.dev/i/abc",
+    answers: [
+      {
+        question: "What did you see?",
+        author: "Alice",
+        body: "",
+        videoPosterUrl: "https://store.public.blob.vercel-storage.com/reply-photos/still.jpg",
+        videoDurationMs: 42_000,
+      },
+      { question: "What did you see?", author: "Bob", body: "Nothing much" },
+    ],
+  });
+  assert.match(email.html, /<a href="https:\/\/friendloop\.dev\/i\/abc"[^>]*><img src="https:\/\/store\.public\.blob\.vercel-storage\.com\/reply-photos\/still\.jpg" alt="Video from Alice, 0:42"/);
+  assert.match(email.html, /Video · 0:42\. <a href="https:\/\/friendloop\.dev\/i\/abc"[^>]*>Watch it on the web<\/a>/);
+  assert.equal(email.html.match(/still\.jpg/g)?.length, 1, "Bob's answer has no clip");
+});

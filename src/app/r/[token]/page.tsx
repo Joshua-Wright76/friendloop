@@ -1,7 +1,9 @@
+import { videoUploadMode } from "@/lib/video-storage";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { formatMoment } from "@/lib/format";
 import { resolveToken, sheetFor } from "@/lib/reply";
+import { currentUser } from "@/lib/auth";
 import { LoopTheme } from "@/components/loop-theme";
 import { ProfilePhoto } from "@/components/profile-photo";
 import { Brand, Tape } from "@/components/stationery";
@@ -87,7 +89,7 @@ export default async function ReplyPage({ params }: { params: Promise<{ token: s
     );
   }
 
-  const sheet = await sheetFor(token);
+  const [sheet, user] = await Promise.all([sheetFor(token), currentUser()]);
   if (!sheet || !sheet.context.issue) {
     return (
       <>
@@ -114,6 +116,8 @@ export default async function ReplyPage({ params }: { params: Promise<{ token: s
     <ReplySheet
       token={token}
       loopName={context.group.name}
+      // Only the account this link belongs to can open the loop page, so only it is offered the way there.
+      loopHref={user && user.id === context.membership.userId ? `/g/${context.group.id}` : null}
       loopTimezone={context.group.timezone}
       roundNumber={issue.number}
       roundName={issue.name}
@@ -131,6 +135,7 @@ export default async function ReplyPage({ params }: { params: Promise<{ token: s
       mutedUnsubscribeToken={context.membership.mutedAt ? context.membership.unsubscribeToken : null}
       celebration={marksOf(context.group).celebration}
       mascot={context.group.themeMascot}
+      videoUploadMode={videoUploadMode()}
       questions={sheet.questions.map((question, index) => ({
         id: question.id,
         index: index + 1,
@@ -147,6 +152,9 @@ export default async function ReplyPage({ params }: { params: Promise<{ token: s
         photoUrl: question.photoUrl,
         audioUrl: question.audioUrl,
         audioDurationMs: question.audioDurationMs,
+        video: question.videoUrl && question.videoPosterUrl
+          ? { url: question.videoUrl, posterUrl: question.videoPosterUrl, durationMs: question.videoDurationMs ?? 0 }
+          : null,
         kind: question.kind,
         pollMultiple: question.pollMultiple,
         pollOptions: question.pollOptions,

@@ -19,7 +19,7 @@ export { E2E_NOW, AFTER_FIRST_SLOT, BEFORE_FIRST_SLOT, DELIVERY_DAY, DAY, HOUR }
 /**
  * Every database-backed test file starts here.
  *
- * `npm run test:integration` builds the schema once for the whole run, but a
+ * `npm run test:integration` clones a migrated schema for each file, but a
  * single file is also runnable on its own (`node --test test/lib/auth…`), and a
  * guard that only works when a runner-wide hook happened to fire is not a guard.
  * So: empty every table between tests, and build the schema here if the database

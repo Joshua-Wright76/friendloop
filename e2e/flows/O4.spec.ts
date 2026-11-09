@@ -2,6 +2,7 @@ import { test, expect } from "@playwright/test";
 import { resetDatabase, rows } from "../support/db";
 import { seedLoop } from "../support/seed";
 import { AFTER_FIRST_SLOT, DELIVERY_DAY, E2E_NOW, freezeClock, openItem, runSweep, signIn } from "../support/harness";
+import { copy, text, copyPattern, text as copyText } from "@/lib/copy";
 
 test.beforeEach(async () => {
   await resetDatabase();
@@ -16,9 +17,9 @@ test("O4 · a round keeps the event section it was given, whatever happens to th
 
   // Bob writes his message while the event still exists.
   await page.goto(`/r/${bob.token}`);
-  await page.getByRole("textbox", { name: "Alice's birthday" }).fill("Many happy returns.");
-  await page.getByRole("button", { name: "Done", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "All set", exact: true })).toBeVisible();
+  await page.getByRole("textbox", { name: text(copy.events.birthdayRow, { name: "Alice" }) }).fill("Many happy returns.");
+  await page.getByRole("button", { name: copy.reply.done, exact: true }).click();
+  await expect(page.getByRole("heading", { name: copy.reply.confirmation.title, exact: true })).toBeVisible();
 
   // Alice is renamed, then the owner edits the event to someone else's date and deletes it.
   await rows("update memberships set name = 'Alicia' where id = $1", [alice.id]);
@@ -26,31 +27,31 @@ test("O4 · a round keeps the event section it was given, whatever happens to th
   await freezeClock(page, E2E_NOW);
   await page.goto(`/g/${loop.groupId}/questions`);
   // The row in Up next is live; the card in this round keeps its title.
-  await expect(page.getByRole("list", { name: "Events and birthdays, soonest first" })).toContainText("Alicia's birthday");
-  const item = await openItem(page, "Alicia's birthday");
-  await item.getByLabel(/^Date/).fill("1990-05-05");
-  await item.getByLabel("Emoji").fill("🎈");
-  await item.getByRole("button", { name: "Save changes" }).click();
-  await expect(page.getByText("Saved.")).toBeVisible();
-  const again = await openItem(page, "Alicia's birthday");
-  await again.getByRole("button", { name: "Stop asking: Alicia's birthday" }).click();
-  await again.getByRole("button", { name: "Yes, stop asking" }).click(); // stopping asks first
+  await expect(page.getByRole("list", { name: copy.questions.upNext.datedLabel })).toContainText(text(copy.events.birthdayRow, { name: "Alicia" }));
+  const item = await openItem(page, copyText(copy.events.birthdayRow, { name: "Alicia" }));
+  await item.getByLabel(copyPattern(copy.questions.item.dateLabel, { start: true })).fill("1990-05-05");
+  await item.getByLabel(copy.questions.item.emojiLabel).fill("🎈");
+  await item.getByRole("button", { name: copy.questions.item.save }).click();
+  await expect(page.getByText(copy.settings.savedNotice)).toBeVisible();
+  const again = await openItem(page, copyText(copy.events.birthdayRow, { name: "Alicia" }));
+  await again.getByRole("button", { name: text(copy.questions.item.stopLabel, { item: copyText(copy.events.birthdayRow, { name: "Alicia" }) }) }).click();
+  await again.getByRole("button", { name: copy.questions.item.stopConfirm }).click(); // stopping asks first
   // Bob wrote in it, so this round keeps it.
-  await expect(page.getByText("Stopped asking. Someone has written there this round, so this round keeps it.")).toBeVisible();
+  await expect(page.getByText(copy.questions.done.stoppedStays)).toBeVisible();
 
   // The open round still reads exactly as it was snapshotted.
   const snapshots = await rows<{ title: string; emoji: string; event_id: string | null; event_date: string }>(
     "select text as title, emoji, question_id as event_id, occurrence_date::text as event_date from issue_questions where occurrence_date is not null",
   );
-  expect(snapshots.map((row) => ({ ...row, event_id: row.event_id !== null }))).toEqual([{ title: "Alice's birthday", emoji: "🎂", event_id: true, event_date: "2026-01-06" }]);
+  expect(snapshots.map((row) => ({ ...row, event_id: row.event_id !== null }))).toEqual([{ title: text(copy.events.birthdayRow, { name: "Alice" }), emoji: "🎂", event_id: true, event_date: "2026-01-06" }]);
   await page.goto(`/r/${bob.token}`);
-  await expect(page.getByRole("textbox", { name: "Alice's birthday" })).toHaveValue("Many happy returns.");
+  await expect(page.getByRole("textbox", { name: text(copy.events.birthdayRow, { name: "Alice" }) })).toHaveValue("Many happy returns.");
 
   // And so does the delivered issue.
   await runSweep(DELIVERY_DAY);
   const [issue] = await rows<{ id: string }>("select id from issues order by number asc limit 1");
   await page.goto(`/i/${issue.id}?m=${alice.token}`);
-  await expect(page.getByRole("heading", { name: /Alice's birthday/ })).toBeVisible();
+  await expect(page.getByRole("heading", { name: copyPattern(copy.events.section.birthdayTitle, { values: { name: "Alice" } }) })).toBeVisible();
   await expect(page.getByText("Many happy returns.")).toBeVisible();
-  await expect(page.getByText("Alicia's birthday")).toHaveCount(0);
+  await expect(page.getByText(text(copy.events.birthdayRow, { name: "Alicia" }))).toHaveCount(0);
 });

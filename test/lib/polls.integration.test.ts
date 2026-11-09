@@ -13,7 +13,7 @@ import {
 } from "../../src/lib/reply.ts";
 import { sweep } from "../../src/lib/sweep.ts";
 import { answeredMemberIds } from "../../src/lib/answered.ts";
-import { copy } from "../../src/lib/copy.ts";
+import { copy, text as copyText } from "../../src/lib/copy.ts";
 import { latestOutbox, outboxCount, resetDatabase, rows, seedLoop, seedReplies, setupDatabase } from "../support/app.ts";
 import { seedPoll } from "../../e2e/support/polls.ts";
 import { AFTER_FIRST_SLOT, DELIVERY_DAY, E2E_NOW } from "../../e2e/support/clock.ts";
@@ -248,7 +248,7 @@ test("once delivered, every pick shows by name beside a tally, including to shar
     voters: 2,
   });
   const byAuthor = Object.fromEntries(block.answers.map((answer) => [answer.author, answer.choices]));
-  assert.deepEqual(byAuthor, { You: ["The lake", "The mountains"], Bob: ["The lake"] });
+  assert.deepEqual(byAuthor, { [copy.issue.you]: ["The lake", "The mountains"], Bob: ["The lake"] });
 
   const [{ share_token: shareToken }] = await rows<{ share_token: string }>("select share_token from issues where number = 1");
   const shared = await loadIssue({ shareToken });
@@ -285,9 +285,9 @@ test("a round with only a poll pick still delivers, and the email shows the pick
 
   const email = await latestOutbox("delivery:");
   assert.ok(email.html.includes("Where should we camp?"));
-  assert.ok(email.html.includes("Chose: The coast"));
-  assert.ok(email.html.includes("Results: The lake: 0 · The mountains: 0 · The coast: 1"));
-  assert.ok(email.text.includes("Alice: Chose: The coast"));
+  assert.ok(email.html.includes(copyText(copy.polls.emails.chose, { choices: "The coast" })));
+  assert.ok(email.html.includes(copyText(copy.polls.emails.results, { tally: [["The lake", 0], ["The mountains", 0], ["The coast", 1]].map(([option, votes]) => copyText(copy.polls.issue.tallyLabel, { option, votes })).join(" · ") })));
+  assert.ok(email.text.includes(copyText(copy.emails.delivery.textAnswer, { author: "Alice", body: copyText(copy.polls.emails.chose, { choices: "The coast" }) })));
   // Bob cleared his pick, so he is not in the issue at all.
   assert.ok(!email.html.includes(">Bob<"));
 });
@@ -305,5 +305,5 @@ test("a round whose only content is a cleared poll pick is not sent", async () =
 test("the prompt counts a poll as a question", async () => {
   await openPollLoop();
   const prompt = await latestOutbox("prompt:");
-  assert.ok(prompt.subject.includes("2 questions"));
+  assert.ok(prompt.subject.includes(`2 ${copy.emails.questionPlural}`));
 });

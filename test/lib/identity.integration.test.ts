@@ -33,6 +33,7 @@ import {
   setupDatabase,
 } from "../support/app.ts";
 import { clearRequest, setRequestHeaders } from "../stubs/request.mjs";
+import { copy } from "@/lib/copy";
 
 setupDatabase();
 
@@ -124,14 +125,14 @@ test("a header picture is stored, replaced without leaving the old file, and cle
 test("a header picture must be a real image under its own cap, for a loop that exists", async (t) => {
   const loop = await seedLoop();
   const text = await setHeaderImage(loop.groupId, { bytes: new TextEncoder().encode("not an image"), type: "image/png" });
-  assert.deepEqual(text, { ok: false, status: 415, error: "Use a JPEG, PNG, WebP or GIF picture." });
+  assert.deepEqual(text, { ok: false, status: 415, error: copy.identity.errors.invalidImage });
   const mismatch = await setHeaderImage(loop.groupId, { bytes: PNG, type: "image/jpeg" });
   assert.equal(mismatch.ok === false && mismatch.status, 415);
 
   const big = new Uint8Array(MAX_BANNER_BYTES + 1);
   big.set(PNG);
   const tooBig = await setHeaderImage(loop.groupId, { bytes: big, type: "image/png" });
-  assert.deepEqual(tooBig, { ok: false, status: 413, error: "That picture is over 4 MB. Try a smaller one." });
+  assert.deepEqual(tooBig, { ok: false, status: 413, error: copy.identity.errors.bannerTooLarge });
   assert.equal((await groupOf(loop.groupId)).headerImageUrl, null);
 
   const { readdir } = await import("node:fs/promises");
@@ -153,7 +154,7 @@ test("a header picture must be a real image under its own cap, for a loop that e
   setEnv("E2E", undefined);
   setEnv("BLOB_READ_WRITE_TOKEN", undefined);
   const failed = await setHeaderImage(loop.groupId, { bytes: PNG, type: "image/png" });
-  assert.deepEqual(failed, { ok: false, status: 500, error: "That picture didn't save. Try again in a moment." });
+  assert.deepEqual(failed, { ok: false, status: 500, error: copy.identity.errors.bannerFailed });
 });
 
 /* ---------------------------- issue names ---------------------------- */
@@ -276,11 +277,11 @@ test("a profile photo is refused when it is not an image, is over 2 MB, or has n
   const alice = loop.members.find((member) => member.email.startsWith("alice"))!;
 
   const text = await setMemberPhoto(alice.id, { bytes: new TextEncoder().encode("nope"), type: "image/png" });
-  assert.deepEqual(text, { ok: false, status: 415, error: "Use a JPEG, PNG, WebP or GIF picture." });
+  assert.deepEqual(text, { ok: false, status: 415, error: copy.identity.errors.invalidImage });
   const big = new Uint8Array(MAX_AVATAR_BYTES + 1);
   big.set(PNG);
   const tooBig = await setMemberPhoto(alice.id, { bytes: big, type: "image/png" });
-  assert.deepEqual(tooBig, { ok: false, status: 413, error: "That photo is over 2 MB. Try a smaller one." });
+  assert.deepEqual(tooBig, { ok: false, status: 413, error: copy.identity.errors.avatarTooLarge });
   const missing = await setMemberPhoto("00000000-0000-4000-8000-000000000000", { bytes: PNG, type: "image/png" });
   assert.equal(missing.ok === false && missing.status, 404);
 
@@ -297,7 +298,7 @@ test("a profile photo is refused when it is not an image, is over 2 MB, or has n
   setEnv("E2E", undefined);
   setEnv("BLOB_READ_WRITE_TOKEN", undefined);
   const failed = await setMemberPhoto(alice.id, { bytes: PNG, type: "image/png" });
-  assert.deepEqual(failed, { ok: false, status: 500, error: "That photo didn't save. Try again in a moment." });
+  assert.deepEqual(failed, { ok: false, status: 500, error: copy.identity.errors.avatarFailed });
 });
 
 test("an image that cannot be removed from storage is logged, not fatal", async (t) => {

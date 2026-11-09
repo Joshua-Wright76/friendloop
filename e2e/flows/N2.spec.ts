@@ -3,6 +3,7 @@ import { resetDatabase, rows } from "../support/db";
 import { seedLoop } from "../support/seed";
 import { DELIVERY_DAY, openPart, runSweep, signIn } from "../support/harness";
 import { PAPER, cssVar, gotoScheme, seedWorld } from "../support/identity";
+import { copy, copyPattern } from "@/lib/copy";
 
 test.beforeEach(async () => {
   await resetDatabase();
@@ -42,13 +43,13 @@ test("N2 · choosing Gingham again stores nothing, so going back is the same as 
   const loop = await seedLoop();
   await signIn(page, "owner@friendloop.test");
   await page.goto(`/g/${loop.groupId}/settings`);
-  await openPart(page, "Stationery");
+  await openPart(page, copy.settings.groupPaper);
 
-  await page.getByRole("radio", { name: /Bluebell Notebook/ }).check();
-  await expect(page.getByText("Saved. Everyone sees it on their next visit.")).toBeVisible();
+  await page.getByRole("radio", { name: copyPattern(copy.stationery.presets.bluebell.name) }).check();
+  await expect(page.getByText(copy.stationery.statusSaved)).toBeVisible();
   await expect.poll(() => cssVar(page, "--page")).toBe(PAPER.bluebell.light);
 
-  await page.getByRole("radio", { name: /Gingham Picnic/ }).check();
+  await page.getByRole("radio", { name: copyPattern(copy.stationery.presets.gingham.name) }).check();
   // The note from the first save may still be up, so wait on the paper itself.
   await expect.poll(() => cssVar(page, "--page")).toBe(PAPER.gingham.light);
 

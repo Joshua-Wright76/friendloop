@@ -23,6 +23,7 @@ import { openRound } from "../../src/lib/rounds.ts";
 import { AFTER_FIRST_SLOT, DAY, rows, seedLoop, seedReplies, setupDatabase } from "../support/app.ts";
 import { addItem, BLANK_ITEM } from "../support/items.ts";
 import { clearRequest, setRequestHeaders } from "../stubs/request.mjs";
+import { copy, text as copyText } from "@/lib/copy";
 
 setupDatabase();
 
@@ -287,7 +288,7 @@ test("the page shows this round in its order, then the queue with each item's ro
   assert.equal(page.queue[0].answered, false);
   assert.deepEqual(page.everyRound.map((entry) => entry.label), ["Wall", "Owners only"]);
   assert.deepEqual(page.dated.map((entry) => [entry.label, entry.nextLabel, entry.firstRound?.number ?? null, entry.inputDate]), [
-    ["Alice's birthday", "Tue, Jan 20", 3, "2026-01-20"],
+    [copyText(copy.events.birthdayRow, { name: "Alice" }), "Tue, Jan 20", 3, "2026-01-20"],
     ["Gone by", null, null, "2026-01-03"],
   ]);
   assert.deepEqual(page.stopped.map((entry) => entry.label), ["Stopped", "Stopped earlier"], "the latest first");

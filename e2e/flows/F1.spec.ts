@@ -2,6 +2,7 @@ import { test, expect } from "@playwright/test";
 import { resetDatabase, rows } from "../support/db";
 import { seedOpenIssue, seedLoop } from "../support/seed";
 import { AFTER_FIRST_SLOT, clockHeaders, pickOption, signIn } from "../support/harness";
+import { copy } from "@/lib/copy";
 
 test.beforeEach(async () => {
   await resetDatabase();
@@ -15,10 +16,10 @@ test("F1 · a schedule change moves when it goes out, the open round included", 
 
   await page.goto(`/g/${loop.groupId}/settings`);
   // The schedule fields are Pickers, not native selects.
-  await pickOption(page, "Day", "Monday");
-  await pickOption(page, "Time", "6:00 PM");
-  await page.getByRole("button", { name: "Save changes" }).click();
-  await expect(page.getByText("Saved.")).toBeVisible();
+  await pickOption(page, copy.settings.day, "Monday");
+  await pickOption(page, copy.settings.time, "6:00 PM");
+  await page.getByRole("button", { name: copy.settings.save }).click();
+  await expect(page.getByText(copy.settings.savedNotice)).toBeVisible();
 
   const [group] = await rows<{ prompt_weekday: number; prompt_hour: number }>(
     "select prompt_weekday, prompt_hour from groups where id = $1",

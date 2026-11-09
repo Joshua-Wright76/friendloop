@@ -2,6 +2,7 @@ import { expect, test } from "@playwright/test";
 import { resetDatabase } from "./support/db";
 import { seedLoop, seedOpenIssue } from "./support/seed";
 import { AFTER_FIRST_SLOT, waitForSheet } from "./support/harness";
+import { copy, copyPattern } from "@/lib/copy";
 
 test.use({ hasTouch: true });
 
@@ -14,7 +15,7 @@ test("theme switch responds to taps and persists across reloads", async ({ page 
   await expect(page.locator(".theme-switch-sun")).toBeAttached();
   await expect(page.locator(".theme-switch-moon")).toBeAttached();
 
-  await page.getByRole("button", { name: /switch to dark mode/ }).tap();
+  await page.getByRole("button", { name: copyPattern(copy.common.theme.switchToDark) }).tap();
   await expect(root).toHaveAttribute("data-theme", "dark");
   await expect.poll(() => page.evaluate(() => localStorage.getItem("friendloop-theme"))).toBe("dark");
 
@@ -32,7 +33,7 @@ test("theme switch responds to taps and persists across reloads", async ({ page 
     )
     .toEqual(["#241a20"]);
 
-  await page.getByRole("button", { name: /switch to light mode/ }).tap();
+  await page.getByRole("button", { name: copyPattern(copy.common.theme.switchToLight) }).tap();
   await expect(root).toHaveAttribute("data-theme", "light");
   await expect.poll(() => page.evaluate(() => localStorage.getItem("friendloop-theme"))).toBe("light");
 
@@ -67,7 +68,7 @@ test("theme switching applies immediately when reduced motion is enabled", async
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto("/");
 
-  await page.getByRole("button", { name: /switch to dark mode/ }).click();
+  await page.getByRole("button", { name: copyPattern(copy.common.theme.switchToDark) }).click();
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
 });
 
@@ -80,7 +81,7 @@ test("on a phone the theme and feedback controls sit after the page, never over 
 
   await page.goto(`/r/${alice.token}`);
   await waitForSheet(page);
-  const feedback = page.getByRole("button", { name: "Send feedback" });
+  const feedback = page.getByRole("button", { name: copy.feedback.open });
   const theme = page.locator(".theme-switch");
   expect(await feedback.evaluate((element) => getComputedStyle(element).position)).toBe("static");
   expect(await theme.evaluate((element) => getComputedStyle(element).position)).toBe("static");

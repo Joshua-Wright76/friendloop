@@ -210,14 +210,60 @@ average exceeds `NAV_BUDGET_MS`.
 ```sh
 npm run verify              # typegen + typecheck + lint + unit + integration + flows + tables + migrations
 npm run test:coverage       # 100% line/function coverage of src/lib, enforced
+TEST_WORKERS=2 npm run test:coverage  # override the local default of four concurrent test files
 npm run e2e                 # Playwright — starts its own Postgres if needed, one database and server per worker
 E2E_WORKERS=1 npm run e2e   # one at a time; the default is a third of your cores, up to 6
 npm run e2e -- --grep-invert "WCAG AA"  # the quick pass: everything but the accessibility sweeps
+npm run e2e:fast           # explicit opt-in: reuse the recorded production build, with fresh DBs and servers
+npm run e2e:fast -- --last-failed
+npm run e2e:fast -- --only-changed
+npm run e2e:fast -- e2e/flows/A1.spec.ts  # normal Playwright file/filter arguments work too
 npm run check:flows -- --strict   # what CI enforces on every run
 npx playwright test e2e/accessibility.spec.ts  # WCAG 2.2 AA axe checks, both themes
 npx playwright test e2e/wcag-sweep.spec.ts e2e/wcag-states.spec.ts --project=desktop  # what axe cannot judge: see below
 E2E_BASE_URL=https://friendloop.dev npx playwright test --grep @probe   # read-only production smoke
 ```
+
+`npm run e2e` remains the clean full-validation path: it builds the current
+source and records a fingerprint of the source, build configuration,
+dependencies, and local env files. `npm run e2e:fast` skips that build only when
+this recorded output still matches; missing, incomplete, mixed, or stale output
+fails with a rebuild instruction. Run the normal `npm run e2e` after changing
+application code, Next configuration, dependencies, or build-time environment.
+Fast runs still create fresh disposable databases, migrate them, and start fresh
+production servers.
+
+For repeated runs with fixed ports and a **persistent disposable** database,
+`E2E_REUSE_SERVER=1` additionally lets Playwright reuse local production servers
+that you start and stop separately. After `npm run e2e` has recorded the current
+build, start a one-worker server in a separate terminal with the complete runtime
+environment (Playwright cannot retrofit env into an already-running process):
+
+```sh
+DATABASE_URL=postgresql://postgres@127.0.0.1:55432/friendloop_test \
+E2E=1 EMAIL_TRANSPORT=outbox \
+RESEND_API_KEY=re_e2e_fake_key RESEND_BASE_URL=http://127.0.0.1:3101/w0 \
+UI_PREVIEW_SECRET=e2e-preview-secret CRON_SECRET=e2e-cron-secret \
+RESEND_WEBHOOK_SECRET=whsec_ZTJlLXJlc2VuZC13ZWJob29rLXNlY3JldA== \
+E2E_APP_URL=http://localhost:3100 NEXT_PUBLIC_APP_URL=http://localhost:3100 \
+npx next start -p 3100
+```
+
+Then run Playwright against it:
+
+```sh
+TEST_DATABASE_URL=postgresql://postgres@127.0.0.1:55432/friendloop_test \
+E2E_WORKERS=1 E2E_PORT=3100 E2E_FAKE_MAIL_PORT=3101 E2E_REUSE_SERVER=1 \
+npm run e2e:fast -- --last-failed
+```
+
+Playwright still stops any server it starts itself; this option does not
+daemonize one. It is deliberately separate from `E2E_BASE_URL`, which remains
+the read-only production-probe target. Restart reused servers after rebuilding
+or changing server environment, and stop them when finished. Ordinary e2e runs
+never reuse servers. Externally supplied databases are not dropped on exit:
+after stopping the server, drop the persistent disposable base database and any
+additional worker databases yourself.
 
 ### Accessibility: WCAG 2.2 AA
 
@@ -259,6 +305,14 @@ as it ships.
 floor). `test/lib/manifest.integration.test.ts` imports every module in `src/lib`
 so a new file cannot hide from the report by never being loaded.
 
+`npm run test:integration` and `npm run test:coverage` run up to four test files
+concurrently by default; CI uses two. Set `TEST_WORKERS` to override this, including
+`TEST_WORKERS=1` for a serial debugging run. Global setup migrates the disposable
+base database once and cheaply clones that template for every integration file,
+so tests that truncate tables cannot erase another file's data. Pure unit files
+stay on the base URL. Coverage still comes from one Node invocation and its
+existing aggregate thresholds; there are no weaker per-worker coverage gates.
+
 ### The provider seam
 
 `EMAIL_TRANSPORT=outbox` records every email and never calls Resend — so, on its
@@ -295,10 +349,13 @@ runs, so the cluster is safe to share with nothing else.
 Suites can run at the same time from separate checkouts (git worktrees). Each
 `npm run e2e` or `npm run test:integration` creates its own
 `friendloop_test_run_<pid>_<id>` database in the cluster and drops it when it
-exits. A run that was killed leaves its database behind, and the next run drops
-it. Each run also picks free ports for the app and the Resend stub; set
-`E2E_PORT` / `E2E_FAKE_MAIL_PORT` to pin them. The `.next` build belongs to the
-checkout, so a second Playwright run in the same folder stops right away
+exits, together with its Playwright `_w` worker databases and integration `_i_<hash>`
+file databases. A run that was killed leaves its database behind, and the next run
+drops it. Each run also picks free ports for the app and the Resend stub; set
+`E2E_PORT` to pin app ports or `E2E_FAKE_MAIL_PORT` to pin Playwright's mail stub.
+Integration children require isolated, individually allocated mail ports, so the
+Playwright mail-port pin does not override their per-file assignments. The `.next`
+build belongs to the checkout, so a second Playwright run in the same folder stops right away
 (`.e2e-run.lock`). `e2e:db:stop` and `e2e:db:reset` affect every run sharing the
 cluster, so don't use them while another suite is running.
 
