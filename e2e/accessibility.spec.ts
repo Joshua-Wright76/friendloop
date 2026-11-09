@@ -25,15 +25,17 @@ async function audit(page: Page, path: string, navigate = true) {
   ).toEqual([]);
 }
 
+async function auditTheme(page: Page, path: string, theme: "light" | "dark") {
+  await page.goto(path);
+  if (await page.locator("html").getAttribute("data-theme") !== theme) {
+    await page.getByRole("button", { name: theme === "light" ? /switch to light mode/ : /switch to dark mode/ }).click();
+  }
+  await audit(page, path);
+}
+
 async function auditThemes(page: Page, paths: string[]) {
   for (const theme of ["light", "dark"] as const) {
-    for (const path of paths) {
-      await page.goto(path);
-      if (await page.locator("html").getAttribute("data-theme") !== theme) {
-        await page.getByRole("button", { name: theme === "light" ? /switch to light mode/ : /switch to dark mode/ }).click();
-      }
-      await audit(page, path);
-    }
+    for (const path of paths) await auditTheme(page, path, theme);
   }
 }
 
@@ -48,28 +50,45 @@ test("WCAG AA · public and authentication pages", async ({ page }) => {
   await auditThemes(page, ["/", "/signin", "/signin/check-email", "/signin/confirm?problem=unknown", "/r/invalid", "/join/a11y-join-token", "/join/not-a-token", "/privacy", "/terms", "/goodbye"]);
 });
 
-test("WCAG AA · loop management, creation, and reply pages", async ({ page }) => {
-  test.setTimeout(120_000);
+async function seedLoopManagement() {
   const loop = await seedLoop();
   // Polls on the pool list and the reply sheet, single and multiple choice.
   await seedPoll(loop, { text: "Where should we camp?", options: ["The lake", "The mountains", "The coast"] });
   await seedPoll(loop, { text: "Which weekends work?", options: ["June", "July", "August"], multiple: true });
   await seedOpenIssue(loop, { openedAt: new Date("2026-10-23T07:00:00Z") });
-  await signIn(page, "owner@friendloop.test");
+  return loop;
+}
 
-  await auditThemes(page, [
-    "/you",
-    "/g/new",
-    `/g/${loop.groupId}`,
-    `/g/${loop.groupId}/members`,
-    `/g/${loop.groupId}/questions`,
-    `/g/${loop.groupId}/issues`,
-    `/g/${loop.groupId}/settings`,
-    `/r/${loop.ownerToken}`,
-    "/you/delete",
-    `/r/${loop.ownerToken}/leave`,
-    `/r/${loop.members[1].token}/leave`,
-  ]);
+type SeededLoop = Awaited<ReturnType<typeof seedLoop>>;
+const LOOP_MANAGEMENT_PAGES: Array<[string, (loop: SeededLoop) => string]> = [
+  ["Your loops", () => "/you"],
+  ["New loop", () => "/g/new"],
+  ["Overview", (loop) => `/g/${loop.groupId}`],
+  ["Members", (loop) => `/g/${loop.groupId}/members`],
+  ["Questions", (loop) => `/g/${loop.groupId}/questions`],
+  ["Rounds", (loop) => `/g/${loop.groupId}/issues`],
+  ["Settings", (loop) => `/g/${loop.groupId}/settings`],
+  ["Reply", (loop) => `/r/${loop.ownerToken}`],
+  ["Delete account", () => "/you/delete"],
+  ["Owner leaves", (loop) => `/r/${loop.ownerToken}/leave`],
+  ["Member leaves", (loop) => `/r/${loop.members[1].token}/leave`],
+];
+
+for (const [name, path] of LOOP_MANAGEMENT_PAGES) {
+  for (const theme of ["light", "dark"] as const) {
+    test(`WCAG AA · loop management, creation, and reply pages · ${name} · ${theme}`, async ({ page }) => {
+      test.setTimeout(120_000);
+      const loop = await seedLoopManagement();
+      await signIn(page, "owner@friendloop.test");
+      await auditTheme(page, path(loop), theme);
+    });
+  }
+}
+
+test("WCAG AA · loop creation pickers and member-role focus", async ({ page }) => {
+  test.setTimeout(120_000);
+  const loop = await seedLoop();
+  await signIn(page, "owner@friendloop.test");
 
   await page.goto("/g/new");
   await page.getByRole("button", { name: /^Timezone:/ }).click();

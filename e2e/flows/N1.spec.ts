@@ -68,9 +68,9 @@ test("N1 · the owner picks a paper and every member's surfaces wear it, light a
   expect(mail.html).not.toContain("#cc3456");
 });
 
-test("N1 · an accent that would be hard to read is nudged, and every preset passes the audit in both schemes", async ({ page }) => {
+test("N1 · an accent that would be hard to read is nudged, validated, saved, and reset", async ({ page }) => {
   test.setTimeout(180_000);
-  const { loop, delivered, alice } = await seedWorld();
+  const { loop } = await seedWorld();
   await signIn(page, "owner@friendloop.test");
 
   // Pale yellow on cream is the classic unreadable accent.
@@ -97,26 +97,54 @@ test("N1 · an accent that would be hard to read is nudged, and every preset pas
   await page.getByRole("button", { name: "Use the paper's own" }).click();
   await expect(page.getByText("Using the paper's own accent.")).toBeVisible();
   await expect.poll(accent).toBeNull();
+});
 
-  for (const preset of ["bluebell", "meadow", "marmalade", "lilac"] as const) {
-    await rows("update groups set theme_preset = $2, theme_accent = null where id = $1", [loop.groupId, preset]);
+type World = Awaited<ReturnType<typeof seedWorld>>;
+
+function auditPath(world: World, surface: "dashboard" | "reply" | "round") {
+  if (surface === "dashboard") return `/g/${world.loop.groupId}`;
+  if (surface === "reply") return `/r/${world.alice.token}`;
+  return `/i/${world.delivered.issueId}?m=${world.alice.token}`;
+}
+
+// Keep each preset/surface/scheme axe audit independent: the old nested loops
+// exceeded their timeout locally and could not be balanced across CI shards.
+for (const preset of ["bluebell", "meadow", "marmalade", "lilac"] as const) {
+  for (const surface of ["dashboard", "reply", "round"] as const) {
     for (const scheme of ["light", "dark"] as const) {
-      for (const path of [`/g/${loop.groupId}`, `/r/${alice.token}`, `/i/${delivered.issueId}?m=${alice.token}`]) {
+      test(`N1 · ${preset} preset audit · ${surface} · ${scheme}`, async ({ page }) => {
+        test.setTimeout(180_000);
+        const world = await seedWorld();
+        await rows("update groups set theme_preset = $2, theme_accent = null where id = $1", [world.loop.groupId, preset]);
+        // Preserve the signed-in session used by the original combined audit.
+        await signIn(page, "owner@friendloop.test");
+        const path = auditPath(world, surface);
         await gotoScheme(page, path, scheme);
         await expectAccessible(page, `${preset} ${scheme} ${path}`);
-      }
+      });
     }
   }
+}
 
-  // The settings page itself, with the unreadable accent saved, in both schemes.
-  await rows("update groups set theme_preset = 'lilac', theme_accent = '#ffee00' where id = $1", [loop.groupId]);
-  for (const scheme of ["light", "dark"] as const) {
+for (const scheme of ["light", "dark"] as const) {
+  test(`N1 · settings with an unreadable accent passes the audit · ${scheme}`, async ({ page }) => {
+    test.setTimeout(180_000);
+    const { loop } = await seedWorld();
+    await signIn(page, "owner@friendloop.test");
+    await rows("update groups set theme_preset = 'lilac', theme_accent = '#ffee00' where id = $1", [loop.groupId]);
     await gotoScheme(page, `/g/${loop.groupId}/settings`, scheme);
     await expectAccessible(page, `settings ${scheme}`);
-    await gotoScheme(page, `/i/${delivered.issueId}?m=${alice.token}`, scheme);
+  });
+
+  test(`N1 · a nudged accent on a round passes the audit · ${scheme}`, async ({ page }) => {
+    test.setTimeout(180_000);
+    const world = await seedWorld();
+    await signIn(page, "owner@friendloop.test");
+    await rows("update groups set theme_preset = 'lilac', theme_accent = '#ffee00' where id = $1", [world.loop.groupId]);
+    await gotoScheme(page, `/i/${world.delivered.issueId}?m=${world.alice.token}`, scheme);
     await expectAccessible(page, `nudged accent ${scheme}`);
-  }
-});
+  });
+}
 
 test("N1 · a header picture shows above every surface and in the email; only the owner can set it", async ({ page, request }) => {
   const { loop, delivered, alice } = await seedWorld();

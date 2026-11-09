@@ -123,8 +123,8 @@ jobs:
   # own Postgres, and none of them wait for `verify`: the two gates are
   # independent. Playwright shards by test count, not duration, so slow tests
   # that sit together in file order all land in one shard. Hence three groups,
-  # each sharded on its own: the flows, the WCAG checks, and the seven stationery
-  # sweeps (about 1.5 min each), which alone made one shard take 11 minutes. The
+  # each sharded on its own: the flows, the WCAG checks, and the per-page/theme
+  # stationery sweeps, which use four shards now their long loops are split. The
   # greps on the shared title prefixes make the groups exact complements. Each job
   # runs two workers, each with its own database and server (e2e/support/parallel.ts),
   # which suits the runners' four cores; scripts/e2e-db.mjs sets that from CI.
@@ -154,8 +154,10 @@ jobs:
           - { group: wcag, shard: 3, of: 5 }
           - { group: wcag, shard: 4, of: 5 }
           - { group: wcag, shard: 5, of: 5 }
-          - { group: stationery, shard: 1, of: 2 }
-          - { group: stationery, shard: 2, of: 2 }
+          - { group: stationery, shard: 1, of: 4 }
+          - { group: stationery, shard: 2, of: 4 }
+          - { group: stationery, shard: 3, of: 4 }
+          - { group: stationery, shard: 4, of: 4 }
     services:
       # Deterministic and separate from any dev database. When
       # TEST_DATABASE_URL is set, scripts/e2e-db.mjs stands down and uses this.
@@ -217,6 +219,17 @@ jobs:
             stationery) npm run e2e -- --grep "WCAG AA sweep · stationery" --shard="$SHARD" ;;
             *) echo "::error::Unknown group $GROUP"; exit 1 ;;
           esac
+
+      # Small timing JSON is useful after either outcome. The HTML report (and
+      # any retry traces/videos it references) is still uploaded only on failure.
+      - name: Upload per-shard timing results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: e2e-timings-${{ matrix.group }}-${{ matrix.shard }}
+          path: test-results/e2e-results.json
+          if-no-files-found: error
+          retention-days: 30
 
       - name: Upload report on failure
         if: failure()

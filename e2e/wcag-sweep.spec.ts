@@ -167,21 +167,23 @@ test("the sweep covers every screen /dev/screens links to", async ({ page }) => 
 });
 
 for (const [name, href, status, closedCard] of SCREENS) {
-  test(`WCAG AA sweep · ${name}`, async ({ page }) => {
-    test.setTimeout(10 * 60_000);
-    await enterPreview(page);
-    const problems: Problems = [];
-    for (const theme of ["light", "dark"] as const) problems.push(...(await sweep(page, name, href, theme, status, { closedCard })));
+  for (const theme of ["light", "dark"] as const) {
+    test(`WCAG AA sweep · ${name} · ${theme}`, async ({ page }) => {
+      test.setTimeout(10 * 60_000);
+      await enterPreview(page);
+      const problems = await sweep(page, name, href, theme, status, { closedCard });
+      expect(problems, `\n${problems.join("\n")}\n`).toEqual([]);
+    });
+  }
+}
+
+for (const theme of ["light", "dark"] as const) {
+  test(`WCAG AA sweep · Sign in, signed out · ${theme}`, async ({ page }) => {
+    test.setTimeout(5 * 60_000);
+    const problems = await sweep(page, "Sign in", "/signin", theme);
     expect(problems, `\n${problems.join("\n")}\n`).toEqual([]);
   });
 }
-
-test("WCAG AA sweep · Sign in, signed out", async ({ page }) => {
-  test.setTimeout(5 * 60_000);
-  const problems: Problems = [];
-  for (const theme of ["light", "dark"] as const) problems.push(...(await sweep(page, "Sign in", "/signin", theme)));
-  expect(problems, `\n${problems.join("\n")}\n`).toEqual([]);
-});
 
 // The loop pages render in whichever stationery the owner chose, and the accent is
 // derived per paper, so every preset (and two hostile accents) is checked for what colour
@@ -193,24 +195,27 @@ const STATIONERY: Array<[string, string | null, string | null]> = [
   ["a near-black accent", "lilac", "#1b1b1b"],
 ];
 
+const STATIONERY_SURFACES = [
+  ["Overview", `/g/${P.groupId}`],
+  ["Members", `/g/${P.groupId}/members`],
+  ["Rounds", `/g/${P.groupId}/issues`],
+  ["Settings", `/g/${P.groupId}/settings?stationery=open`],
+  ["Reply", `/r/${OWNER}`],
+  ["Round", `/i/${P.deliveredIssueId}?m=${OWNER}`],
+] as const;
+
+// Each paper/page/theme is independently schedulable. Both the desktop and 320px
+// axe passes stay together so the second viewport needs no extra navigation.
 for (const [label, preset, accent] of STATIONERY) {
-  test(`WCAG AA sweep · stationery · ${label}`, async ({ page }) => {
-    test.setTimeout(10 * 60_000);
-    await enterPreview(page);
-    await rows("update groups set theme_preset = $1, theme_accent = $2 where id = $3", [preset, accent, P.groupId]);
-    const problems: Problems = [];
-    for (const [name, href] of [
-      ["Overview", `/g/${P.groupId}`],
-      ["Members", `/g/${P.groupId}/members`],
-      ["Rounds", `/g/${P.groupId}/issues`],
-      ["Settings", `/g/${P.groupId}/settings?stationery=open`],
-      ["Reply", `/r/${OWNER}`],
-      ["Round", `/i/${P.deliveredIssueId}?m=${OWNER}`],
-    ] as const) {
-      for (const theme of ["light", "dark"] as const) {
-        problems.push(...(await sweep(page, `${name} (${label})`, href, theme, 200, { stationery: { preset, accent } })));
-      }
+  for (const [name, href] of STATIONERY_SURFACES) {
+    for (const theme of ["light", "dark"] as const) {
+      test(`WCAG AA sweep · stationery · ${label} · ${name} · ${theme}`, async ({ page }) => {
+        test.setTimeout(10 * 60_000);
+        await enterPreview(page);
+        await rows("update groups set theme_preset = $1, theme_accent = $2 where id = $3", [preset, accent, P.groupId]);
+        const problems = await sweep(page, `${name} (${label})`, href, theme, 200, { stationery: { preset, accent } });
+        expect(problems, `\n${problems.join("\n")}\n`).toEqual([]);
+      });
     }
-    expect(problems, `\n${problems.join("\n")}\n`).toEqual([]);
-  });
+  }
 }

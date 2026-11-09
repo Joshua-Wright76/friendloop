@@ -62,8 +62,8 @@ export default defineConfig({
   globalSetup: "./e2e/global-setup.ts",
   globalTeardown: "./e2e/global-teardown.ts",
   reporter: process.env.CI
-    ? [["list"], ["html", { open: "never" }], ["github"]]
-    : [["list"], ["html", { open: "never" }]],
+    ? [["list"], ["html", { open: "never" }], ["github"], ["./e2e/support/duration-reporter.ts"]]
+    : [["list"], ["html", { open: "never" }], ["./e2e/support/duration-reporter.ts"]],
   timeout: 30_000,
   expect: { timeout: 7_000 },
   use: {
