@@ -3,6 +3,7 @@ import AxeBuilder from "@axe-core/playwright";
 import { resetDatabase, rows } from "./support/db";
 import { seedDeliveredIssue, seedLoop, seedOpenIssue } from "./support/seed";
 import { AFTER_FIRST_SLOT, waitForSheet } from "./support/harness";
+import { copy } from "@/lib/copy";
 
 /**
  * Accessibility on the device the product actually ships to.
@@ -41,13 +42,13 @@ test("WCAG AA · the reply sheet on a phone, with the sheet open", async ({ page
   await audit(page, "/r (sheet)");
 
   // Typing opens the sticky action bar, which only exists at phone widths.
-  await page.getByLabel("What made you laugh this week?").fill("A cat fist bump.");
-  await expect(page.getByRole("button", { name: "Done", exact: true })).toBeVisible();
+  await page.getByLabel(copy.questionPacks[0].questions[0]).fill("A cat fist bump.");
+  await expect(page.getByRole("button", { name: copy.reply.done, exact: true })).toBeVisible();
   await audit(page, "/r (typing)");
 
   // The confirmation that replaces the sheet once Done is pressed.
-  await page.getByRole("button", { name: "Done", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "All set", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: copy.reply.done, exact: true }).click();
+  await expect(page.getByRole("heading", { name: copy.reply.confirmation.title, exact: true })).toBeVisible();
   await audit(page, "/r (done)");
 });
 

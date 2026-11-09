@@ -3,6 +3,7 @@ import AxeBuilder from "@axe-core/playwright";
 import { resetDatabase, rows } from "../support/db";
 import { DELIVERY_DAY, runSweep, signIn } from "../support/harness";
 import { seedWorld } from "../support/identity";
+import { copy } from "@/lib/copy";
 
 test.use({ reducedMotion: "reduce" });
 
@@ -22,9 +23,9 @@ test("N7 · a contributor picks a charm and frame on their reply sheet, and they
   const look = page.getByTestId("member-look");
   await look.getByRole("radio", { name: "Frog" }).check();
   await expect.poll(() => lookOf(alice.id)).toEqual({ charm: "frog", avatar_frame: null });
-  await look.getByRole("radio", { name: "Doily" }).check();
+  await look.getByRole("radio", { name: copy.identity.look.frames.doily }).check();
   await expect.poll(() => lookOf(alice.id)).toEqual({ charm: "frog", avatar_frame: "doily" });
-  await expect(look.getByText("Saved")).toBeVisible();
+  await expect(look.getByText(copy.identity.look.saved)).toBeVisible();
   await expect(page.locator("details.reply-identity summary .avatar")).toHaveAttribute("data-frame", "doily");
 
   const axe = await new AxeBuilder({ page }).include('[data-testid="member-look"]').withTags(["wcag2a", "wcag2aa", "wcag22aa"]).analyze();
@@ -47,9 +48,9 @@ test("N7 · a contributor picks a charm and frame on their reply sheet, and they
   // None takes them both away again.
   await page.goto(`/r/${alice.token}`);
   await page.locator("details.reply-identity summary").click();
-  await page.getByTestId("member-look").getByRole("group", { name: "Your charm" }).getByRole("radio", { name: "None" }).check();
+  await page.getByTestId("member-look").getByRole("group", { name: copy.identity.look.charmLegend }).getByRole("radio", { name: copy.identity.look.none }).check();
   await expect.poll(async () => (await lookOf(alice.id)).charm).toBeNull();
-  await page.getByTestId("member-look").getByRole("group", { name: "Your frame" }).getByRole("radio", { name: "None" }).check();
+  await page.getByTestId("member-look").getByRole("group", { name: copy.identity.look.frameLegend }).getByRole("radio", { name: copy.identity.look.none }).check();
   await expect.poll(() => lookOf(alice.id)).toEqual({ charm: null, avatar_frame: null });
 });
 
@@ -60,11 +61,11 @@ test("N7 · a signed-in member sets theirs on the people page, for this loop onl
   await signIn(page, "owner@friendloop.test");
   await page.goto(`/g/${loop.groupId}/members`);
 
-  await page.getByText("Charm and frame").click();
+  await page.getByText(copy.identity.look.open).click();
   const look = page.getByTestId("member-look");
   await look.getByRole("radio", { name: "Moon" }).check();
   await expect.poll(async () => (await lookOf(owner.id)).charm).toBe("moon");
-  await look.getByRole("radio", { name: "Stamp" }).check();
+  await look.getByRole("radio", { name: copy.identity.look.frames.stamp }).check();
   await expect.poll(async () => (await lookOf(owner.id)).avatar_frame).toBe("stamp");
   expect(await lookOf(alice.id)).toEqual({ charm: null, avatar_frame: null });
 
@@ -73,8 +74,8 @@ test("N7 · a signed-in member sets theirs on the people page, for this loop onl
   await expect(page.locator('.avatar[data-frame="stamp"]').first()).toBeVisible();
 
   // The look is yours alone: nobody else's row offers one.
-  await expect(page.getByText("Charm and frame")).toHaveCount(1);
-  await page.getByText("Charm and frame").click();
+  await expect(page.getByText(copy.identity.look.open)).toHaveCount(1);
+  await page.getByText(copy.identity.look.open).click();
   await expect(page.getByRole("radio", { name: "Moon" })).toBeChecked();
 });
 

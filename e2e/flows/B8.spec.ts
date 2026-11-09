@@ -3,6 +3,7 @@ import { resetDatabase, rows } from "../support/db";
 import { seedLoop } from "../support/seed";
 import { signIn } from "../support/harness";
 import { LIMITS } from "../../src/lib/rate-limit-policy";
+import { copy, copyPattern } from "@/lib/copy";
 
 test.beforeEach(async () => {
   await resetDatabase();
@@ -18,9 +19,9 @@ test("B8 · past the day's invitations, the form says so and nothing else is sen
   );
 
   await page.goto(`/g/${loop.groupId}/members`);
-  await page.getByLabel("Invite people by email").first().fill("one-too-many@friendloop.test");
-  await page.getByRole("button", { name: "Send invitations" }).click();
-  await expect(page.getByText(/you've sent today's 50/)).toBeVisible();
+  await page.getByLabel(copy.members.inviteAriaLabel).first().fill("one-too-many@friendloop.test");
+  await page.getByRole("button", { name: copy.members.sendInvitations }).click();
+  await expect(page.getByText(copyPattern(copy.members.inviteLimited))).toBeVisible();
 
   const sent = await rows(`select id from outbox where "to" = 'one-too-many@friendloop.test'`);
   expect(sent).toHaveLength(0);

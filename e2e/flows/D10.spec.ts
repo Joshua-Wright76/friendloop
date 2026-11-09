@@ -2,6 +2,7 @@ import { test, expect } from "@playwright/test";
 import { resetDatabase, rows } from "../support/db";
 import { seedOpenIssue, seedLoop } from "../support/seed";
 import { signIn } from "../support/harness";
+import { copy, text, copyPattern } from "@/lib/copy";
 
 test.beforeEach(async () => {
   await resetDatabase();
@@ -13,7 +14,7 @@ test("D10 · the owner nudges whoever is still missing, and can do it again", as
   await signIn(page, "owner@friendloop.test");
 
   await page.goto(`/g/${loop.groupId}`);
-  await expect(page.getByText("Waiting on")).toBeVisible();
+  await expect(page.getByText(copy.loop.waitingTitle)).toBeVisible();
   await expect(page.locator(".person-pill", { hasText: "Alice" })).toBeVisible();
 
   // Both nudge rounds land on the same URL, so wait on the rows rather than the
@@ -25,17 +26,17 @@ test("D10 · the owner nudges whoever is still missing, and can do it again", as
     return sent.map((row) => row.dedupe_key);
   };
 
-  await page.getByRole("button", { name: /^Nudge .*Alice/ }).click();
-  await page.getByRole("button", { name: "Send the nudge" }).click();
+  await page.getByRole("button", { name: copyPattern(copy.loop.nudgeNamed, { values: { names: /.*Alice.*/ }, start: true }) }).click();
+  await page.getByRole("button", { name: copy.loop.nudgeConfirm }).click();
   // Alice and Bob: the owner, also still waiting, doesn't nudge themselves.
-  await expect(page.getByText("2 nudges sent.")).toBeVisible();
+  await expect(page.getByText(text(copy.loop.nudged, { count: "2" }))).toBeVisible();
   await expect.poll(reminderKeys).toHaveLength(2);
   expect(new Set(await reminderKeys()).size).toBe(2);
 
   // A second nudge is a second gentle email, not a duplicate row.
-  await page.getByRole("button", { name: /^Nudge .*Alice.* again$/ }).click();
-  await page.getByRole("button", { name: "Send the nudge" }).click();
-  await expect(page.getByText("2 nudges sent.")).toBeVisible();
+  await page.getByRole("button", { name: copyPattern(copy.loop.nudgeAgainLabel, { values: { names: /.*Alice.*/ }, start: true, end: true }) }).click();
+  await page.getByRole("button", { name: copy.loop.nudgeConfirm }).click();
+  await expect(page.getByText(text(copy.loop.nudged, { count: "2" }))).toBeVisible();
   await expect.poll(reminderKeys, { timeout: 10_000 }).toHaveLength(4);
   expect(new Set(await reminderKeys()).size).toBe(4);
 });
@@ -58,6 +59,6 @@ test("D10 · nobody is nudged once everyone has answered", async ({ page }) => {
 
   await signIn(page, "owner@friendloop.test");
   await page.goto(`/g/${loop.groupId}`);
-  await expect(page.getByText("Everyone's in.")).toBeVisible();
-  await expect(page.getByRole("button", { name: /^Nudge/ })).toHaveCount(0);
+  await expect(page.getByText(copy.loop.everyoneIn)).toBeVisible();
+  await expect(page.getByRole("button", { name: copyPattern(copy.loop.nudgeNamed, { start: true }) })).toHaveCount(0);
 });

@@ -4,6 +4,7 @@ import { seedLoop } from "../support/seed";
 import { addWithCard, runSweep, signIn } from "../support/harness";
 import { makePng } from "../support/audio";
 import { chooseFile } from "../support/identity";
+import { copy } from "@/lib/copy";
 
 test.beforeEach(async () => {
   await resetDatabase();
@@ -14,7 +15,7 @@ test("K3 · a written item asked every round takes text and one photo", async ({
 
   await signIn(page, "owner@friendloop.test");
   await page.goto(`/g/${loop.groupId}/questions`);
-  await addWithCard(page, { text: "The potluck corner", frequency: "Every round" });
+  await addWithCard(page, { text: "The potluck corner", frequency: copy.questions.item.frequencies.every_round });
   await runSweep(new Date("2026-01-02T08:00:00Z"));
 
   const alice = loop.members.find((member) => member.email.startsWith("alice"))!;
@@ -23,7 +24,7 @@ test("K3 · a written item asked every round takes text and one photo", async ({
   const corner = page.locator("section").filter({ has: page.getByRole("heading", { name: "The potluck corner" }) });
   await page.getByRole("textbox", { name: "The potluck corner" }).fill("Banana bread, again.");
   await chooseFile(page, "Add a photo", { name: "banana.png", mimeType: "image/png", buffer: makePng() }, corner);
-  await expect(corner.getByText("Photo saved").first()).toBeVisible();
+  await expect(corner.getByText(copy.reply.photoSaved).first()).toBeVisible();
 
   // A sheet from before the switch still posts to the old endpoint: a second photo is refused there too.
   const [section] = await rows<{ id: string }>(
@@ -42,10 +43,10 @@ test("K3 · a written item asked every round takes text and one photo", async ({
     },
   });
   expect(refused.status()).toBe(409);
-  expect((await refused.json()).error).toContain("An answer takes one photo");
+  expect((await refused.json()).error).toContain(copy.reply.errors.sectionPhotoStandardCap);
 
-  await page.getByRole("button", { name: "Done", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "All set", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: copy.reply.done, exact: true }).click();
+  await expect(page.getByRole("heading", { name: copy.reply.confirmation.title, exact: true })).toBeVisible();
 
   await runSweep(new Date("2026-01-09T09:00:00Z"));
   const [issue] = await rows<{ id: string }>("select id from issues order by number asc limit 1");

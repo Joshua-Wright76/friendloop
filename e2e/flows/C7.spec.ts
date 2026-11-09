@@ -1,7 +1,8 @@
 import { test, expect } from "@playwright/test";
 import { resetDatabase, rows } from "../support/db";
 import { seedLoop } from "../support/seed";
-import { AFTER_FIRST_SLOT, freezeClock, runSweep, signIn } from "../support/harness";
+import { AFTER_FIRST_SLOT, freezeClock, runSweep, signIn, inOrder } from "../support/harness";
+import { copy, text as copyText, copyPattern } from "@/lib/copy";
 
 test.beforeEach(async () => {
   await resetDatabase();
@@ -25,28 +26,28 @@ test("C7 · Up next shows which round asks each turn-taker, then every-round ite
   await freezeClock(page, AFTER_FIRST_SLOT);
   await page.goto(`/g/${loop.groupId}/questions`);
 
-  const queue = page.getByRole("list", { name: "Questions that take turns, in the order rounds ask them" }).locator(":scope > li");
+  const queue = page.getByRole("list", { name: copy.questions.upNext.turnsLabel }).locator(":scope > li");
   await expect(queue).toHaveText([
     /Q3.*Round 2 · Fri 16 Jan/,
-    /Q4.*Round 2 · Fri 16 Jan/,
-    /Q5.*Round 3 · Fri 23 Jan/,
-    /Q1.*Round 3 · Fri 23 Jan/,
-    /Q2.*Round 4 · Fri 30 Jan/,
+    inOrder("Q4", /.*/, copyText(copy.questions.upNext.roundTag, { number: 2, date: "Fri 16 Jan" })),
+    inOrder("Q5", /.*/, copyText(copy.questions.upNext.roundTag, { number: 3, date: "Fri 23 Jan" })),
+    inOrder("Q1", /.*/, copyText(copy.questions.upNext.roundTag, { number: 3, date: "Fri 23 Jan" })),
+    inOrder("Q2", /.*/, copyText(copy.questions.upNext.roundTag, { number: 4, date: "Fri 30 Jan" })),
   ]);
-  await expect(page.getByRole("button", { name: "Questions per round: 2" })).toBeVisible();
-  const everyRound = page.getByRole("list", { name: "Asked every round, in order" }).locator(":scope > li");
-  await expect(everyRound).toHaveText([/Fridge wall.*Photo wall/, /Committee notes.*Owner and admins/]);
-  await expect(page.getByRole("list", { name: "Events and birthdays, soonest first" })).toContainText(/Alice's birthday.*Tue, Jan 20 · every year · Round 3/);
+  await expect(page.getByRole("button", { name: `${copy.questions.upNext.countLabel}: 2` })).toBeVisible();
+  const everyRound = page.getByRole("list", { name: copy.questions.upNext.everyRoundLabel }).locator(":scope > li");
+  await expect(everyRound).toHaveText([inOrder("Fridge wall", /.*/, copy.questions.item.formats.photo_wall), inOrder("Committee notes", /.*/, copy.questions.item.adminOnlyTag)]);
+  await expect(page.getByRole("list", { name: copy.questions.upNext.datedLabel })).toContainText(inOrder(copyText(copy.events.birthdayRow, { name: "Alice" }), /.*/, `Tue, Jan 20 · ${copy.questions.upNext.yearly} · ${copyText(copy.questions.upNext.roundShort, { number: 3 })}`));
 
   // A member reads what they could be asked, and changes nothing.
   await page.context().clearCookies();
   await signIn(page, "alice@friendloop.test");
   await page.goto(`/g/${loop.groupId}/questions`);
-  await expect(page.getByRole("heading", { name: "This round asks" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: copy.questions.thisRound.title })).toBeVisible();
   await expect(page.getByText("Fridge wall").first()).toBeVisible();
   await expect(page.getByText("Committee notes")).toHaveCount(0);
-  await expect(page.getByText("Alice's birthday")).toHaveCount(0);
-  await expect(page.getByRole("button", { name: /^Move: / })).toHaveCount(0);
-  await expect(page.getByRole("button", { name: /^Edit / })).toHaveCount(0);
-  await expect(page.getByRole("region", { name: "Add something to ask" })).toHaveCount(0);
+  await expect(page.getByText(copyText(copy.events.birthdayRow, { name: "Alice" }))).toHaveCount(0);
+  await expect(page.getByRole("button", { name: copyPattern(copy.reorder.gripLabel, { start: true }) })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: copyPattern(`${copy.questions.item.editPrefix} `, { start: true }) })).toHaveCount(0);
+  await expect(page.getByRole("region", { name: copy.questions.add.title })).toHaveCount(0);
 });

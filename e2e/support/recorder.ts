@@ -1,4 +1,5 @@
 import { expect, type Page } from "@playwright/test";
+import { copy, copyPattern } from "@/lib/copy";
 
 /**
  * Headless Chromium has no microphone here — getUserMedia pends forever even
@@ -46,9 +47,9 @@ export async function installFakeRecorder(page: Page): Promise<void> {
 
 /** Record a short note on the first question's card. */
 export async function recordOnFirstQuestion(page: Page): Promise<void> {
-  await page.getByRole("button", { name: "Record a voice note" }).first().click();
-  await expect(page.getByText(/Recording… 0:0/)).toBeVisible();
-  await page.getByRole("button", { name: "Stop recording" }).click();
+  await page.getByRole("button", { name: copy.reply.voiceRecord }).first().click();
+  await expect(page.getByText(copyPattern(copy.reply.voiceRecording, { values: { elapsed: "0:0" } }))).toBeVisible();
+  await page.getByRole("button", { name: copy.reply.voiceStop }).click();
 }
 
 export { expect };

@@ -3,6 +3,7 @@ import { test, expect, type Download, type Page } from "@playwright/test";
 import { resetDatabase } from "../support/db";
 import { seedDeliveredIssue, seedLoop } from "../support/seed";
 import { DELIVERY_DAY, openPart, signIn } from "../support/harness";
+import { copy, text as copyText } from "@/lib/copy";
 
 test.beforeEach(async () => {
   await resetDatabase();
@@ -25,15 +26,15 @@ test("V4 · a person downloads their own words, and the owner downloads the whol
   });
   await signIn(page, "owner@friendloop.test");
 
-  const mine = await downloaded(page, () => page.getByRole("link", { name: "Download my data" }).click());
+  const mine = await downloaded(page, () => page.getByRole("link", { name: copy.you.download }).click());
   expect(mine.file.suggestedFilename()).toMatch(/^friendloop-my-data-\d{4}-\d{2}-\d{2}\.json$/);
   const personal = JSON.stringify(mine.json);
   expect(personal).toContain("Sam's answer");
   expect(personal).not.toContain("Alice's answer");
 
   await page.goto(`/g/${loop.groupId}/settings`);
-  await openPart(page, "Pause and export");
-  const archive = await downloaded(page, () => page.getByRole("link", { name: "Download the archive" }).click());
+  await openPart(page, copy.settings.groupKeep);
+  const archive = await downloaded(page, () => page.getByRole("link", { name: copy.settings.archive }).click());
   expect(archive.file.suggestedFilename()).toMatch(/^friendloop-friday-loop-\d{4}-\d{2}-\d{2}\.json$/);
   const whole = JSON.stringify(archive.json);
   expect(whole).toContain("Sam's answer");
@@ -65,7 +66,7 @@ test("V4 · a reply link downloads what its person wrote, from the leave page", 
   const alice = loop.members.find((member) => member.email === "alice@friendloop.test")!;
 
   await page.goto(`/r/${alice.token}/leave`);
-  const mine = await downloaded(page, () => page.getByRole("link", { name: "Download what I wrote here" }).click());
+  const mine = await downloaded(page, () => page.getByRole("link", { name: copy.leave.download }).click());
   const text = JSON.stringify(mine.json);
   expect(text).toContain("Alice's answer");
   expect(text).not.toContain("Bob's answer");

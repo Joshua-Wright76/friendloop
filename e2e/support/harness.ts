@@ -1,6 +1,7 @@
 import { expect, type Locator, type Page } from "@playwright/test";
 import { latestOutbox, linkFrom } from "./db";
 import { AFTER_FIRST_SLOT, BEFORE_FIRST_SLOT, DAY, DELIVERY_DAY, E2E_NOW, HOUR } from "./clock";
+import { copy, copyPattern, text } from "@/lib/copy";
 
 export { AFTER_FIRST_SLOT, BEFORE_FIRST_SLOT, DAY, DELIVERY_DAY, E2E_NOW, HOUR };
 
@@ -71,15 +72,25 @@ export async function freezeClock(page: Page, at: Date): Promise<void> {
 
 /** Walk the real sign-in path: request, read the email, confirm. */export async function signIn(page: Page, email: string): Promise<void> {
   await page.goto("/signin");
-  await page.getByLabel("Your email").fill(email);
-  await page.getByRole("button", { name: "Email me a link" }).click();
+  await page.getByLabel(copy.signIn.emailLabel).fill(email);
+  await page.getByRole("button", { name: copy.signIn.submit }).click();
   await expect(page).toHaveURL(/\/signin\/check-email$/);
 
   const mail = await latestOutbox("signin:");
   if (!mail) throw new Error("No sign-in email was queued");
   await page.goto(linkFrom(mail.html, "/signin/confirm"));
-  await page.getByRole("button", { name: "Sign in" }).click();
+  await page.getByRole("button", { name: copy.emails.signIn.cta }).click();
   await expect(page).toHaveURL(/\/you$/);
+}
+
+/** A Picker trigger is named "Day: Friday": match the label, then the colon. */
+export function triggerName(label: string): RegExp {
+  return new RegExp(`^${copyPattern(label).source}:`);
+}
+
+/** Copy and pattern pieces in order: strings match as written (placeholders as any text), RegExps as patterns. */
+export function inOrder(...parts: (string | RegExp)[]): RegExp {
+  return new RegExp(parts.map((part) => (typeof part === "string" ? copyPattern(part).source : part.source)).join(""));
 }
 
 /**
@@ -91,8 +102,7 @@ export async function pickOption(
   triggerLabel: string,
   option: string,
 ): Promise<void> {
-  const label = triggerLabel.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  await page.getByRole("button", { name: new RegExp(`^${label}:`) }).click();
+  await page.getByRole("button", { name: triggerName(triggerLabel) }).click();
   const sheet = page.locator(".picker-sheet");
   const scope = (await sheet.count()) > 0 ? sheet : page;
   await scope.getByRole("option", { name: option, exact: true }).click();
@@ -127,8 +137,7 @@ export async function openPart(page: Page, name: string): Promise<void> {
 
 /** Choose an option in a picker inside `scope`, for when the page holds more than one with that name. */
 export async function pickIn(scope: Locator, page: Page, triggerLabel: string, option: string): Promise<void> {
-  const label = triggerLabel.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  await scope.getByRole("button", { name: new RegExp(`^${label}:`) }).click();
+  await scope.getByRole("button", { name: triggerName(triggerLabel) }).click();
   const sheet = page.locator(".picker-sheet");
   const list = (await sheet.count()) > 0 ? sheet : page.locator(".picker-popover");
   await list.getByRole("option", { name: option, exact: true }).click();
@@ -136,9 +145,10 @@ export async function pickIn(scope: Locator, page: Page, triggerLabel: string, o
 
 export type CardItem = {
   text?: string;
-  format?: "Written" | "Poll" | "Photo wall" | "Music link";
-  frequency?: "Takes turns" | "Every round" | "On a date";
-  dateKind?: "A one-time event" | "A birthday, every year";
+  /** A label from copy.questions.item.formats, frequencies and dateKinds. */
+  format?: string;
+  frequency?: string;
+  dateKind?: string;
   person?: string;
   date?: string;
   options?: string[];
@@ -151,27 +161,28 @@ export type CardItem = {
 
 /** The Questions page's one add card. */
 export function addCard(page: Page): Locator {
-  return page.getByRole("region", { name: "Add something to ask" });
+  return page.getByRole("region", { name: copy.questions.add.title });
 }
 
 /** Fill the item fields in `scope` (the add card, or an open row's editor). */
 export async function fillItem(page: Page, scope: Locator, item: CardItem): Promise<void> {
-  if (item.format) await pickIn(scope, page, "Answer with", item.format);
-  if (item.frequency) await pickIn(scope, page, "How often", item.frequency);
-  if (item.dateKind) await pickIn(scope, page, "Which kind of date", item.dateKind);
-  if (item.person) await pickIn(scope, page, "Whose birthday?", item.person);
-  if (item.text !== undefined) await scope.getByLabel(/^What to ask/).fill(item.text);
-  if (item.date) await scope.getByLabel(/^Date/).fill(item.date);
+  if (item.format) await pickIn(scope, page, copy.questions.item.formatLabel, item.format);
+  if (item.frequency) await pickIn(scope, page, copy.questions.item.frequencyLabel, item.frequency);
+  if (item.dateKind) await pickIn(scope, page, copy.questions.item.dateKindLabel, item.dateKind);
+  if (item.person) await pickIn(scope, page, copy.questions.item.personLabel, item.person);
+  if (item.text !== undefined) await scope.getByLabel(copyPattern(copy.questions.item.textLabel, { start: true })).fill(item.text);
+  if (item.date) await scope.getByLabel(copyPattern(copy.questions.item.dateLabel, { start: true })).fill(item.date);
   for (const [index, option] of (item.options ?? []).entries()) {
-    if (index >= 2 && (await scope.getByLabel(`Option ${index + 1}`).count()) === 0) await scope.getByRole("button", { name: "Add option" }).click();
-    await scope.getByLabel(new RegExp(`^Option ${index + 1}\\b`)).fill(option);
+    const optionLabel = text(copy.polls.authoring.optionLabel, { number: index + 1 });
+    if (index >= 2 && (await scope.getByLabel(optionLabel).count()) === 0) await scope.getByRole("button", { name: copy.polls.authoring.addOption }).click();
+    await scope.getByLabel(copyPattern(optionLabel, { start: true })).fill(option);
   }
-  if (item.multiple) await scope.getByLabel("People can pick more than one").check();
+  if (item.multiple) await scope.getByLabel(copy.polls.authoring.multipleLabel).check();
   if (item.emoji !== undefined || item.description !== undefined || item.adminOnly !== undefined) {
-    await unfoldIn(scope, "Emoji, description, and who answers");
-    if (item.emoji !== undefined) await scope.getByLabel("Emoji").fill(item.emoji);
-    if (item.description !== undefined) await scope.getByLabel("Description").fill(item.description);
-    if (item.adminOnly !== undefined) await scope.getByLabel("Only the owner and admins answer this").setChecked(item.adminOnly);
+    await unfoldIn(scope, copy.questions.item.optionsSummary);
+    if (item.emoji !== undefined) await scope.getByLabel(copy.questions.item.emojiLabel).fill(item.emoji);
+    if (item.description !== undefined) await scope.getByLabel(copy.questions.item.descriptionLabel).fill(item.description);
+    if (item.adminOnly !== undefined) await scope.getByLabel(copy.questions.item.adminOnly).setChecked(item.adminOnly);
   }
 }
 
@@ -179,16 +190,17 @@ export async function fillItem(page: Page, scope: Locator, item: CardItem): Prom
 export async function addWithCard(page: Page, item: CardItem): Promise<void> {
   const card = addCard(page);
   await fillItem(page, card, item);
-  if (item.thisRound !== undefined) await card.getByLabel("Ask it this round too").setChecked(item.thisRound);
-  await card.getByRole("button", { name: "Add question", exact: true }).click();
-  await expect(page.getByRole("status").filter({ hasText: /^Added/ })).toBeVisible();
+  if (item.thisRound !== undefined) await card.getByLabel(copy.questions.add.thisRound).setChecked(item.thisRound);
+  await card.getByRole("button", { name: copy.questions.add.submit, exact: true }).click();
+  const added = [copy.questions.done.added, copy.questions.done.addedNow].map((notice) => copyPattern(notice).source).join("|");
+  await expect(page.getByRole("status").filter({ hasText: new RegExp(`^(${added})`) })).toBeVisible();
 }
 
 /** Open a row's editor in place (the first row with that label, in This round or Up next). */
 export async function openItem(page: Page, label: string, nth = 0): Promise<Locator> {
   // A row's button is named by what it shows, after "Edit": its words, then its tags.
-  const words = label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const toggle = page.getByRole("button", { name: new RegExp(`^Edit ${words}(\\s|$)`) }).nth(nth);
+  const name = copyPattern(`${copy.questions.item.editPrefix} ${label}`).source;
+  const toggle = page.getByRole("button", { name: new RegExp(`^${name}(\\s|$)`) }).nth(nth);
   if ((await toggle.getAttribute("aria-expanded")) !== "true") await toggle.click();
   await expect(toggle).toHaveAttribute("aria-expanded", "true");
   return toggle.locator("xpath=ancestor::li[1]");
@@ -212,6 +224,6 @@ export async function unfold(page: Page, summaryText: string | RegExp): Promise<
 
 /** Press Send now on the overview and say yes to the question it asks first. */
 export async function sendNow(page: Page): Promise<void> {
-  await page.getByRole("button", { name: "Send now" }).click();
-  await page.getByRole("button", { name: "Yes, send it now" }).click();
+  await page.getByRole("button", { name: copy.loop.sendNow }).click();
+  await page.getByRole("button", { name: copy.loop.sendNowConfirm }).click();
 }

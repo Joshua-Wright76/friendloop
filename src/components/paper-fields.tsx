@@ -33,7 +33,7 @@ type Props = {
 };
 
 /** A small round of the interface in one scheme's tokens: what the owner is choosing. */
-function PreviewCard({ label, tokens, looks }: { label: string; tokens: SchemeTokens; looks: StationeryLooks }) {
+function PreviewCard({ scheme, label, tokens, looks }: { scheme: "light" | "dark"; label: string; tokens: SchemeTokens; looks: StationeryLooks }) {
   const page = pageLayers(looks.background, tokens);
   return (
     <div
@@ -48,7 +48,7 @@ function PreviewCard({ label, tokens, looks }: { label: string; tokens: SchemeTo
         borderColor: tokens.lineStrong,
         color: tokens.ink,
       }}
-      data-testid={`stationery-preview-${label.toLowerCase()}`}
+      data-testid={`stationery-preview-${scheme}`}
     >
       <p className="m-0 text-[13px] font-extrabold" style={{ color: tokens.inkMuted }}>{label}</p>
       <div className="card mt-5 p-3 pt-4" data-paper="answer">
@@ -108,8 +108,8 @@ export function PaperFields({ preset, onPreset, accent, onAccent, onAccentCommit
       <div className="look-preview">
         <p className="mb-2 text-[13px] font-medium text-ink-soft">{copy.stationery.previewTitle}</p>
         <div className="grid gap-2 sm:grid-cols-2">
-          <PreviewCard label={copy.stationery.previewLight} tokens={theme.light} looks={looks} />
-          <PreviewCard label={copy.stationery.previewDark} tokens={theme.dark} looks={looks} />
+          <PreviewCard scheme="light" label={copy.stationery.previewLight} tokens={theme.light} looks={looks} />
+          <PreviewCard scheme="dark" label={copy.stationery.previewDark} tokens={theme.dark} looks={looks} />
         </div>
       </div>
 

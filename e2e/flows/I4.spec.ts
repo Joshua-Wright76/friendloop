@@ -1,6 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { resetDatabase } from "../support/db";
 import { seedLoop, seedOpenIssue } from "../support/seed";
+import { copy } from "@/lib/copy";
 
 test.beforeEach(async () => {
   await resetDatabase();
@@ -18,8 +19,8 @@ test("I4 · readers and dead tokens get walls, not forms", async ({ page }) => {
   const rita = loop.members.find((member) => member.email.startsWith("reader"))!;
 
   await page.goto(`/r/${rita.token}/suggest`);
-  await expect(page.getByText("Not available here")).toBeVisible();
-  await expect(page.getByLabel("Your question")).toHaveCount(0);
+  await expect(page.getByText(copy.suggest.unavailableTitle)).toBeVisible();
+  await expect(page.getByLabel(copy.suggest.fieldLabel)).toHaveCount(0);
 
   const refused = await page.request.post(`/api/suggest/${rita.token}`, {
     data: { text: "Why is the sky blue?", authorDisplay: "name" },
@@ -28,6 +29,6 @@ test("I4 · readers and dead tokens get walls, not forms", async ({ page }) => {
 
   // A rotated (revoked) token shows the replaced-link screen, with no form.
   await page.goto(`/r/${alice.token}-rotated/suggest`);
-  await expect(page.getByText("This link doesn't work anymore")).toBeVisible();
-  await expect(page.getByLabel("Your question")).toHaveCount(0);
+  await expect(page.getByText(copy.reply.invalidTitle)).toBeVisible();
+  await expect(page.getByLabel(copy.suggest.fieldLabel)).toHaveCount(0);
 });

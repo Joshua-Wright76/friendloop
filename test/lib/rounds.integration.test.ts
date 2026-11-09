@@ -10,6 +10,7 @@ import { sweep } from "../../src/lib/sweep.ts";
 import { latestOutbox, outboxCount, rows, seedLoop, seedReplies, setupDatabase } from "../support/app.ts";
 import { AFTER_FIRST_SLOT, BEFORE_FIRST_SLOT, E2E_NOW } from "../../e2e/support/clock.ts";
 import { clearRequest, setRequestHeaders } from "../stubs/request.mjs";
+import { copy, copyPattern, text as copyText } from "@/lib/copy";
 
 setupDatabase();
 
@@ -113,7 +114,7 @@ test("send now sends the round as it stands and opens the next, due a delivery l
 
   const email = await latestOutbox("delivery:");
   assert.match(email.html, /The cat\./);
-  assert.match(email.html, /Next up: Round 2/);
+  assert.match(email.html, copyPattern(copy.emails.delivery.nextHeading, { values: { issueHeading: copyText(copy.emails.roundHeading, { number: 2 }) } }));
 
   // The Friday it would have gone out passes quietly.
   const report = await sweep({ at: new Date("2026-01-09T08:05:00Z") });

@@ -2,6 +2,7 @@ import { test, expect } from "@playwright/test";
 import { resetDatabase, rows } from "../support/db";
 import { seedLoop, seedOpenIssue } from "../support/seed";
 import { APP, DELIVERY_DAY, HOUR, runSweep, signIn, waitForSheet } from "../support/harness";
+import { copy, text, copyPattern } from "@/lib/copy";
 
 test.beforeEach(async () => {
   await resetDatabase();
@@ -14,7 +15,7 @@ async function reminderRecipients() {
   return mail.map((row) => row.to);
 }
 
-const SWITCH = { name: "Remind me before it goes out" };
+const SWITCH = { name: copy.reply.reminders.label };
 
 const preferenceOf = async (id: string) =>
   (await rows<{ reminder_preference: string }>("select reminder_preference from memberships where id = $1", [id]))[0]
@@ -33,18 +34,18 @@ test("R3 · a contributor turns their reminder off and on with one switch, and t
   await expect(page.locator("#reminders input")).toHaveCount(1);
 
   await reminder.uncheck();
-  await expect(page.getByText("Saved", { exact: true })).toBeVisible();
+  await expect(page.getByText(copy.reply.nameSaved, { exact: true })).toBeVisible();
   expect(await preferenceOf(bob.id)).toBe("none");
   await page.reload();
   await waitForSheet(page);
   await expect(page.getByRole("switch", SWITCH)).not.toBeChecked();
 
   await page.getByRole("switch", SWITCH).check();
-  await expect(page.getByText("Saved", { exact: true })).toBeVisible();
+  await expect(page.getByText(copy.reply.nameSaved, { exact: true })).toBeVisible();
   expect(await preferenceOf(bob.id)).toBe("all");
 
   // The control never promises more than the loop sends.
-  await expect(page.getByText(/Whoever runs the loop can still nudge you/)).toBeVisible();
+  await expect(page.getByText(copyPattern(copy.reply.reminders.hint))).toBeVisible();
 });
 
 test("R3 · the reminder email points at the control, and the control is where it says", async ({ page }) => {
@@ -54,8 +55,8 @@ test("R3 · the reminder email points at the control, and the control is where i
   const [mail] = await rows<{ html: string; text: string }>(
     "select html, text from outbox where kind = 'reminder' order by \"to\" limit 1",
   );
-  expect(mail.html).toContain("switch these reminders off at the bottom of your answer page");
-  expect(mail.text).toContain("switch these reminders off at the bottom of your answer page");
+  expect(mail.html).toContain(copy.emails.reminder.prefNote);
+  expect(mail.text).toContain(copy.emails.reminder.prefNote);
 
   const alice = loop.members.find((member) => member.email.startsWith("alice"))!;
   await page.goto(`/r/${alice.token}`);
@@ -84,7 +85,7 @@ test("R3 · the loop's reminder follows each choice, never repeats, and leaves t
   await page.goto(`/r/${alice.token}`);
   await waitForSheet(page);
   await page.getByRole("switch", SWITCH).uncheck();
-  await expect(page.getByText("Saved", { exact: true })).toBeVisible();
+  await expect(page.getByText(copy.reply.nameSaved, { exact: true })).toBeVisible();
   await rows("update memberships set reminder_preference = 'last' where id = $1", [bob.id]);
 
   const at = new Date(issue.deliversAt.getTime() - 24 * HOUR);
@@ -97,9 +98,9 @@ test("R3 · the loop's reminder follows each choice, never repeats, and leaves t
   // The owner's nudge by hand still reaches Alice, who asked for none.
   await signIn(page, "owner@friendloop.test");
   await page.goto(`/g/${loop.groupId}`);
-  await page.getByRole("button", { name: /^Nudge .*Alice/ }).click();
-  await page.getByRole("button", { name: "Send the nudge" }).click();
-  await expect(page.getByText("2 nudges sent.")).toBeVisible();
+  await page.getByRole("button", { name: copyPattern(copy.loop.nudgeNamed, { values: { names: /.*Alice.*/ }, start: true }) }).click();
+  await page.getByRole("button", { name: copy.loop.nudgeConfirm }).click();
+  await expect(page.getByText(text(copy.loop.nudged, { count: "2" }))).toBeVisible();
   const nudged = await rows<{ to: string }>(
     "select \"to\" from outbox where kind = 'reminder' and dedupe_key like 'manual-reminder:%' order by \"to\"",
   );

@@ -4,6 +4,7 @@ import { loadAlbum } from "../../src/lib/album.ts";
 import { ALBUM_PAGE_SIZE, parseAlbumFilters } from "../../src/lib/album-query.ts";
 import { Q1, seedAlbum, writeUpload } from "../../e2e/support/album.ts";
 import { rows, seedDeliveredIssue, seedLoop, setupDatabase } from "../support/app.ts";
+import { copy } from "@/lib/copy";
 
 setupDatabase();
 
@@ -66,7 +67,7 @@ test("the viewer's own media says You, others by name, and links point at the an
   });
 
   const towpath = view.groups[1].items[0];
-  assert.equal(towpath.author, "You");
+  assert.equal(towpath.author, copy.issue.you);
   assert.equal(towpath.isYou, true);
   assert.equal(towpath.context, Q1);
   assert.equal(towpath.issueHref, `/i/${world.round1}?m=${world.alice.token}#answer-${world.aliceTowpathReply}`);

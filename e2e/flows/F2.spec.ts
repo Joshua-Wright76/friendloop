@@ -2,6 +2,7 @@ import { test, expect } from "@playwright/test";
 import { resetDatabase, rows } from "../support/db";
 import { seedLoop } from "../support/seed";
 import { AFTER_FIRST_SLOT, clockHeaders, openPart, runSweep, signIn } from "../support/harness";
+import { copy } from "@/lib/copy";
 
 test.beforeEach(async () => {
   await resetDatabase();
@@ -14,8 +15,8 @@ test("F2 · a paused loop holds its round; resuming picks it back up", async ({ 
   await page.setExtraHTTPHeaders(clockHeaders(AFTER_FIRST_SLOT));
 
   await page.goto(`/g/${loop.groupId}`);
-  await page.getByRole("button", { name: "Pause" }).click();
-  await expect(page.getByText("Nothing goes out and nobody can answer until you resume it.")).toBeVisible();
+  await page.getByRole("button", { name: copy.loop.pause }).click();
+  await expect(page.getByText(copy.loop.pausedDescription)).toBeVisible();
 
   // Its delivery comes and goes, and nothing is sent or carried.
   const paused = await runSweep(new Date("2026-01-09T08:05:00Z"));
@@ -24,9 +25,9 @@ test("F2 · a paused loop holds its round; resuming picks it back up", async ({ 
   // Resumed after the day it was due: the same round, going out on the next one.
   await page.setExtraHTTPHeaders(clockHeaders(new Date("2026-01-12T12:00:00Z")));
   await page.goto(`/g/${loop.groupId}/settings`);
-  await openPart(page, "Pause and export");
-  await page.getByRole("button", { name: "Resume" }).click();
-  await expect(page.getByRole("button", { name: "Pause" })).toBeVisible();
+  await openPart(page, copy.settings.groupKeep);
+  await page.getByRole("button", { name: copy.settings.resume }).click();
+  await expect(page.getByRole("button", { name: copy.settings.pause })).toBeVisible();
 
   // The button changes before the write behind it lands, so wait for that.
   const state = async () =>

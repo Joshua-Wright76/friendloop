@@ -3,6 +3,7 @@ import { resetDatabase, rows } from "../support/db";
 import { seedLoop, seedOpenIssue } from "../support/seed";
 import { runSweep } from "../support/harness";
 import { enableShare, seedAudioReply } from "../support/audio";
+import { copy, copyPattern } from "@/lib/copy";
 
 test.beforeEach(async () => {
   await resetDatabase();
@@ -28,7 +29,7 @@ test("J6 · voice notes are stored hashed and playable through a share link", as
   // A share-link visitor reads the same issue, voice notes included.
   await page.goto(`/s/share-token-j6`);
   await expect(page.locator("audio").first()).toBeAttached();
-  await expect(page.getByRole("button", { name: /^Play voice note/ }).first()).toBeVisible();
+  await expect(page.getByRole("button", { name: copyPattern(copy.voiceNote.playPlain, { start: true }) }).first()).toBeVisible();
 
   // The actual file answers under its hashed name (no data leaked in the URL).
   const response = await page.request.get(audioUrl);

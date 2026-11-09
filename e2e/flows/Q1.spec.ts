@@ -3,6 +3,7 @@ import AxeBuilder from "@axe-core/playwright";
 import { resetDatabase, rows } from "../support/db";
 import { seedDeliveredIssue, seedOpenIssue } from "../support/seed";
 import { PPOLL, PQ1, seedKeepsake } from "../support/print";
+import { copy, text } from "@/lib/copy";
 
 test.beforeEach(async () => {
   await resetDatabase();
@@ -32,11 +33,11 @@ test("Q1 · a delivered round prints as chromeless light paper with page breaks,
 
   // The web round offers the print view; following it opens the same round, bare.
   await page.goto(web);
-  await page.getByRole("link", { name: "Print this round" }).click();
+  await page.getByRole("link", { name: copy.print.action }).click();
   await expect(page).toHaveURL(new RegExp(`/i/${world.issueId}\\?print&m=${world.alice.token}`));
   await expect(page.getByRole("heading", { level: 1, name: "Camping weekend" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Print or save as PDF" })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Back to the round" })).toHaveAttribute("href", web);
+  await expect(page.getByRole("button", { name: copy.print.button })).toBeVisible();
+  await expect(page.getByRole("link", { name: copy.print.back })).toHaveAttribute("href", web);
 
   // Nothing prints itself: arriving on the print view does not open a print dialog, a click does.
   await page.addInitScript(() => {
@@ -46,17 +47,17 @@ test("Q1 · a delivered round prints as chromeless light paper with page breaks,
   });
   const prints = () => page.evaluate(() => (window as unknown as { __prints: number }).__prints);
   await page.reload();
-  await expect(page.getByRole("button", { name: "Print or save as PDF" })).toBeVisible();
+  await expect(page.getByRole("button", { name: copy.print.button })).toBeVisible();
   expect(await prints()).toBe(0);
-  await page.getByRole("button", { name: "Print or save as PDF" }).click();
+  await page.getByRole("button", { name: copy.print.button }).click();
   expect(await prints()).toBe(1);
 
   for (const scheme of ["light", "dark"] as const) {
     await openPrintView(page, `/i/${world.issueId}?print&m=${world.alice.token}`, scheme);
 
     // No chrome: the toolbar, the theme switch and the skip link are gone.
-    await expect(page.getByRole("button", { name: "Print or save as PDF" })).toBeHidden();
-    await expect(page.getByRole("link", { name: "Back to the round" })).toBeHidden();
+    await expect(page.getByRole("button", { name: copy.print.button })).toBeHidden();
+    await expect(page.getByRole("link", { name: copy.print.back })).toBeHidden();
     await expect(page.locator(".theme-switch")).toBeHidden();
     await expect(page.locator(".feedback-button")).toBeHidden();
     await expect(page.locator(".skip-link")).toBeHidden();
@@ -124,19 +125,19 @@ test("Q1 · a delivered round prints as chromeless light paper with page breaks,
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Camping weekend");
   await expect(page.getByRole("heading", { level: 2, name: PQ1 })).toBeVisible();
   await expect(page.getByRole("heading", { level: 3, name: "Alice" }).first()).toBeVisible();
-  await expect(page.getByText("You", { exact: true })).toHaveCount(0);
-  await expect(page.getByText("asked by Maya")).toBeVisible();
+  await expect(page.getByText(copy.issue.you, { exact: true })).toHaveCount(0);
+  await expect(page.getByText(text(copy.issue.askedBy, { name: "Maya" }))).toBeVisible();
   await expect(page.getByText("A goose on the towpath")).toBeVisible();
   await expect(page.getByText("Sentence number 40 of a very long story about the shed.")).toBeVisible();
 
   // Voice notes become a card (audio cannot print); no player is left behind.
-  await expect(page.getByText("Voice note, 0:04. Listen on the web.")).toBeVisible();
+  await expect(page.getByText(text(copy.print.voiceCard, { duration: "0:04" }))).toBeVisible();
   await expect(page.locator(".print-sheet main").locator("audio, button, textarea, input")).toHaveCount(0);
 
   // Polls: each pick by name, and the tally as words and numbers, not only a bar.
   const poll = page.locator("section").filter({ hasText: PPOLL });
-  await expect(poll.getByText("Results · 2 votes")).toBeVisible();
-  const tally = poll.getByRole("list", { name: "Results" });
+  await expect(poll.getByText(`${copy.polls.issue.results} · ${text(copy.polls.issue.votesMany, { count: 2 })}`)).toBeVisible();
+  const tally = poll.getByRole("list", { name: copy.polls.issue.results });
   await expect(tally.locator("li").nth(0)).toContainText("June");
   await expect(tally.locator("li").nth(2)).toContainText("August");
   await expect(poll.getByRole("list", { name: "Chose June, August" })).toBeVisible();
@@ -152,11 +153,11 @@ test("Q1 · a delivered round prints as chromeless light paper with page breaks,
   await expect(page.getByRole("heading", { level: 2, name: "Nobody wrote here" })).toHaveCount(0);
 
   // Reactions are summarised in words; comments sit where they belong.
-  await expect(page.getByText("Reactions: ❤️ 2")).toBeVisible();
+  await expect(page.getByText(text(copy.print.reactions, { summary: "❤️ 2" }))).toBeVisible();
   const goose = page.locator(".print-answer").filter({ hasText: "A goose on the towpath" });
-  await expect(goose.getByRole("group", { name: "Comments on this answer" })).toContainText("Best goose ever");
-  await expect(goose.getByRole("group", { name: "Comments on this answer" })).toContainText("@Alice");
-  const thread = page.getByRole("heading", { level: 2, name: "Comments" }).locator("xpath=..");
+  await expect(goose.getByRole("group", { name: copy.print.answerComments })).toContainText("Best goose ever");
+  await expect(goose.getByRole("group", { name: copy.print.answerComments })).toContainText("@Alice");
+  const thread = page.getByRole("heading", { level: 2, name: copy.print.commentsHeading }).locator("xpath=..");
   await expect(thread).toContainText("What a round!");
   await expect(thread).toContainText("Agreed!");
   await expect(thread).toContainText("Sam wrote");
@@ -194,11 +195,11 @@ test("Q1 · a round that has not gone out has no print action, and ?print change
   const open = await seedOpenIssue(world.loop, { openedAt: new Date("2026-11-06T08:00:00Z") });
 
   await page.goto(`/i/${open.issueId}?m=${world.alice.token}`);
-  await expect(page.getByRole("link", { name: "Print this round" })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: copy.print.action })).toHaveCount(0);
 
   await page.goto(`/i/${open.issueId}?print&m=${world.alice.token}`);
   await expect(page.locator(".print-sheet")).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "Print or save as PDF" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: copy.print.button })).toHaveCount(0);
   await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
 });
 
@@ -206,9 +207,9 @@ test("Q1 · a shared round prints for people with only the link, and without any
   const world = await seedKeepsake();
 
   await page.goto(`/s/${world.shareToken}`);
-  await page.getByRole("link", { name: "Print this round" }).click();
+  await page.getByRole("link", { name: copy.print.action }).click();
   await expect(page).toHaveURL(`/s/${world.shareToken}?print`);
-  await expect(page.getByRole("link", { name: "Back to the round" })).toHaveAttribute("href", `/s/${world.shareToken}`);
+  await expect(page.getByRole("link", { name: copy.print.back })).toHaveAttribute("href", `/s/${world.shareToken}`);
   await expect(page.getByRole("heading", { level: 3, name: "Alice" }).first()).toBeVisible();
   await expect(page.getByText("A goose on the towpath")).toBeVisible();
   await expect(page.getByText("What a round!")).toHaveCount(0);
@@ -217,7 +218,7 @@ test("Q1 · a shared round prints for people with only the link, and without any
   // Turning sharing off ends the paper too.
   await rows("update groups set share_enabled = false where id = $1", [world.loop.groupId]);
   await page.goto(`/s/${world.shareToken}?print`);
-  await expect(page.getByRole("heading", { name: "This shared round isn't available" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: copy.share.goneTitle })).toBeVisible();
   await expect(page.getByText("A goose on the towpath")).toHaveCount(0);
 });
 
@@ -241,6 +242,6 @@ test("Q1 · an empty or tiny round still prints cleanly", async ({ page }) => {
   await page.goto(`/i/${small.issueId}?print`);
   await expect(page.getByRole("heading", { level: 1, name: "Round 2" })).toBeVisible();
   await expect(page.getByText("Just me.")).toBeVisible();
-  await expect(page.getByText("1 answer from the group.")).toBeVisible();
+  await expect(page.getByText(copy.issue.answer)).toBeVisible();
   await expect(page.locator(".print-question")).toHaveCount(1);
 });

@@ -2,6 +2,7 @@ import { expect, test, type Page } from "@playwright/test";
 import { resetDatabase } from "./support/db";
 import { seedDeliveredIssue, seedLoop, seedOpenIssue } from "./support/seed";
 import { AFTER_FIRST_SLOT, waitForSheet } from "./support/harness";
+import { copy, copyPattern } from "@/lib/copy";
 
 /**
  * Layout regressions that a text assertion and an axe run both miss.
@@ -35,8 +36,8 @@ test("visual · the reply sheet fits a phone without sideways scrolling", async 
 
   expect(await horizontalOverflow(page), "390px wide: nothing may hang off the side").toBeLessThanOrEqual(1);
 
-  await page.getByLabel("What made you laugh this week?").fill("A cat fist bump.");
-  const done = page.getByRole("button", { name: "Done", exact: true });
+  await page.getByLabel(copy.questionPacks[0].questions[0]).fill("A cat fist bump.");
+  const done = page.getByRole("button", { name: copy.reply.done, exact: true });
   await expect(done).toBeVisible();
 
   const box = await done.boundingBox();
@@ -95,7 +96,7 @@ test("visual · both themes paint from their tokens", async ({ page }) => {
   expect(palette.ink).toBe("#3d2a30");
   expect(palette.color, "body text comes from --ink").toBe("rgb(61, 42, 48)");
 
-  await page.getByRole("button", { name: /switch to dark mode/i }).click();
+  await page.getByRole("button", { name: copyPattern(copy.common.theme.switchToDark, { flags: "i" }) }).click();
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
   const dark = await page.evaluate(() => {
     const styles = getComputedStyle(document.documentElement);
@@ -119,7 +120,7 @@ test("visual · both themes paint from their tokens", async ({ page }) => {
 test("visual · the sign-in form fits a desktop viewport", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.goto("/signin");
-  await expect(page.getByLabel("Your email")).toBeVisible();
+  await expect(page.getByLabel(copy.signIn.emailLabel)).toBeVisible();
   expect(await horizontalOverflow(page)).toBeLessThanOrEqual(1);
 
   const main = await page.locator("main").first().boundingBox();

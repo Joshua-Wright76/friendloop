@@ -2,6 +2,7 @@ import { test, expect, type Page } from "@playwright/test";
 import { resetDatabase, rows } from "../support/db";
 import { addMember, seedLoop, seedOpenIssue, seedReplies } from "../support/seed";
 import { signIn, waitForSheet } from "../support/harness";
+import { copy, text as copyText, copyPattern } from "@/lib/copy";
 
 test.beforeEach(async () => {
   await resetDatabase();
@@ -14,6 +15,8 @@ async function served(page: Page): Promise<string> {
   return page.content();
 }
 
+const answerLinks = new RegExp(`${copyPattern(copy.loop.answerRound, { start: true }).source}|${copyPattern(copy.loop.editAnswers, { start: true, end: true }).source}`);
+
 test("D13 · the owner answers their own round from the app, then edits it", async ({ page }) => {
   const loop = await seedLoop();
   const issue = await seedOpenIssue(loop, { openedAt: OPENED });
@@ -22,7 +25,7 @@ test("D13 · the owner answers their own round from the app, then edits it", asy
 
   // Your loops: the card offers the round, on the owner's own link.
   const card = page.locator(".loop-card", { hasText: "Friday Loop" });
-  const fromYou = card.getByRole("link", { name: "Answer round 1" });
+  const fromYou = card.getByRole("link", { name: copyText(copy.loop.answerRound, { number: "1" }) });
   await expect(fromYou).toHaveAttribute("href", `/r/${owner.token}`);
   // The card still opens the loop.
   await expect(card.getByRole("link", { name: "Friday Loop" })).toHaveAttribute("href", `/g/${loop.groupId}`);
@@ -30,10 +33,10 @@ test("D13 · the owner answers their own round from the app, then edits it", asy
   // The overview's round card offers it too, as the one primary button.
   await page.goto(`/g/${loop.groupId}`);
   const round = page.locator('[aria-labelledby="this-round"]');
-  const answer = round.getByRole("link", { name: "Answer round 1" });
+  const answer = round.getByRole("link", { name: copyText(copy.loop.answerRound, { number: "1" }) });
   await expect(answer).toHaveAttribute("href", `/r/${owner.token}`);
   await expect(answer).toHaveClass(/btn-primary/);
-  await expect(round.getByRole("button", { name: /^Nudge/ })).not.toHaveClass(/btn-primary/);
+  await expect(round.getByRole("button", { name: copyPattern(copy.loop.nudgeNamed, { start: true }) })).not.toHaveClass(/btn-primary/);
   // Nobody else's link reaches the owner's browser.
   const html = await served(page);
   expect(html).not.toContain(alice.token);
@@ -51,13 +54,13 @@ test("D13 · the owner answers their own round from the app, then edits it", asy
     answers: [{ text: "What made you laugh this week?", body: "The dog." }],
   });
   await page.goto(`/g/${loop.groupId}`);
-  const edit = round.getByRole("link", { name: "Edit your answers" });
+  const edit = round.getByRole("link", { name: copy.issue.editYourAnswers });
   await expect(edit).toHaveAttribute("href", `/r/${owner.token}`);
   await expect(edit).not.toHaveClass(/btn-primary/);
-  await expect(round.getByRole("link", { name: "Answer round 1" })).toHaveCount(0);
+  await expect(round.getByRole("link", { name: copyText(copy.loop.answerRound, { number: "1" }) })).toHaveCount(0);
 
   await page.goto("/you");
-  await expect(card.getByRole("link", { name: "Edit your answers" })).toHaveAttribute("href", `/r/${owner.token}`);
+  await expect(card.getByRole("link", { name: copy.issue.editYourAnswers })).toHaveAttribute("href", `/r/${owner.token}`);
 });
 
 test("D13 · a member gets their own link, a reader none, and a paused loop none", async ({ browser }) => {
@@ -70,9 +73,9 @@ test("D13 · a member gets their own link, a reader none, and a paused loop none
   const memberContext = await browser.newContext();
   const memberPage = await memberContext.newPage();
   await signIn(memberPage, alice.email);
-  await expect(memberPage.locator(".loop-card").getByRole("link", { name: "Answer round 1" })).toHaveAttribute("href", `/r/${alice.token}`);
+  await expect(memberPage.locator(".loop-card").getByRole("link", { name: copyText(copy.loop.answerRound, { number: "1" }) })).toHaveAttribute("href", `/r/${alice.token}`);
   await memberPage.goto(`/g/${loop.groupId}`);
-  await expect(memberPage.getByRole("link", { name: "Answer round 1" })).toHaveAttribute("href", `/r/${alice.token}`);
+  await expect(memberPage.getByRole("link", { name: copyText(copy.loop.answerRound, { number: "1" }) })).toHaveAttribute("href", `/r/${alice.token}`);
   expect(await served(memberPage)).not.toContain(owner.token);
   await memberContext.close();
 
@@ -81,10 +84,10 @@ test("D13 · a member gets their own link, a reader none, and a paused loop none
   const readerPage = await readerContext.newPage();
   await signIn(readerPage, reader.email);
   await expect(readerPage.locator(".loop-card", { hasText: "Friday Loop" })).toBeVisible();
-  await expect(readerPage.getByRole("link", { name: /^Answer round|^Edit your answers$/ })).toHaveCount(0);
+  await expect(readerPage.getByRole("link", { name: answerLinks })).toHaveCount(0);
   await readerPage.goto(`/g/${loop.groupId}`);
-  await expect(readerPage.getByText("Waiting on")).toBeVisible();
-  await expect(readerPage.getByRole("link", { name: /^Answer round|^Edit your answers$/ })).toHaveCount(0);
+  await expect(readerPage.getByText(copy.loop.waitingTitle)).toBeVisible();
+  await expect(readerPage.getByRole("link", { name: answerLinks })).toHaveCount(0);
   const readerHtml = await served(readerPage);
   for (const member of [...loop.members, reader]) expect(readerHtml).not.toContain(`/r/${member.token}`);
   await readerContext.close();
@@ -94,11 +97,11 @@ test("D13 · a member gets their own link, a reader none, and a paused loop none
   const ownerContext = await browser.newContext();
   const ownerPage = await ownerContext.newPage();
   await signIn(ownerPage, owner.email);
-  await expect(ownerPage.locator(".loop-card", { hasText: "Paused" })).toBeVisible();
-  await expect(ownerPage.getByRole("link", { name: /^Answer round|^Edit your answers$/ })).toHaveCount(0);
+  await expect(ownerPage.locator(".loop-card", { hasText: copy.you.status.paused })).toBeVisible();
+  await expect(ownerPage.getByRole("link", { name: answerLinks })).toHaveCount(0);
   await ownerPage.goto(`/g/${loop.groupId}`);
-  await expect(ownerPage.getByRole("heading", { name: "Paused" })).toBeVisible();
-  await expect(ownerPage.getByRole("link", { name: /^Answer round|^Edit your answers$/ })).toHaveCount(0);
+  await expect(ownerPage.getByRole("heading", { name: copy.you.status.paused })).toBeVisible();
+  await expect(ownerPage.getByRole("link", { name: answerLinks })).toHaveCount(0);
   expect(await served(ownerPage)).not.toContain(`/r/${owner.token}`);
   await ownerContext.close();
 });

@@ -2,6 +2,7 @@ import { test, expect } from "@playwright/test";
 import { resetDatabase, rows } from "../support/db";
 import { seedLoop } from "../support/seed";
 import { E2E_NOW, addCard, addWithCard, fillItem, freezeClock, openItem, signIn } from "../support/harness";
+import { copy, text as copyText, copyPattern } from "@/lib/copy";
 
 test.beforeEach(async () => {
   await resetDatabase();
@@ -13,19 +14,19 @@ test("O1 · the owner adds a birthday and a one-time event and sees them coming 
   await freezeClock(page, E2E_NOW); // 2 Jan 2026 in the loop
   await page.goto(`/g/${loop.groupId}/questions`);
 
-  const dates = page.getByRole("list", { name: "Events and birthdays, soonest first" });
-  await expect(page.getByText("No events or birthdays yet.")).toBeVisible();
+  const dates = page.getByRole("list", { name: copy.questions.upNext.datedLabel });
+  await expect(page.getByText(copy.questions.upNext.datedEmpty)).toBeVisible();
 
   // A birthday: a member, a date, an emoji. The year doesn't matter.
-  await addWithCard(page, { frequency: "On a date", dateKind: "A birthday, every year", person: "Alice", date: "1990-01-06", emoji: "🎂" });
+  await addWithCard(page, { frequency: copy.questions.item.frequencies.on_date, dateKind: copy.questions.item.dateKinds.birthday, person: "Alice", date: "1990-01-06", emoji: "🎂" });
   // A one-time event, further out.
-  await addWithCard(page, { text: "The housewarming", frequency: "On a date", date: "2026-02-14", emoji: "🏡" });
+  await addWithCard(page, { text: "The housewarming", frequency: copy.questions.item.frequencies.on_date, date: "2026-02-14", emoji: "🏡" });
 
   // Soonest first, with the next date and the yearly note on the birthday.
   const items = dates.locator(":scope > li");
   await expect(items).toHaveCount(2);
-  await expect(items.nth(0)).toContainText("Alice's birthday");
-  await expect(items.nth(0)).toContainText("Tue, Jan 6 · every year");
+  await expect(items.nth(0)).toContainText(copyText(copy.events.birthdayRow, { name: "Alice" }));
+  await expect(items.nth(0)).toContainText(`Tue, Jan 6 · ${copy.questions.upNext.yearly}`);
   await expect(items.nth(1)).toContainText("The housewarming");
   await expect(items.nth(1)).toContainText("Sat, Feb 14");
 
@@ -39,22 +40,22 @@ test("O1 · the owner adds a birthday and a one-time event and sees them coming 
 
   // Edited in place, then stopped.
   const party = await openItem(page, "The housewarming");
-  await party.getByLabel(/^What to ask/).fill("The big housewarming");
-  await party.getByRole("button", { name: "Save changes" }).click();
-  await expect(page.getByText("Saved.")).toBeVisible();
+  await party.getByLabel(copyPattern(copy.questions.item.textLabel, { start: true })).fill("The big housewarming");
+  await party.getByRole("button", { name: copy.questions.item.save }).click();
+  await expect(page.getByText(copy.settings.savedNotice)).toBeVisible();
   await expect(items.nth(1)).toContainText("The big housewarming");
 
   const big = await openItem(page, "The big housewarming");
-  await big.getByRole("button", { name: "Stop asking: The big housewarming" }).click();
-  await big.getByRole("button", { name: "Yes, stop asking" }).click(); // stopping asks first
-  await expect(page.getByText(/^Stopped asking/)).toBeVisible();
+  await big.getByRole("button", { name: copyText(copy.questions.item.stopLabel, { item: "The big housewarming" }) }).click();
+  await big.getByRole("button", { name: copy.questions.item.stopConfirm }).click(); // stopping asks first
+  await expect(page.getByText(new RegExp(`^(${copyPattern(copy.questions.done.stopped).source}|${copyPattern(copy.questions.done.stoppedStays).source})`))).toBeVisible();
   await expect(items).toHaveCount(1);
 
   // A date that has already gone by is refused, and the page says so.
   const card = addCard(page);
-  await fillItem(page, card, { text: "Last week's party", frequency: "On a date", date: "2025-12-20" });
-  await card.getByRole("button", { name: "Add question", exact: true }).click();
-  await expect(page.getByText("That date has already gone by.")).toBeVisible();
+  await fillItem(page, card, { text: "Last week's party", frequency: copy.questions.item.frequencies.on_date, date: "2025-12-20" });
+  await card.getByRole("button", { name: copy.questions.add.submit, exact: true }).click();
+  await expect(page.getByText(copy.questions.errors.pastDate)).toBeVisible();
   await expect(items).toHaveCount(1);
 });
 
@@ -71,14 +72,14 @@ test("O1 · only people who manage the loop see the dates", async ({ page }) => 
   await signIn(page, "alice@friendloop.test");
   await freezeClock(page, E2E_NOW);
   await page.goto(`/g/${loop.groupId}/questions`);
-  await expect(page.getByRole("heading", { name: "Questions", level: 1 })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "On a date" })).toHaveCount(0);
-  await expect(page.getByText("Alice's birthday")).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: copy.questions.title, level: 1 })).toBeVisible();
+  await expect(page.getByRole("heading", { name: copy.questions.upNext.datedTitle })).toHaveCount(0);
+  await expect(page.getByText(copyText(copy.events.birthdayRow, { name: "Alice" }))).toHaveCount(0);
 
   await page.context().clearCookies();
   await page.setExtraHTTPHeaders({});
   await signIn(page, "admin@friendloop.test");
   await freezeClock(page, E2E_NOW);
   await page.goto(`/g/${loop.groupId}/questions`);
-  await expect(page.getByRole("list", { name: "Events and birthdays, soonest first" })).toContainText("Alice's birthday");
+  await expect(page.getByRole("list", { name: copy.questions.upNext.datedLabel })).toContainText(copyText(copy.events.birthdayRow, { name: "Alice" }));
 });

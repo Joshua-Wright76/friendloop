@@ -2,12 +2,13 @@ import { test, expect } from "@playwright/test";
 import { resetDatabase, rows } from "../support/db";
 import { signIn, uniqueEmail } from "../support/harness";
 import { QUESTION_PACKS } from "@/lib/question-packs";
+import { copy, text as copyText, copyPattern } from "@/lib/copy";
 
 const NEXT = "Continue to the next setup step";
 
 async function moveToDetails(page: import("@playwright/test").Page, title: string) {
   await page.goto("/g/new");
-  await page.getByLabel("Loop name").fill(title);
+  await page.getByLabel(copy.newLoop.nameLabel).fill(title);
   await page.getByRole("button", { name: NEXT }).click();
   // The optional paper-and-picture step: leave it alone.
   await page.getByRole("button", { name: NEXT }).click();
@@ -37,12 +38,12 @@ test("B2 · defaults and a quick idea become the ordered question pool", async (
   await page.getByRole("button", { name: NEXT }).click();
   await continueFromReaders(page);
 
-  await page.getByRole("button", { name: "Preview the first round" }).click();
-  const preview = page.getByRole("dialog", { name: "A first look" });
+  await page.getByRole("button", { name: copy.newLoop.wizard.note.previewButton }).click();
+  const preview = page.getByRole("dialog", { name: copy.newLoop.wizard.note.previewTitle });
   await expect(preview.getByText("Book Club")).toBeVisible();
-  await expect(preview.getByText("What was one good moment recently?")).toBeVisible();
-  await preview.getByRole("button", { name: "Close round preview" }).click();
-  await page.getByRole("button", { name: "Create loop" }).click();
+  await expect(preview.getByText(copy.newLoop.wizard.questions.ideas[0].question)).toBeVisible();
+  await preview.getByRole("button", { name: copy.newLoop.wizard.note.closePreview }).click();
+  await page.getByRole("button", { name: copy.newLoop.wizard.create }).click();
   await expect(page).toHaveURL(/\/g\/[0-9a-f-]+/);
 
   const pool = await rows<{ text: string; position: number }>(
@@ -51,9 +52,9 @@ test("B2 · defaults and a quick idea become the ordered question pool", async (
     ["Book Club"],
   );
   expect(pool.map((row) => row.text)).toEqual([
-    "What made you laugh this week?",
-    "What are you looking forward to?",
-    "What was one good moment recently?",
+    copy.questionPacks[0].questions[0],
+    copy.questionPacks[0].questions[1],
+    copy.newLoop.wizard.questions.ideas[0].question,
   ]);
   expect(pool.map((row) => row.position)).toEqual([0, 1, 2]);
 });
@@ -71,21 +72,21 @@ test("B2 · the question bank can start with more than eight prompts", async ({ 
   await questions.nth(1).uncheck();
 
   // Questions can be picked across packs, several open at once.
-  await page.getByRole("button", { name: /^Tiny joys/ }).click();
-  const tiny = page.getByRole("group", { name: "Tiny joys", exact: true });
+  await page.getByRole("button", { name: copyPattern(copy.questionPacks[8].name, { start: true }) }).click();
+  const tiny = page.getByRole("group", { name: copy.questionPacks[8].name, exact: true });
   await expect(tiny.getByRole("checkbox")).toHaveCount(
     QUESTION_PACKS.find((pack) => pack.name === "Tiny joys")!.questions.length,
   );
   for (let index = 0; index < 4; index += 1) await tiny.getByRole("checkbox").nth(index).check();
 
   await page.getByRole("button", { name: /^Food/ }).click();
-  const food = page.getByRole("group", { name: "Food", exact: true });
+  const food = page.getByRole("group", { name: copy.questionPacks[2].name, exact: true });
   for (let index = 0; index < 5; index += 1) await food.getByRole("checkbox").nth(index).check();
 
-  await expect(page.getByText("9 selected")).toBeVisible();
+  await expect(page.getByText(copyText(copy.common.selectedCount, { count: "9" }))).toBeVisible();
   await page.getByRole("button", { name: NEXT }).click();
   await page.getByRole("button", { name: NEXT }).click();
-  await page.getByRole("button", { name: "Create loop" }).click();
+  await page.getByRole("button", { name: copy.newLoop.wizard.create }).click();
   await expect(page).toHaveURL(/\/g\/[0-9a-f-]+/);
 
   const count = await rows<{ count: number }>(

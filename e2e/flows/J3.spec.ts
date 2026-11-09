@@ -2,6 +2,7 @@ import { test, expect } from "@playwright/test";
 import { resetDatabase, rows } from "../support/db";
 import { seedLoop, seedOpenIssue } from "../support/seed";
 import { makeWebm } from "../support/audio";
+import { copy } from "@/lib/copy";
 
 test.beforeEach(async () => {
   await resetDatabase();
@@ -45,5 +46,5 @@ test("J3 · duration and size caps answer with the same warm error, never a 500"
 
   await page.goto(`/r/${alice.token}`);
   await expect(page.locator("audio")).toHaveCount(0);
-  await expect(page.getByText("Voice note saved")).toHaveCount(0);
+  await expect(page.getByText(copy.reply.voiceSaved)).toHaveCount(0);
 });

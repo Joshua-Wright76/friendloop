@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { copy } from "@/lib/copy";
 
 /**
  * Read-only probes against a deployed URL.
@@ -25,7 +26,7 @@ test.describe("@probe deployed", () => {
 
     const signIn = await request.get("/signin");
     expect(signIn.status()).toBe(200);
-    expect(await signIn.text()).toContain("Email me a link");
+    expect(await signIn.text()).toContain(copy.signIn.submit);
   });
 
   test("@probe the cron endpoint refuses an anonymous caller", async ({ request }) => {

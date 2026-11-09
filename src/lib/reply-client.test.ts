@@ -11,6 +11,7 @@ import {
   uploadReplyPhoto,
 } from "./reply-client.ts";
 
+import { copy } from "./copy.ts";
 test("postReply turns network and response parsing exceptions into failed results", async () => {
   const networkFailure = await postReply("token", {}, "Could not save", async () => {
     throw new Error("offline");
@@ -59,11 +60,11 @@ test("photo removal uses DELETE and reports server errors", async () => {
     capturedBody = init?.body as string;
     return {
       ok: false,
-      json: async () => ({ error: "That question isn't in this round." }),
+      json: async () => ({ error: copy.reply.errors.wrongQuestion }),
     } as Response;
   });
 
-  assert.deepEqual(result, { ok: false, error: "That question isn't in this round." });
+  assert.deepEqual(result, { ok: false, error: copy.reply.errors.wrongQuestion });
   assert.equal(capturedMethod, "DELETE");
   assert.deepEqual(JSON.parse(capturedBody), { issueQuestionId: "question-id" });
 });
@@ -247,7 +248,7 @@ test("audio removal reports failures and survives a network error", async () => 
 test("a platform 413 on a photo or voice note reads as the size message, not a generic error", async () => {
   const platform = (async () => new Response("Request Entity Too Large", { status: 413 })) as typeof fetch;
   const photo = await uploadReplyPhoto("t", "q", new File(["x"], "p.png", { type: "image/png" }), "generic", platform);
-  assert.deepEqual(photo, { ok: false, error: "That photo is over 4 MB. Try a smaller one.", rejected: true });
+  assert.deepEqual(photo, { ok: false, error: copy.reply.errors.photoTooLarge, rejected: true });
   const audio = await uploadReplyAudio("t", "q", new Blob(["x"]), "note.webm", 1000, "generic", platform);
-  assert.deepEqual(audio, { ok: false, error: "That file is too big. Try a shorter recording.", rejected: true });
+  assert.deepEqual(audio, { ok: false, error: copy.reply.errors.voiceTooLarge, rejected: true });
 });

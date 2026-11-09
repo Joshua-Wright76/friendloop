@@ -4,6 +4,7 @@ import { pendingWork, sweep } from "../../src/lib/sweep.ts";
 import { outboxCount, resetDatabase, rows, seedLoop, seedOpenIssue, seedReplies, setupDatabase } from "../support/app.ts";
 import { AFTER_FIRST_SLOT, BEFORE_FIRST_SLOT, DAY, DELIVERY_DAY, E2E_NOW, HOUR } from "../../e2e/support/clock.ts";
 import { clearRequest, setRequestHeaders } from "../stubs/request.mjs";
+import { copy, copyPattern, text as copyText } from "@/lib/copy";
 
 beforeEach(async () => {
   await resetDatabase();
@@ -130,7 +131,7 @@ test("delivery opens the next round, and its questions ride along in each writer
     "select \"to\", html, text from outbox where kind = 'delivery' order by \"to\"",
   );
   const forAlice = mail.find((row) => row.to === alice.email)!;
-  assert.match(forAlice.html, /Next up: Round 2/);
+  assert.match(forAlice.html, copyPattern(copy.emails.delivery.nextHeading, { values: { issueHeading: copyText(copy.emails.roundHeading, { number: 2 }) } }));
   assert.ok(forAlice.html.includes(`/r/${alice.token}`), "alice's own reply link");
   assert.ok(forAlice.text.includes(`/r/${alice.token}`));
   const forBob = mail.find((row) => row.to === bob.email)!;

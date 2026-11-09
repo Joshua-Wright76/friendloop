@@ -2,6 +2,7 @@ import { test, expect } from "@playwright/test";
 import { resetDatabase, rows } from "../support/db";
 import { seedLoop, seedOpenIssue } from "../support/seed";
 import { AFTER_FIRST_SLOT, waitForSheet } from "../support/harness";
+import { copy, copyPattern } from "@/lib/copy";
 
 test.beforeEach(async () => {
   await resetDatabase();
@@ -14,15 +15,15 @@ test("D6 · an answer changes in place, and clearing it takes it out of the roun
 
   await page.goto(`/r/${alice.token}`);
   await waitForSheet(page);
-  const answer = page.getByLabel("What made you laugh this week?");
+  const answer = page.getByLabel(copy.questionPacks[0].questions[0]);
   await answer.fill("First version.");
-  await page.getByRole("button", { name: "Done", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "All set", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: copy.reply.done, exact: true }).click();
+  await expect(page.getByRole("heading", { name: copy.reply.confirmation.title, exact: true })).toBeVisible();
   await expect(page.locator(".sent-stamp:visible")).toHaveClass(/sent-stamp-animate/);
 
-  await page.getByRole("button", { name: "Back to my answers" }).click();
+  await page.getByRole("button", { name: copy.reply.confirmation.edit }).click();
   await answer.fill("Second version, with the good detail.");
-  await expect(page.locator("[data-save-status]")).toHaveText("Saved. It goes out with the round.");
+  await expect(page.locator("[data-save-status]")).toHaveText(copy.reply.savedInRound);
 
   // Rewriting must not add a second row, and a question left empty gets none.
   const saved = async () => rows<{ body: string }>(
@@ -33,9 +34,9 @@ test("D6 · an answer changes in place, and clearing it takes it out of the roun
 
   // Cleared, it isn't an answer any more: not in the round, not in the count.
   await answer.fill("");
-  await expect(page.locator("[data-save-status]")).toHaveText("Saved as you go");
+  await expect(page.locator("[data-save-status]")).toHaveText(copy.reply.savedAsYouGo);
   await expect.poll(async () => (await saved()).map((row) => row.body)).toEqual([""]);
-  await expect(page.getByText(/0 of 2 answered/i).first()).toBeVisible();
+  await expect(page.getByText(copyPattern(copy.reply.answered, { values: { answered: "0", total: "2" }, flags: "i" })).first()).toBeVisible();
   const view = await page.request.get(`/i/${issue.issueId}?m=${alice.token}`);
   expect(await view.text()).not.toContain("Second version");
 });
@@ -57,7 +58,7 @@ test("D6 · clearing an answer resolves the overall save status after an older w
 
   await page.goto(`/r/${alice.token}`);
   await waitForSheet(page);
-  const answer = page.getByLabel("What made you laugh this week?");
+  const answer = page.getByLabel(copy.questionPacks[0].questions[0]);
   await answer.fill("An answer that gets cleared.");
   await expect.poll(() => delayedBody).toBe("An answer that gets cleared.");
   await answer.fill("");
@@ -65,12 +66,12 @@ test("D6 · clearing an answer resolves the overall save status after an older w
   // The late, slower write for the text you deleted is discarded, so the status
   // settles instead of being stuck on "Saving…".
   await expect(page.locator("[data-save-status]")).not.toHaveText(/Saving/);
-  await expect(page.locator("[data-save-status]")).toHaveText("Saved as you go");
+  await expect(page.locator("[data-save-status]")).toHaveText(copy.reply.savedAsYouGo);
 
   // With nothing left, Done stays operable and points at the first question.
-  const done = page.getByRole("button", { name: "Done", exact: true });
+  const done = page.getByRole("button", { name: copy.reply.done, exact: true });
   await expect(done).not.toHaveAttribute("aria-disabled", "true");
   await done.click();
-  await expect(page.getByRole("alert").filter({ hasText: "Nothing written yet. Write one answer and it goes out with the round. The rest can wait." })).toBeVisible();
+  await expect(page.getByRole("alert").filter({ hasText: copy.reply.nothingWritten })).toBeVisible();
   await expect(answer).toBeFocused();
 });

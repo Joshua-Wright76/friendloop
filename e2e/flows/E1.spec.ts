@@ -2,6 +2,7 @@ import { test, expect } from "@playwright/test";
 import { resetDatabase, rows } from "../support/db";
 import { seedDeliveredIssue, seedLoop, seedOpenIssue, seedReplies } from "../support/seed";
 import { AFTER_FIRST_SLOT, clockHeaders, runSweep } from "../support/harness";
+import { copy, text as copyText, copyPattern } from "@/lib/copy";
 
 test.beforeEach(async () => {
   await resetDatabase();
@@ -20,12 +21,12 @@ test("E1 · a delivered round shows every answer and marks your own", async ({ p
   const alice = loop.members.find((member) => member.email.startsWith("alice"))!;
   await page.goto(`/i/${issue.issueId}?m=${alice.token}`);
 
-  await expect(page.getByRole("heading", { name: "Round 1" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: copyText(copy.issue.round, { number: 1 }) })).toBeVisible();
   await expect(page.getByText("The cat fist bump.")).toBeVisible();
   await expect(page.getByText("A very long lunch.")).toBeVisible();
-  await expect(page.getByText("2 answers from the group.")).toBeVisible();
-  await expect(page.getByText(/Went out Fri 30 Oct\./)).toBeVisible();
-  await expect(page.getByText("You", { exact: true })).toBeVisible();
+  await expect(page.getByText(copyText(copy.issue.answers, { count: "2" }))).toBeVisible();
+  await expect(page.getByText(copyPattern(copy.issue.deliveredOn, { values: { date: "Fri 30 Oct" } }))).toBeVisible();
+  await expect(page.getByText(copy.issue.you, { exact: true })).toBeVisible();
   // Scoped to the answers: the reading controls above them also name Bob.
   await expect(page.locator(".answer-card").getByText("Bob", { exact: true })).toBeVisible();
 });
@@ -54,7 +55,7 @@ test("E1 · a reply link never reopens a round that has gone out", async ({ page
 
   await page.setExtraHTTPHeaders(clockHeaders(new Date(issue.deliversAt.getTime() + 60_000)));
   await page.goto(`/r/${alice.token}`);
-  await expect(page.getByRole("heading", { name: "Nothing open right now" })).toBeVisible();
-  await expect(page.getByLabel("What made you laugh this week?")).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: copy.reply.nothingOpenTitle })).toBeVisible();
+  await expect(page.getByLabel(copy.questionPacks[0].questions[0])).toHaveCount(0);
   await expect(page.getByText(/^Goes out /)).toHaveCount(0);
 });
