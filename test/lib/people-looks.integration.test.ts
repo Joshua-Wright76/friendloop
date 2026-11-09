@@ -214,6 +214,7 @@ test("the round's email opens with the roll call, puts stickers by names and clo
   await saveDraftFor({ token: bob.token, issueQuestionId: second.id, body: "Owners only." });
   await saveStickerFor({ token: alice.token, issueQuestionId: first.id, sticker: "peach" });
   await saveStatusLineFor({ token: alice.token, body: "📚 reading Middlemarch" });
+  await saveStatusLineFor({ token: bob.token, body: "off to Lisbon" });
   const signed = await setMemberSignature(alice.id, STROKES, { bytes: PNG, type: "image/png" });
   const bobSigned = await setMemberSignature(bob.id, STROKES, { bytes: PNG, type: "image/png" });
   assert.ok(signed.ok && bobSigned.ok);
@@ -232,7 +233,7 @@ test("the round's email opens with the roll call, puts stickers by names and clo
   assert.match(forAlice.html, /\/stickers\/png\/peach\.png/);
   assert.match(forAlice.html, new RegExp(`<img src="${signed.url.replace(/[.?]/g, "\\$&")}" alt="Signed, Alice"`));
   assert.doesNotMatch(forAlice.html, /alt="Signed, Bob"/, "Bob signs only where his words are shown");
-  assert.match(forAlice.text, /Who's here this round\nAlice: 📚 reading Middlemarch/);
+  assert.match(forAlice.text, /Who's here this round\nAlice: 📚 reading Middlemarch\nBob: off to Lisbon\n/);
   assert.match(forAlice.text, /Signed, sealed, delivered: Alice$/m);
   assert.match(to("owner@friendloop.test").html, /alt="Signed, Bob"/);
 });
@@ -240,9 +241,10 @@ test("the round's email opens with the roll call, puts stickers by names and clo
 /* ------------------------------ in the export ------------------------------ */
 
 test("a person's export carries their signature, their lines and their stickers; the loop's archive the lines and stickers", async () => {
-  const { loop, issue, alice, first } = await openLoop();
+  const { loop, issue, alice, bob, first } = await openLoop();
   await saveDraftFor({ token: alice.token, issueQuestionId: first.id, body: "A goose." });
   await saveStickerFor({ token: alice.token, issueQuestionId: first.id, sticker: "peach" });
+  await saveStatusLineFor({ token: bob.token, body: "mostly sleeping" });
   await saveStatusLineFor({ token: alice.token, body: "off to Lisbon" });
   await rows("update memberships set signature = $2, signature_png_url = '/uploads/sig.png' where id = $1", [alice.id, JSON.stringify(STROKES)]);
 
@@ -254,6 +256,6 @@ test("a person's export carries their signature, their lines and their stickers;
 
   await rows("update issues set status = 'delivered', delivered_at = now() where id = $1", [issue.issueId]);
   const archive = await collect((await loopArchive(loop.groupId, E2E_NOW))!.chunks);
-  assert.deepEqual(archive.rounds[0].lines, [{ by: "Alice", line: "off to Lisbon" }]);
+  assert.deepEqual(archive.rounds[0].lines, [{ by: "Alice", line: "off to Lisbon" }, { by: "Bob", line: "mostly sleeping" }]);
   assert.equal(archive.rounds[0].questions[0].answers[0].sticker, "peach");
 });

@@ -119,6 +119,8 @@ export function StatusLineField({
       <input
         ref={field}
         id={`${id}-field`}
+        // Typed, so the sheet's "nothing written yet" nudge (which looks for an untyped input) passes it by.
+        type="text"
         value={value}
         onChange={(event) => change(event.target.value)}
         onBlur={() => persist(latest.current)}
