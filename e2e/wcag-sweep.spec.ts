@@ -1,11 +1,15 @@
 import { expect, test, type Page } from "@playwright/test";
+import AxeBuilder from "@axe-core/playwright";
+import type { RunOptions } from "axe-core";
 import { copy } from "@/lib/copy";
 import { THEME_PRESET_KEYS, previewTheme } from "@/lib/theme";
 import { UI_PREVIEW } from "@/lib/ui-preview";
 import { resetDatabase, rows } from "./support/db";
 import {
+  ENFORCED_RULES,
   ZOOM_400,
   axeProblems,
+  ignorePseudoOptions,
   keyboardProblems,
   reflowProblems,
   textSpacingProblems,
@@ -74,6 +78,24 @@ async function applicationReady(page: Page) {
   await expect(page.locator("h1").first()).toBeVisible();
   await page.evaluate(async () => { await document.fonts.ready; });
 }
+
+function builderOptions(builder: AxeBuilder): RunOptions {
+  return (builder as unknown as { option: RunOptions }).option;
+}
+
+test("axe primary and fixed-bar contrast builders keep independent options", ({ page }) => {
+  const primary = new AxeBuilder({ page }).options(ignorePseudoOptions()).withRules(ENFORCED_RULES);
+  const reaudit = new AxeBuilder({ page }).options(ignorePseudoOptions()).withRules(["color-contrast"]);
+  const primaryOptions = builderOptions(primary);
+  const reauditOptions = builderOptions(reaudit);
+
+  expect(ENFORCED_RULES).toHaveLength(73);
+  expect(primaryOptions).not.toBe(reauditOptions);
+  expect(primaryOptions.runOnly).toEqual({ type: "rule", values: ENFORCED_RULES });
+  expect(reauditOptions.runOnly).toEqual({ type: "rule", values: ["color-contrast"] });
+  expect(primaryOptions).toMatchObject({ checks: { "color-contrast": { options: { ignorePseudo: true } } } });
+  expect(reauditOptions).toMatchObject({ checks: { "color-contrast": { options: { ignorePseudo: true } } } });
+});
 
 /**
  * Headings that mean the page rendered a "not here / closed / sign in" card instead of the screen under test.

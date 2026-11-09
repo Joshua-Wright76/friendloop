@@ -35,7 +35,7 @@ const EXTRA_RULES = new Set([
 // AxeBuilder's withTags(), withRules(), and options() overwrite one another's
 // runOnly selection. Expand the tags once so one final selector runs exactly
 // the WCAG rules and named extras, without unrelated best-practice rules.
-const ENFORCED_RULES = [...axe.getRules(AXE_TAGS).filter((rule) => rule.enabled).map((rule) => rule.ruleId), ...EXTRA_RULES];
+export const ENFORCED_RULES = [...axe.getRules(AXE_TAGS).filter((rule) => rule.enabled).map((rule) => rule.ruleId), ...EXTRA_RULES];
 
 /**
  * 400% zoom of a 1280x1024 window: the viewport 1.4.10 asks the page to survive.
@@ -44,8 +44,13 @@ const ENFORCED_RULES = [...axe.getRules(AXE_TAGS).filter((rule) => rule.enabled)
  */
 export const ZOOM_400 = { width: 320, height: 256 } as const;
 
-/** axe reads `options.checks[id]` at run time; its own type for RunOptions just does not list it. */
-const IGNORE_PSEUDO = { checks: { "color-contrast": { options: { ignorePseudo: true } } } } as unknown as RunOptions;
+/**
+ * axe reads `options.checks[id]` at run time; its own RunOptions type does not list it.
+ * Return a fresh object because AxeBuilder's withRules() mutates the supplied options.
+ */
+export function ignorePseudoOptions(): RunOptions {
+  return { checks: { "color-contrast": { options: { ignorePseudo: true } } } } as unknown as RunOptions;
+}
 
 export type Problems = string[];
 
@@ -90,7 +95,7 @@ async function auditWithAxe(page: Page, label: string, scope?: string): Promise<
   // ignorePseudo: a 1.5px decorative ::before line (the margin rule on `.paper` cards) must not make axe give
   // up on every text node near it; the contrast is then really measured.
   // `scope` narrows the audit to one widget (an open popup legitimately overlaps the page behind it).
-  const builder = new AxeBuilder({ page }).options(IGNORE_PSEUDO).withRules(ENFORCED_RULES);
+  const builder = new AxeBuilder({ page }).options(ignorePseudoOptions()).withRules(ENFORCED_RULES);
   const result = await (scope ? builder.include(scope) : builder).analyze();
   const out: Problems = [];
   for (const violation of result.violations) {
@@ -118,8 +123,8 @@ async function auditWithAxe(page: Page, label: string, scope?: string): Promise<
       const handle = await page.addStyleTag({ content: ".feedback-button, .theme-switch, .reply-topbar, .reply-actionbar { visibility: hidden !important; }" });
       try {
         const again = await new AxeBuilder({ page })
+          .options(ignorePseudoOptions())
           .withRules(["color-contrast"])
-          .options(IGNORE_PSEUDO)
           .include(overlapped.map((node) => node.target.join(" ")).slice(0, 25))
           .analyze();
         for (const violation of again.violations) out.push(`${label}: axe ${violation.id} (${violation.nodes.length}, with fixed bars hidden) — ${describeNodes(violation.nodes)}`);
