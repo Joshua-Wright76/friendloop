@@ -36,6 +36,9 @@ function overlaps(a: { x: number; y: number; width: number; height: number }, b:
   return a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height;
 }
 
+/** What the page said about an answer's stickers, where it happened (a live region off the page says it too). */
+const said = (page: Page, message: string) => page.locator(".scrap-note").filter({ hasText: message });
+
 const stickersOf = async (membershipId: string) =>
   rows<{ id: string; sticker: string; side: string; offset: number }>("select id, sticker, side, \"offset\" from issue_stickers where membership_id = $1 order by created_at", [membershipId]);
 
@@ -182,14 +185,16 @@ test("N10 · members stick, move and peel stickers in a delivered round's margin
     await sheet.getByRole("button", { name: copy.stickers[key] }).click();
     const left = SCRAPBOOK_PER_ROUND - index - 1;
     const leftLine = left === 1 ? words.leftOne : left > 1 ? text(words.left, { count: left }) : text(words.spent, { limit: SCRAPBOOK_PER_ROUND });
-    await expect(page.getByText(text(words.stuck, { sticker: copy.stickers[key], left: leftLine }))).toBeVisible();
+    await expect(said(page, text(words.stuck, { sticker: copy.stickers[key], left: leftLine }))).toBeVisible();
     await expect(page.getByRole("button", { name: text(words.labelYours, { sticker: copy.stickers[key] }) })).toBeVisible();
   }
   await expect.poll(async () => (await stickersOf(bob.id)).length).toBe(SCRAPBOOK_PER_ROUND);
   // A fourth: no sheet, just why.
   await stick.click();
   await expect(sheet).toBeHidden();
-  await expect(page.getByText(text(words.spent, { limit: SCRAPBOOK_PER_ROUND }))).toBeVisible();
+  await expect(said(page, text(words.spent, { limit: SCRAPBOOK_PER_ROUND }))).toBeVisible();
+  // Screen readers hear it from one live region, outside the round.
+  await expect(page.locator("body > p[aria-live='polite']").filter({ hasText: text(words.spent, { limit: SCRAPBOOK_PER_ROUND }) })).toHaveCount(1);
 
   // Nothing covers a word.
   const answerText = (await page.locator("article.answer-card .answer-text").first().boundingBox())!;
@@ -246,7 +251,7 @@ test("N10 · members stick, move and peel stickers in a delivered round's margin
   const star = page.getByRole("button", { name: text(words.labelYours, { sticker: copy.stickers.star }) });
   await star.click();
   await page.getByRole("group", { name: text(words.menuLabel, { sticker: copy.stickers.star, name: copy.issue.you }) }).getByRole("button", { name: words.peel }).click();
-  await expect(page.getByText(text(words.peeled, { left: words.leftOne }))).toBeVisible();
+  await expect(said(page, text(words.peeled, { left: words.leftOne }))).toBeVisible();
   await expect.poll(async () => (await stickersOf(bob.id)).length).toBe(SCRAPBOOK_PER_ROUND - 1);
   await expect(stick).toBeFocused();
 
@@ -270,7 +275,7 @@ test("N10 · members stick, move and peel stickers in a delivered round's margin
   const ownersMenu = page.getByRole("group", { name: text(words.menuLabel, { sticker: copy.stickers.heart, name: "Bob" }) });
   await expect(ownersMenu.getByRole("button", { name: words.moveUp })).toHaveCount(0);
   await ownersMenu.getByRole("button", { name: words.peel }).click();
-  await expect(page.getByText(text(words.peeledTheirs, { name: "Bob", sticker: copy.stickers.heart }))).toBeVisible();
+  await expect(said(page, text(words.peeledTheirs, { name: "Bob", sticker: copy.stickers.heart }))).toBeVisible();
   await expect.poll(async () => (await stickersOf(bob.id)).length).toBe(1);
 
   // A share link shows them, read-only; an open round has no way to stick at all.

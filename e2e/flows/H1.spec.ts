@@ -1,3 +1,4 @@
+import { copy } from "@/lib/copy";
 import { test, expect } from "@playwright/test";
 
 const SECRET = process.env.UI_PREVIEW_SECRET ?? "e2e-preview-secret";
@@ -28,7 +29,7 @@ test("H1 · with the key, the screens and email previews open at their routes", 
 
   await page.getByRole("link", { name: "Email templates" }).click();
   await expect(page).toHaveURL(/\/dev\/emails$/);
-  await expect(page.locator("iframe")).toHaveCount(14);
+  await expect(page.locator("iframe")).toHaveCount(Object.keys(copy.devEmails.previews).length);
   await expect(page.getByRole("heading", { name: "Sign-in link" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Join a loop from its invite link" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Delivered round with a share link" })).toBeVisible();
@@ -37,6 +38,7 @@ test("H1 · with the key, the screens and email previews open at their routes", 
   await expect(page.getByRole("heading", { name: "Delivered round with a motto, wax seal, divider and sign-off" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Empty round, loop paused" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Invitation from a loop with its own stationery" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: copy.devEmails.previews.deliveryCovered })).toBeVisible();
 });
 
 test("H1 · the key unlocks the captured inbox", async ({ page }) => {

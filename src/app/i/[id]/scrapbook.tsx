@@ -1,6 +1,7 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useId, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent, type PointerEvent as ReactPointerEvent, type ReactNode, type RefObject } from "react";
+import { createContext, useCallback, useContext, useEffect, useId, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties, type KeyboardEvent, type PointerEvent as ReactPointerEvent, type ReactNode, type RefObject } from "react";
+import { createPortal } from "react-dom";
 import { moveScrapStickerAction, peelScrapStickerAction, stickScrapSticker } from "./actions";
 import { StickerSheet } from "@/components/sticker-sheet";
 import { copy, text } from "@/lib/copy";
@@ -36,6 +37,9 @@ type Scrapbook = {
 
 const ScrapbookContext = createContext<Scrapbook | null>(null);
 
+/** The page's body never changes; this only tells the server render from the browser's. */
+const subscribeToNothing = () => () => {};
+
 /** The round's scrapbook, or null where there's none (an open round). */
 export function useScrapbook(): Scrapbook | null {
   return useContext(ScrapbookContext);
@@ -68,6 +72,9 @@ export function ScrapbookProvider({
 }) {
   const [stickers, setStickers] = useState<Record<string, Placed[]>>(initial);
   const [notes, setNotes] = useState<Record<string, { text: string; error: boolean }>>({});
+  // One live region for the page, kept outside the round itself so it adds nothing to it.
+  const [heard, setHeard] = useState({ text: "", count: 0 });
+  const live = useSyncExternalStore(subscribeToNothing, () => document.body, () => null);
   const temp = useRef(0);
   // Stickers of yours on answers this page doesn't show still count against you.
   const [elsewhere] = useState(() => Math.max(0, setup.used - Object.values(initial).flat().filter((one) => one.mine).length));
@@ -76,6 +83,8 @@ export function ScrapbookProvider({
 
   const say = useCallback((replyId: string, message: string, error = false) => {
     setNotes((all) => ({ ...all, [replyId]: { text: message, error } }));
+    // The same words twice ("Moved.") still change the region, so they're said again.
+    setHeard((before) => ({ text: message, count: before.count + 1 }));
   }, []);
   const update = useCallback((replyId: string, change: (list: Placed[]) => Placed[]) => {
     setStickers((all) => ({ ...all, [replyId]: change(all[replyId] ?? []) }));
@@ -146,7 +155,12 @@ export function ScrapbookProvider({
     },
   }), [issueId, viewerToken, setup.canStick, setup.canModerate, left, stickers, notes, say, update]);
 
-  return <ScrapbookContext.Provider value={value}>{children}</ScrapbookContext.Provider>;
+  return (
+    <ScrapbookContext.Provider value={value}>
+      {children}
+      {live ? createPortal(<p aria-live="polite" className="sr-only">{heard.text}{heard.count % 2 ? "\u00a0" : ""}</p>, live) : null}
+    </ScrapbookContext.Provider>
+  );
 }
 
 /** "Stick a sticker" in an answer's row of reactions: opens the sheet, then sticks the pick in a free spot. */
@@ -192,16 +206,11 @@ export function StickButton({ replyId, whose, reserved }: { replyId: string; who
   );
 }
 
-/** What just happened to this answer's stickers, said where it happened and to screen readers. */
+/** What just happened to this answer's stickers, shown where it happened (the page's live region says it too). */
 export function ScrapNote({ replyId }: { replyId: string }) {
-  const book = useScrapbook();
-  const note = book?.note(replyId) ?? null;
-  if (!book) return null;
-  return (
-    <p aria-live="polite" className={note ? `scrap-note${note.error ? " text-danger" : ""}` : "sr-only"}>
-      {note?.text}
-    </p>
-  );
+  const note = useScrapbook()?.note(replyId) ?? null;
+  if (!note) return null;
+  return <p className={`scrap-note${note.error ? " text-danger" : ""}`}>{note.text}</p>;
 }
 
 /**
