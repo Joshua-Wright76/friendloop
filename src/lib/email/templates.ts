@@ -14,7 +14,7 @@ import { emailPalette, GINGHAM_EMAIL, type EmailPalette } from "../theme.ts";
 import { emailPatternTile, type EmailPatternTile } from "../stationery.ts";
 import { appUrl } from "../urls.ts";
 import { emailDividerStrip, type EmailDividerStrip } from "../dividers.ts";
-import { marksOf, type LoopMarks } from "../looks.ts";
+import { marksOf, type LoopMarks, type RoundCover } from "../looks.ts";
 import { EMAIL_SEAL_SIZE, EMAIL_STAMP, postmarkDate, sealPng, stampPng } from "../seal-art.ts";
 
 type LayoutInput = {
@@ -47,6 +47,8 @@ type LayoutInput = {
   rollCall?: EmailRollCallEntry[];
   /** The signed card closing the round; absent when nobody who wrote has a signature. */
   signed?: { note: string; signatures: EmailSignature[] };
+  /** A named round's cover, in place of the plain heading; `chip` says which round it is. */
+  cover?: { look: RoundCover; chip: string };
 };
 
 /** One person's line in the roll call. */
@@ -403,6 +405,25 @@ function sealHtml(seal: RoundEmailMarks["seal"]): string {
   return `<table role="presentation" align="center" cellpadding="0" cellspacing="0" style="margin:0 auto 10px"><tr><td valign="middle" style="padding:0 10px 0 0"><img src="${src}" alt="" width="${EMAIL_STAMP.width}" height="${EMAIL_STAMP.height}" style="display:block;width:${EMAIL_STAMP.width}px;height:${EMAIL_STAMP.height}px;border:0" /></td>${ring}</tr></table>`;
 }
 
+/** The size a cover's sticker is drawn at in email: the PNG is 96px, so it stays crisp. */
+const EMAIL_COVER_STICKER = 72;
+
+/**
+ * A named round's cover at the top of its email: the tint as a flat band (a pattern
+ * would need an image, and the colour alone carries it), the round's number, its
+ * sticker as a PNG and its name in the tint's ink. With images off, the words stand.
+ */
+function coverHtml(cover: NonNullable<LayoutInput["cover"]>, heading: string): string {
+  const { look, chip } = cover;
+  const src = escapeHtml(`${appUrl()}${stickerPng(look.sticker)}`);
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="${look.color}" style="margin:0 0 16px;background:${look.color};border-radius:6px"><tr><td align="center" style="padding:16px 18px 20px;text-align:center">
+<p style="margin:0 0 8px;font:800 11px/1.4 ${BODY_FONT};letter-spacing:1px;text-transform:uppercase;color:${look.ink};text-align:center">${escapeHtml(chip)}</p>
+<img src="${src}" alt="" width="${EMAIL_COVER_STICKER}" height="${EMAIL_COVER_STICKER}" style="display:block;margin:0 auto;width:${EMAIL_COVER_STICKER}px;height:${EMAIL_COVER_STICKER}px;border:0" />
+<h1 style="margin:10px 0 0;font:700 32px/1.15 ${DISPLAY_FONT};color:${look.ink};text-align:center">${escapeHtml(heading)}</h1>
+</td></tr></table>
+`;
+}
+
 /** The closing card: the mascot, the owner's sign-off, and when the next round goes out. */
 function signOffHtml(marks: RoundEmailMarks, mascot: string | null | undefined, c: EmailPalette): string {
   if (!marks.signOff) return "";
@@ -413,7 +434,7 @@ function signOffHtml(marks: RoundEmailMarks, mascot: string | null | undefined, 
 </td></tr></table></td></tr>`;
 }
 
-export function layout({ preheader, heading, body, cta, footer, answers, sections, answersUrl, theme, unsubscribeUrl, sender, questions, replyHint, code, next, marks, rollCall, signed }: LayoutInput): string {
+export function layout({ preheader, heading, body, cta, footer, answers, sections, answersUrl, theme, unsubscribeUrl, sender, questions, replyHint, code, next, marks, rollCall, signed, cover }: LayoutInput): string {
   const c = theme?.palette ?? GINGHAM_EMAIL;
   const PAGE = pageBackground(c, theme?.pattern);
   const ctaHtml = cta
@@ -434,8 +455,8 @@ ${headerImage(theme?.headerImageUrl, c)}<tr><td style="padding:0 8px ${marks?.mo
 <tr><td>
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${c.card};border:1px solid ${c.line};border-radius:6px;box-shadow:${c.shadow}"><tr><td style="padding:0 30px 30px">
 <table role="presentation" cellpadding="0" cellspacing="0" style="margin:-11px 0 20px;position:relative;z-index:2;transform:rotate(-2deg);opacity:.92;clip-path:polygon(0 0,100% 0,97% 25%,100% 50%,97% 75%,100% 100%,0 100%,3% 75%,0 50%,3% 25%)"><tr><td width="88" height="22" style="width:88px;height:22px;background-color:${c.tape};background-image:radial-gradient(circle,rgba(255,255,255,.85) 1.8px,transparent 2.3px);background-size:9px 9px"></td></tr></table>
-${marks ? sealHtml(marks.seal) : ""}<h1 style="margin:0 0 14px;padding:0 0 12px;border-bottom:2px dashed ${c.lineStrong};font:700 32px/1.15 ${DISPLAY_FONT};color:${c.ink}">${escapeHtml(heading)}</h1>
-${paragraphs(body, c)}${questionList(questions, c)}${ctaHtml}${codeBlock(code, c)}${replyHint ? `<p style="margin:14px 0 0;font:400 13px/1.6 ${BODY_FONT};color:${c.muted}">${escapeHtml(copy.emails.replyHint)}</p>` : ""}
+${marks ? sealHtml(marks.seal) : ""}${cover ? coverHtml(cover, heading) : `<h1 style="margin:0 0 14px;padding:0 0 12px;border-bottom:2px dashed ${c.lineStrong};font:700 32px/1.15 ${DISPLAY_FONT};color:${c.ink}">${escapeHtml(heading)}</h1>
+`}${paragraphs(body, c)}${questionList(questions, c)}${ctaHtml}${codeBlock(code, c)}${replyHint ? `<p style="margin:14px 0 0;font:400 13px/1.6 ${BODY_FONT};color:${c.muted}">${escapeHtml(copy.emails.replyHint)}</p>` : ""}
 </td></tr></table>
 </td></tr>
 ${rollCallHtml(rollCall, c)}${answers ? `<tr><td style="padding-top:20px">${answersHtml(answers, answersUrl ?? "#", c, marks?.divider ?? null)}</td></tr>` : ""}
@@ -650,8 +671,10 @@ export function deliveryEmail(input: {
   rollCall?: EmailRollCallEntry[];
   /** The signatures of those who wrote, for the signed card at the end. */
   signatures?: EmailSignature[];
+  /** A named round's cover (`coverOf`), at the top in place of the plain heading. */
+  cover?: RoundCover | null;
 }): RenderedEmail {
-  const { groupName, issueNumber, issueName, url, answers, sections, shareUrl, next, theme, unsubscribeUrl, marks, rollCall, signatures } = input;
+  const { groupName, issueNumber, issueName, url, answers, sections, shareUrl, next, theme, unsubscribeUrl, marks, rollCall, signatures, cover } = input;
   const content = copy.emails.delivery;
   const values = {
     groupName,
@@ -698,6 +721,7 @@ export function deliveryEmail(input: {
       signed: signatures && signatures.length > 0
         ? { note: text(copy.signatures.cardNote, { round: text(copy.issue.round, { number: issueNumber }) }), signatures }
         : undefined,
+      cover: cover && issueName?.trim() ? { look: cover, chip: text(copy.emails.roundHeading, { number: issueNumber }) } : undefined,
     }),
     text: withStopLine(`${roundText(text(content.text, { ...values, answers: `${rollCallText}${answerText}${signedText}` }), marks)}${next ? `\n\n${nextRoundText(next)}` : ""}`, unsubscribeUrl),
   };

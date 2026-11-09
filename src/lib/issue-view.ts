@@ -6,6 +6,7 @@ import {
   groups,
   issueQuestions,
   issueStatusLines,
+  issueStickers,
   issues,
   memberships,
   reactions,
@@ -17,7 +18,7 @@ import { loadComments, type IssueComment } from "./comment-view.ts";
 import { tallyPoll, type PollTallyRow } from "./poll.ts";
 import { musicCardsFor, type MusicProvider, type MusicTrack } from "./music";
 import { formatOf } from "./asks";
-import { isStickerKey, parseSignature } from "./looks.ts";
+import { cleanPlacement, isStickerKey, parseSignature } from "./looks.ts";
 
 export type IssueAnswer = {
   replyId: string;
@@ -45,6 +46,20 @@ export type IssueAnswer = {
   media?: Array<{ url: string; caption: string | null }>;
   /** The sticker its author slapped on it; only there when they did. */
   sticker?: string;
+  /** Stickers people stuck in its margins after the round went out; only there when someone did. */
+  scrapbook?: ScrapSticker[];
+};
+
+/** A sticker someone stuck in an answer's margin, and who did. */
+export type ScrapSticker = {
+  id: string;
+  sticker: string;
+  side: "left" | "right";
+  offset: number;
+  tilt: number;
+  /** Who stuck it, by name (never "You"; `mine` says that). */
+  by: string;
+  mine: boolean;
 };
 
 export type IssueLink = {
@@ -78,6 +93,7 @@ export type IssueSectionReplyBlock = {
   reactions: Array<{ emoji: string; count: number; mine: boolean }>;
   comments: IssueComment[];
   sticker?: string;
+  scrapbook?: ScrapSticker[];
 };
 
 export type IssueSectionBlock = {
@@ -138,6 +154,8 @@ export type IssueView = {
   statusLines?: IssueStatusLine[];
   /** A delivered round's signatures, of those who wrote in it, by name. Left out when there are none. */
   signatures?: IssueSignature[];
+  /** How many scrapbook stickers the viewer has stuck around this round. Left out when none. */
+  scrapbookUsed?: number;
 };
 
 export function reactionChoices(): readonly string[] {
@@ -186,7 +204,7 @@ export async function loadIssue(input: {
   // Everything below hangs off the issue alone, so it is asked for at once: one
   // round trip to the database instead of one per table.
   const delivered = issue.status === "delivered";
-  const [asked, allRows, threads, reactionRows, allMedia, lineRows, signerRows] = await Promise.all([
+  const [asked, allRows, threads, reactionRows, allMedia, lineRows, signerRows, scrapRows] = await Promise.all([
     db
       .select()
       .from(issueQuestions)
@@ -257,6 +275,25 @@ export async function loadIssue(input: {
             exists(db.select({ id: replies.id }).from(replies).where(and(eq(replies.issueId, issue.id), eq(replies.membershipId, memberships.id)))),
           ))
       : Promise.resolve([]),
+    // The scrapbook belongs to a round that has gone out.
+    delivered
+      ? db
+          .select({
+            id: issueStickers.id,
+            replyId: issueStickers.replyId,
+            membershipId: issueStickers.membershipId,
+            sticker: issueStickers.sticker,
+            side: issueStickers.side,
+            offset: issueStickers.offset,
+            tilt: issueStickers.tilt,
+            name: memberships.name,
+            email: memberships.email,
+          })
+          .from(issueStickers)
+          .innerJoin(memberships, eq(memberships.id, issueStickers.membershipId))
+          .where(eq(issueStickers.issueId, issue.id))
+          .orderBy(asc(issueStickers.createdAt), asc(issueStickers.id))
+      : Promise.resolve([]),
   ]);
 
   // A round is a surprise until it goes out. Whatever someone has written counts
@@ -276,6 +313,21 @@ export async function loadIssue(input: {
   for (const item of allMedia) {
     mediaByReply.set(item.replyId, [...(mediaByReply.get(item.replyId) ?? []), { url: item.url, caption: item.caption }]);
   }
+  const scrapByReply = new Map<string, ScrapSticker[]>();
+  for (const row of scrapRows) {
+    if (!isStickerKey(row.sticker)) continue;
+    const placed = cleanPlacement(row);
+    if (!placed) continue;
+    const stuck: ScrapSticker = {
+      id: row.id,
+      sticker: row.sticker,
+      ...placed,
+      by: row.name ?? row.email.split("@")[0],
+      mine: row.membershipId === viewerMembershipId,
+    };
+    scrapByReply.set(row.replyId, [...(scrapByReply.get(row.replyId) ?? []), stuck]);
+  }
+  const scrapbookUsed = viewerMembershipId ? scrapRows.filter((row) => row.membershipId === viewerMembershipId).length : 0;
   const musicCards = await musicCardsFor(rows.flatMap((row) =>
     row.linkUrl && row.linkProvider ? [{ provider: row.linkProvider as MusicProvider, url: row.linkUrl }] : []));
 
@@ -298,7 +350,11 @@ export async function loadIssue(input: {
   });
   const cardOf = (url: string) => musicCards.get(url);
   // Only a sticker someone chose: an answer without one reads exactly as it always has.
-  const stickerOf = (row: (typeof rows)[number]) => (isStickerKey(row.sticker) ? { sticker: row.sticker } : {});
+  const stickerOf = (row: (typeof rows)[number]) => ({
+    ...(isStickerKey(row.sticker) ? { sticker: row.sticker } : {}),
+    // Likewise the scrapbook: an answer nobody stuck anything beside reads as it always has.
+    ...(scrapByReply.has(row.replyId) ? { scrapbook: scrapByReply.get(row.replyId) } : {}),
+  });
   const nameOf = (row: { name: string | null; email: string }) => row.name ?? row.email.split("@")[0];
   const byName = (a: { name: string; id: string }, b: { name: string; id: string }) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id);
 
@@ -409,6 +465,7 @@ export async function loadIssue(input: {
     mentionables: threads.mentionables,
     ...(statusLines.length > 0 ? { statusLines } : {}),
     ...(signatures.length > 0 ? { signatures } : {}),
+    ...(scrapbookUsed > 0 ? { scrapbookUsed } : {}),
   };
 }
 

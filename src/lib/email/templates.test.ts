@@ -15,6 +15,8 @@ import {
   signInEmail,
 } from "./templates.ts";
 import { emailPatternTiles } from "../stationery.ts";
+import { COVER_TINTS, coverOf } from "../looks.ts";
+import { copy, text } from "../copy.ts";
 
 test("sign-in email carries the link and the code, and says how long both last", () => {
   const email = signInEmail("https://friendloop.dev/signin/confirm?token=test", "042917");
@@ -448,6 +450,41 @@ test("a sticker on an answer sits beside its author's name as a picture, and nev
   assert.match(email.html, /Dee <img src="http[^"]*\/stickers\/png\/moon\.png" alt="" width="24"/);
   assert.doesNotMatch(email.html, /\.\.\/x/);
   assert.doesNotMatch(email.text, /peach|moon/);
+});
+
+/* ------------------------------ round covers ------------------------------ */
+
+test("a round without a cover reads exactly as it did", () => {
+  const named = { ...ROUND_INPUT(), issueName: "Camping weekend" };
+  assert.equal(deliveryEmail({ ...named, cover: null }).html, deliveryEmail(named).html);
+  assert.equal(deliveryEmail({ ...named, cover: null }).text, deliveryEmail(named).text);
+  // A cover on an unnamed round (a stale row) is no cover.
+  const look = coverOf({ name: "x", coverSticker: "frog", coverTint: "sky" });
+  assert.equal(deliveryEmail({ ...ROUND_INPUT(), cover: look }).html, deliveryEmail(ROUND_INPUT()).html);
+});
+
+test("a named round's cover opens its email: the tint as a flat band, the sticker as a picture, the name in the tint's ink", () => {
+  const name = "Camping <weekend>";
+  const look = coverOf({ name, coverSticker: "mushroom", coverTint: "moss" })!;
+  const email = deliveryEmail({ ...ROUND_INPUT(), issueName: name, cover: look });
+  const { tint, ink } = COVER_TINTS.moss;
+  assert.match(email.html, new RegExp(`<table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="${tint}" style="[^"]*background:${tint}`));
+  assert.match(email.html, new RegExp(`color:${ink}[^"]*">${text(copy.emails.roundHeading, { number: 14 })}</p>`));
+  assert.match(email.html, /<img src="http[^"]*\/stickers\/png\/mushroom\.png" alt="" width="72" height="72"/);
+  assert.match(email.html, new RegExp(`<h1 style="[^"]*color:${ink};[^"]*">Camping &lt;weekend&gt;</h1>`));
+  // In place of the plain heading, not beside it, and above the answers.
+  assert.equal((email.html.match(/<h1/g) ?? []).length, 1);
+  assert.doesNotMatch(email.html, /border-bottom:2px dashed[^>]*>Camping/);
+  assert.ok(email.html.indexOf("mushroom.png") < email.html.indexOf("How was it?"));
+  // The plain text has the name as ever, and no picture.
+  assert.equal(email.text, deliveryEmail({ ...ROUND_INPUT(), issueName: name }).text);
+  assert.equal(email.subject, deliveryEmail({ ...ROUND_INPUT(), issueName: name }).subject);
+});
+
+test("a cover sits under the owner's seal", () => {
+  const look = coverOf({ name: "Camping", coverSticker: "frog", coverTint: "plum" })!;
+  const email = deliveryEmail({ ...ROUND_INPUT(), issueName: "Camping", cover: look, marks: emailMarksOf({ ...LOOP, sealStyle: "wax" }, ROUND, null) });
+  assert.ok(email.html.indexOf("/seals/wax-") < email.html.indexOf(`bgcolor="${COVER_TINTS.plum.tint}"`));
 });
 
 function ROUND_INPUT() {

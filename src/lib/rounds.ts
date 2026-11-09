@@ -5,7 +5,7 @@ import { carriedOver, groupSchedule, nextSlot } from "./schedule";
 import { sendEmail } from "./email/send";
 import { mailDeadline, roundAsks, sendPromptEmails } from "./notify";
 import { deliveryEmail, emailMarksOf, emailThemeOf, pausedEmail, type AnswerBlock, type EmailSignature } from "./email/templates";
-import { parseSignature, signatureFit } from "./looks.ts";
+import { coverOf, parseSignature, signatureFit } from "./looks.ts";
 import { tallyPoll } from "./poll";
 import { replyHasContentCondition } from "./reply-query";
 import { isSectionLike } from "./asks";
@@ -286,6 +286,8 @@ export async function deliverRound(input: { issue: IssueRow; at: Date; early?: b
 
   // The owner's motto, seal, divider and sign-off: the same for everyone, so made once.
   const marks = emailMarksOf(group, { number: issue.number, deliveredAt: at }, next);
+  // A named round's cover goes at the top of everyone's email.
+  const cover = coverOf(issue);
   // Everyone's line for the roll call, and the signatures of whoever wrote, by name.
   const nameOf = (row: { name: string | null; email: string }) => row.name ?? row.email.split("@")[0];
   const rollCall = lineRows
@@ -329,6 +331,7 @@ export async function deliverRound(input: { issue: IssueRow; at: Date; early?: b
       marks,
       rollCall,
       signatures,
+      cover,
     });
     await sendEmail({
       ...rendered,

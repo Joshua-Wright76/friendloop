@@ -174,6 +174,7 @@ async function seedWorld() {
       ($1, now(), 1, now() + interval '1 hour'), ($2, now(), 1, now() + interval '1 hour'),
       ($3, now(), 1, now() + interval '1 hour'), ($4, now(), 1, now() + interval '1 hour'),
       ($5, now(), 1, now() + interval '1 hour'), ($6, now(), 1, now() + interval '1 hour'),
+      ($7, now(), 1, now() + interval '1 hour'),
       ('signin:ip:203.0.113.9', now(), 1, now() + interval '1 hour')`,
     [
       limitKey.signInEmail(WREN.email),
@@ -182,6 +183,7 @@ async function seedWorld() {
       limitKey.feedbackMember(wren.id),
       limitKey.comment(pending.id),
       limitKey.comment(alice.id),
+      limitKey.scrapbook(wren.id),
     ],
   );
 

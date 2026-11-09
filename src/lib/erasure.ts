@@ -114,7 +114,7 @@ async function loopMedia(tx: Executor, groupId: string): Promise<string[]> {
  */
 async function deleteMemberCounters(tx: Executor, membershipIds: string[]): Promise<void> {
   if (membershipIds.length === 0) return;
-  const keys = membershipIds.flatMap((id) => [limitKey.comment(id), limitKey.feedbackMember(id)]);
+  const keys = membershipIds.flatMap((id) => [limitKey.comment(id), limitKey.scrapbook(id), limitKey.feedbackMember(id)]);
   await tx.delete(rateLimits).where(inArray(rateLimits.key, keys));
 }
 

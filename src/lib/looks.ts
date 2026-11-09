@@ -153,6 +153,37 @@ export function isCoverTint(value: unknown): value is string {
 /** A cover's sticker, or one slapped on an answer: any drawing from the sticker sheet. */
 export const isStickerKey = isCharmKey;
 
+/** A round's cover as it's safe to show: our own sticker and tint, and the colours they stand for. */
+export type RoundCover = { sticker: string; tint: string; color: string; ink: string };
+
+/**
+ * The cover a round wears, or null for the plain header. Only a named round wears
+ * one, and a key that isn't ours reads as no cover at all, so a bad row can't reach
+ * an image address or a style.
+ */
+export function coverOf(issue: { name: string | null; coverSticker: string | null; coverTint: string | null }): RoundCover | null {
+  if (!issue.name?.trim() || !isStickerKey(issue.coverSticker) || !isCoverTint(issue.coverTint)) return null;
+  const { tint, ink } = COVER_TINTS[issue.coverTint];
+  return { sticker: issue.coverSticker, tint: issue.coverTint, color: tint, ink };
+}
+
+/** Left out means "leave it"; an empty sticker is no cover. */
+export type CoverInput = { sticker?: string; tint?: string };
+type CoverColumns = { coverSticker?: string | null; coverTint?: string | null };
+
+/**
+ * A cover as columns, for a round saved with `name`. A cover belongs to a name, so a
+ * round left without one loses its cover too; no sticker is no cover; a sticker with
+ * no tint takes the first. A key that isn't ours is refused whole.
+ */
+export function coverColumns(name: string | null, input: CoverInput): { ok: true; columns: CoverColumns } | { ok: false } {
+  if (!name || input.sticker === "") return { ok: true, columns: { coverSticker: null, coverTint: null } };
+  if (input.sticker === undefined) return { ok: true, columns: {} };
+  const tint = input.tint || COVER_TINT_KEYS[0];
+  if (!isStickerKey(input.sticker) || !isCoverTint(tint)) return { ok: false };
+  return { ok: true, columns: { coverSticker: input.sticker, coverTint: tint } };
+}
+
 /** A sticker from a browser: a key from the sheet, nothing ("" or null) to peel it off, or refused. */
 export function stickerChoice(value: unknown): { ok: true; sticker: string | null } | { ok: false } {
   if (value === "" || value === null) return { ok: true, sticker: null };
@@ -280,4 +311,61 @@ export function cleanPlacement(value: unknown): StickerPlacement | null {
     offset: Math.min(100, Math.max(0, Math.round(offset))),
     tilt: Math.min(MAX_TILT, Math.max(-MAX_TILT, Math.round(tilt))),
   };
+}
+
+/** How far one "Move up" or "Move down" carries a sticker, in percent of the answer's height. */
+export const NUDGE_STEP = 20;
+/** The least tilt a new sticker gets either way, so it looks slapped on rather than placed. */
+const MIN_TILT = 4;
+
+/**
+ * Where a new sticker goes on an answer: the spot in either margin furthest from the
+ * stickers already there (and from `reserved` spots, like an author's sticker on the
+ * corner), ties broken at random, with a small random tilt.
+ */
+export function freeSpot(
+  taken: ReadonlyArray<{ side: "left" | "right"; offset: number }>,
+  random: () => number = Math.random,
+  reserved: ReadonlyArray<{ side: "left" | "right"; offset: number }> = [],
+): StickerPlacement {
+  const others = [...taken, ...reserved];
+  let best: Array<{ side: "left" | "right"; offset: number }> = [];
+  let room = -1;
+  for (const side of ["left", "right"] as const) {
+    for (let offset = 0; offset <= 100; offset += 10) {
+      const near = Math.min(200, ...others.filter((other) => other.side === side).map((other) => Math.abs(other.offset - offset)));
+      if (near > room) {
+        room = near;
+        best = [{ side, offset }];
+      } else if (near === room) {
+        best.push({ side, offset });
+      }
+    }
+  }
+  const spot = best[Math.min(best.length - 1, Math.floor(random() * best.length))];
+  const lean = MIN_TILT + Math.floor(random() * (MAX_TILT - MIN_TILT + 1));
+  return { ...spot, tilt: Math.min(MAX_TILT, lean) * (random() < 0.5 ? -1 : 1) };
+}
+
+/** A sticker moved by the keyboard: up or down its margin a step, or across to the other one. */
+export function nudgePlacement(placement: StickerPlacement, move: "up" | "down" | "swap"): StickerPlacement {
+  if (move === "swap") return { ...placement, side: placement.side === "left" ? "right" : "left" };
+  const offset = placement.offset + (move === "up" ? -NUDGE_STEP : NUDGE_STEP);
+  return { ...placement, offset: Math.min(100, Math.max(0, offset)) };
+}
+
+/**
+ * Where a dragged sticker lands: the margin on the pointer's half of the answer, and
+ * how far down it is, keeping the whole sticker (`size` tall) inside the answer.
+ */
+export function placementAt(
+  point: { x: number; y: number },
+  box: { left: number; top: number; width: number; height: number },
+  size: number,
+  tilt: number,
+): StickerPlacement {
+  const side = point.x < box.left + box.width / 2 ? "left" : "right";
+  const travel = box.height - size;
+  const offset = travel > 0 ? ((point.y - box.top - size / 2) / travel) * 100 : 0;
+  return { side, offset: Math.round(Math.min(100, Math.max(0, offset))), tilt };
 }

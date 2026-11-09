@@ -5,6 +5,7 @@ import {
   groups,
   issueQuestions,
   issueStatusLines,
+  issueStickers,
   issues,
   memberships,
   questionSuggestions,
@@ -21,7 +22,7 @@ import { plainBody } from "./mentions.ts";
 import { appUrl } from "./urls.ts";
 import { replyHasContentCondition } from "./reply-query";
 import { formatOf } from "./asks";
-import { isStickerKey, parseSignature } from "./looks.ts";
+import { coverOf, isStickerKey, parseSignature } from "./looks.ts";
 
 /**
  * Taking your words with you.
@@ -202,6 +203,16 @@ async function contributionsOf(membership: Membership, group: Pick<Group, "id" |
     .where(eq(reactions.membershipId, membership.id))
     .orderBy(asc(reactions.createdAt));
 
+  // Stickers they stuck in a delivered round's margins: where, and on whose answer.
+  const stuck = await db
+    .select({ stuck: issueStickers, question: issueQuestions, issue: issues, authorId: replies.membershipId })
+    .from(issueStickers)
+    .innerJoin(replies, eq(replies.id, issueStickers.replyId))
+    .innerJoin(issueQuestions, eq(issueQuestions.id, replies.issueQuestionId))
+    .innerJoin(issues, eq(issues.id, issueStickers.issueId))
+    .where(eq(issueStickers.membershipId, membership.id))
+    .orderBy(asc(issueStickers.createdAt));
+
   const suggested = await db
     .select()
     .from(questionSuggestions)
@@ -276,6 +287,19 @@ async function contributionsOf(membership: Membership, group: Pick<Group, "id" |
       credit: suggestion.authorDisplay,
       createdAt: suggestion.createdAt,
     })),
+    ...(stuck.length > 0
+      ? {
+          scrapbook: stuck.map(({ stuck: sticker, question, issue, authorId }) => ({
+            round: issue.number,
+            question: question.text,
+            answerBy: names.get(authorId) ?? copy.issue.unknownMention,
+            sticker: sticker.sticker,
+            side: sticker.side,
+            offset: sticker.offset,
+            createdAt: sticker.createdAt,
+          })),
+        }
+      : {}),
     ...(lines.length > 0
       ? { roundLines: lines.map(({ line, issue }) => ({ round: issue.number, line: line.body, updatedAt: line.updatedAt })) }
       : {}),
@@ -332,7 +356,7 @@ export async function replyLinkExport(token: string, at: Date): Promise<{ groupN
 
 async function roundOf(issue: typeof issues.$inferSelect, names: Names) {
   // One round trip per round: everything here hangs off the issue id alone.
-  const [all, answered, thread, reacted, lines] = await Promise.all([
+  const [all, answered, thread, reacted, lines, stuck] = await Promise.all([
     db
       .select()
       .from(issueQuestions)
@@ -358,6 +382,11 @@ async function roundOf(issue: typeof issues.$inferSelect, names: Names) {
       .select({ membershipId: issueStatusLines.membershipId, body: issueStatusLines.body })
       .from(issueStatusLines)
       .where(eq(issueStatusLines.issueId, issue.id)),
+    db
+      .select({ replyId: issueStickers.replyId, membershipId: issueStickers.membershipId, sticker: issueStickers.sticker })
+      .from(issueStickers)
+      .where(eq(issueStickers.issueId, issue.id))
+      .orderBy(asc(issueStickers.createdAt), asc(issueStickers.id)),
   ]);
   const asked = all.filter((question) => !question.fromSection);
   const carried = all.filter((question) => question.fromSection);
@@ -367,10 +396,17 @@ async function roundOf(issue: typeof issues.$inferSelect, names: Names) {
   const reactionsOn = (replyId: string) => reacted
     .filter((reaction) => reaction.replyId === replyId)
     .map((reaction) => ({ by: author(reaction.membershipId), emoji: reaction.emoji }));
+  // The scrapbook, listed only on answers someone stuck something beside.
+  const scrapbookOn = (replyId: string) => {
+    const on = stuck.filter((row) => row.replyId === replyId).map((row) => ({ by: author(row.membershipId), sticker: row.sticker }));
+    return on.length > 0 ? { scrapbook: on } : {};
+  };
+  const cover = coverOf(issue);
 
   return {
     round: issue.number,
     name: issue.name,
+    ...(cover ? { cover: { sticker: cover.sticker, tint: cover.tint } } : {}),
     status: issue.status,
     opensAt: issue.opensAt,
     deliversAt: issue.deliversAt,
@@ -395,6 +431,7 @@ async function roundOf(issue: typeof issues.$inferSelect, names: Names) {
           reactions: reactionsOn(reply.id),
           ...answerExtras(question, reply, media),
           ...stickerField(reply),
+          ...scrapbookOn(reply.id),
         })),
     })),
     sections: carried.map((section) => {
@@ -417,6 +454,7 @@ async function roundOf(issue: typeof issues.$inferSelect, names: Names) {
               // Former section answers take reactions now; listed only where there are some.
               ...(conversation.length > 0 ? { reactions: conversation } : {}),
               ...stickerField(reply),
+              ...scrapbookOn(reply.id),
             };
           }),
       };

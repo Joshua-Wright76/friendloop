@@ -959,7 +959,27 @@
     "shareLinkLabel": "Share link: anyone with it can read this round, without reacting or commenting.",
     "sentNotice": "Round {number} is on its way to everyone. Round {next} is open for answers.",
     "nothingToSendNotice": "Nobody has answered round {number} yet, so there's nothing to send.",
-    "goesOut": "goes out {date}"
+    "goesOut": "goes out {date}",
+    "coverSaved": "Round named, and it has its cover.",
+    "cover": {
+      "legend": "Cover",
+      "hint": "A sticker and a colour for this round: on its page, in this list and at the top of its email.",
+      "needsName": "Covers go on named rounds. Give it a name first.",
+      "sticker": "Sticker",
+      "none": "No cover",
+      "tint": "Colour",
+      "tints": {
+        "moss": "Moss",
+        "sky": "Sky",
+        "butter": "Butter",
+        "plum": "Plum",
+        "peach": "Peach",
+        "rose": "Rose"
+      },
+      "preview": "How it looks",
+      "emailPreview": "How the email opens",
+      "zine": "No. {number}"
+    }
   },
   "settings": {
     "title": "Settings",
@@ -1307,7 +1327,42 @@
     "commentButtonNamed": "{label}: {whose}",
     "signOffNext": "{round} goes out {date}.",
     "rollCallTitle": "Who's here this round",
-    "currently": "currently"
+    "currently": "currently",
+    "scrapbook": {
+      "stick": "Stick a sticker",
+      "stickOn": "Stick a sticker beside {whose}",
+      "sheetTitle": "Stick one in the margin",
+      "sheetNote": "It goes beside this answer for everyone in the loop to see. Drag it along the margins after, or tap it to move it or peel it off.",
+      "left": "{count} stickers left this round",
+      "leftOne": "1 sticker left this round",
+      "spent": "That's all {limit} of yours for this round. Peel one off to stick it somewhere else.",
+      "stuck": "{sticker} stuck in the margin. {left}",
+      "peeled": "Peeled off. {left}",
+      "peeledTheirs": "Peeled off {name}'s {sticker}.",
+      "moved": "Moved.",
+      "stuckBy": "Stuck by {name}",
+      "stuckByYou": "Stuck by you",
+      "label": "{sticker}, stuck by {name}",
+      "labelYours": "Your {sticker}: move it or peel it off",
+      "labelModerate": "{sticker}, stuck by {name}: peel it off",
+      "menuLabel": "{sticker}, stuck by {name}",
+      "moveUp": "Move up",
+      "moveDown": "Move down",
+      "swapLeft": "Move to the left",
+      "swapRight": "Move to the right",
+      "peel": "Peel off",
+      "done": "Done",
+      "errors": {
+        "membersOnly": "Only people in this loop can stick stickers here.",
+        "round": "Stickers go on a round once it has gone out.",
+        "answer": "That answer isn't there to stick on.",
+        "sticker": "That sticker isn't one of ours.",
+        "limit": "That's all {limit} of yours for this round. Peel one off first.",
+        "busy": "That's a lot of sticking. Take a breath and try again in a few minutes.",
+        "gone": "That sticker has already been peeled off.",
+        "failed": "That didn't stick. Check your connection and try again."
+      }
+    }
   },
   "share": {
     "eyebrow": "Fresh from the loop",
@@ -1546,6 +1601,7 @@
       "deliveryMarked": "Delivered round with a motto, wax seal, divider and sign-off",
       "deliveryPostmarked": "Delivered round with a postmark",
       "deliveryPeople": "Delivered round with everyone's lines, stickers and signatures",
+      "deliveryCovered": "Delivered round with a cover",
       "paused": "Empty round, loop paused"
     }
   },

@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { appUrl } from "../urls.ts";
+import { coverOf } from "../looks.ts";
 import {
   deliveryEmail,
   emailMarksOf,
@@ -273,6 +274,19 @@ export function emailPreviews(): EmailPreview[] {
           { name: "Alex", src: "https://friendloop.dev/dev-preview/signature.png", width: 150, height: 32 },
           { name: "Alice", src: "https://friendloop.dev/dev-preview/signature.png", width: 120, height: 26 },
         ],
+      })),
+    },
+    {
+      // A named round with a cover: its tint and sticker open the email.
+      id: "deliveryCovered",
+      email: withLocalStickers(deliveryEmail({
+        groupName: "Saturday Club",
+        issueNumber: 11,
+        issueName: "Camping weekend",
+        url: "https://friendloop.dev/i/preview",
+        unsubscribeUrl: PREVIEW_STOP_URL,
+        answers: ANSWERS,
+        cover: coverOf({ name: "Camping weekend", coverSticker: "mushroom", coverTint: "moss" }),
       })),
     },
     {

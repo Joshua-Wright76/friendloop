@@ -3,7 +3,7 @@ import { db } from "@/db";
 import { groups, issues, memberships } from "@/db/schema";
 import { copy } from "./copy.ts";
 import { cleanIssueName } from "./issue-name.ts";
-import { marksColumns, parseSignature, type LoopMarks, type MarksInput } from "./looks.ts";
+import { coverColumns, marksColumns, parseSignature, type CoverInput, type LoopMarks, type MarksInput } from "./looks.ts";
 import { deleteStoredPhoto, storePhoto } from "./photo-storage.ts";
 import { MAX_AVATAR_BYTES, MAX_BANNER_BYTES, validatePhoto } from "./photo-validation.ts";
 import {
@@ -148,12 +148,19 @@ export async function clearHeaderImage(groupId: string): Promise<void> {
 
 export type RenameResult = { ok: true; name: string | null } | { ok: false };
 
-/** The owner's name for a round, before or after it goes out. Empty puts "Round N" back. */
-export async function renameIssue(groupId: string, issueId: string, raw: string): Promise<RenameResult> {
+/**
+ * The owner's name for a round, before or after it goes out. Empty puts "Round N"
+ * back. A cover (a sticker and a tint) rides along with the name: left out leaves
+ * it, and a round left unnamed loses it (`coverColumns`). A key that isn't ours
+ * changes nothing at all.
+ */
+export async function renameIssue(groupId: string, issueId: string, raw: string, cover: CoverInput = {}): Promise<RenameResult> {
   const name = cleanIssueName(raw);
+  const covered = coverColumns(name, cover);
+  if (!covered.ok) return { ok: false };
   const updated = await db
     .update(issues)
-    .set({ name })
+    .set({ name, ...covered.columns })
     .where(and(eq(issues.id, issueId), eq(issues.groupId, groupId)))
     .returning({ id: issues.id });
   return updated.length === 0 ? { ok: false } : { ok: true, name };

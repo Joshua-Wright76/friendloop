@@ -15,6 +15,13 @@ import {
   NO_MARKS,
   cleanLine,
   cleanPlacement,
+  coverColumns,
+  coverOf,
+  freeSpot,
+  MAX_TILT,
+  NUDGE_STEP,
+  nudgePlacement,
+  placementAt,
   marksColumns,
   marksOf,
   isCelebrationKey,
@@ -142,4 +149,83 @@ test("a signature fits inside a box without changing its shape", () => {
   assert.deepEqual(signatureFit([[10, 10]], 150, 60), { width: 60, height: 60 }, "a dot is square");
   assert.equal(SIGNATURE_INK, "#26365c");
   assert.ok(SIGNATURE_MAX_STROKES > 0 && SIGNATURE_MAX_POINTS > SIGNATURE_MAX_STROKES);
+});
+
+/* ------------------------------ round covers ----------------------------- */
+
+test("a cover shows only on a named round, with our own sticker and tint", () => {
+  assert.deepEqual(coverOf({ name: "Camping weekend", coverSticker: "mushroom", coverTint: "moss" }), {
+    sticker: "mushroom",
+    tint: "moss",
+    color: COVER_TINTS.moss.tint,
+    ink: COVER_TINTS.moss.ink,
+  });
+  assert.equal(coverOf({ name: null, coverSticker: "mushroom", coverTint: "moss" }), null, "no name, no cover");
+  assert.equal(coverOf({ name: "  ", coverSticker: "mushroom", coverTint: "moss" }), null);
+  assert.equal(coverOf({ name: "Camping", coverSticker: null, coverTint: "moss" }), null);
+  assert.equal(coverOf({ name: "Camping", coverSticker: "mushroom", coverTint: null }), null);
+  assert.equal(coverOf({ name: "Camping", coverSticker: "../x", coverTint: "moss" }), null, "a bad row is no cover");
+  assert.equal(coverOf({ name: "Camping", coverSticker: "frog", coverTint: "#fff;x" }), null);
+});
+
+test("a cover is saved with its name, cleared with it, and refused when it isn't ours", () => {
+  assert.deepEqual(coverColumns("Camping", { sticker: "frog", tint: "sky" }), { ok: true, columns: { coverSticker: "frog", coverTint: "sky" } });
+  assert.deepEqual(coverColumns("Camping", { sticker: "frog" }), { ok: true, columns: { coverSticker: "frog", coverTint: "moss" } }, "no tint takes the first");
+  assert.deepEqual(coverColumns("Camping", { sticker: "frog", tint: "" }), { ok: true, columns: { coverSticker: "frog", coverTint: "moss" } });
+  assert.deepEqual(coverColumns("Camping", { sticker: "", tint: "sky" }), { ok: true, columns: { coverSticker: null, coverTint: null } }, "no sticker is no cover");
+  assert.deepEqual(coverColumns(null, { sticker: "frog", tint: "sky" }), { ok: true, columns: { coverSticker: null, coverTint: null } }, "no name, no cover");
+  assert.deepEqual(coverColumns(null, {}), { ok: true, columns: { coverSticker: null, coverTint: null } });
+  assert.deepEqual(coverColumns("Camping", {}), { ok: true, columns: {} }, "left out leaves it");
+  assert.deepEqual(coverColumns("Camping", { sticker: "frog.svg", tint: "sky" }), { ok: false });
+  assert.deepEqual(coverColumns("Camping", { sticker: "frog", tint: "teal" }), { ok: false });
+});
+
+/* ------------------------------- scrapbook ------------------------------- */
+
+/** A fixed run of "random" numbers, repeating. */
+const sequence = (...values: number[]) => {
+  let index = 0;
+  return () => values[index++ % values.length];
+};
+
+test("a new sticker goes to the emptiest spot in either margin, tilted a little", () => {
+  const first = freeSpot([], sequence(0, 0, 0));
+  assert.deepEqual(first, { side: "left", offset: 0, tilt: -4 }, "an empty answer: any spot, here the first");
+  const last = freeSpot([], sequence(0.999, 0.999, 0.999));
+  assert.deepEqual(last, { side: "right", offset: 100, tilt: MAX_TILT });
+
+  // Both margins hold a sticker at the top: the furthest spots are both bottoms.
+  const bottoms = freeSpot([{ side: "left", offset: 0 }, { side: "right", offset: 0 }], sequence(0.6, 0.5, 0.9));
+  assert.equal(bottoms.offset, 100);
+  assert.equal(bottoms.side, "right");
+  // One margin taken: the other margin is all room.
+  const across = freeSpot([{ side: "left", offset: 50 }], sequence(0, 0, 0));
+  assert.equal(across.side, "right");
+  // A reserved corner counts as taken.
+  const clear = freeSpot([{ side: "left", offset: 0 }], sequence(0, 0, 0), [{ side: "right", offset: 0 }]);
+  assert.equal(clear.offset, 100);
+  for (let i = 0; i < 50; i += 1) {
+    const spot = freeSpot([{ side: "left", offset: 30 }]);
+    assert.ok(Math.abs(spot.tilt) >= 4 && Math.abs(spot.tilt) <= MAX_TILT, String(spot.tilt));
+    assert.deepEqual(cleanPlacement(spot), spot, "always a placement the server keeps as is");
+  }
+});
+
+test("the keyboard moves a sticker a step along its margin, or across, and never off the answer", () => {
+  const at = { side: "left" as const, offset: 50, tilt: 6 };
+  assert.deepEqual(nudgePlacement(at, "up"), { ...at, offset: 50 - NUDGE_STEP });
+  assert.deepEqual(nudgePlacement(at, "down"), { ...at, offset: 50 + NUDGE_STEP });
+  assert.deepEqual(nudgePlacement(at, "swap"), { ...at, side: "right" });
+  assert.deepEqual(nudgePlacement({ ...at, side: "right" }, "swap"), at);
+  assert.equal(nudgePlacement({ ...at, offset: 5 }, "up").offset, 0);
+  assert.equal(nudgePlacement({ ...at, offset: 95 }, "down").offset, 100);
+});
+
+test("a dragged sticker lands in the margin on the pointer's side, kept inside the answer", () => {
+  const box = { left: 100, top: 200, width: 300, height: 140 };
+  assert.deepEqual(placementAt({ x: 120, y: 220 }, box, 40, 5), { side: "left", offset: 0, tilt: 5 });
+  assert.deepEqual(placementAt({ x: 380, y: 270 }, box, 40, -5), { side: "right", offset: 50, tilt: -5 });
+  assert.equal(placementAt({ x: 380, y: 900 }, box, 40, 0).offset, 100);
+  assert.equal(placementAt({ x: 380, y: 0 }, box, 40, 0).offset, 0);
+  assert.equal(placementAt({ x: 380, y: 250 }, { ...box, height: 30 }, 40, 0).offset, 0, "an answer shorter than the sticker");
 });
