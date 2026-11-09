@@ -206,6 +206,8 @@ export async function deliverRound(input: { issue: IssueRow; at: Date; early?: b
       photoUrl: row.photoUrl,
       audioUrl: row.audioUrl,
       audioDurationMs: row.audioDurationMs,
+      linkUrl: row.linkUrl,
+      linkTitle: row.linkTitle,
       addedLater: row.addedAfterDelivery,
     },
   }));

@@ -283,7 +283,8 @@ export async function loadIssue(input: {
           addedLater: row.addedAfterDelivery,
           comments: thread,
           reactions: tally,
-          ...(format === "music" && row.linkUrl
+          // A music pick, or a written answer that came with a link.
+          ...(row.linkUrl
             ? {
                 link: {
                   url: row.linkUrl,

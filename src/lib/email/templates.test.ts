@@ -233,6 +233,19 @@ test("a music pick's link says where it opens", () => {
   assert.doesNotMatch(email.html, /Listen on the web/);
 });
 
+test("a written answer's music link goes out with it, in HTML and plain text", () => {
+  const email = deliveryEmail({
+    groupName: "Friday Loop", issueNumber: 2, url: "https://friendloop.dev/i/1",
+    answers: [
+      { question: "What's on repeat?", author: "Dev", body: "This, all week.", linkUrl: "https://open.spotify.com/playlist/abc", linkTitle: "Summer <3" },
+      { question: "What's on repeat?", author: "Sam", body: "Nothing new." },
+    ],
+  });
+  assert.match(email.html, /This, all week\.[\s\S]*<strong>Summer &lt;3<\/strong> <a href="https:\/\/open\.spotify\.com\/playlist\/abc"[^>]*>Open in Spotify<\/a>/);
+  assert.equal(email.html.split("Open in Spotify").length - 1, 1);
+  assert.ok(email.text.includes("Dev: This, all week. https://open.spotify.com/playlist/abc\nSam: Nothing new."));
+});
+
 test("music link labels fall back to a plain one", async () => {
   const { musicLinkLabel } = await import("./templates.ts");
   assert.equal(musicLinkLabel("https://play.qobuz.com/album/1"), "Open in Qobuz");

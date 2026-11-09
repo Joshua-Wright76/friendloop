@@ -96,6 +96,9 @@ export type AnswerBlock = {
   photoUrl?: string | null;
   audioUrl?: string | null;
   audioDurationMs?: number | null;
+  /** A music link that came with a written answer, and its title when known. */
+  linkUrl?: string | null;
+  linkTitle?: string | null;
   addedLater?: boolean;
   /** A poll's tally. The same for every voter, so it is shown once per question. */
   pollResults?: string | null;
@@ -230,6 +233,9 @@ function answersHtml(answers: AnswerBlock[], url: string, c: EmailPalette): stri
           const voice = answer.audioUrl
             ? `<div style="margin:14px 0 0;border:1px dashed ${c.lineStrong};border-radius:6px;padding:10px 12px;font:400 13px/1.5 ${BODY_FONT};color:${c.soft}">${escapeHtml(copy.emails.voiceNote.replace("{duration}", formatAudioDuration(answer.audioDurationMs ?? 0)))}. <a href="${escapeHtml(url)}" style="color:${c.accent}">${escapeHtml(copy.emails.voiceNoteListen)}</a></div>`
             : "";
+          const link = answer.linkUrl
+            ? `<div style="margin:12px 0 0;font:400 15px/1.6 ${BODY_FONT};color:${c.ink}">${answer.linkTitle ? `<strong>${escapeHtml(answer.linkTitle)}</strong> ` : ""}<a href="${escapeHtml(answer.linkUrl)}" style="color:${c.accent}">${escapeHtml(musicLinkLabel(answer.linkUrl))}</a></div>`
+            : "";
           const note = answer.addedLater
             ? `<div style="font:400 12px/1.5 ${BODY_FONT};color:${c.muted};margin-top:10px">${escapeHtml(copy.emails.addedLater)}</div>`
             : "";
@@ -237,7 +243,7 @@ function answersHtml(answers: AnswerBlock[], url: string, c: EmailPalette): stri
           return `<div style="${divider}margin:16px 0 0">
   <div style="font:800 14px/1.5 ${BODY_FONT};color:${c.soft};margin:0 0 4px">${escapeHtml(answer.author)}${charmImage(answer.authorCharm)}</div>
   <div style="font:400 16px/1.65 ${BODY_FONT};color:${c.ink};white-space:pre-wrap">${escapeHtml(answer.body)}</div>
-  ${photo}${voice}${note}
+  ${link}${photo}${voice}${note}
 </div>`;
         })
         .join("");
@@ -531,7 +537,8 @@ export function deliveryEmail(input: {
       [
         group.question,
         ...(group.pollResults ? [group.pollResults] : []),
-        ...group.answers.map((answer) => text(content.textAnswer, { author: answer.author, body: answer.body })),
+        // A music link rides after the words, as the plain address.
+        ...group.answers.map((answer) => text(content.textAnswer, { author: answer.author, body: [answer.body, answer.linkUrl].filter(Boolean).join(" ") })),
       ].join("\n"),
     )
     .join("\n\n");
