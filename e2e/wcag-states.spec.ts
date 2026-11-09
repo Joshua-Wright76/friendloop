@@ -45,7 +45,8 @@ function testEverywhere(
         await page.setViewportSize({ width: viewport.width, height: viewport.height });
         await page.goto(href);
         expect(new URL(page.url()).pathname, `${viewport.name} ${theme} redirected away from ${href}`).toBe(new URL(href, "http://x").pathname);
-        await page.waitForLoadState("networkidle").catch(() => undefined);
+        await expect(page.locator("h1").first()).toBeVisible();
+        await page.evaluate(async () => { await document.fonts.ready; });
         await setTheme(page, theme);
         const problems = await body(page, `${theme} ${viewport.name}`);
         expect(problems, `\n${problems.join("\n")}\n`).toEqual([]);

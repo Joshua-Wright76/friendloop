@@ -70,8 +70,9 @@ async function setTheme(page: Page, theme: "light" | "dark") {
   await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
 }
 
-async function settle(page: Page) {
-  await page.waitForLoadState("networkidle").catch(() => undefined);
+async function applicationReady(page: Page) {
+  await expect(page.locator("h1").first()).toBeVisible();
+  await page.evaluate(async () => { await document.fonts.ready; });
 }
 
 /**
@@ -104,7 +105,7 @@ async function sweep(
 
   await page.setViewportSize({ width: 1280, height: 800 });
   const response = await page.goto(href);
-  await settle(page);
+  await applicationReady(page);
   await setTheme(page, theme);
   // An audit of the sign-in page (or a 404) in place of the screen would pass for the wrong reason.
   expect(new URL(page.url()).pathname, `${label} redirected away from ${href}`).toBe(wanted);
@@ -126,7 +127,6 @@ async function sweep(
   if (options.stationery) {
     // Contrast at phone width as well: the bottom navigation only exists there.
     await page.setViewportSize(ZOOM_400);
-    await settle(page);
     problems.push(...(await axeProblems(page, `${label} 320px`)));
     return problems;
   }
@@ -142,7 +142,6 @@ async function sweep(
   // 400% zoom: reflow, and the keyboard pass again, because the fixed feedback and
   // theme buttons and the sticky reply bars cover far more of a window this small.
   await page.setViewportSize(ZOOM_400);
-  await settle(page);
   problems.push(...(await reflowProblems(page, label)));
   problems.push(...(await axeProblems(page, `${label} 320px`)));
   problems.push(...(await keyboardProblems(page, `${label} 320px`)));
