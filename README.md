@@ -210,6 +210,7 @@ average exceeds `NAV_BUDGET_MS`.
 ```sh
 npm run verify              # typegen + typecheck + lint + unit + integration + flows + tables + migrations
 npm run test:coverage       # 100% line/function coverage of src/lib, enforced
+TEST_WORKERS=2 npm run test:coverage  # override the local default of four concurrent test files
 npm run e2e                 # Playwright — starts its own Postgres if needed, one database and server per worker
 E2E_WORKERS=1 npm run e2e   # one at a time; the default is a third of your cores, up to 6
 npm run e2e -- --grep-invert "WCAG AA"  # the quick pass: everything but the accessibility sweeps
@@ -304,6 +305,14 @@ as it ships.
 floor). `test/lib/manifest.integration.test.ts` imports every module in `src/lib`
 so a new file cannot hide from the report by never being loaded.
 
+`npm run test:integration` and `npm run test:coverage` run up to four test files
+concurrently by default; CI uses two. Set `TEST_WORKERS` to override this, including
+`TEST_WORKERS=1` for a serial debugging run. Global setup migrates the disposable
+base database once and cheaply clones that template for every integration file,
+so tests that truncate tables cannot erase another file's data. Pure unit files
+stay on the base URL. Coverage still comes from one Node invocation and its
+existing aggregate thresholds; there are no weaker per-worker coverage gates.
+
 ### The provider seam
 
 `EMAIL_TRANSPORT=outbox` records every email and never calls Resend — so, on its
@@ -340,8 +349,9 @@ runs, so the cluster is safe to share with nothing else.
 Suites can run at the same time from separate checkouts (git worktrees). Each
 `npm run e2e` or `npm run test:integration` creates its own
 `friendloop_test_run_<pid>_<id>` database in the cluster and drops it when it
-exits. A run that was killed leaves its database behind, and the next run drops
-it. Each run also picks free ports for the app and the Resend stub; set
+exits, together with its Playwright `_w` worker databases and integration `_i_<hash>`
+file databases. A run that was killed leaves its database behind, and the next run
+drops it. Each run also picks free ports for the app and the Resend stub; set
 `E2E_PORT` / `E2E_FAKE_MAIL_PORT` to pin them. The `.next` build belongs to the
 checkout, so a second Playwright run in the same folder stops right away
 (`.e2e-run.lock`). `e2e:db:stop` and `e2e:db:reset` affect every run sharing the

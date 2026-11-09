@@ -27,6 +27,7 @@ import { existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } 
 import { createServer } from "node:net";
 import { constants as osConstants, cpus, homedir } from "node:os";
 import { join } from "node:path";
+import { integrationTestFiles, integrationTestHash } from "../test/database.mjs";
 
 const HOME = homedir();
 const RUN_DIR = process.env.E2E_DB_DIR ??
@@ -331,6 +332,7 @@ switch (command) {
     // but the cluster, which per-run databases already isolate.
     const env = { ...process.env };
     const usesBuild = [cmd, ...args].some((part) => part.includes("playwright"));
+    const usesIntegration = args.includes("--test-global-setup=./test/global-setup.mjs");
     if (usesBuild && env.E2E_REUSE_SERVER === "1") {
       // A reusable server must keep pointing at the same database and ports. The
       // normal per-run database is dropped on exit, so it cannot survive with it.
@@ -352,9 +354,12 @@ switch (command) {
       if (cleanedUp) return;
       cleanedUp = true;
       if (runDatabase) {
-        // The workers' databases are named after this one, and are dropped with it.
-        const workers = tryPsql(`select datname from pg_database where datname like '${runDatabase}\\_w%'`);
-        for (const name of workers.split("\n").filter(Boolean)) dropRunDatabase(name);
+        // Only databases derived from this run: Playwright workers and integration files.
+        const children = tryPsql(
+          `select datname from pg_database where datname like '${runDatabase}\\_w%' ` +
+            `or datname like '${runDatabase}\\_i\\_%'`,
+        );
+        for (const name of children.split("\n").filter(Boolean)) dropRunDatabase(name);
         dropRunDatabase(runDatabase);
       }
       if (lockFile) rmSync(lockFile, { force: true });
@@ -384,6 +389,13 @@ switch (command) {
       // cores hold two without tests starting to time out.
       if (usesBuild) env.E2E_WORKERS ??= String(env.CI ? 2 : Math.min(6, Math.max(1, Math.floor(cpus().length / 3))));
       const workers = Number(env.E2E_WORKERS ?? 1);
+      if (usesIntegration) {
+        const files = integrationTestFiles();
+        const ports = await freePorts(files.length);
+        env.TEST_MAIL_PORTS = JSON.stringify(Object.fromEntries(
+          files.map((file, index) => [integrationTestHash(file), ports[index]]),
+        ));
+      }
       const [mailPort, ...appPorts] = await freePorts(workers + 1);
       if (!env.E2E_PORT) {
         env.E2E_PORT = appPorts[0];

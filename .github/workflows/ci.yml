@@ -60,7 +60,7 @@ jobs:
       # All unit and integration tests, with 100% line and function coverage of
       # src/lib enforced rather than reported.
       - name: Unit and integration tests, with the coverage gate
-        run: npm run test:coverage
+        run: TEST_WORKERS=2 npm run test:coverage
 
       # The release gate README promises: no flow may ship marked `todo`.
       - name: Flow coverage (strict)

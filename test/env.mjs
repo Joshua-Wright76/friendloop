@@ -4,9 +4,29 @@
  *
  * The integration run is expected to be started through `scripts/e2e-db.mjs`,
  * which supplies TEST_DATABASE_URL (a throwaway Postgres) the same way the
- * Playwright suite gets one.
+ * Playwright suite gets one. Each absolute integration-test child gets the
+ * database global setup cloned for its file; pure units keep the base URL.
+ * Global setup has a relative argv[1] and must keep using the base template.
  */
-process.env.DATABASE_URL ??= process.env.TEST_DATABASE_URL;
+import { databaseUrlForTest, integrationTestHash, isIntegrationTestFile } from "./database.mjs";
+import { isAbsolute } from "node:path";
+
+const baseDatabaseUrl = process.env.TEST_DATABASE_URL ?? process.env.DATABASE_URL;
+if (baseDatabaseUrl) {
+  const databaseUrl = databaseUrlForTest(baseDatabaseUrl, process.argv[1]);
+  process.env.DATABASE_URL = databaseUrl;
+  process.env.TEST_DATABASE_URL = databaseUrl;
+}
+
+// Mail-backed integration files also need separate servers: otherwise one
+// file's teardown or forced-failure control request can interrupt another's.
+const testFile = process.argv[1];
+if (process.env.TEST_MAIL_PORTS && testFile && isAbsolute(testFile) && isIntegrationTestFile(testFile)) {
+  const ports = JSON.parse(process.env.TEST_MAIL_PORTS);
+  const port = ports[integrationTestHash(testFile)];
+  if (port) process.env.E2E_FAKE_MAIL_PORT = String(port);
+}
+
 process.env.E2E ??= "1";
 process.env.EMAIL_TRANSPORT ??= "outbox";
 process.env.NEXT_PUBLIC_APP_URL ??= "http://localhost:3100";
