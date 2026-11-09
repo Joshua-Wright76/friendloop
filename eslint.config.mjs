@@ -20,6 +20,9 @@ const eslintConfig = defineConfig([
     ".codex/**",
     "e2e/**",
     "recordings/**",
+    // Generated test artifacts — not application source.
+    "playwright-report/**",
+    "test-results/**",
   ]),
 ]);
 

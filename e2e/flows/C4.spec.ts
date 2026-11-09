@@ -45,7 +45,7 @@ test("C4 · the owner edits this round directly: remove, reorder, add, and rewor
   await expect(page.getByText("Added to this round.")).toBeVisible();
 
   // Reordered by the grip: this round only.
-  await page.getByRole("button", { name: "Move: Q4" }).first().click();
+  await thisRound(page).getByRole("button", { name: "Move: Q4" }).click();
   await page.getByRole("button", { name: "Move up: Q4" }).click();
   await expect.poll(asked).toEqual(["Q1", "Q4", "The potluck corner"]);
 

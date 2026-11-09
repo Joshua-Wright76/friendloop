@@ -27,6 +27,8 @@ import { existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } 
 import { createServer } from "node:net";
 import { constants as osConstants, cpus, homedir } from "node:os";
 import { join } from "node:path";
+import postgres from "postgres";
+import { integrationDatabaseName, integrationTestFiles, integrationTestHash } from "../test/database.mjs";
 
 const HOME = homedir();
 const RUN_DIR = process.env.E2E_DB_DIR ??
@@ -236,6 +238,23 @@ function dropRunDatabase(name) {
   tryRun("psql", ["-h", "127.0.0.1", "-p", PORT, "-U", USER, "-d", "postgres", "-c", `drop database if exists "${name}" with (force)`]);
 }
 
+/** External bases are borrowed: drop exactly this run's integration children, never the base. */
+async function dropExternalIntegrationDatabases(baseUrl, files) {
+  if (files.length === 0) return;
+  const adminUrl = new URL(baseUrl);
+  adminUrl.pathname = "/postgres";
+  const sql = postgres(adminUrl.toString(), { prepare: false, max: 1, onnotice: () => undefined });
+  try {
+    for (const file of files) {
+      const name = integrationDatabaseName(baseUrl, file);
+      const quoted = `"${name.replaceAll('"', '""')}"`;
+      await sql.unsafe(`drop database if exists ${quoted} with (force)`);
+    }
+  } finally {
+    await sql.end({ timeout: 5 });
+  }
+}
+
 /** `count` distinct free ports, held open together so none can repeat. */
 async function freePorts(count) {
   const servers = await Promise.all(
@@ -329,30 +348,63 @@ switch (command) {
     }
     // Only Playwright builds and serves the app; integration tests share nothing
     // but the cluster, which per-run databases already isolate.
+    const env = { ...process.env };
     const usesBuild = [cmd, ...args].some((part) => part.includes("playwright"));
+    const usesIntegration = args.includes("--test-global-setup=./test/global-setup.mjs");
+    if (usesBuild && env.E2E_REUSE_SERVER === "1") {
+      // A reusable server must keep pointing at the same database and ports. The
+      // normal per-run database is dropped on exit, so it cannot survive with it.
+      if (!env.TEST_DATABASE_URL) {
+        console.error("E2E_REUSE_SERVER=1 requires TEST_DATABASE_URL for a persistent disposable database.");
+        process.exit(1);
+      }
+      if (!env.E2E_PORT) {
+        console.error("E2E_REUSE_SERVER=1 requires an explicit E2E_PORT (and normally E2E_FAKE_MAIL_PORT).");
+        process.exit(1);
+      }
+    }
     const lockFile = usesBuild ? join(process.cwd(), ".e2e-run.lock") : null;
     if (lockFile && !takeRunLock(lockFile)) process.exit(1);
 
-    const env = { ...process.env };
+    const suppliedDatabase = env.TEST_DATABASE_URL ?? null;
     let runDatabase = null;
-    let cleanedUp = false;
+    let integrationFiles = [];
+    let cleanupPromise = null;
     const cleanup = () => {
-      if (cleanedUp) return;
-      cleanedUp = true;
-      if (runDatabase) {
-        // The workers' databases are named after this one, and are dropped with it.
-        const workers = tryPsql(`select datname from pg_database where datname like '${runDatabase}\\_w%'`);
-        for (const name of workers.split("\n").filter(Boolean)) dropRunDatabase(name);
-        dropRunDatabase(runDatabase);
-      }
-      if (lockFile) rmSync(lockFile, { force: true });
+      if (cleanupPromise) return cleanupPromise;
+      cleanupPromise = (async () => {
+        try {
+          if (runDatabase) {
+            // Local behavior stays unchanged: drop this run's children and its owned base.
+            const children = tryPsql(
+              `select datname from pg_database where datname like '${runDatabase}\\_w%' ` +
+                `or datname like '${runDatabase}\\_i\\_%'`,
+            );
+            for (const name of children.split("\n").filter(Boolean)) dropRunDatabase(name);
+            dropRunDatabase(runDatabase);
+          } else if (suppliedDatabase && usesIntegration) {
+            await dropExternalIntegrationDatabases(suppliedDatabase, integrationFiles);
+          }
+        } finally {
+          if (lockFile) rmSync(lockFile, { force: true });
+        }
+      })();
+      return cleanupPromise;
     };
     const signalExitCode = (signal) => 128 + (osConstants.signals[signal] ?? 1);
+    const cleanupAndExit = async (code) => {
+      try {
+        await cleanup();
+      } catch (error) {
+        console.error(`Database cleanup failed: ${error instanceof Error ? error.message : String(error)}`);
+        process.exit(1);
+      }
+      process.exit(code);
+    };
     const SIGNALS = ["SIGINT", "SIGTERM", "SIGHUP"];
     // Until the child exists, a signal means: clean up what was made and leave.
     const early = (signal) => {
-      cleanup();
-      process.exit(signalExitCode(signal));
+      void cleanupAndExit(signalExitCode(signal));
     };
     for (const signal of SIGNALS) process.on(signal, early);
 
@@ -366,12 +418,21 @@ switch (command) {
         env.E2E_RELAX_DB ??= "commit";
         console.error(`e2e database ready at ${env.TEST_DATABASE_URL}`);
       }
-      // Explicit ports win, so a fixed setup (CI, a debugging session) still works.
+      // Explicit Playwright ports win; integration mail ports are allocated per file.
       // A Playwright run gets a server per worker. Each costs a browser and a Node
-      // process, so a third of the cores leaves the machine breathing; CI's four
-      // cores hold two without tests starting to time out.
-      if (usesBuild) env.E2E_WORKERS ??= String(env.CI ? 2 : Math.min(6, Math.max(1, Math.floor(cpus().length / 3))));
+      // process, so a third of the cores leaves the machine breathing; CI uses
+      // three app/browser workers on its four cores.
+      if (usesBuild) env.E2E_WORKERS ??= String(env.CI ? 3 : Math.min(6, Math.max(1, Math.floor(cpus().length / 3))));
       const workers = Number(env.E2E_WORKERS ?? 1);
+      if (usesIntegration) {
+        // Only these children have the per-file databases created by global setup.
+        env.TEST_INTEGRATION_ISOLATION = "1";
+        integrationFiles = integrationTestFiles();
+        const ports = await freePorts(integrationFiles.length);
+        env.TEST_MAIL_PORTS = JSON.stringify(Object.fromEntries(
+          integrationFiles.map((file, index) => [integrationTestHash(file), ports[index]]),
+        ));
+      }
       const [mailPort, ...appPorts] = await freePorts(workers + 1);
       if (!env.E2E_PORT) {
         env.E2E_PORT = appPorts[0];
@@ -380,7 +441,11 @@ switch (command) {
       if (!env.E2E_FAKE_MAIL_PORT) env.E2E_FAKE_MAIL_PORT = mailPort;
       console.error(`e2e workers ${workers}, app port ${env.E2E_PORTS ?? env.E2E_PORT}, mail stub port ${env.E2E_FAKE_MAIL_PORT}`);
     } catch (error) {
-      cleanup();
+      try {
+        await cleanup();
+      } catch (cleanupError) {
+        console.error(`Database cleanup failed: ${cleanupError instanceof Error ? cleanupError.message : String(cleanupError)}`);
+      }
       throw error;
     }
 
@@ -396,13 +461,11 @@ switch (command) {
     }
     child.on("error", (error) => {
       console.error(error.message);
-      cleanup();
-      process.exit(1);
+      void cleanupAndExit(1);
     });
-    // Wait for the child so the database is dropped only after the app server lets go.
+    // Wait for the child and cleanup so no database outlives the command.
     child.on("exit", (code, signal) => {
-      cleanup();
-      process.exit(signal ? signalExitCode(signal) : (code ?? 0));
+      void cleanupAndExit(signal ? signalExitCode(signal) : (code ?? 0));
     });
     break;
   }

@@ -1,5 +1,6 @@
 import { defineConfig, devices } from "@playwright/test";
 import { WORKERS, currentWorker, workerDatabaseUrl, workerPort } from "./e2e/support/parallel";
+import { validateBuild } from "./e2e/support/build";
 
 /**
  * Two targets, one suite:
@@ -12,6 +13,11 @@ import { WORKERS, currentWorker, workerDatabaseUrl, workerPort } from "./e2e/sup
  */
 // `scripts/e2e-db.mjs run` picks free ports so several suites can run at once.
 const isProd = Boolean(process.env.E2E_BASE_URL);
+// Keep the public build value stable when local servers use fresh random ports;
+// appUrl() uses each server's runtime E2E_APP_URL for actual links.
+const BUILD_APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3100";
+if (!isProd) process.env.NEXT_PUBLIC_APP_URL = BUILD_APP_URL;
+if (!isProd && process.env.E2E_SKIP_BUILD === "1") validateBuild();
 // Playwright loads this file again inside each worker, which is how a worker finds its own server.
 const worker = currentWorker();
 if (!isProd && worker !== null && worker >= WORKERS) {
@@ -56,8 +62,8 @@ export default defineConfig({
   globalSetup: "./e2e/global-setup.ts",
   globalTeardown: "./e2e/global-teardown.ts",
   reporter: process.env.CI
-    ? [["list"], ["html", { open: "never" }], ["github"]]
-    : [["list"], ["html", { open: "never" }]],
+    ? [["list"], ["html", { open: "never" }], ["github"], ["./e2e/support/duration-reporter.ts"]]
+    : [["list"], ["html", { open: "never" }], ["./e2e/support/duration-reporter.ts"]],
   timeout: 30_000,
   expect: { timeout: 7_000 },
   use: {
@@ -81,15 +87,17 @@ export default defineConfig({
         const port = workerPort(index);
         return {
           // A production build, not dev: no on-demand compilation mid-test, and the
-          // suite exercises the same rendering path that ships. Servers start in
-          // order, so the rest can rely on the first one's build. Its cache goes first:
-          // a reused one has built without recent stylesheet changes (see ci.yml).
-          command: index === 0
-            ? `rm -rf .next/cache && npm run build && npx next start -p ${port}`
-            : `npx next start -p ${port}`,
+          // suite exercises the same rendering path that ships. The first server builds
+          // unless CI or e2e:fast supplied one recorded for the current source.
+          command: process.env.E2E_SKIP_BUILD === "1"
+            ? `npx next start -p ${port}`
+            : index === 0
+              ? `rm -rf .next/cache && npm run build && node scripts/e2e-build.mjs mark && npx next start -p ${port}`
+              : `npx next start -p ${port}`,
           url: `http://localhost:${port}`,
-          reuseExistingServer: false,
-          timeout: index === 0 ? 180_000 : 60_000,
+          // Skipped-build local opt-in only: normal runs must always rebuild.
+          reuseExistingServer: process.env.E2E_SKIP_BUILD === "1" && process.env.E2E_REUSE_SERVER === "1",
+          timeout: index === 0 && process.env.E2E_SKIP_BUILD !== "1" ? 180_000 : 60_000,
           env: {
             E2E: "1",
             EMAIL_TRANSPORT: "outbox",
@@ -103,7 +111,7 @@ export default defineConfig({
             DATABASE_URL: workerDatabaseUrl(BASE_DATABASE_URL, index),
             // NEXT_PUBLIC_ values are fixed at build time, and this differs per server.
             E2E_APP_URL: `http://localhost:${port}`,
-            NEXT_PUBLIC_APP_URL: `http://localhost:${workerPort(0)}`,
+            NEXT_PUBLIC_APP_URL: BUILD_APP_URL,
           },
         };
       }),
