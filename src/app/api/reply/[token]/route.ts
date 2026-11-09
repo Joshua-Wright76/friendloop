@@ -8,6 +8,8 @@ import {
   saveReminderPreferenceFor,
   saveSectionMusicFor,
   saveSectionTextFor,
+  saveStatusLineFor,
+  saveStickerFor,
 } from "@/lib/reply";
 import { copy } from "@/lib/copy";
 
@@ -18,7 +20,7 @@ import { copy } from "@/lib/copy";
 export async function POST(request: Request, { params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
 
-  let payload: { action?: string; issueQuestionId?: string; issueSectionId?: string; choices?: unknown; body?: string; name?: string; preference?: unknown; url?: string; caption?: string; ifBody?: unknown };
+  let payload: { action?: string; issueQuestionId?: string; issueSectionId?: string; choices?: unknown; body?: string; name?: string; preference?: unknown; url?: string; caption?: string; ifBody?: unknown; sticker?: unknown };
   try {
     payload = await request.json();
   } catch {
@@ -46,6 +48,23 @@ export async function POST(request: Request, { params }: { params: Promise<{ tok
 
   if (payload.action === "reminders") {
     const result = await saveReminderPreferenceFor({ token, preference: payload.preference });
+    return result.ok
+      ? NextResponse.json({ ok: true, savedAt: result.savedAt })
+      : NextResponse.json({ error: result.error }, { status: result.status });
+  }
+
+  if (payload.action === "line") {
+    const result = await saveStatusLineFor({ token, body: payload.body });
+    return result.ok
+      ? NextResponse.json({ ok: true, savedAt: result.savedAt })
+      : NextResponse.json({ error: result.error }, { status: result.status });
+  }
+
+  if (payload.action === "sticker") {
+    if (typeof payload.issueQuestionId !== "string") {
+      return NextResponse.json({ error: copy.reply.errors.missingQuestion }, { status: 400 });
+    }
+    const result = await saveStickerFor({ token, issueQuestionId: payload.issueQuestionId, sticker: payload.sticker });
     return result.ok
       ? NextResponse.json({ ok: true, savedAt: result.savedAt })
       : NextResponse.json({ error: result.error }, { status: result.status });

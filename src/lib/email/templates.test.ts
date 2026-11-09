@@ -392,3 +392,72 @@ test("the sign-off closes the round with the mascot and when the next one goes o
   // A next round with no sign-off says nothing extra.
   assert.equal(emailMarksOf({ ...LOOP }, ROUND, next).nextLine, null);
 });
+
+/* --------------------------- what people add themselves --------------------------- */
+
+const SIGNED = [
+  { name: "Alice", src: "https://friendloop.dev/uploads/a.png", width: 150, height: 48 },
+  { name: "Bob <b>", src: "https://friendloop.dev/uploads/b.png", width: 120, height: 56 },
+  { name: "Cleo", src: "https://friendloop.dev/uploads/c.png", width: 90, height: 40 },
+  { name: "Dee", src: "https://friendloop.dev/uploads/d.png", width: 100, height: 50 },
+];
+
+test("nobody's line, signature or sticker leaves the round email exactly as it was", () => {
+  assert.equal(deliveryEmail({ ...ROUND_INPUT(), rollCall: [], signatures: [] }).html, deliveryEmail(ROUND_INPUT()).html);
+  assert.equal(deliveryEmail({ ...ROUND_INPUT(), rollCall: [], signatures: [] }).text, deliveryEmail(ROUND_INPUT()).text);
+  const unstuck = ROUND_INPUT();
+  unstuck.answers = unstuck.answers.map((answer) => ({ ...answer, sticker: null }));
+  assert.equal(deliveryEmail(unstuck).html, deliveryEmail(ROUND_INPUT()).html);
+});
+
+test("the roll call opens the round as a plain table of names and lines, above the answers and in the text", () => {
+  const email = deliveryEmail({ ...ROUND_INPUT(), rollCall: [{ name: "Alice", line: "📚 reading <Middlemarch>" }, { name: "Bob", line: "off to Lisbon" }] });
+  assert.match(email.html, />Who&#39;s here this round<\/h2>/);
+  assert.match(email.html, /white-space:nowrap">Alice<\/td><td[^>]*>📚 reading &lt;Middlemarch&gt;<\/td>/);
+  assert.ok(email.html.indexOf("Who&#39;s here") > email.html.indexOf("<h1"));
+  assert.ok(email.html.indexOf("Who&#39;s here") < email.html.indexOf("How was it?"));
+  assert.match(email.text, /Who's here this round\nAlice: 📚 reading <Middlemarch>\nBob: off to Lisbon\n\nHow was it\?/);
+});
+
+test("the signed card closes the round with each signature's picture, its name under it, three to a row", () => {
+  const next = { number: 15, deliversAt: new Date("2026-11-20T17:00:00Z") };
+  const email = deliveryEmail({ ...ROUND_INPUT(), signatures: SIGNED, marks: emailMarksOf({ ...LOOP, signOff: "xo" }, ROUND, next) });
+  assert.match(email.html, />Signed, sealed, delivered<\/h2>/);
+  assert.match(email.html, />Everyone who wrote in Round 14<\/p>/);
+  assert.match(email.html, /<img src="https:\/\/friendloop\.dev\/uploads\/a\.png" alt="Signed, Alice" width="150" height="48"/);
+  assert.match(email.html, /alt="Signed, Bob &lt;b&gt;"[^>]*\/><div[^>]*>Bob &lt;b&gt;<\/div>/);
+  assert.equal((email.html.match(/alt="Signed, /g) ?? []).length, 4);
+  // Three signatures fill a row; the fourth starts the next.
+  assert.match(email.html, /c\.png[^<]*<div[^>]*>Cleo<\/div><\/td><\/tr><tr><td/);
+  // After the answers, before the owner's sign-off.
+  assert.ok(email.html.indexOf("Signed, sealed") > email.html.indexOf("Bob</div>"));
+  assert.ok(email.html.indexOf("Signed, sealed") < email.html.indexOf(">xo</p>"));
+  assert.match(email.text, /Bob: Fine\.\n\nSigned, sealed, delivered: Alice, Bob <b>, Cleo, Dee\n\nxo\n/);
+});
+
+test("a sticker on an answer sits beside its author's name as a picture, and never in the plain text", () => {
+  const email = deliveryEmail({
+    ...ROUND_INPUT(),
+    answers: [
+      { question: "How was it?", author: "Alice", authorCharm: "frog", body: "Good.", sticker: "peach" },
+      { question: "How was it?", author: "Bob", body: "Fine.", sticker: "../x" },
+    ],
+    sections: [{ title: "Listening", emoji: null, answers: [{ author: "Dee", body: "Records.", sticker: "moon" }] }],
+  });
+  assert.match(email.html, /Alice <img[^>]*\/stickers\/png\/frog\.png[^>]*\/> <img src="http[^"]*\/stickers\/png\/peach\.png" alt="" width="24" height="24"/);
+  assert.match(email.html, /Dee <img src="http[^"]*\/stickers\/png\/moon\.png" alt="" width="24"/);
+  assert.doesNotMatch(email.html, /\.\.\/x/);
+  assert.doesNotMatch(email.text, /peach|moon/);
+});
+
+function ROUND_INPUT() {
+  return {
+    groupName: "Friday Loop",
+    issueNumber: 14,
+    url: "https://friendloop.dev/i/123",
+    answers: [
+      { question: "How was it?", author: "Alice", body: "Good." },
+      { question: "How was it?", author: "Bob", body: "Fine." },
+    ] as Parameters<typeof deliveryEmail>[0]["answers"],
+  };
+}

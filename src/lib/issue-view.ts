@@ -1,10 +1,11 @@
 import { DEFAULT_REACTIONS, tallyReactions } from "./reaction-emoji.ts";
-import { and, asc, eq, isNull } from "drizzle-orm";
+import { and, asc, eq, exists, isNotNull, isNull } from "drizzle-orm";
 import { db } from "@/db";
 import { replyHasContentCondition } from "./reply-query";
 import {
   groups,
   issueQuestions,
+  issueStatusLines,
   issues,
   memberships,
   reactions,
@@ -16,6 +17,7 @@ import { loadComments, type IssueComment } from "./comment-view.ts";
 import { tallyPoll, type PollTallyRow } from "./poll.ts";
 import { musicCardsFor, type MusicProvider, type MusicTrack } from "./music";
 import { formatOf } from "./asks";
+import { isStickerKey, parseSignature } from "./looks.ts";
 
 export type IssueAnswer = {
   replyId: string;
@@ -41,6 +43,8 @@ export type IssueAnswer = {
   link?: IssueLink;
   /** A photo wall's photos. Only on photo-wall answers. */
   media?: Array<{ url: string; caption: string | null }>;
+  /** The sticker its author slapped on it; only there when they did. */
+  sticker?: string;
 };
 
 export type IssueLink = {
@@ -73,6 +77,7 @@ export type IssueSectionReplyBlock = {
   /** Former section answers take reactions and comments like any other answer. */
   reactions: Array<{ emoji: string; count: number; mine: boolean }>;
   comments: IssueComment[];
+  sticker?: string;
 };
 
 export type IssueSectionBlock = {
@@ -105,6 +110,19 @@ export type IssueBlock = {
   description?: string;
 };
 
+/** Someone's line for this round ("currently…"), for the roll call and beside their answers. */
+export type IssueStatusLine = {
+  id: string;
+  name: string;
+  photoUrl: string | null;
+  charm: string | null;
+  frame: string | null;
+  body: string;
+};
+
+/** The signature of someone who wrote in a delivered round, for its signed card and their sign-off. */
+export type IssueSignature = { id: string; name: string; strokes: number[][] };
+
 export type IssueView = {
   issue: typeof issues.$inferSelect;
   group: typeof groups.$inferSelect;
@@ -116,6 +134,10 @@ export type IssueView = {
   /** Who the viewer can @mention; empty for strangers and when comments are off. */
   mentionables: Array<{ id: string; name: string; photoUrl: string | null }>;
   answerCount: number;
+  /** Everyone's line this round that the viewer may see, by name. Left out when there are none. */
+  statusLines?: IssueStatusLine[];
+  /** A delivered round's signatures, of those who wrote in it, by name. Left out when there are none. */
+  signatures?: IssueSignature[];
 };
 
 export function reactionChoices(): readonly string[] {
@@ -163,7 +185,8 @@ export async function loadIssue(input: {
 
   // Everything below hangs off the issue alone, so it is asked for at once: one
   // round trip to the database instead of one per table.
-  const [asked, allRows, threads, reactionRows, allMedia] = await Promise.all([
+  const delivered = issue.status === "delivered";
+  const [asked, allRows, threads, reactionRows, allMedia, lineRows, signerRows] = await Promise.all([
     db
       .select()
       .from(issueQuestions)
@@ -180,6 +203,7 @@ export async function loadIssue(input: {
         pollChoices: replies.pollChoices,
         linkUrl: replies.linkUrl,
         linkProvider: replies.linkProvider,
+        sticker: replies.sticker,
         addedAfterDelivery: replies.addedAfterDelivery,
         createdAt: replies.createdAt,
         membershipId: replies.membershipId,
@@ -209,13 +233,36 @@ export async function loadIssue(input: {
       .innerJoin(replies, eq(replies.id, replyMedia.replyId))
       .where(eq(replies.issueId, issue.id))
       .orderBy(asc(replyMedia.position), asc(replyMedia.createdAt), asc(replyMedia.id)),
+    db
+      .select({
+        id: issueStatusLines.membershipId,
+        body: issueStatusLines.body,
+        name: memberships.name,
+        email: memberships.email,
+        photoUrl: memberships.photoUrl,
+        charm: memberships.charm,
+        frame: memberships.avatarFrame,
+      })
+      .from(issueStatusLines)
+      .innerJoin(memberships, eq(memberships.id, issueStatusLines.membershipId))
+      .where(eq(issueStatusLines.issueId, issue.id)),
+    // Signatures close a round that has gone out: only of the people who wrote in it.
+    delivered
+      ? db
+          .select({ id: memberships.id, signature: memberships.signature, name: memberships.name, email: memberships.email })
+          .from(memberships)
+          .where(and(
+            eq(memberships.groupId, group.id),
+            isNotNull(memberships.signature),
+            exists(db.select({ id: replies.id }).from(replies).where(and(eq(replies.issueId, issue.id), eq(replies.membershipId, memberships.id)))),
+          ))
+      : Promise.resolve([]),
   ]);
 
   // A round is a surprise until it goes out. Whatever someone has written counts
   // as their answer, half-finished sentences included, so before delivery the only
   // answers anyone sees are their own; poll results wait the same way. Owners-only
   // items are for the owner and admins.
-  const delivered = issue.status === "delivered";
   const visibleNow = (membershipId: string) => delivered || membershipId === viewerMembershipId;
   const shown = asked.filter((question) => !question.adminOnly || input.viewerIsAdmin);
   const shownIds = new Set(shown.map((question) => question.id));
@@ -250,6 +297,22 @@ export async function loadIssue(input: {
     comments: threads.byReply.get(row.replyId) ?? [],
   });
   const cardOf = (url: string) => musicCards.get(url);
+  // Only a sticker someone chose: an answer without one reads exactly as it always has.
+  const stickerOf = (row: (typeof rows)[number]) => (isStickerKey(row.sticker) ? { sticker: row.sticker } : {});
+  const nameOf = (row: { name: string | null; email: string }) => row.name ?? row.email.split("@")[0];
+  const byName = (a: { name: string; id: string }, b: { name: string; id: string }) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id);
+
+  // A line is a surprise like an answer: before the round goes out, only your own shows.
+  const statusLines: IssueStatusLine[] = lineRows
+    .filter((line) => visibleNow(line.id))
+    .map((line) => ({ id: line.id, name: nameOf(line), photoUrl: line.photoUrl, charm: line.charm, frame: line.frame, body: line.body }))
+    .sort(byName);
+  // Someone whose only answers this viewer can't see (an owners-only item) doesn't sign for them.
+  const wrote = new Set(rows.map((row) => row.membershipId));
+  const signatures: IssueSignature[] = signerRows.flatMap((signer) => {
+    const strokes = parseSignature(signer.signature);
+    return strokes && wrote.has(signer.id) ? [{ id: signer.id, name: nameOf(signer), strokes }] : [];
+  }).sort(byName);
 
   // Copied from a section: it keeps a section's look, exactly as it always read.
   const sectionRows = shown.filter((question) => question.fromSection);
@@ -296,6 +359,7 @@ export async function loadIssue(input: {
               }
             : {}),
           ...(format === "photo_wall" ? { media: mediaByReply.get(row.replyId) ?? [] } : {}),
+          ...stickerOf(row),
         };
       }),
       ...(format === "photo_wall" || format === "music" ? { format } : {}),
@@ -328,6 +392,7 @@ export async function loadIssue(input: {
             addedLater: row.addedAfterDelivery,
             media: [...(row.photoUrl ? [{ url: row.photoUrl, caption: null }] : []), ...(mediaByReply.get(row.replyId) ?? [])],
             ...conversation(row),
+            ...stickerOf(row),
           };
         }),
     };
@@ -342,6 +407,8 @@ export async function loadIssue(input: {
     comments: threads.top,
     commentsEnabled: group.commentsEnabled,
     mentionables: threads.mentionables,
+    ...(statusLines.length > 0 ? { statusLines } : {}),
+    ...(signatures.length > 0 ? { signatures } : {}),
   };
 }
 

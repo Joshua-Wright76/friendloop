@@ -153,12 +153,30 @@ export function isCoverTint(value: unknown): value is string {
 /** A cover's sticker, or one slapped on an answer: any drawing from the sticker sheet. */
 export const isStickerKey = isCharmKey;
 
+/** A sticker from a browser: a key from the sheet, nothing ("" or null) to peel it off, or refused. */
+export function stickerChoice(value: unknown): { ok: true; sticker: string | null } | { ok: false } {
+  if (value === "" || value === null) return { ok: true, sticker: null };
+  return isStickerKey(value) ? { ok: true, sticker: value } : { ok: false };
+}
+
 /* ------------------------------- signatures ------------------------------ */
 
 /** The board a signature is drawn on. Any pad scales its strokes onto it. */
 export const SIGNATURE_BOARD = { width: 600, height: 200 } as const;
-const MAX_STROKES = 60;
-const MAX_POINTS = 2400;
+/** The most a pad may send; a browser stops taking ink past these rather than have it refused. */
+export const SIGNATURE_MAX_STROKES = 60;
+export const SIGNATURE_MAX_POINTS = 2400;
+const MAX_STROKES = SIGNATURE_MAX_STROKES;
+const MAX_POINTS = SIGNATURE_MAX_POINTS;
+
+/**
+ * The ink a signature's picture is drawn in for email: a blue-black that reads on any
+ * preset's cream card. On the web it is drawn in the loop's accent ink instead, which
+ * follows light and dark.
+ */
+export const SIGNATURE_INK = "#26365c";
+/** The pen's nib on the 600×200 board: a slow stroke pools to the full width, a fast one thins. */
+export const SIGNATURE_NIB = { thin: 2.4, thick: 6.2 } as const;
 
 /**
  * Pen strokes from a browser, or null when there is nothing to sign with. Each
@@ -213,6 +231,33 @@ export function signatureBox(strokes: number[][], pad = 8): { x: number; y: numb
   }
   if (!Number.isFinite(minX)) return { x: 0, y: 0, width: SIGNATURE_BOARD.width, height: SIGNATURE_BOARD.height };
   return { x: minX - pad, y: minY - pad, width: maxX - minX + pad * 2, height: maxY - minY + pad * 2 };
+}
+
+/**
+ * How wide the pen is along each segment of a stroke, so it looks like ink: points
+ * from a pad arrive at a steady rate, so a long segment was drawn fast and runs thin,
+ * a short one slowly and pools. Smoothed, so the width never jumps. One width per
+ * segment; a single dot gets the nib's full width.
+ */
+export function inkWidths(stroke: number[], nib: { thin: number; thick: number } = SIGNATURE_NIB): number[] {
+  const segments = stroke.length / 2 - 1;
+  if (segments < 1) return [nib.thick];
+  const widths: number[] = [];
+  let width = (nib.thin + nib.thick) / 2;
+  for (let i = 0; i < segments; i += 1) {
+    const length = Math.hypot(stroke[i * 2 + 2] - stroke[i * 2], stroke[i * 2 + 3] - stroke[i * 2 + 1]);
+    const target = nib.thick - (nib.thick - nib.thin) * Math.min(1, length / 24);
+    width = width * 0.6 + target * 0.4;
+    widths.push(Math.round(width * 100) / 100);
+  }
+  return widths;
+}
+
+/** A signature's size on a page or in an email: its own shape, fitted inside a box. */
+export function signatureFit(strokes: number[][], maxWidth: number, maxHeight: number): { width: number; height: number } {
+  const box = signatureBox(strokes);
+  const scale = Math.min(maxWidth / box.width, maxHeight / box.height);
+  return { width: Math.max(1, Math.round(box.width * scale)), height: Math.max(1, Math.round(box.height * scale)) };
 }
 
 /* ------------------------------- scrapbook ------------------------------- */

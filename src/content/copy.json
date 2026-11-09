@@ -1091,7 +1091,8 @@
       "sectionPhotoCap": "A photo wall holds six photos, and this one is full.",
       "sectionPhotoStandardCap": "An answer takes one photo, and this one already has it.",
       "changedElsewhere": "This answer changed on another device, so we didn't overwrite it. Try again to replace it with what's here.",
-      "tooManyUploads": "That's a lot of files for one hour. Please try again a little later."
+      "tooManyUploads": "That's a lot of files for one hour. Please try again a little later.",
+      "sticker": "That isn't one of our stickers."
     },
     "suggestLink": "Have a question for the group? Suggest one",
     "reminders": {
@@ -1174,7 +1175,35 @@
     "addAttachment": "Add a photo or sound",
     "pausedTitle": "Paused for now",
     "pausedBody": "{groupName} is paused, so it isn't taking answers right now. Your link will work again as soon as it's resumed.",
-    "voiceBlockedHelp": "Show me how"
+    "voiceBlockedHelp": "Show me how",
+    "statusLine": {
+      "label": "Your line this round",
+      "optional": "optional",
+      "placeholder": "knee-deep in moving boxes",
+      "count": "{count} / {max}",
+      "countLabel": "Up to {max} characters. Shown with your name when the round goes out.",
+      "startersLabel": "Need a start?",
+      "starters": [
+        "📚 reading…",
+        "🎧 listening to…",
+        "🍜 eating…",
+        "🧳 off to…",
+        "😴 surviving on…"
+      ],
+      "error": "Your line didn't save. Try again."
+    },
+    "sticker": {
+      "add": "Sticker",
+      "addLabel": "Add a sticker",
+      "change": "Change sticker",
+      "needsAnswer": "Write something first, then you can stick a sticker on it.",
+      "sheetTitle": "Stick something on it",
+      "sheetNote": "Everyone sees it on this answer when the round goes out.",
+      "none": "None",
+      "stuck": "{sticker} stuck on.",
+      "peeled": "Sticker peeled off.",
+      "error": "That sticker didn't stick. Try again."
+    }
   },
   "issue": {
     "eyebrow": "Fresh from the loop",
@@ -1276,7 +1305,9 @@
     "yourAnswerNumbered": "your answer to question {number}",
     "reactMoreTo": "Add a reaction to {whose}",
     "commentButtonNamed": "{label}: {whose}",
-    "signOffNext": "{round} goes out {date}."
+    "signOffNext": "{round} goes out {date}.",
+    "rollCallTitle": "Who's here this round",
+    "currently": "currently"
   },
   "share": {
     "eyebrow": "Fresh from the loop",
@@ -1437,7 +1468,11 @@
         "body": "Loop email has reached its {allowance} for the last 24 hours, so invites, rounds and reminders are waiting. They go out on their own as room frees up, and loop owners see a note saying so. Sign-in links still go out."
       },
       "fix": "To raise the limit, move to a bigger Resend plan and set EMAIL_DAILY_BUDGET in Vercel to its daily allowance."
-    }
+    },
+    "rollCallTitle": "Who's here this round",
+    "rollCallText": "{name}: {line}",
+    "signedTitle": "Signed, sealed, delivered",
+    "signedText": "Signed, sealed, delivered: {names}"
   },
   "devUi": {
     "title": "UI preview",
@@ -1642,6 +1677,23 @@
         "polaroid": "Snapshot"
       },
       "savedToast": "Your charm and frame now show beside your name everywhere in this loop."
+    },
+    "signature": {
+      "legend": "Sign your letters",
+      "hint": "Optional. It goes at the end of your answers in every round of this loop. Draw it with a finger, a pen or a mouse.",
+      "padLabel": "Signature pad. Draw your signature here with a finger, a pen or a mouse.",
+      "padHint": "Draw here",
+      "clear": "Clear",
+      "use": "Use this signature",
+      "remove": "Remove signature",
+      "saving": "Saving…",
+      "saved": "Saved. It signs your answers in every round.",
+      "removed": "Removed. Your answers go out unsigned.",
+      "error": "That didn't save, so nothing changed. Try again.",
+      "full": "That's all the ink the pad holds. Use it, or clear it and start again.",
+      "invalid": "That signature didn't come through. Clear it and draw it again.",
+      "tooLarge": "That signature is too big to save. Clear it and draw a simpler one.",
+      "failed": "Your signature didn't save. Try again."
     }
   },
   "stationery": {
@@ -2316,5 +2368,10 @@
     "play": "Play the animation",
     "retry": "Try again",
     "close": "Close"
+  },
+  "signatures": {
+    "signed": "Signed, {name}",
+    "cardTitle": "Signed, sealed, delivered",
+    "cardNote": "Everyone who wrote in {round}"
   }
 }

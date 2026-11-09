@@ -1,10 +1,11 @@
-import { and, asc, eq, inArray, isNull, ne, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, isNotNull, isNull, ne, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { groups, issueQuestions, issues, memberships, musicLinks, replies, replyMedia, users } from "@/db/schema";
+import { groups, issueQuestions, issueStatusLines, issues, memberships, musicLinks, replies, replyMedia, users } from "@/db/schema";
 import { carriedOver, groupSchedule, nextSlot } from "./schedule";
 import { sendEmail } from "./email/send";
 import { mailDeadline, roundAsks, sendPromptEmails } from "./notify";
-import { deliveryEmail, emailMarksOf, emailThemeOf, pausedEmail, type AnswerBlock } from "./email/templates";
+import { deliveryEmail, emailMarksOf, emailThemeOf, pausedEmail, type AnswerBlock, type EmailSignature } from "./email/templates";
+import { parseSignature, signatureFit } from "./looks.ts";
 import { tallyPoll } from "./poll";
 import { replyHasContentCondition } from "./reply-query";
 import { isSectionLike } from "./asks";
@@ -151,7 +152,7 @@ export async function deliverRound(input: { issue: IssueRow; at: Date; early?: b
   const [group] = await db.select().from(groups).where(eq(groups.id, issue.groupId)).limit(1);
   if (!group) return "gone";
 
-  const [asked, rows] = await Promise.all([
+  const [asked, rows, lineRows, signerRows] = await Promise.all([
     db
       .select()
       .from(issueQuestions)
@@ -175,6 +176,8 @@ export async function deliverRound(input: { issue: IssueRow; at: Date; early?: b
         authorName: memberships.name,
         authorEmail: memberships.email,
         authorCharm: memberships.charm,
+        membershipId: replies.membershipId,
+        sticker: replies.sticker,
         addedAfterDelivery: replies.addedAfterDelivery,
         createdAt: replies.createdAt,
       })
@@ -185,6 +188,15 @@ export async function deliverRound(input: { issue: IssueRow; at: Date; early?: b
       // Whatever is written goes out; an answer cleared back to nothing doesn't.
       .where(and(eq(replies.issueId, issue.id), replyHasContentCondition()))
       .orderBy(issueQuestions.position, memberships.createdAt),
+    db
+      .select({ body: issueStatusLines.body, name: memberships.name, email: memberships.email })
+      .from(issueStatusLines)
+      .innerJoin(memberships, eq(memberships.id, issueStatusLines.membershipId))
+      .where(eq(issueStatusLines.issueId, issue.id)),
+    db
+      .select({ id: memberships.id, name: memberships.name, email: memberships.email, signature: memberships.signature, pngUrl: memberships.signaturePngUrl })
+      .from(memberships)
+      .where(and(eq(memberships.groupId, issue.groupId), isNotNull(memberships.signature), isNotNull(memberships.signaturePngUrl))),
   ]);
 
   if (rows.length === 0) {
@@ -195,8 +207,9 @@ export async function deliverRound(input: { issue: IssueRow; at: Date; early?: b
   // Questions read as answers; sections, photo walls and music picks as the cards they always were.
   const sectionLike = new Set(asked.filter(isSectionLike).map((question) => question.id));
   const answerRows = rows.filter((row) => !sectionLike.has(row.questionId));
-  const answers: Array<{ adminOnly: boolean; block: AnswerBlock }> = answerRows.map((row) => ({
+  const answers: Array<{ adminOnly: boolean; membershipId: string; block: AnswerBlock }> = answerRows.map((row) => ({
     adminOnly: row.adminOnly,
+    membershipId: row.membershipId,
     block: {
       question: row.question,
       author: row.authorName ?? row.authorEmail.split("@")[0],
@@ -207,6 +220,7 @@ export async function deliverRound(input: { issue: IssueRow; at: Date; early?: b
       audioUrl: row.audioUrl,
       audioDurationMs: row.audioDurationMs,
       addedLater: row.addedAfterDelivery,
+      sticker: row.sticker,
     },
   }));
 
@@ -238,6 +252,8 @@ export async function deliverRound(input: { issue: IssueRow; at: Date; early?: b
           linkTitle: row.linkTitle,
           addedLater: row.addedAfterDelivery,
           photoCount: (mediaCounts.get(row.replyId) ?? 0) + (row.photoUrl ? 1 : 0),
+          sticker: row.sticker,
+          membershipId: row.membershipId,
         })),
     }))
     // A section from before keeps saying nobody added anything; a new card nobody answered isn't there.
@@ -270,22 +286,34 @@ export async function deliverRound(input: { issue: IssueRow; at: Date; early?: b
 
   // The owner's motto, seal, divider and sign-off: the same for everyone, so made once.
   const marks = emailMarksOf(group, { number: issue.number, deliveredAt: at }, next);
+  // Everyone's line for the roll call, and the signatures of whoever wrote, by name.
+  const nameOf = (row: { name: string | null; email: string }) => row.name ?? row.email.split("@")[0];
+  const rollCall = lineRows
+    .map((line) => ({ name: nameOf(line), line: line.body }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+  const signers = signerRows
+    .flatMap((signer) => {
+      const strokes = parseSignature(signer.signature);
+      return strokes && signer.pngUrl ? [{ id: signer.id, signature: { name: nameOf(signer), src: signer.pngUrl, ...signatureFit(strokes, 150, 56) } }] : [];
+    })
+    .sort((a, b) => a.signature.name.localeCompare(b.signature.name));
 
   for (const member of everyone) {
     const nextQuestions = nextAsks ? nextAsks(member) : [];
+    // Owners-only items are for the owner and admins, here as on the issue page.
+    const theirAnswers = answers.filter((answer) => !answer.adminOnly || member.access !== "member");
+    const theirSections = sections.filter((section) => !section.adminOnly || member.access !== "member");
+    // Someone signs the card only for words this reader gets to see.
+    const writers = new Set([...theirAnswers.map((answer) => answer.membershipId), ...theirSections.flatMap((section) => section.answers.map((answer) => answer.membershipId))]);
+    const signatures: EmailSignature[] = signers.filter((signer) => writers.has(signer.id)).map((signer) => signer.signature);
     // Rendered per member: the issue link, the next round's link and the "stop emails" link are theirs.
     const rendered = deliveryEmail({
       groupName: group.name,
       issueNumber: issue.number,
       issueName: issue.name,
       url: issueUrl(issue.id, member.replyToken),
-      // Owners-only items are for the owner and admins, here as on the issue page.
-      answers: answers
-        .filter((answer) => !answer.adminOnly || member.access !== "member")
-        .map((answer) => answer.block),
-      sections: sections
-        .filter((section) => !section.adminOnly || member.access !== "member")
-        .map((section) => ({ title: section.title, emoji: section.emoji, answers: section.answers })),
+      answers: theirAnswers.map((answer) => answer.block),
+      sections: theirSections.map((section) => ({ title: section.title, emoji: section.emoji, answers: section.answers })),
       shareUrl: shareToken ? url(`/s/${shareToken}`) : null,
       next:
         next && member.participation === "contributor" && nextQuestions.length > 0
@@ -299,6 +327,8 @@ export async function deliverRound(input: { issue: IssueRow; at: Date; early?: b
       theme: emailThemeOf(group),
       unsubscribeUrl: unsubscribeUrl(member.unsubscribeToken),
       marks,
+      rollCall,
+      signatures,
     });
     await sendEmail({
       ...rendered,

@@ -1,6 +1,6 @@
 import { and, asc, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { groups, issueQuestions, issues, memberships, replies, replyMedia, unifyIds, users } from "@/db/schema";
+import { groups, issueQuestions, issueStatusLines, issues, memberships, replies, replyMedia, unifyIds, users } from "@/db/schema";
 import { getNow } from "./clock";
 import { copy } from "./copy.ts";
 import { cleanDisplayName } from "./names";
@@ -13,6 +13,7 @@ import { log } from "./log";
 import { askedOf, formatOf, type AnswerFormat } from "./asks";
 import { checkMusicLink, MUSIC_CAPTION_MAX, PHOTO_WALL_MAX } from "./music";
 import { validatePhoto } from "./photo-validation";
+import { cleanLine, isStickerKey, STATUS_LINE_MAX, stickerChoice } from "./looks.ts";
 
 export type TokenContext =
   | { state: "invalid" }
@@ -446,7 +447,7 @@ export async function sheetFor(token: string) {
   const context = await resolveToken(token);
   if (context.state !== "ok" || !context.issue) return null;
 
-  const [rows, existing] = await Promise.all([
+  const [rows, existing, lines] = await Promise.all([
     db
       .select()
       .from(issueQuestions)
@@ -456,6 +457,11 @@ export async function sheetFor(token: string) {
       .select()
       .from(replies)
       .where(and(eq(replies.issueId, context.issue.id), eq(replies.membershipId, context.membership.id))),
+    db
+      .select({ body: issueStatusLines.body })
+      .from(issueStatusLines)
+      .where(and(eq(issueStatusLines.issueId, context.issue.id), eq(issueStatusLines.membershipId, context.membership.id)))
+      .limit(1),
   ]);
   // A sheet from before the switch kept unsaved words under the legacy id.
   const copied = rows.filter((question) => question.fromSection).map((question) => question.id);
@@ -475,6 +481,8 @@ export async function sheetFor(token: string) {
 
   return {
     context,
+    /** Their line for this round ("currently…"), or empty. */
+    line: lines[0]?.body ?? "",
     questions: rows
       .filter((question) => askedOf(question, context.membership))
       .map((question) => {
@@ -499,6 +507,7 @@ export async function sheetFor(token: string) {
           pollChoices: reply?.pollChoices ?? [],
           linkUrl: reply?.linkUrl ?? "",
           linkProvider: reply?.linkProvider ?? "",
+          sticker: reply && isStickerKey(reply.sticker) ? reply.sticker : null,
           media: media
             .filter((item) => reply && item.replyId === reply.id)
             .map((item) => ({ id: item.id, url: item.url, caption: item.caption })),
@@ -637,6 +646,68 @@ export async function removeAudioFor(input: {
     log.error("Unable to remove reply voice note", error);
   });
 
+  await markAccepted(context.membership.id, context.membership.acceptedAt, at);
+  return { ok: true, savedAt: at.toISOString() };
+}
+
+/* ------------------------- stickers and a line per round ------------------------- */
+
+/**
+ * A sticker slapped on one answer, or peeled off it (empty). Any kind of answer takes
+ * one. The sheet only offers it once the card has an answer, but it can land before
+ * that answer's first save does, so it makes the row like a draft would, and an
+ * answer with nothing else in it still never shows.
+ */
+export async function saveStickerFor(input: {
+  token: string;
+  issueQuestionId: string;
+  sticker: unknown;
+}): Promise<PollWriteResult> {
+  const choice = stickerChoice(input.sticker);
+  if (!choice.ok) return { ok: false, status: 400, error: copy.reply.errors.sticker };
+  const gate = await ensureWritableQuestion(input.token, input.issueQuestionId, ["written", "poll", "photo_wall", "music"]);
+  if (!gate.ok) return gate.result;
+
+  const { context, question } = gate;
+  const at = await getNow();
+  await db
+    .insert(replies)
+    .values({
+      issueId: context.issue.id,
+      issueQuestionId: question.id,
+      membershipId: context.membership.id,
+      body: "",
+      sticker: choice.sticker,
+      ...inTheRound(at),
+    })
+    .onConflictDoUpdate({
+      target: [replies.issueId, replies.issueQuestionId, replies.membershipId],
+      set: { sticker: choice.sticker },
+    });
+  return { ok: true, savedAt: at.toISOString() };
+}
+
+/**
+ * Their one line for the open round, cleaned to a single short line. Empty takes it
+ * away. It belongs to this round only and is never carried into the next.
+ */
+export async function saveStatusLineFor(input: { token: string; body: unknown }): Promise<WriteResult> {
+  const gate = await ensureWritable(input.token);
+  if (!gate.ok) return gate.result;
+  const { context } = gate;
+  if (!context.issue) return { ok: false, status: 409, error: copy.reply.errors.nothingOpen };
+
+  const at = await getNow();
+  const body = cleanLine(input.body, STATUS_LINE_MAX);
+  const mine = and(eq(issueStatusLines.issueId, context.issue.id), eq(issueStatusLines.membershipId, context.membership.id));
+  if (body) {
+    await db
+      .insert(issueStatusLines)
+      .values({ issueId: context.issue.id, membershipId: context.membership.id, body, updatedAt: at })
+      .onConflictDoUpdate({ target: [issueStatusLines.issueId, issueStatusLines.membershipId], set: { body, updatedAt: at } });
+  } else {
+    await db.delete(issueStatusLines).where(mine);
+  }
   await markAccepted(context.membership.id, context.membership.acceptedAt, at);
   return { ok: true, savedAt: at.toISOString() };
 }

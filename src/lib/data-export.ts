@@ -4,6 +4,7 @@ import {
   comments,
   groups,
   issueQuestions,
+  issueStatusLines,
   issues,
   memberships,
   questionSuggestions,
@@ -20,6 +21,7 @@ import { plainBody } from "./mentions.ts";
 import { appUrl } from "./urls.ts";
 import { replyHasContentCondition } from "./reply-query";
 import { formatOf } from "./asks";
+import { isStickerKey, parseSignature } from "./looks.ts";
 
 /**
  * Taking your words with you.
@@ -58,6 +60,11 @@ function photosOf(reply: ReplyRow, media: MediaRow[], includePhotoUrl: boolean) 
     ...(includePhotoUrl && reply.photoUrl ? [{ url: absolute(reply.photoUrl), caption: null }] : []),
     ...media.filter((item) => item.replyId === reply.id).map((item) => ({ url: absolute(item.url), caption: item.caption })),
   ];
+}
+
+/** The sticker on an answer, listed only where someone stuck one. */
+function stickerField(reply: ReplyRow) {
+  return isStickerKey(reply.sticker) ? { sticker: reply.sticker } : {};
 }
 
 /** What a photo wall or music answer adds to an exported answer. */
@@ -201,6 +208,14 @@ async function contributionsOf(membership: Membership, group: Pick<Group, "id" |
     .where(eq(questionSuggestions.membershipId, membership.id))
     .orderBy(asc(questionSuggestions.createdAt));
 
+  const lines = await db
+    .select({ line: issueStatusLines, issue: issues })
+    .from(issueStatusLines)
+    .innerJoin(issues, eq(issues.id, issueStatusLines.issueId))
+    .where(eq(issueStatusLines.membershipId, membership.id))
+    .orderBy(asc(issues.number));
+  const signature = parseSignature(membership.signature);
+
   return {
     loop: group.name,
     you: {
@@ -211,6 +226,8 @@ async function contributionsOf(membership: Membership, group: Pick<Group, "id" |
       photoUrl: absolute(membership.photoUrl),
       charm: membership.charm,
       avatarFrame: membership.avatarFrame,
+      // Their signature's pen strokes (x,y pairs on a 600×200 board) and its picture, when they signed.
+      ...(signature ? { signature: { strokes: signature, pngUrl: absolute(membership.signaturePngUrl) } } : {}),
       invitedAt: membership.invitedAt,
       acceptedAt: membership.acceptedAt,
     },
@@ -227,6 +244,7 @@ async function contributionsOf(membership: Membership, group: Pick<Group, "id" |
       updatedAt: reply.updatedAt,
       ...formatFields(question),
       ...answerExtras(question, reply, media),
+      ...stickerField(reply),
     })),
     sectionAnswers: sectionAnswers.map(({ reply, question, issue }) => ({
       round: issue.number,
@@ -237,6 +255,7 @@ async function contributionsOf(membership: Membership, group: Pick<Group, "id" |
       photos: photosOf(reply, media, true),
       neverSent: reply.neverSent,
       updatedAt: reply.updatedAt,
+      ...stickerField(reply),
     })),
     comments: written.map(({ comment, issue }) => ({
       round: issue.number,
@@ -257,6 +276,9 @@ async function contributionsOf(membership: Membership, group: Pick<Group, "id" |
       credit: suggestion.authorDisplay,
       createdAt: suggestion.createdAt,
     })),
+    ...(lines.length > 0
+      ? { roundLines: lines.map(({ line, issue }) => ({ round: issue.number, line: line.body, updatedAt: line.updatedAt })) }
+      : {}),
   };
 }
 
@@ -310,7 +332,7 @@ export async function replyLinkExport(token: string, at: Date): Promise<{ groupN
 
 async function roundOf(issue: typeof issues.$inferSelect, names: Names) {
   // One round trip per round: everything here hangs off the issue id alone.
-  const [all, answered, thread, reacted] = await Promise.all([
+  const [all, answered, thread, reacted, lines] = await Promise.all([
     db
       .select()
       .from(issueQuestions)
@@ -332,6 +354,10 @@ async function roundOf(issue: typeof issues.$inferSelect, names: Names) {
       .innerJoin(replies, eq(replies.id, reactions.replyId))
       .where(and(eq(replies.issueId, issue.id), replyHasContentCondition()))
       .orderBy(asc(reactions.createdAt)),
+    db
+      .select({ membershipId: issueStatusLines.membershipId, body: issueStatusLines.body })
+      .from(issueStatusLines)
+      .where(eq(issueStatusLines.issueId, issue.id)),
   ]);
   const asked = all.filter((question) => !question.fromSection);
   const carried = all.filter((question) => question.fromSection);
@@ -368,6 +394,7 @@ async function roundOf(issue: typeof issues.$inferSelect, names: Names) {
           addedLate: reply.addedAfterDelivery,
           reactions: reactionsOn(reply.id),
           ...answerExtras(question, reply, media),
+          ...stickerField(reply),
         })),
     })),
     sections: carried.map((section) => {
@@ -389,6 +416,7 @@ async function roundOf(issue: typeof issues.$inferSelect, names: Names) {
               addedLate: reply.addedAfterDelivery,
               // Former section answers take reactions now; listed only where there are some.
               ...(conversation.length > 0 ? { reactions: conversation } : {}),
+              ...stickerField(reply),
             };
           }),
       };
@@ -402,6 +430,8 @@ async function roundOf(issue: typeof issues.$inferSelect, names: Names) {
       photoUrl: absolute(comment.photoUrl),
       createdAt: comment.createdAt,
     })),
+    // Everyone's line this round, listed only when someone wrote one.
+    ...(lines.length > 0 ? { lines: lines.map((line) => ({ by: author(line.membershipId), line: line.body })).sort((a, b) => a.by.localeCompare(b.by)) } : {}),
   };
 }
 

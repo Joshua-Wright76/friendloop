@@ -3,7 +3,7 @@ import { db } from "@/db";
 import { groups, issues, memberships } from "@/db/schema";
 import { copy } from "./copy.ts";
 import { cleanIssueName } from "./issue-name.ts";
-import { marksColumns, type LoopMarks, type MarksInput } from "./looks.ts";
+import { marksColumns, parseSignature, type LoopMarks, type MarksInput } from "./looks.ts";
 import { deleteStoredPhoto, storePhoto } from "./photo-storage.ts";
 import { MAX_AVATAR_BYTES, MAX_BANNER_BYTES, validatePhoto } from "./photo-validation.ts";
 import {
@@ -225,5 +225,53 @@ export async function clearMemberPhoto(membershipId: string): Promise<void> {
     .where(eq(memberships.id, membershipId))
     .limit(1);
   await db.update(memberships).set({ photoUrl: null }).where(eq(memberships.id, membershipId));
+  await discard(before?.url);
+}
+
+/* ----------------------------- signatures ----------------------------- */
+
+export type SignatureResult =
+  | { ok: true; signature: number[][]; url: string }
+  | { ok: false; status: 400 | 404 | 413 | 415 | 500; error: string };
+
+/**
+ * A person's signature in one loop: the pen strokes, which every page draws itself,
+ * and a PNG the browser drew from them, for email. Strokes that aren't strokes are
+ * refused before anything is stored, the picture goes through the same checks and
+ * cap as a profile photo and must be a PNG, and the picture it replaces is removed.
+ */
+export async function setMemberSignature(membershipId: string, strokes: unknown, image: ImageInput): Promise<SignatureResult> {
+  const signature = parseSignature(strokes);
+  if (!signature) return { ok: false, status: 400, error: copy.identity.signature.invalid };
+  const checked = validatePhoto(image.bytes, image.type);
+  if (checked.ok && checked.format.extension !== "png") {
+    return { ok: false, status: 415, error: copy.identity.signature.invalid };
+  }
+
+  const stored = await storeImage(image, MAX_AVATAR_BYTES, copy.identity.signature.tooLarge, copy.identity.signature.failed);
+  if (!stored.ok) return stored.status === 415 ? { ...stored, error: copy.identity.signature.invalid } : stored;
+
+  const [before] = await db
+    .select({ url: memberships.signaturePngUrl })
+    .from(memberships)
+    .where(eq(memberships.id, membershipId))
+    .limit(1);
+  if (!before) {
+    await discard(stored.url);
+    return { ok: false, status: 404, error: copy.identity.signature.failed };
+  }
+  await db.update(memberships).set({ signature, signaturePngUrl: stored.url }).where(eq(memberships.id, membershipId));
+  await discard(before.url);
+  return { ok: true, signature, url: stored.url };
+}
+
+/** Unsigned again: the strokes go, and so does their picture. */
+export async function clearMemberSignature(membershipId: string): Promise<void> {
+  const [before] = await db
+    .select({ url: memberships.signaturePngUrl })
+    .from(memberships)
+    .where(eq(memberships.id, membershipId))
+    .limit(1);
+  await db.update(memberships).set({ signature: null, signaturePngUrl: null }).where(eq(memberships.id, membershipId));
   await discard(before?.url);
 }

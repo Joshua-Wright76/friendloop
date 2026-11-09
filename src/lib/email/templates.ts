@@ -9,6 +9,7 @@ import { formatAudioDuration } from "../audio-validation.ts";
 import { formatDate } from "../format.ts";
 import { issueHeading, issueRef } from "../issue-name.ts";
 import { DEFAULT_MASCOT, isCharmKey, isMascotKey, stickerPng } from "../stickers.ts";
+import { isStickerKey } from "../looks.ts";
 import { emailPalette, GINGHAM_EMAIL, type EmailPalette } from "../theme.ts";
 import { emailPatternTile, type EmailPatternTile } from "../stationery.ts";
 import { appUrl } from "../urls.ts";
@@ -42,7 +43,17 @@ type LayoutInput = {
   next?: NextRoundBlock;
   /** A delivered round's marks from its owner; absent is the round as it always was. */
   marks?: RoundEmailMarks;
+  /** Everyone's line this round, as a roll call above the answers; absent or empty shows nothing. */
+  rollCall?: EmailRollCallEntry[];
+  /** The signed card closing the round; absent when nobody who wrote has a signature. */
+  signed?: { note: string; signatures: EmailSignature[] };
 };
+
+/** One person's line in the roll call. */
+export type EmailRollCallEntry = { name: string; line: string };
+
+/** A signature's picture (`src`, absolute), drawn at its own shape inside the card. */
+export type EmailSignature = { name: string; src: string; width: number; height: number };
 
 /**
  * What an owner added to every round, ready for email: words as plain text, the seal
@@ -130,6 +141,8 @@ export type SectionEmailBlock = {
     linkTitle?: string | null;
     addedLater?: boolean;
     photoCount?: number;
+    /** The sticker its author stuck on it, beside their name. */
+    sticker?: string | null;
   }>;
 };
 
@@ -145,6 +158,8 @@ export type AnswerBlock = {
   addedLater?: boolean;
   /** A poll's tally. The same for every voter, so it is shown once per question. */
   pollResults?: string | null;
+  /** The sticker its author stuck on it, beside their name. Decoration, like the charm. */
+  sticker?: string | null;
 };
 
 type QuestionGroup = { question: string; pollResults: string | null; answers: AnswerBlock[] };
@@ -235,7 +250,7 @@ function sectionsHtml(sections: SectionEmailBlock[], c: EmailPalette): string {
             answer.photoCount && answer.photoCount > 0
               ? ` <span style="color:${c.muted}">${escapeHtml(copy.emails.photosAdded.replace("{count}", String(answer.photoCount)))}</span>`
               : "";
-          return `<div style="margin:10px 0 0;font:400 15px/1.6 ${BODY_FONT};color:${c.ink}"><span style="font:800 13px/1.5 ${BODY_FONT};color:${c.soft}">${escapeHtml(answer.author)}${charmImage(answer.authorCharm)}</span> ${escapeHtml(answer.body)}${link}${photos}</div>`;
+          return `<div style="margin:10px 0 0;font:400 15px/1.6 ${BODY_FONT};color:${c.ink}"><span style="font:800 13px/1.5 ${BODY_FONT};color:${c.soft}">${escapeHtml(answer.author)}${charmImage(answer.authorCharm)}${answerSticker(answer.sticker)}</span> ${escapeHtml(answer.body)}${link}${photos}</div>`;
         })
         .join("");
       return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 18px;background:${c.card};border:1px dashed ${c.lineStrong};border-radius:6px"><tr><td style="padding:20px 22px">
@@ -253,6 +268,39 @@ function stickerImage(key: string, size: number, align: string): string {
 
 function charmImage(charm: string | null | undefined): string {
   return isCharmKey(charm) ? ` ${stickerImage(charm, 18, "-3px")}` : "";
+}
+
+/** A sticker someone stuck on their answer: a little bigger than the charm, beside the name. */
+function answerSticker(sticker: string | null | undefined): string {
+  return isStickerKey(sticker) ? ` ${stickerImage(sticker, 24, "-7px")}` : "";
+}
+
+/** "Who's here this round": each name and their line, as a plain table near the top. */
+function rollCallHtml(entries: EmailRollCallEntry[] | undefined, c: EmailPalette): string {
+  if (!entries || entries.length === 0) return "";
+  const rows = entries
+    .map((entry) => `<tr><td valign="top" style="padding:5px 12px 5px 0;font:800 14px/1.45 ${BODY_FONT};color:${c.soft};white-space:nowrap">${escapeHtml(entry.name)}</td><td valign="top" style="padding:5px 0;font:400 14px/1.45 ${BODY_FONT};color:${c.ink}">${escapeHtml(entry.line)}</td></tr>`)
+    .join("");
+  return `<tr><td style="padding-top:20px"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${c.card};border:1px solid ${c.line};border-radius:6px"><tr><td style="padding:20px 22px 16px">
+<h2 style="margin:0 0 6px;font:700 22px/1.2 ${DISPLAY_FONT};color:${c.ink}">${escapeHtml(copy.emails.rollCallTitle)}</h2>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0">${rows}</table>
+</td></tr></table></td></tr>
+`;
+}
+
+/** The signed card: each signature's picture with the name under it, three to a row. */
+function signedHtml(signed: LayoutInput["signed"], c: EmailPalette): string {
+  if (!signed || signed.signatures.length === 0) return "";
+  const cells = signed.signatures.map((signature) =>
+    `<td align="center" valign="bottom" style="padding:10px 12px 4px;text-align:center"><img src="${escapeHtml(signature.src)}" alt="${escapeHtml(text(copy.signatures.signed, { name: signature.name }))}" width="${signature.width}" height="${signature.height}" style="display:block;margin:0 auto;width:${signature.width}px;height:${signature.height}px;border:0" /><div style="margin:2px 0 0;font:800 12px/1.4 ${BODY_FONT};color:${c.muted}">${escapeHtml(signature.name)}</div></td>`);
+  const rows: string[] = [];
+  for (let i = 0; i < cells.length; i += 3) rows.push(`<tr>${cells.slice(i, i + 3).join("")}</tr>`);
+  return `<tr><td style="padding-top:20px"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${c.card};border:1px solid ${c.line};border-radius:6px"><tr><td align="center" style="padding:20px 18px 16px;text-align:center">
+<h2 style="margin:0;font:700 24px/1.2 ${DISPLAY_FONT};color:${c.ink};text-align:center">${escapeHtml(copy.emails.signedTitle)}</h2>
+<p style="margin:4px 0 0;font:400 13px/1.5 ${BODY_FONT};color:${c.muted};text-align:center">${escapeHtml(signed.note)}</p>
+<table role="presentation" align="center" cellpadding="0" cellspacing="0" style="margin:6px auto 0">${rows.join("")}</table>
+</td></tr></table></td></tr>
+`;
 }
 
 /** The cherries stay the emoji they've always been, which show even with images off. */
@@ -286,14 +334,14 @@ function answersHtml(answers: AnswerBlock[], url: string, c: EmailPalette, strip
             : "";
           if (index > 0 && strip) {
             return `${dividerStripHtml(strip)}<div style="margin:12px 0 0">
-  <div style="font:800 14px/1.5 ${BODY_FONT};color:${c.soft};margin:0 0 4px">${escapeHtml(answer.author)}${charmImage(answer.authorCharm)}</div>
+  <div style="font:800 14px/1.5 ${BODY_FONT};color:${c.soft};margin:0 0 4px">${escapeHtml(answer.author)}${charmImage(answer.authorCharm)}${answerSticker(answer.sticker)}</div>
   <div style="font:400 16px/1.65 ${BODY_FONT};color:${c.ink};white-space:pre-wrap">${escapeHtml(answer.body)}</div>
   ${photo}${voice}${note}
 </div>`;
           }
           const divider = index > 0 ? `border-top:1px dashed ${c.line};padding-top:14px;` : "";
           return `<div style="${divider}margin:16px 0 0">
-  <div style="font:800 14px/1.5 ${BODY_FONT};color:${c.soft};margin:0 0 4px">${escapeHtml(answer.author)}${charmImage(answer.authorCharm)}</div>
+  <div style="font:800 14px/1.5 ${BODY_FONT};color:${c.soft};margin:0 0 4px">${escapeHtml(answer.author)}${charmImage(answer.authorCharm)}${answerSticker(answer.sticker)}</div>
   <div style="font:400 16px/1.65 ${BODY_FONT};color:${c.ink};white-space:pre-wrap">${escapeHtml(answer.body)}</div>
   ${photo}${voice}${note}
 </div>`;
@@ -365,7 +413,7 @@ function signOffHtml(marks: RoundEmailMarks, mascot: string | null | undefined, 
 </td></tr></table></td></tr>`;
 }
 
-export function layout({ preheader, heading, body, cta, footer, answers, sections, answersUrl, theme, unsubscribeUrl, sender, questions, replyHint, code, next, marks }: LayoutInput): string {
+export function layout({ preheader, heading, body, cta, footer, answers, sections, answersUrl, theme, unsubscribeUrl, sender, questions, replyHint, code, next, marks, rollCall, signed }: LayoutInput): string {
   const c = theme?.palette ?? GINGHAM_EMAIL;
   const PAGE = pageBackground(c, theme?.pattern);
   const ctaHtml = cta
@@ -390,9 +438,9 @@ ${marks ? sealHtml(marks.seal) : ""}<h1 style="margin:0 0 14px;padding:0 0 12px;
 ${paragraphs(body, c)}${questionList(questions, c)}${ctaHtml}${codeBlock(code, c)}${replyHint ? `<p style="margin:14px 0 0;font:400 13px/1.6 ${BODY_FONT};color:${c.muted}">${escapeHtml(copy.emails.replyHint)}</p>` : ""}
 </td></tr></table>
 </td></tr>
-${answers ? `<tr><td style="padding-top:20px">${answersHtml(answers, answersUrl ?? "#", c, marks?.divider ?? null)}</td></tr>` : ""}
+${rollCallHtml(rollCall, c)}${answers ? `<tr><td style="padding-top:20px">${answersHtml(answers, answersUrl ?? "#", c, marks?.divider ?? null)}</td></tr>` : ""}
 ${sections && sections.length > 0 ? `<tr><td style="padding-top:20px">${sectionsHtml(sections, c)}</td></tr>` : ""}
-${marks ? signOffHtml(marks, theme?.mascot, c) : ""}${next ? `<tr><td style="padding-top:20px">${nextRoundHtml(next, c)}</td></tr>` : ""}
+${signedHtml(signed, c)}${marks ? signOffHtml(marks, theme?.mascot, c) : ""}${next ? `<tr><td style="padding-top:20px">${nextRoundHtml(next, c)}</td></tr>` : ""}
 <tr><td align="center" style="padding:20px 0 0"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${c.card};border:1px solid ${c.line};border-radius:6px"><tr><td align="center" style="padding:14px 18px"><p style="margin:0;font:400 13px/1.6 ${BODY_FONT};color:${c.soft};text-align:center">${escapeHtml(
     footer ?? copy.emails.defaultFooter,
   )}${
@@ -598,8 +646,12 @@ export function deliveryEmail(input: {
   unsubscribeUrl?: string;
   /** The owner's motto, seal, divider and sign-off (`emailMarksOf`). */
   marks?: RoundEmailMarks;
+  /** Everyone's line this round, for the roll call at the top. */
+  rollCall?: EmailRollCallEntry[];
+  /** The signatures of those who wrote, for the signed card at the end. */
+  signatures?: EmailSignature[];
 }): RenderedEmail {
-  const { groupName, issueNumber, issueName, url, answers, sections, shareUrl, next, theme, unsubscribeUrl, marks } = input;
+  const { groupName, issueNumber, issueName, url, answers, sections, shareUrl, next, theme, unsubscribeUrl, marks, rollCall, signatures } = input;
   const content = copy.emails.delivery;
   const values = {
     groupName,
@@ -620,6 +672,12 @@ export function deliveryEmail(input: {
       ].join("\n"),
     )
     .join("\n\n");
+  const rollCallText = rollCall && rollCall.length > 0
+    ? `${copy.emails.rollCallTitle}\n${rollCall.map((entry) => text(copy.emails.rollCallText, entry)).join("\n")}\n\n`
+    : "";
+  const signedText = signatures && signatures.length > 0
+    ? `\n\n${text(copy.emails.signedText, { names: signatures.map((signature) => signature.name).join(", ") })}`
+    : "";
   return {
     subject: text(content.subject, values),
     html: layout({
@@ -636,8 +694,12 @@ export function deliveryEmail(input: {
       theme,
       unsubscribeUrl,
       marks,
+      rollCall,
+      signed: signatures && signatures.length > 0
+        ? { note: text(copy.signatures.cardNote, { round: text(copy.issue.round, { number: issueNumber }) }), signatures }
+        : undefined,
     }),
-    text: withStopLine(`${roundText(text(content.text, { ...values, answers: answerText }), marks)}${next ? `\n\n${nextRoundText(next)}` : ""}`, unsubscribeUrl),
+    text: withStopLine(`${roundText(text(content.text, { ...values, answers: `${rollCallText}${answerText}${signedText}` }), marks)}${next ? `\n\n${nextRoundText(next)}` : ""}`, unsubscribeUrl),
   };
 }
 

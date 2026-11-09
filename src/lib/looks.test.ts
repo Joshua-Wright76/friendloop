@@ -7,6 +7,10 @@ import {
   DIVIDER_KEYS,
   SEAL_STYLES,
   SIGNATURE_BOARD,
+  SIGNATURE_INK,
+  SIGNATURE_MAX_POINTS,
+  SIGNATURE_MAX_STROKES,
+  SIGNATURE_NIB,
   WAX_COLOR_KEYS,
   NO_MARKS,
   cleanLine,
@@ -19,9 +23,12 @@ import {
   isSealStyle,
   isStickerKey,
   isWaxColor,
+  inkWidths,
   parseSignature,
   signatureBox,
+  signatureFit,
   signaturePath,
+  stickerChoice,
 } from "./looks.ts";
 import { contrastRatio } from "./theme.ts";
 
@@ -104,4 +111,35 @@ test("marks become columns: words cleaned, originals stored as nothing, stranger
   for (const [field, bad] of [["sealStyle", "ribbon"], ["sealColor", "teal"], ["divider", "url(x)"], ["celebration", "fireworks"]] as const) {
     assert.deepEqual(marksColumns({ [field]: bad }), { ok: false, error: field });
   }
+});
+
+test("a sticker choice is a key from the sheet, or nothing, or refused", () => {
+  assert.deepEqual(stickerChoice("frog"), { ok: true, sticker: "frog" });
+  assert.deepEqual(stickerChoice(""), { ok: true, sticker: null });
+  assert.deepEqual(stickerChoice(null), { ok: true, sticker: null });
+  for (const bad of [undefined, "frog.svg", "../frog", 3, {}]) assert.deepEqual(stickerChoice(bad), { ok: false }, String(bad));
+});
+
+test("ink pools where the pen goes slowly and thins where it races", () => {
+  assert.deepEqual(inkWidths([10, 10]), [SIGNATURE_NIB.thick], "a dot is the full nib");
+  const slow = inkWidths([0, 0, 1, 0, 2, 0, 3, 0, 4, 0, 5, 0]);
+  const fast = inkWidths([0, 0, 60, 0, 120, 0, 180, 0, 240, 0, 300, 0]);
+  assert.equal(slow.length, 5);
+  assert.ok(slow.at(-1)! > fast.at(-1)!, "a slow stroke ends wider than a fast one");
+  for (const width of [...slow, ...fast]) assert.ok(width >= SIGNATURE_NIB.thin && width <= SIGNATURE_NIB.thick, String(width));
+  // Smoothed: a sudden dash after slow writing narrows gradually, not at once.
+  const mixed = inkWidths([0, 0, 1, 0, 2, 0, 3, 0, 100, 0, 200, 0]);
+  assert.ok(mixed[3] > SIGNATURE_NIB.thin && mixed[3] < mixed[2]);
+  assert.deepEqual(inkWidths([0, 0, 0, 1], { thin: 1, thick: 3 }), [2.37]);
+});
+
+test("a signature fits inside a box without changing its shape", () => {
+  const strokes = [[100, 50, 500, 150]];
+  const box = signatureBox(strokes);
+  const fit = signatureFit(strokes, 150, 60);
+  assert.ok(fit.width <= 150 && fit.height <= 60);
+  assert.ok(Math.abs(fit.width / fit.height - box.width / box.height) < 0.05);
+  assert.deepEqual(signatureFit([[10, 10]], 150, 60), { width: 60, height: 60 }, "a dot is square");
+  assert.equal(SIGNATURE_INK, "#26365c");
+  assert.ok(SIGNATURE_MAX_STROKES > 0 && SIGNATURE_MAX_POINTS > SIGNATURE_MAX_STROKES);
 });
