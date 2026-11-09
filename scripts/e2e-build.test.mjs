@@ -47,6 +47,18 @@ test("source fingerprints include untracked source and ignored env changes", (t)
   assert.notEqual(sourceFingerprint(cwd), changedSource);
 });
 
+test("source fingerprints trust only the current repository when Git detects a different owner", (t) => {
+  const cwd = sourceFixture(t);
+  const previous = process.env.GIT_TEST_ASSUME_DIFFERENT_OWNER;
+  process.env.GIT_TEST_ASSUME_DIFFERENT_OWNER = "1";
+  try {
+    assert.match(sourceFingerprint(cwd), /^[a-f0-9]{64}$/);
+  } finally {
+    if (previous === undefined) delete process.env.GIT_TEST_ASSUME_DIFFERENT_OWNER;
+    else process.env.GIT_TEST_ASSUME_DIFFERENT_OWNER = previous;
+  }
+});
+
 test("source fingerprints hash unstaged deletion of tracked source", (t) => {
   const cwd = sourceFixture(t);
   const tracked = join(cwd, "src", "tracked.ts");

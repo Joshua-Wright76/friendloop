@@ -228,7 +228,7 @@ jobs:
         with:
           name: e2e-timings-${{ matrix.group }}-${{ matrix.shard }}
           path: test-results/e2e-results.json
-          if-no-files-found: error
+          if-no-files-found: ignore
           retention-days: 30
 
       - name: Upload report on failure

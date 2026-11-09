@@ -59,7 +59,7 @@ function buildEnvironmentFingerprint(env: BuildEnv): string {
 export function sourceFingerprint(cwd = process.cwd(), env: BuildEnv = process.env): string {
   const listed = execFileSync(
     "git",
-    ["ls-files", "-z", "--cached", "--others", "--exclude-standard", "--", ...BUILD_INPUTS],
+    ["-c", `safe.directory=${cwd}`, "ls-files", "-z", "--cached", "--others", "--exclude-standard", "--", ...BUILD_INPUTS],
     { cwd, encoding: "utf8", maxBuffer: 10 * 1024 * 1024 },
   );
   const files = new Set(listed.split("\0").filter(Boolean));
