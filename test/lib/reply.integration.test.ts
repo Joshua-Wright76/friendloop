@@ -8,6 +8,7 @@ import {
   removePhotoFor,
   resolveToken,
   saveDraftFor,
+  saveLinkFor,
   saveNameFor,
   savePhotoFor,
   confirmFor,
@@ -108,6 +109,34 @@ test("drafts save, update in place, and are capped", async () => {
   await saveDraftFor({ token: alice.token, issueQuestionId: question.id, body: long });
   const [capped] = await rows<{ body: string }>("select body from replies");
   assert.equal(capped.body.length, 8000);
+});
+
+test("a written answer takes a music link beside its words, and loses it again", async () => {
+  const { alice, question } = await openLoop();
+  await saveDraftFor({ token: alice.token, issueQuestionId: question.id, body: "On repeat." });
+
+  const playlist = "https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M";
+  assert.equal((await saveLinkFor({ token: alice.token, issueQuestionId: question.id, url: ` ${playlist} ` })).ok, true);
+  let [reply] = await rows<{ body: string; link_url: string | null; link_provider: string | null }>(
+    "select body, link_url, link_provider from replies where issue_question_id = $1",
+    [question.id],
+  );
+  assert.deepEqual(reply, { body: "On repeat.", link_url: playlist, link_provider: "spotify" });
+
+  // Not a music page: refused, and the saved link stays.
+  const refused = await saveLinkFor({ token: alice.token, issueQuestionId: question.id, url: "https://example.com/song" });
+  assert.equal(refused.ok, false);
+  if (!refused.ok) assert.equal(refused.status, 400);
+
+  // Empty takes it off; the words stay.
+  assert.equal((await saveLinkFor({ token: alice.token, issueQuestionId: question.id, url: "" })).ok, true);
+  [reply] = await rows("select body, link_url, link_provider from replies where issue_question_id = $1", [question.id]);
+  assert.deepEqual(reply, { body: "On repeat.", link_url: null, link_provider: null });
+
+  // A question in no open round, or an unknown link, is refused like any write.
+  const wrong = await saveLinkFor({ token: alice.token, issueQuestionId: "00000000-0000-4000-8000-000000000000", url: playlist });
+  assert.equal(wrong.ok, false);
+  assert.equal((await saveLinkFor({ token: "never-issued", issueQuestionId: question.id, url: playlist })).ok, false);
 });
 
 test("a draft for a question in another round is refused", async () => {
