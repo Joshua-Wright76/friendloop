@@ -59,8 +59,9 @@ function likeTerm(value: string): string {
 
 /**
  * Every stored file a set of memberships put there, or that hangs from what they
- * wrote: their answers' photos, voice notes, videos and photo-wall items, comment photos,
- * avatars, and every answer on a birthday card about them, which goes with them.
+ * wrote: their answers' photos, voice notes, videos and photo-wall items, comment
+ * photos, avatars and signatures, and every answer on a birthday card about them,
+ * which goes with them.
  */
 async function membershipMedia(tx: Executor, membershipIds: string[]): Promise<string[]> {
   const aboutThem = tx
@@ -93,7 +94,7 @@ async function membershipMedia(tx: Executor, membershipIds: string[]): Promise<s
     : [];
 
   const avatars = await tx
-    .select({ url: memberships.photoUrl })
+    .select({ url: memberships.photoUrl, signature: memberships.signaturePngUrl })
     .from(memberships)
     .where(inArray(memberships.id, membershipIds));
 
@@ -101,7 +102,7 @@ async function membershipMedia(tx: Executor, membershipIds: string[]): Promise<s
     ...doomed.flatMap((reply) => [reply.photoUrl, reply.audioUrl, reply.videoUrl, reply.videoPosterUrl]),
     ...commentPhotos.map((row) => row.url),
     ...wallPhotos.flatMap((row) => [row.url, row.videoUrl]),
-    ...avatars.map((row) => row.url),
+    ...avatars.flatMap((row) => [row.url, row.signature]),
   ].filter((url): url is string => Boolean(url));
 }
 
@@ -119,7 +120,7 @@ async function loopMedia(tx: Executor, groupId: string): Promise<string[]> {
  */
 async function deleteMemberCounters(tx: Executor, membershipIds: string[]): Promise<void> {
   if (membershipIds.length === 0) return;
-  const keys = membershipIds.flatMap((id) => [limitKey.comment(id), limitKey.feedbackMember(id)]);
+  const keys = membershipIds.flatMap((id) => [limitKey.comment(id), limitKey.scrapbook(id), limitKey.feedbackMember(id)]);
   await tx.delete(rateLimits).where(inArray(rateLimits.key, keys));
 }
 
@@ -208,8 +209,10 @@ async function eraseMemberships(tx: Executor, membershipIds: string[], alsoKnown
     [...rows.flatMap((row) => [row.email, row.name ?? row.email.split("@")[0]]), ...alsoKnownAs],
   );
 
-  // Replies, comments, reactions, suggestions, section answers, birthdays and
-  // this person's own email rows all cascade from the membership.
+  // Replies, comments, reactions, suggestions, section answers, birthdays, their
+  // line in each round, the stickers they stuck around rounds (and any stuck on
+  // their answers, with the answers) and this person's own email rows all cascade
+  // from the membership.
   await tx.delete(memberships).where(inArray(memberships.id, membershipIds));
   await forgetSuppressions(tx, rows.map((row) => row.email));
   return files;

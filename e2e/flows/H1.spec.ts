@@ -29,14 +29,16 @@ test("H1 · with the key, the screens and email previews open at their routes", 
 
   await page.getByRole("link", { name: copy.devUi.screens.emails }).click();
   await expect(page).toHaveURL(/\/dev\/emails$/);
-  await expect(page.locator("iframe")).toHaveCount(12);
+  await expect(page.locator("iframe")).toHaveCount(Object.keys(copy.devEmails.previews).length);
   await expect(page.getByRole("heading", { name: copy.devEmails.previews.signIn })).toBeVisible();
   await expect(page.getByRole("heading", { name: copy.devEmails.previews.join })).toBeVisible();
   await expect(page.getByRole("heading", { name: copy.devEmails.previews.deliveryShared })).toBeVisible();
   await expect(page.getByRole("heading", { name: copy.devEmails.previews.mention })).toBeVisible();
   await expect(page.getByRole("heading", { name: copy.devEmails.previews.deliveryThemed })).toBeVisible();
+  await expect(page.getByRole("heading", { name: copy.devEmails.previews.deliveryMarked })).toBeVisible();
   await expect(page.getByRole("heading", { name: copy.devEmails.previews.paused })).toBeVisible();
   await expect(page.getByRole("heading", { name: copy.devEmails.previews.inviteThemed })).toBeVisible();
+  await expect(page.getByRole("heading", { name: copy.devEmails.previews.deliveryCovered })).toBeVisible();
 });
 
 test("H1 · the key unlocks the captured inbox", async ({ page }) => {

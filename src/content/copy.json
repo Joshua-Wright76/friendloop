@@ -966,7 +966,27 @@
     "shareLinkLabel": "Share link. Anyone with it can read this round, but not react or comment.",
     "sentNotice": "Round {number} is on its way to everyone. Round {next} is open for answers.",
     "nothingToSendNotice": "Nobody has answered round {number} yet, so there's nothing to send. It stays open for answers.",
-    "goesOut": "goes out {date}"
+    "goesOut": "goes out {date}",
+    "coverSaved": "Round named, and it has its cover.",
+    "cover": {
+      "legend": "Cover",
+      "hint": "A sticker and a color for this round: on its page, in this list and at the top of its email.",
+      "needsName": "Covers go on named rounds. Give it a name first.",
+      "sticker": "Sticker",
+      "none": "No cover",
+      "tint": "Color",
+      "tints": {
+        "moss": "Moss",
+        "sky": "Sky",
+        "butter": "Butter",
+        "plum": "Plum",
+        "peach": "Peach",
+        "rose": "Rose"
+      },
+      "preview": "How it looks",
+      "emailPreview": "How the email opens",
+      "zine": "No. {number}"
+    }
   },
   "settings": {
     "title": "Settings",
@@ -1109,7 +1129,8 @@
       "sectionPhotoCap": "A photo wall holds six photos or videos, and this one is full.",
       "sectionPhotoStandardCap": "An answer takes one photo, and this one already has it.",
       "changedElsewhere": "This answer changed on another device, so we didn't overwrite it. Try again to replace it with what's here.",
-      "tooManyUploads": "That's a lot of files for one hour. Try again a little later."
+      "tooManyUploads": "That's a lot of files for one hour. Try again a little later.",
+      "sticker": "That isn't one of our stickers."
     },
     "suggestLink": "Have a question for the group? Suggest one",
     "reminders": {
@@ -1215,7 +1236,35 @@
     "addAttachment": "Add a photo, video, voice note, or link",
     "pausedTitle": "Paused for now",
     "pausedBody": "{groupName} is paused, so it isn't taking answers right now. Your link will work again as soon as it's resumed.",
-    "voiceBlockedHelp": "Show me how"
+    "voiceBlockedHelp": "Show me how",
+    "statusLine": {
+      "label": "Your line this round",
+      "optional": "optional",
+      "placeholder": "knee-deep in moving boxes",
+      "count": "{count} / {max}",
+      "countLabel": "Up to {max} characters. Shown with your name when the round goes out.",
+      "startersLabel": "Need a start?",
+      "starters": [
+        "📚 reading…",
+        "🎧 listening to…",
+        "🍜 eating…",
+        "🧳 off to…",
+        "😴 surviving on…"
+      ],
+      "error": "Your line didn't save. Try again."
+    },
+    "sticker": {
+      "add": "Sticker",
+      "addLabel": "Add a sticker",
+      "change": "Change sticker",
+      "needsAnswer": "Write something first, then you can stick a sticker on it.",
+      "sheetTitle": "Stick something on it",
+      "sheetNote": "Everyone sees it on this answer when the round goes out.",
+      "none": "None",
+      "stuck": "{sticker} stuck on.",
+      "peeled": "Sticker peeled off.",
+      "error": "That sticker didn't stick. Try again."
+    }
   },
   "issue": {
     "eyebrow": "Fresh from the loop",
@@ -1321,7 +1370,45 @@
     "whoseAnswerNumbered": "{author}'s answer to question {number}",
     "yourAnswerNumbered": "your answer to question {number}",
     "reactMoreTo": "Add a reaction to {whose}",
-    "commentButtonNamed": "{label}: {whose}"
+    "commentButtonNamed": "{label}: {whose}",
+    "signOffNext": "{round} goes out {date}.",
+    "rollCallTitle": "Who's here this round",
+    "currently": "currently",
+    "scrapbook": {
+      "stick": "Stick a sticker",
+      "stickOn": "Stick a sticker beside {whose}",
+      "sheetTitle": "Stick one in the margin",
+      "sheetNote": "It goes beside this answer for everyone in the loop to see. Drag it along the margins after, or tap it to move it or peel it off.",
+      "left": "{count} stickers left this round",
+      "leftOne": "1 sticker left this round",
+      "spent": "That's all {limit} of yours for this round. Peel one off to stick it somewhere else.",
+      "stuck": "{sticker} stuck in the margin. {left}",
+      "peeled": "Peeled off. {left}",
+      "peeledTheirs": "Peeled off {name}'s {sticker}.",
+      "moved": "Moved.",
+      "stuckBy": "Stuck by {name}",
+      "stuckByYou": "Stuck by you",
+      "label": "{sticker}, stuck by {name}",
+      "labelYours": "Your {sticker}: move it or peel it off",
+      "labelModerate": "{sticker}, stuck by {name}: peel it off",
+      "menuLabel": "{sticker}, stuck by {name}",
+      "moveUp": "Move up",
+      "moveDown": "Move down",
+      "swapLeft": "Move to the left",
+      "swapRight": "Move to the right",
+      "peel": "Peel off",
+      "done": "Done",
+      "errors": {
+        "membersOnly": "Only people in this loop can stick stickers here.",
+        "round": "Stickers go on a round once it has gone out.",
+        "answer": "That answer isn't there to stick on.",
+        "sticker": "That sticker isn't one of ours.",
+        "limit": "That's all {limit} of yours for this round. Peel one off first.",
+        "busy": "That's a lot of sticking. Take a breath and try again in a few minutes.",
+        "gone": "That sticker has already been peeled off.",
+        "failed": "That didn't stick. Check your connection and try again."
+      }
+    }
   },
   "share": {
     "eyebrow": "Fresh from the loop",
@@ -1484,7 +1571,11 @@
         "body": "Loop email has reached its {allowance} for the last 24 hours, so invitations, rounds, and reminders are waiting. They go out on their own as room frees up, and loop owners see a note saying so. Sign-in links still go out."
       },
       "fix": "To raise the limit, move to a bigger Resend plan and set EMAIL_DAILY_BUDGET in Vercel to its daily allowance."
-    }
+    },
+    "rollCallTitle": "Who's here this round",
+    "rollCallText": "{name}: {line}",
+    "signedTitle": "Signed, sealed, delivered",
+    "signedText": "Signed, sealed, delivered: {names}"
   },
   "devUi": {
     "title": "UI preview",
@@ -1555,6 +1646,10 @@
       "delivery": "Delivered round",
       "deliveryShared": "Delivered round with a share link",
       "deliveryThemed": "Delivered round with its own stationery and a name",
+      "deliveryMarked": "Delivered round with a motto, wax seal, divider and sign-off",
+      "deliveryPostmarked": "Delivered round with a postmark",
+      "deliveryPeople": "Delivered round with everyone's lines, stickers and signatures",
+      "deliveryCovered": "Delivered round with a cover",
       "paused": "Empty round, loop paused"
     }
   },
@@ -1687,11 +1782,28 @@
         "polaroid": "Snapshot"
       },
       "savedToast": "Your charm and frame now show beside your name everywhere in this loop."
+    },
+    "signature": {
+      "legend": "Sign your letters",
+      "hint": "Optional. It goes at the end of your answers in every round of this loop. Draw it with a finger, a pen or a mouse.",
+      "padLabel": "Signature pad. Draw your signature here with a finger, a pen or a mouse.",
+      "padHint": "Draw here",
+      "clear": "Clear",
+      "use": "Use this signature",
+      "remove": "Remove signature",
+      "saving": "Saving…",
+      "saved": "Saved. It signs your answers in every round.",
+      "removed": "Removed. Your answers go out unsigned.",
+      "error": "That didn't save, so nothing changed. Try again.",
+      "full": "That's all the ink the pad holds. Use it, or clear it and start again.",
+      "invalid": "That signature didn't come through. Clear it and draw it again.",
+      "tooLarge": "That signature is too big to save. Clear it and draw a simpler one.",
+      "failed": "Your signature didn't save. Try again."
     }
   },
   "stationery": {
     "title": "Stationery",
-    "intro": "Pick what your loop is written on: the page behind it, its colors, its paper and tape, and its mascot.",
+    "intro": "Pick what your loop is written on: the page behind it, its colors, its paper and tape, its mascot, and the marks every round goes out with.",
     "paperLegend": "Color set",
     "presets": {
       "gingham": {
@@ -1805,7 +1917,62 @@
     "mascotHint": "A little character on this loop's pages and emails, in place of the cherries.",
     "mascotPreviewHeader": "In the header",
     "mascotPreviewEmail": "In an email",
-    "mascotPreviewSubject": "Round 12 is here"
+    "mascotPreviewSubject": "Round 12 is here",
+    "wordsLegend": "Motto and sign-off",
+    "mottoLabel": "Motto",
+    "mottoHint": "A line under the loop's name on every round and in its email.",
+    "mottoPlaceholder": "est. 2019 · still terrible at replying",
+    "signOffLabel": "Sign-off",
+    "signOffHint": "The last line of every round, beside the mascot.",
+    "signOffPlaceholder": "xo, the Tuesday crew",
+    "wordsBlank": "Leave either one blank and nothing shows.",
+    "sealLegend": "Seal",
+    "sealHint": "Pressed at the top of every round that goes out, on the web and in the email.",
+    "seals": {
+      "none": {
+        "name": "No seal",
+        "description": "The round as it is today."
+      },
+      "wax": {
+        "name": "Wax seal",
+        "description": "Pressed with the mascot."
+      },
+      "postmark": {
+        "name": "Postmark",
+        "description": "A stamp, inked with the round and the day it went out."
+      }
+    },
+    "waxLegend": "Wax color",
+    "waxes": {
+      "cherry": "Cherry",
+      "moss": "Moss",
+      "midnight": "Midnight",
+      "honey": "Honey",
+      "plum": "Plum",
+      "ink": "Ink"
+    },
+    "dividerLegend": "Divider",
+    "dividerHint": "The line between answers on a round, drawn in the loop's colors.",
+    "dividers": {
+      "stitches": "Stitches",
+      "ricrac": "Ric-rac",
+      "lace": "Lace",
+      "vine": "Vine",
+      "ticket": "Ticket stub",
+      "pinking": "Pinking shears"
+    },
+    "celebrationLegend": "When someone sends",
+    "celebrationHint": "A little moment on screen when someone finishes their answers. If their device asks for less motion, they just see the check mark.",
+    "celebrations": {
+      "none": "Just the check mark",
+      "confetti": "Confetti burst",
+      "petals": "Falling petals",
+      "stars": "Shooting stars",
+      "hop": "Mascot hop",
+      "envelope": "Envelope flies off"
+    },
+    "celebrationPlay": "Play it again",
+    "wordsNone": "None"
   },
   "events": {
     "birthdayRow": "{name}'s birthday",
@@ -2309,5 +2476,10 @@
     "play": "Play the animation",
     "retry": "Try again",
     "close": "Close"
+  },
+  "signatures": {
+    "signed": "Signed, {name}",
+    "cardTitle": "Signed, sealed, delivered",
+    "cardNote": "Everyone who wrote in {round}"
   }
 }

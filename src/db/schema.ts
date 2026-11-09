@@ -169,6 +169,18 @@ export const groups = pgTable("groups", {
   themeMascot: text("theme_mascot"),
   /** Owner's header picture, shown above the loop's own surfaces and emails. */
   headerImageUrl: text("header_image_url"),
+  /** A short line under the loop's name on its rounds and emails; null shows nothing. */
+  motto: text("motto"),
+  /** The closing line at the bottom of every delivered round; null keeps the plain ending. */
+  signOff: text("sign_off"),
+  /** What a delivered round is stamped with: "wax", "postmark", or null for nothing. */
+  sealStyle: text("seal_style"),
+  /** The wax colour key when `sealStyle` is "wax" (`src/lib/looks.ts`); null is cherry. */
+  sealColor: text("seal_color"),
+  /** The line between answers and under headers; null is the stitches. */
+  divider: text("divider"),
+  /** What plays when someone presses Done on their answers; null is the sent stamp alone. */
+  celebration: text("celebration"),
   /** The owner's switch: off hides every comment surface and refuses writes; nothing is deleted. */
   commentsEnabled: boolean("comments_enabled").default(true).notNull(),
   pausedAt: timestamp("paused_at", { withTimezone: true }),
@@ -195,6 +207,13 @@ export const memberships = pgTable(
     charm: text("charm"),
     /** What goes around their picture in this loop; null is none. */
     avatarFrame: text("avatar_frame"),
+    /**
+     * Their signature in this loop, as pen strokes: each stroke is a flat list of
+     * x,y pairs on a 600×200 board (`src/lib/looks.ts`). Null signs nothing.
+     */
+    signature: jsonb("signature").$type<number[][]>(),
+    /** The same signature drawn to a PNG at save, for email, where SVG doesn't reliably show. */
+    signaturePngUrl: text("signature_png_url"),
     access: accessEnum("access").default("member").notNull(),
     participation: participationEnum("participation").default("contributor").notNull(),
     reminderPreference: reminderPreferenceEnum("reminder_preference").default("all").notNull(),
@@ -304,6 +323,9 @@ export const issues = pgTable(
     number: integer("number").notNull(),
     /** The owner's name for this round ("Camping weekend"); null keeps "Round N". */
     name: text("name"),
+    /** A named round's cover: a sticker key and a tint key (`src/lib/looks.ts`); null keeps the plain header. */
+    coverSticker: text("cover_sticker"),
+    coverTint: text("cover_tint"),
     status: issueStatusEnum("status").default("open").notNull(),
     /**
      * The delivery slot this issue was opened for, frozen as an instant. A round
@@ -422,6 +444,8 @@ export const replies = pgTable(
     /** A music answer's link, ahead of the code that writes it (`docs/questions-unify-design.md`). */
     linkUrl: text("link_url"),
     linkProvider: text("link_provider"),
+    /** A sticker its author slapped on this answer while writing it; null is none. */
+    sticker: text("sticker"),
     /**
      * Legacy: answers used to wait as drafts until sent. Every save now writes
      * `submitted`, and nothing reads it (see `src/lib/reply-query.ts`).
@@ -436,6 +460,57 @@ export const replies = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => [uniqueIndex("replies_unique_idx").on(t.issueId, t.issueQuestionId, t.membershipId)],
+);
+
+/**
+ * One person's line for one round: "currently: knee-deep in moving boxes". Set while
+ * answering, shown with the round, and never carried into the next one.
+ */
+export const issueStatusLines = pgTable(
+  "issue_status_lines",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    issueId: uuid("issue_id")
+      .references(() => issues.id, { onDelete: "cascade" })
+      .notNull(),
+    membershipId: uuid("membership_id")
+      .references(() => memberships.id, { onDelete: "cascade" })
+      .notNull(),
+    body: text("body").notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [uniqueIndex("issue_status_lines_unique_idx").on(t.issueId, t.membershipId)],
+);
+
+/**
+ * The scrapbook layer: a sticker someone stuck beside an answer after its round went
+ * out. It sits in that answer's margin, on one side, so it never covers words and
+ * lands in the same place in either reading order and at any width.
+ */
+export const issueStickers = pgTable(
+  "issue_stickers",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    issueId: uuid("issue_id")
+      .references(() => issues.id, { onDelete: "cascade" })
+      .notNull(),
+    replyId: uuid("reply_id")
+      .references(() => replies.id, { onDelete: "cascade" })
+      .notNull(),
+    /** Who stuck it there. */
+    membershipId: uuid("membership_id")
+      .references(() => memberships.id, { onDelete: "cascade" })
+      .notNull(),
+    sticker: text("sticker").notNull(),
+    /** "left" or "right" margin of the answer. */
+    side: text("side").notNull(),
+    /** How far down the answer, 0 (top) to 100 (bottom). */
+    offset: integer("offset").default(0).notNull(),
+    /** A little tilt, in degrees, kept so it doesn't straighten itself on every visit. */
+    tilt: integer("tilt").default(0).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [index("issue_stickers_issue_idx").on(t.issueId), index("issue_stickers_member_idx").on(t.issueId, t.membershipId)],
 );
 
 /** A photo-wall answer's photos, ahead of the code that writes them (`docs/questions-unify-design.md`). */

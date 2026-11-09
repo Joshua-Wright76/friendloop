@@ -72,7 +72,7 @@ export async function deleteAction(formData: FormData) {
   redirect("/you?deleted=1");
 }
 
-/** The paper and colour, saved as they're chosen. The page stays put and says how it went. */
+/** The paper, colour and marks, saved as they're chosen. The page stays put and says how it went. */
 export async function saveStationery(groupId: string, choice: ThemeInput): Promise<{ ok: boolean; adjusted: boolean }> {
   await requireAccess(groupId, "admin");
   const result = await saveTheme(groupId, choice);
@@ -92,6 +92,12 @@ export async function stationeryAction(formData: FormData) {
     paperPack: String(formData.get("paperPack") ?? ""),
     tapePack: String(formData.get("tapePack") ?? ""),
     mascot: String(formData.get("mascot") ?? ""),
+    // Only what the form carries: a page without script never clears what it didn't show.
+    ...Object.fromEntries(
+      (["motto", "signOff", "sealStyle", "sealColor", "divider", "celebration"] as const)
+        .filter((name) => formData.has(name))
+        .map((name) => [name, String(formData.get(name))]),
+    ),
   });
   if (!result.ok) redirect(`/g/${groupId}/settings?error=stationery`);
 

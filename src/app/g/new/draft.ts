@@ -1,4 +1,5 @@
 import type { Participation } from "@/components/invite-participation";
+import type { MarksDraft } from "@/components/mark-pickers";
 import type { StationeryLooks } from "@/components/paper-fields";
 
 /**
@@ -22,6 +23,8 @@ export type LoopDraft = {
   preset: string;
   accent: string;
   looks: StationeryLooks;
+  /** The motto, sign-off, seal, divider and celebration. */
+  marks: MarksDraft;
   hasPicture: boolean;
 };
 
@@ -68,6 +71,8 @@ export function mergeDraft(fallback: LoopDraft, saved: Record<string, unknown>):
     : (fallback[key] as string[]);
   const looks = (saved.looks && typeof saved.looks === "object" ? saved.looks : {}) as Record<string, unknown>;
   const look = (key: keyof StationeryLooks) => (typeof looks[key] === "string" ? (looks[key] as string) : fallback.looks[key]);
+  const marks = (saved.marks && typeof saved.marks === "object" ? saved.marks : {}) as Record<string, unknown>;
+  const mark = (key: keyof MarksDraft) => (typeof marks[key] === "string" ? (marks[key] as string) : fallback.marks[key]);
   return {
     step: Number.isInteger(saved.step) ? (saved.step as number) : fallback.step,
     name: string("name"),
@@ -88,6 +93,14 @@ export function mergeDraft(fallback: LoopDraft, saved: Record<string, unknown>):
       paperPack: look("paperPack"),
       tapePack: look("tapePack"),
       mascot: look("mascot"),
+    },
+    marks: {
+      motto: mark("motto"),
+      signOff: mark("signOff"),
+      sealStyle: mark("sealStyle"),
+      sealColor: mark("sealColor"),
+      divider: mark("divider"),
+      celebration: mark("celebration"),
     },
     hasPicture: saved.hasPicture === true,
   };

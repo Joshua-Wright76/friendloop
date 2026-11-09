@@ -11,6 +11,7 @@ import { NoticeFocus } from "@/components/notice-focus";
 import { copy, text } from "@/lib/copy";
 import { atMoment, formatHour, listNames, timezonePlace } from "@/lib/format";
 import { issueTitle } from "@/lib/issue-name";
+import { marksOf } from "@/lib/looks";
 import { useLoopData } from "./loop-data";
 import { SubmitButton } from "@/components/submit-button";
 
@@ -35,7 +36,7 @@ export default function OverviewTab({ welcome, nudged }: { welcome?: string; nud
 
   return (
     <main className="loop-page mx-auto w-full max-w-[680px] px-4 pb-16 pt-5 sm:px-6 lg:max-w-[1040px]">
-      <LoopNav id={group.id} name={group.name} access={membership.access} active="Overview" nameIsHeading snapshotUrl={group.headerImageUrl} />
+      <LoopNav id={group.id} name={group.name} access={membership.access} active="Overview" nameIsHeading snapshotUrl={group.headerImageUrl} motto={marksOf(group).motto} />
 
       {welcome === "joined" ? (
         <NoticeFocus spacing="mt-4">{copy.loop.welcomeJoined}</NoticeFocus>

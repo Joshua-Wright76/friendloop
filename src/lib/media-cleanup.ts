@@ -44,7 +44,7 @@ export async function isMediaReferenced(url: string): Promise<boolean> {
     db.select({ id: replyMedia.id }).from(replyMedia).where(or(eq(replyMedia.url, url), eq(replyMedia.videoUrl, url))).limit(1),
     // The legacy copy until the contract release drops it: a rollback would show it.
     db.select({ id: sectionMedia.id }).from(sectionMedia).where(eq(sectionMedia.url, url)).limit(1),
-    db.select({ id: memberships.id }).from(memberships).where(eq(memberships.photoUrl, url)).limit(1),
+    db.select({ id: memberships.id }).from(memberships).where(or(eq(memberships.photoUrl, url), eq(memberships.signaturePngUrl, url))).limit(1),
     db.select({ id: groups.id }).from(groups).where(eq(groups.headerImageUrl, url)).limit(1),
   ];
   for (const check of checks) {

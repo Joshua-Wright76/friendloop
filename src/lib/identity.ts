@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { groups, issues, memberships } from "@/db/schema";
 import { copy } from "./copy.ts";
 import { cleanIssueName } from "./issue-name.ts";
+import { coverColumns, marksColumns, parseSignature, type CoverInput, type LoopMarks, type MarksInput } from "./looks.ts";
 import { deleteStoredPhoto, storePhoto } from "./photo-storage.ts";
 import { MAX_AVATAR_BYTES, MAX_BANNER_BYTES, validatePhoto } from "./photo-validation.ts";
 import {
@@ -57,7 +58,7 @@ async function discard(url: string | null | undefined) {
 /* ------------------------------ themes ------------------------------ */
 
 /** Left out means "leave it as it is"; the wizard and the older callers only send what they mean to change. */
-export type ThemeInput = {
+export type ThemeInput = MarksInput & {
   preset: string;
   accent: string;
   background?: string;
@@ -68,7 +69,7 @@ export type ThemeInput = {
 
 export type ThemeResult =
   | { ok: true; adjusted: boolean }
-  | { ok: false; error: "preset" | "accent" | "background" | "paperPack" | "tapePack" | "mascot" };
+  | { ok: false; error: "preset" | "accent" | "background" | "paperPack" | "tapePack" | "mascot" | keyof LoopMarks };
 
 /** The stationery that isn't colour: which column, how to recognise a good key, and which key means "the original". */
 const STATIONERY_CHOICES = [
@@ -98,8 +99,9 @@ export function stationeryColumns(input: Partial<Record<StationeryChoice["input"
 }
 
 /**
- * Save the owner's stationery. Gingham with no accent is stored as nothing at
- * all, so "back to the original" and "never changed it" are the same row.
+ * Save the owner's stationery and their marks on every round. Gingham with no accent
+ * is stored as nothing at all, so "back to the original" and "never changed it" are
+ * the same row, and a mark that isn't one of ours is refused before anything is saved.
  */
 export async function saveTheme(groupId: string, input: ThemeInput): Promise<ThemeResult> {
   if (input.preset !== "" && !isPresetKey(input.preset)) return { ok: false, error: "preset" };
@@ -108,9 +110,11 @@ export async function saveTheme(groupId: string, input: ThemeInput): Promise<The
 
   const chosen = stationeryColumns(input);
   if (!chosen.ok) return chosen;
+  const marks = marksColumns(input);
+  if (!marks.ok) return marks;
 
   const preset = !input.preset || input.preset === DEFAULT_PRESET ? null : input.preset;
-  await db.update(groups).set({ themePreset: preset, themeAccent: accent, ...chosen.columns }).where(eq(groups.id, groupId));
+  await db.update(groups).set({ themePreset: preset, themeAccent: accent, ...chosen.columns, ...marks.columns }).where(eq(groups.id, groupId));
 
   return { ok: true, adjusted: resolveTheme({ preset, accent })?.adjusted ?? false };
 }
@@ -144,12 +148,19 @@ export async function clearHeaderImage(groupId: string): Promise<void> {
 
 export type RenameResult = { ok: true; name: string | null } | { ok: false };
 
-/** The owner's name for a round, before or after it goes out. Empty puts "Round N" back. */
-export async function renameIssue(groupId: string, issueId: string, raw: string): Promise<RenameResult> {
+/**
+ * The owner's name for a round, before or after it goes out. Empty puts "Round N"
+ * back. A cover (a sticker and a tint) rides along with the name: left out leaves
+ * it, and a round left unnamed loses it (`coverColumns`). A key that isn't ours
+ * changes nothing at all.
+ */
+export async function renameIssue(groupId: string, issueId: string, raw: string, cover: CoverInput = {}): Promise<RenameResult> {
   const name = cleanIssueName(raw);
+  const covered = coverColumns(name, cover);
+  if (!covered.ok) return { ok: false };
   const updated = await db
     .update(issues)
-    .set({ name })
+    .set({ name, ...covered.columns })
     .where(and(eq(issues.id, issueId), eq(issues.groupId, groupId)))
     .returning({ id: issues.id });
   return updated.length === 0 ? { ok: false } : { ok: true, name };
@@ -221,5 +232,58 @@ export async function clearMemberPhoto(membershipId: string): Promise<void> {
     .where(eq(memberships.id, membershipId))
     .limit(1);
   await db.update(memberships).set({ photoUrl: null }).where(eq(memberships.id, membershipId));
+  await discard(before?.url);
+}
+
+/* ----------------------------- signatures ----------------------------- */
+
+export type SignatureResult =
+  | { ok: true; signature: number[][]; url: string }
+  | { ok: false; status: 400 | 404 | 413 | 415 | 500; error: string };
+
+/**
+ * A person's signature in one loop: the pen strokes, which every page draws itself,
+ * and a PNG the browser drew from them, for email. Strokes that aren't strokes are
+ * refused before anything is stored, the picture goes through the same checks and
+ * cap as a profile photo and must be a PNG, and the picture it replaces is removed.
+ */
+export async function setMemberSignature(membershipId: string, strokes: unknown, image: ImageInput): Promise<SignatureResult> {
+  const signature = parseSignature(strokes);
+  if (!signature) return { ok: false, status: 400, error: copy.identity.signature.invalid };
+  const checked = validatePhoto(image.bytes, image.type);
+  if (checked.ok && checked.format.extension !== "png") {
+    return { ok: false, status: 415, error: copy.identity.signature.invalid };
+  }
+
+  const stored = await storeImage(image, MAX_AVATAR_BYTES, copy.identity.signature.tooLarge, copy.identity.signature.failed);
+  if (!stored.ok) return stored.status === 415 ? { ...stored, error: copy.identity.signature.invalid } : stored;
+
+  const [before] = await db
+    .select({ url: memberships.signaturePngUrl })
+    .from(memberships)
+    .where(eq(memberships.id, membershipId))
+    .limit(1);
+  if (!before) {
+    await discard(stored.url);
+    return { ok: false, status: 404, error: copy.identity.signature.failed };
+  }
+  // Cast by hand: a jsonb column written through the bundled driver can land as one JSON
+  // string rather than the array itself, which reads back fine here but not to SQL.
+  await db
+    .update(memberships)
+    .set({ signature: sql`${JSON.stringify(signature)}::jsonb`, signaturePngUrl: stored.url })
+    .where(eq(memberships.id, membershipId));
+  await discard(before.url);
+  return { ok: true, signature, url: stored.url };
+}
+
+/** Unsigned again: the strokes go, and so does their picture. */
+export async function clearMemberSignature(membershipId: string): Promise<void> {
+  const [before] = await db
+    .select({ url: memberships.signaturePngUrl })
+    .from(memberships)
+    .where(eq(memberships.id, membershipId))
+    .limit(1);
+  await db.update(memberships).set({ signature: null, signaturePngUrl: null }).where(eq(memberships.id, membershipId));
   await discard(before?.url);
 }

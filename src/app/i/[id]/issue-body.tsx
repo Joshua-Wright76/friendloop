@@ -16,6 +16,9 @@ import { EmojiPicker } from "@/components/emoji-picker";
 import { MusicCard } from "@/components/music-card";
 import { PhotoLightbox, useLightbox, type LightboxPhoto } from "@/components/photo-lightbox";
 import { Tape } from "@/components/stationery";
+import { AnswerSticker, SignOffSignature, StatusBubble } from "@/components/member-marks";
+import { ScrapbookProvider, ScrapLayer, ScrapNote, StickButton, useScrapbook, type ScrapbookSetup } from "./scrapbook";
+import type { ScrapSticker } from "@/lib/issue-view";
 import { copy, text } from "@/lib/copy";
 
 type Props = {
@@ -39,6 +42,14 @@ type Props = {
   readingNote?: ReactNode;
   /** Keeps the name of what you're reading in view on the bar. */
   barTitle?: string;
+  /** The owner's sign-off, closing the round before the talk about it. */
+  closing?: ReactNode;
+  /** Opens the round, above the first card: the roll call of everyone's lines. */
+  opening?: ReactNode;
+  /** Each person's line and signature, by membership id, for reading by person. */
+  people?: Record<string, { line?: string; signature?: number[][] }>;
+  /** A delivered round's scrapbook: who may stick and peel. Absent on an open round. */
+  scrapbook?: ScrapbookSetup;
 };
 
 export function IssueBody({
@@ -56,6 +67,10 @@ export function IssueBody({
   readingLabel,
   readingNote,
   barTitle,
+  closing,
+  opening,
+  people,
+  scrapbook,
 }: Props) {
   const answered = blocks.filter((block) => block.answers.length > 0);
   const talk: Conversation = { issueId, viewerToken, canInteract, commentsEnabled, mentionables };
@@ -80,10 +95,11 @@ export function IssueBody({
         : answered.flatMap((block) => block.answers)
       ).find((answer) => answer.isYou)?.replyId ?? null
     : null;
-  return (
+  const page = (
     <div className="mt-3 flex flex-col gap-6">
       <IssueBar contents={contents} reading={reading} readingLabel={readingLabel} title={barTitle} />
       {readingNote}
+      {opening}
 
       {groups
         ? groups.map((group, index) => (
@@ -94,6 +110,7 @@ export function IssueBody({
                 {group.name}
                 <NameCharm charm={group.charm} />
               </h2>
+              <StatusBubble body={people?.[group.id]?.line} />
               <div className="mt-3">
                 {group.entries.map((entry) =>
                   entry.kind === "answer" ? (
@@ -119,6 +136,7 @@ export function IssueBody({
                   ),
                 )}
               </div>
+              <SignOffSignature name={group.name} strokes={people?.[group.id]?.signature} />
             </section>
           ))
         : null}
@@ -200,6 +218,8 @@ export function IssueBody({
         </section>
       ))}
 
+      {closing}
+
       {commentsEnabled ? (
         <section className="card mt-2 p-5">
           <h2 className="text-ink">{copy.issue.comments}</h2>
@@ -218,6 +238,21 @@ export function IssueBody({
       ) : null}
     </div>
   );
+  if (!scrapbook) return page;
+  // Every answer's stickers, whichever way the page is arranged.
+  const stuck: Record<string, ScrapSticker[]> = {};
+  for (const answer of [...blocks.flatMap((block) => block.answers), ...sections.flatMap((section) => section.replies)]) {
+    if (answer.scrapbook) stuck[answer.replyId] = answer.scrapbook;
+  }
+  for (const entry of (groups ?? []).flatMap((group) => group.entries)) {
+    const answer = entry.kind === "answer" ? entry.answer : entry.reply;
+    if (answer.scrapbook) stuck[answer.replyId] = answer.scrapbook;
+  }
+  return (
+    <ScrapbookProvider issueId={issueId} viewerToken={viewerToken} setup={scrapbook} initial={stuck}>
+      {page}
+    </ScrapbookProvider>
+  );
 }
 
 type WallEntry = {
@@ -234,6 +269,7 @@ type WallEntry = {
  */
 function PhotoWall({ title, entries, talk, number }: { title: string; entries: WallEntry[]; talk: Conversation; number: number }) {
   const lightbox = useLightbox();
+  const book = useScrapbook();
   const tiles = entries.flatMap((entry) =>
     entry.media.map((item, mediaIndex) => ({ entry, item, first: mediaIndex === 0 })),
   );
@@ -273,6 +309,7 @@ function PhotoWall({ title, entries, talk, number }: { title: string; entries: W
             )}
             <figcaption className="mt-1 text-[12.5px] leading-snug text-ink-soft">
               <span className="font-bold">{entry.reply.author}</span>
+              {first ? <AnswerSticker sticker={entry.reply.sticker} /> : null}
               {item.caption ? `, ${item.caption}` : null}
             </figcaption>
           </figure>
@@ -281,14 +318,15 @@ function PhotoWall({ title, entries, talk, number }: { title: string; entries: W
       </div>
       <PhotoLightbox photos={photos} state={lightbox} />
       {/* A read-only copy shows a row only where someone has reacted or commented. */}
-      {entries.filter((entry) => talk.canInteract || entry.reply.comments.length > 0 || entry.reply.reactions.some((reaction) => reaction.count > 0)).map((entry) => (
-        <div key={entry.reply.replyId} className="mt-4 border-t border-line pt-3">
+      {entries.filter((entry) => talk.canInteract || entry.reply.comments.length > 0 || entry.reply.reactions.some((reaction) => reaction.count > 0) || (book?.stickersOn(entry.reply.replyId).length ?? 0) > 0).map((entry) => (
+        <div key={entry.reply.replyId} className={`divided mt-4 border-t border-line pt-3${book ? " scrap-host" : ""}`}>
           <div className="flex items-center gap-2.5">
             <Avatar name={entry.reply.author} photoUrl={entry.reply.authorPhotoUrl} frame={entry.reply.authorFrame} />
             <p className="m-0 text-[14px] font-extrabold text-ink-soft">{entry.reply.author}</p>
             <NameCharm charm={entry.reply.authorCharm} />
           </div>
           <AnswerActions {...talk} answer={entry.reply} questionNumber={number} />
+          <ScrapLayer replyId={entry.reply.replyId} />
         </div>
       ))}
     </>
@@ -297,15 +335,17 @@ function PhotoWall({ title, entries, talk, number }: { title: string; entries: W
 
 /** One person's answer to a standard or music section, with its link card, photos, reactions and thread. */
 function SectionReplyCard({ reply, label, talk, number }: { reply: IssueSectionReplyBlock; label?: string; talk: Conversation; number?: number }) {
+  const book = useScrapbook();
   return (
-    <div id={`section-reply-${reply.replyId}`} className="mt-4 scroll-mt-4 border-t border-line pt-4 first:border-t-0">
+    <div id={`section-reply-${reply.replyId}`} className={`divided mt-4 scroll-mt-4 border-t border-line pt-4 first:border-t-0${reply.sticker ? " has-sticker" : ""}${book ? " scrap-host" : ""}`}>
       {label ? (
-        <h3 className="m-0 text-[22px] leading-tight text-ink">{label}</h3>
+        <h3 className="m-0 text-[22px] leading-tight text-ink">{label}<AnswerSticker sticker={reply.sticker} /></h3>
       ) : (
         <div className="flex items-center gap-2.5">
           <Avatar name={reply.author} photoUrl={reply.authorPhotoUrl} frame={reply.authorFrame} />
           <p className="m-0 text-[14px] font-extrabold text-ink-soft">{reply.author}</p>
           <NameCharm charm={reply.authorCharm} />
+          <AnswerSticker sticker={reply.sticker} />
         </div>
       )}
       {reply.body ? (
@@ -334,6 +374,7 @@ function SectionReplyCard({ reply, label, talk, number }: { reply: IssueSectionR
         <p className="mt-2 text-[13px] text-ink-muted">{copy.issue.addedLater}</p>
       ) : null}
       <AnswerActions {...talk} answer={reply} questionNumber={number} />
+      <ScrapLayer replyId={reply.replyId} />
     </div>
   );
 }
@@ -390,6 +431,9 @@ type Reactable = {
   isYou: boolean;
   reactions: IssueAnswer["reactions"];
   comments: IssueComment[];
+  /** Its author's own sticker, which takes the answer's top corner when there's room. */
+  sticker?: string;
+  scrapbook?: ScrapSticker[];
 };
 
 function AnswerCard({
@@ -411,16 +455,18 @@ function AnswerCard({
   /** Set on the viewer's own answer while it can still change. */
   editHref?: string | null;
 }) {
+  const book = useScrapbook();
   return (
-    <article id={`answer-${answer.replyId}`} className="answer-card mt-4 scroll-mt-4 border-t border-line pt-4 first:border-t-0">
+    <article id={`answer-${answer.replyId}`} className={`answer-card divided mt-4 scroll-mt-4 border-t border-line pt-4 first:border-t-0${answer.sticker ? " has-sticker" : ""}${book ? " scrap-host" : ""}`}>
       {questionLabel ? (
         // Reading by person: the card is already theirs, so the question leads and the byline would only repeat.
-        <h3 className="m-0 text-[22px] leading-tight text-ink">{questionLabel}</h3>
+        <h3 className="m-0 text-[22px] leading-tight text-ink">{questionLabel}<AnswerSticker sticker={answer.sticker} /></h3>
       ) : (
         <div className="flex flex-wrap items-center gap-x-2.5">
           <Avatar name={answer.author} photoUrl={answer.authorPhotoUrl} frame={answer.authorFrame} />
           <p className="m-0 text-[14px] font-extrabold text-ink-soft">{answer.author}</p>
           <NameCharm charm={answer.authorCharm} />
+          <AnswerSticker sticker={answer.sticker} />
           {editHref ? <EditLink href={editHref} /> : null}
         </div>
       )}
@@ -506,6 +552,7 @@ function AnswerCard({
         answer={answer}
         questionNumber={questionNumber}
       />
+      <ScrapLayer replyId={answer.replyId} />
     </article>
   );
 }
@@ -623,6 +670,8 @@ function AnswerActions({
             </svg>
           </button>
         ) : null}
+        {/* The author's own sticker holds the right margin's top, so a new one goes elsewhere. */}
+        <StickButton replyId={answer.replyId} whose={whose} reserved={answer.sticker ? [{ side: "right", offset: 0, tilt: 0 }] : []} />
         </div>
         {commentsEnabled && (count > 0 || canInteract) ? (
           <button
@@ -639,6 +688,7 @@ function AnswerActions({
       </div>
 
       {reactFailed ? <p role="alert" className="action-failed">{reactFailed}</p> : null}
+      <ScrapNote replyId={answer.replyId} />
       {picking ? (
         <EmojiPicker
           label={addLabel}

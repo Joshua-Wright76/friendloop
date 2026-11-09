@@ -1,8 +1,10 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { appUrl } from "../urls.ts";
+import { coverOf } from "../looks.ts";
 import {
   deliveryEmail,
+  emailMarksOf,
   emailThemeOf,
   inviteEmail,
   mentionEmail,
@@ -94,7 +96,10 @@ function withLocalStickers<T extends { html: string }>(email: T): T {
     `data:image/png;base64,${readFileSync(path.join(process.cwd(), "public", dir, file)).toString("base64")}`;
   const html = email.html
     .replace(/src="[^"]*\/stickers\/png\/([a-z]+\.png)"/g, (_, file: string) => `src="${inline("stickers/png", file)}"`)
-    .replace(/url\('[^']*\/patterns\/email\/([a-z]+-[a-z]+\.png)'\)/g, (_, file: string) => `url('${inline("patterns/email", file)}')`);
+    .replace(/url\('[^']*\/patterns\/email\/([a-z]+-[a-z]+\.png)'\)/g, (_, file: string) => `url('${inline("patterns/email", file)}')`)
+    .replace(/url\('[^']*\/dividers\/email\/([a-z]+-[a-z]+\.png)'\)/g, (_, file: string) => `url('${inline("dividers/email", file)}')`)
+    .replace(/src="[^"]*\/seals\/([a-z]+-[a-z]+(?:-[a-z]+)?\.png)"/g, (_, file: string) => `src="${inline("seals", file)}"`)
+    .replace(/src="[^"]*\/dev-preview\/(signature\.png)"/g, (_, file: string) => `src="${inline("dev-preview", file)}"`);
   return { ...email, html };
 }
 
@@ -224,6 +229,64 @@ export function emailPreviews(): EmailPreview[] {
           headerImageUrl: "https://friendloop.dev/dev-preview/header.svg",
           themeMascot: "duck",
         }),
+      })),
+    },
+    ...(["wax", "postmark"] as const).map((sealStyle) => ({
+      // The owner's marks: a motto, a seal or postmark, a divider and a sign-off.
+      id: sealStyle === "wax" ? "deliveryMarked" : "deliveryPostmarked",
+      email: withLocalStickers(deliveryEmail({
+        groupName: "Saturday Club",
+        issueNumber: 11,
+        url: "https://friendloop.dev/i/preview",
+        unsubscribeUrl: PREVIEW_STOP_URL,
+        answers: ANSWERS,
+        theme: emailThemeOf({ themePreset: "meadow", themeAccent: null, themeBackground: null, headerImageUrl: null, themeMascot: "frog" }),
+        marks: emailMarksOf(
+          {
+            themePreset: "meadow",
+            themeMascot: "frog",
+            timezone: "Europe/Amsterdam",
+            motto: "est. 2019 · still terrible at replying",
+            signOff: "xo, the Saturday crew",
+            sealStyle,
+            sealColor: "moss",
+            divider: sealStyle === "wax" ? "vine" : "ricrac",
+          },
+          { number: 11, deliveredAt: new Date("2026-11-07T08:00:00Z") },
+          { number: 12, deliversAt: new Date("2026-11-14T08:00:00Z") },
+        ),
+      })),
+    })),
+    {
+      // What people add themselves: everyone's line, stickers on answers, and the signed card.
+      id: "deliveryPeople",
+      email: withLocalStickers(deliveryEmail({
+        groupName: "Saturday Club",
+        issueNumber: 11,
+        url: "https://friendloop.dev/i/preview",
+        unsubscribeUrl: PREVIEW_STOP_URL,
+        answers: ANSWERS.map((answer, index) => ({ ...answer, sticker: ["peach", null, "frog"][index] ?? null })),
+        rollCall: [
+          { name: "Alex", line: "🧳 off to Lisbon on Thursday" },
+          { name: "Alice", line: "📚 halfway through Middlemarch, again" },
+        ],
+        signatures: [
+          { name: "Alex", src: "https://friendloop.dev/dev-preview/signature.png", width: 150, height: 32 },
+          { name: "Alice", src: "https://friendloop.dev/dev-preview/signature.png", width: 120, height: 26 },
+        ],
+      })),
+    },
+    {
+      // A named round with a cover: its tint and sticker open the email.
+      id: "deliveryCovered",
+      email: withLocalStickers(deliveryEmail({
+        groupName: "Saturday Club",
+        issueNumber: 11,
+        issueName: "Camping weekend",
+        url: "https://friendloop.dev/i/preview",
+        unsubscribeUrl: PREVIEW_STOP_URL,
+        answers: ANSWERS,
+        cover: coverOf({ name: "Camping weekend", coverSticker: "mushroom", coverTint: "moss" }),
       })),
     },
     {

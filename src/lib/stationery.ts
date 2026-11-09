@@ -1,3 +1,5 @@
+import { dividerCss } from "./dividers.ts";
+import { isDividerKey } from "./looks.ts";
 import { DEFAULT_MASCOT, isMascotKey, stickerSrc } from "./stickers.ts";
 import { DEFAULT_PRESET, isPresetKey, previewTheme, resolveTheme, themeCss, THEME_PRESET_KEYS, type SchemeTokens, type ThemeName } from "./theme.ts";
 
@@ -16,6 +18,8 @@ export type StationerySettings = {
   paperPack?: string | null;
   tapePack?: string | null;
   mascot?: string | null;
+  /** The line between answers on a round (`dividers.ts`); null is the stitches. */
+  divider?: string | null;
 };
 
 /** The columns a loop keeps its stationery in. */
@@ -26,6 +30,7 @@ export type StationeryColumns = {
   themePaperPack: string | null;
   themeTapePack: string | null;
   themeMascot: string | null;
+  divider?: string | null;
 };
 
 export function stationeryOf(group: StationeryColumns): StationerySettings {
@@ -36,6 +41,7 @@ export function stationeryOf(group: StationeryColumns): StationerySettings {
     paperPack: group.themePaperPack,
     tapePack: group.themeTapePack,
     mascot: group.themeMascot,
+    divider: group.divider ?? null,
   };
 }
 
@@ -300,7 +306,7 @@ function pageRule(scheme: ThemeName, key: string, tokens: SchemeTokens): string 
 
 /**
  * Everything a loop adds on top of the stylesheet: its colours, then whichever of
- * the page, paper, tape and mascot it moved off their defaults.
+ * the page, paper, tape, mascot and divider it moved off their defaults.
  */
 export function stationeryCss(settings: StationerySettings): string {
   const parts = [themeCss(resolveTheme(settings))];
@@ -316,6 +322,11 @@ export function stationeryCss(settings: StationerySettings): string {
     ...(isMascotKey(settings.mascot) && settings.mascot !== DEFAULT_MASCOT ? mascotVars(settings.mascot) : {}),
   };
   if (Object.keys(chosen).length > 0) parts.push(`html{${declarations(chosen)}}`);
+
+  if (isDividerKey(settings.divider)) {
+    const { light, dark } = previewTheme(settings);
+    parts.push(dividerCss(settings.divider, light, dark));
+  }
 
   return parts.join("");
 }

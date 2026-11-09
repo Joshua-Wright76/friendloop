@@ -43,6 +43,9 @@ import {
 import { removeReplySectionMedia, uploadReplySectionPhoto } from "@/lib/section-client";
 import { PollCard, type PollCardStatus } from "./poll-card";
 import { DisplayDigits } from "@/components/display-digits";
+import { Celebration } from "@/components/celebration";
+import { StickerControl } from "@/components/sticker-sheet";
+import { StatusLineField, type LineStatus } from "./status-line";
 
 /**
  * One item of the round, in round order. Written and poll items are answered on
@@ -72,6 +75,8 @@ export type SheetQuestion = {
   pollMultiple: boolean;
   pollOptions: string[];
   pollChoices: number[];
+  /** The sticker on this answer, or null. */
+  sticker?: string | null;
 };
 
 /** A wall item: a photo, or a clip whose `url` is its still. */
@@ -90,6 +95,7 @@ type SheetSection = {
   linkUrl: string;
   linkProvider: string;
   media: SheetMedia[];
+  sticker: string | null;
 };
 
 const isCard = (item: SheetQuestion) => item.format === "photo_wall" || item.format === "music";
@@ -106,6 +112,10 @@ type Props = {
   photoUrl: string | null;
   charm: string | null;
   frame: string | null;
+  /** Their signature in this loop, for the pad beside the charm and frame. */
+  signature?: number[][] | null;
+  /** Their line for this round, so far. */
+  statusLine?: string;
   deadlineMoment: string;
   deliversAtIso: string;
   displayName: string;
@@ -116,6 +126,10 @@ type Props = {
   /** Where clips go: straight to Blob in production, through the app locally. */
   videoUploadMode: VideoUploadMode;
   questions: SheetQuestion[];
+  /** The owner's send celebration (`CELEBRATION_KEYS`); null is the sent stamp alone. */
+  celebration?: string | null;
+  /** The loop's mascot, for the celebration that hops. */
+  mascot?: string | null;
 };
 
 type NameStatus = "idle" | "saving" | "saved" | "error";
@@ -154,6 +168,8 @@ export function ReplySheet({
   photoUrl,
   charm,
   frame,
+  signature = null,
+  statusLine = "",
   deadlineMoment,
   deliversAtIso,
   displayName,
@@ -162,6 +178,8 @@ export function ReplySheet({
   mutedUnsubscribeToken,
   videoUploadMode,
   questions: items,
+  celebration = null,
+  mascot = null,
 }: Props) {
   const questions = useMemo(() => items.filter((item) => !isCard(item)), [items]);
   const sections = useMemo(() => items.filter(isCard).map((item): SheetSection => ({
@@ -176,8 +194,10 @@ export function ReplySheet({
     linkUrl: item.linkUrl,
     linkProvider: item.linkProvider,
     media: item.media,
+    sticker: item.sticker ?? null,
   })), [items]);
   const [frameNow, setFrameNow] = useState(frame);
+  const [lineStatus, setLineStatus] = useState<LineStatus>("idle");
   const [bodies, setBodies] = useState<Record<string, string>>(() =>
     Object.fromEntries(questions.map((question) => [question.id, question.body])),
   );
@@ -261,6 +281,9 @@ export function ReplySheet({
   const [pollStatuses, setPollStatuses] = useState<Record<string, PollCardStatus>>({});
   const pollRevisions = useRef(new Map<string, number>());
   const [animateSentStamp, setAnimateSentStamp] = useState(false);
+  // Counts each Done that earned the owner's celebration; zero when none is playing.
+  const [celebrating, setCelebrating] = useState(0);
+  const endCelebration = useCallback(() => setCelebrating(0), []);
   // Done steps the sheet aside for a confirmation; "Back to my answers" brings it back.
   // The sheet stays mounted (only hidden) so nothing in it — words, photos, previews — is lost.
   const [confirmation, setConfirmation] = useState(false);
@@ -411,12 +434,13 @@ export function ReplySheet({
     (audioStates[question.id] === "uploadError" && retryableAudio[question.id]) ||
     (replyVideos.states[question.id] === "uploadError" && replyVideos.retryable(question.id)));
   const status: SaveStatus = useMemo(() => {
-    const states = Object.values(questionStatuses);
+    // The line this round saves like an answer, so the bar speaks for it too.
+    const states = [...Object.values(questionStatuses), lineStatus];
     if (finishFailed || states.includes("error")) return "error";
     if (states.includes("saving")) return "saving";
     if (states.includes("saved")) return "saved";
     return "idle";
-  }, [questionStatuses, finishFailed]);
+  }, [questionStatuses, finishFailed, lineStatus]);
 
   // A control that unmounts takes keyboard focus with it, so the handler names its successor.
   useEffect(() => {
@@ -1251,6 +1275,8 @@ export function ReplySheet({
 
       setConfirmation(true);
       setAnimateSentStamp(true);
+      // Never for anyone who asked for less motion: the confirmation says it all.
+      if (celebration && !window.matchMedia("(prefers-reduced-motion: reduce)").matches) setCelebrating((count) => count + 1);
       setAnnouncement(copy.a11yStatus.doneAnnouncement);
     } catch {
       setError(copy.reply.genericError);
@@ -1258,7 +1284,7 @@ export function ReplySheet({
     } finally {
       setFinishing(false);
     }
-  }, [bodies, name, pollPicks, pollStatuses, questionStatuses, questions, token, writeDraft, writePoll]);
+  }, [bodies, celebration, name, pollPicks, pollStatuses, questionStatuses, questions, token, writeDraft, writePoll]);
 
   // Each view starts at the top with focus on its heading, so a screen reader hears the change.
   useEffect(() => {
@@ -1465,6 +1491,15 @@ export function ReplySheet({
                       </p>
                     </div>
                   ) : null}
+                  <StickerControl
+                    token={token}
+                    questionId={section.id}
+                    initial={section.sticker}
+                    answered={cardDone(section.id)}
+                    disabled={finishing}
+                    forQuestion={(label) => text(copy.a11yLabels.forQuestionNumber, { label, n: index + 1 })}
+                    track={trackSectionSave}
+                  />
                 </section>
               );
   };
@@ -1509,6 +1544,9 @@ export function ReplySheet({
         </div>
       </header>
 
+      {celebrating > 0 && celebration ? (
+        <Celebration key={celebrating} kind={celebration} mascot={mascot} seed={celebrating} onEnd={endCelebration} />
+      ) : null}
       {confirmation ? (
         <main className="mx-auto w-full max-w-[600px] px-4 pb-16 pt-4" aria-labelledby="reply-confirmation-heading">
           <section className="card relative mt-2 p-6 pt-8 text-center sm:p-8 sm:pt-10">
@@ -1612,6 +1650,7 @@ export function ReplySheet({
                   photoUrl={photoUrl}
                   charm={charm}
                   frame={frame}
+                  signature={signature}
                   onFrame={setFrameNow}
                 />
               </div>
@@ -1631,6 +1670,7 @@ export function ReplySheet({
         </p>
 
         <div ref={questionList} className="mt-5 flex flex-col gap-6">
+          <StatusLineField token={token} initial={statusLine} disabled={finishing} onStatus={setLineStatus} track={trackSectionSave} />
           {items.map((item, index) => {
             const section = sections.find((candidate) => candidate.id === item.id);
             if (section) return renderSection(section, index);
@@ -1648,7 +1688,17 @@ export function ReplySheet({
                   status={pollStatuses[question.id] ?? "idle"}
                   disabled={finishing}
                   onChange={(next) => void choosePoll(question.id, next)}
-                />
+                >
+                  <StickerControl
+                    token={token}
+                    questionId={question.id}
+                    initial={question.sticker ?? null}
+                    answered={answeredIds.has(question.id)}
+                    disabled={finishing}
+                    forQuestion={(label) => text(copy.a11yLabels.forQuestionNumber, { label, n: index + 1 })}
+                    track={trackSectionSave}
+                  />
+                </PollCard>
               );
             }
             // Names carry the card's number, not its text, so each stays unique and none repeats the question.
@@ -2105,6 +2155,15 @@ export function ReplySheet({
                   ) : null}
                 </>
               ) : null}
+              <StickerControl
+                token={token}
+                questionId={question.id}
+                initial={question.sticker ?? null}
+                answered={answeredIds.has(question.id)}
+                disabled={finishing}
+                forQuestion={forQuestion}
+                track={trackSectionSave}
+              />
             </section>
             );
           })}

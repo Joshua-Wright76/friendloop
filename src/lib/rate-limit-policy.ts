@@ -24,6 +24,8 @@ export const LIMITS = {
   signInCodeEmail: { max: 10, windowMs: DAY },
   /** Comments from one member: a lively thread, not a script. */
   comment: { max: 30, windowMs: 10 * MINUTE },
+  /** Scrapbook stickers stuck, moved or peeled by one member: a fidget, not a script. */
+  scrapbook: { max: 120, windowMs: 10 * MINUTE },
   /** Notes from someone the request proved (session or reply link). */
   feedback: { max: 10, windowMs: HOUR },
   /** Notes from a stranger, per network: wider, since a NAT can hide several people. */
@@ -48,7 +50,7 @@ export const MAX_MEMBERS_PER_LOOP = 50;
 
 /**
  * The counter keys. Built here so erasure can find a person's own counters
- * (`signin:email`, `comment:member`, `feedback:member`, `feedback:user`) by the
+ * (`signin:email`, `comment:member`, `scrapbook:member`, `feedback:member`, `feedback:user`) by the
  * same spelling the limits write them with. Network keys name nobody.
  */
 export const limitKey = {
@@ -57,6 +59,7 @@ export const limitKey = {
   signInCode: (ip: string) => `signin:code:${ip}`,
   signInCodeEmail: (email: string) => `signin:code-email:${email}`,
   comment: (membershipId: string) => `comment:member:${membershipId}`,
+  scrapbook: (membershipId: string) => `scrapbook:member:${membershipId}`,
   feedbackMember: (membershipId: string) => `feedback:member:${membershipId}`,
   feedbackUser: (userId: string) => `feedback:user:${userId}`,
   feedbackIp: (ip: string) => `feedback:ip:${ip}`,

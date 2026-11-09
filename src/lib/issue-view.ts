@@ -1,10 +1,12 @@
 import { DEFAULT_REACTIONS, tallyReactions } from "./reaction-emoji.ts";
-import { and, asc, eq, isNull } from "drizzle-orm";
+import { and, asc, eq, exists, isNotNull, isNull } from "drizzle-orm";
 import { db } from "@/db";
 import { replyHasContentCondition } from "./reply-query";
 import {
   groups,
   issueQuestions,
+  issueStatusLines,
+  issueStickers,
   issues,
   memberships,
   reactions,
@@ -16,6 +18,7 @@ import { loadComments, type IssueComment } from "./comment-view.ts";
 import { tallyPoll, type PollTallyRow } from "./poll.ts";
 import { musicCardsFor, type MusicProvider, type MusicTrack } from "./music";
 import { formatOf } from "./asks";
+import { cleanPlacement, isStickerKey, parseSignature } from "./looks.ts";
 
 export type IssueAnswer = {
   replyId: string;
@@ -43,6 +46,22 @@ export type IssueAnswer = {
   video?: IssueVideo;
   /** A photo wall's photos and clips. Only on photo-wall answers. */
   media?: IssueMedia[];
+  /** The sticker its author slapped on it; only there when they did. */
+  sticker?: string;
+  /** Stickers people stuck in its margins after the round went out; only there when someone did. */
+  scrapbook?: ScrapSticker[];
+};
+
+/** A sticker someone stuck in an answer's margin, and who did. */
+export type ScrapSticker = {
+  id: string;
+  sticker: string;
+  side: "left" | "right";
+  offset: number;
+  tilt: number;
+  /** Who stuck it, by name (never "You"; `mine` says that). */
+  by: string;
+  mine: boolean;
 };
 
 export type IssueVideo = { url: string; posterUrl: string; durationMs: number };
@@ -80,6 +99,8 @@ export type IssueSectionReplyBlock = {
   /** Former section answers take reactions and comments like any other answer. */
   reactions: Array<{ emoji: string; count: number; mine: boolean }>;
   comments: IssueComment[];
+  sticker?: string;
+  scrapbook?: ScrapSticker[];
 };
 
 export type IssueSectionBlock = {
@@ -112,6 +133,19 @@ export type IssueBlock = {
   description?: string;
 };
 
+/** Someone's line for this round ("currently…"), for the roll call and beside their answers. */
+export type IssueStatusLine = {
+  id: string;
+  name: string;
+  photoUrl: string | null;
+  charm: string | null;
+  frame: string | null;
+  body: string;
+};
+
+/** The signature of someone who wrote in a delivered round, for its signed card and their sign-off. */
+export type IssueSignature = { id: string; name: string; strokes: number[][] };
+
 export type IssueView = {
   issue: typeof issues.$inferSelect;
   group: typeof groups.$inferSelect;
@@ -123,6 +157,12 @@ export type IssueView = {
   /** Who the viewer can @mention; empty for strangers and when comments are off. */
   mentionables: Array<{ id: string; name: string; photoUrl: string | null }>;
   answerCount: number;
+  /** Everyone's line this round that the viewer may see, by name. Left out when there are none. */
+  statusLines?: IssueStatusLine[];
+  /** A delivered round's signatures, of those who wrote in it, by name. Left out when there are none. */
+  signatures?: IssueSignature[];
+  /** How many scrapbook stickers the viewer has stuck around this round. Left out when none. */
+  scrapbookUsed?: number;
 };
 
 export function reactionChoices(): readonly string[] {
@@ -170,7 +210,8 @@ export async function loadIssue(input: {
 
   // Everything below hangs off the issue alone, so it is asked for at once: one
   // round trip to the database instead of one per table.
-  const [asked, allRows, threads, reactionRows, allMedia] = await Promise.all([
+  const delivered = issue.status === "delivered";
+  const [asked, allRows, threads, reactionRows, allMedia, lineRows, signerRows, scrapRows] = await Promise.all([
     db
       .select()
       .from(issueQuestions)
@@ -190,6 +231,7 @@ export async function loadIssue(input: {
         pollChoices: replies.pollChoices,
         linkUrl: replies.linkUrl,
         linkProvider: replies.linkProvider,
+        sticker: replies.sticker,
         addedAfterDelivery: replies.addedAfterDelivery,
         createdAt: replies.createdAt,
         membershipId: replies.membershipId,
@@ -225,6 +267,49 @@ export async function loadIssue(input: {
       .innerJoin(replies, eq(replies.id, replyMedia.replyId))
       .where(eq(replies.issueId, issue.id))
       .orderBy(asc(replyMedia.position), asc(replyMedia.createdAt), asc(replyMedia.id)),
+    db
+      .select({
+        id: issueStatusLines.membershipId,
+        body: issueStatusLines.body,
+        name: memberships.name,
+        email: memberships.email,
+        photoUrl: memberships.photoUrl,
+        charm: memberships.charm,
+        frame: memberships.avatarFrame,
+      })
+      .from(issueStatusLines)
+      .innerJoin(memberships, eq(memberships.id, issueStatusLines.membershipId))
+      .where(eq(issueStatusLines.issueId, issue.id)),
+    // Signatures close a round that has gone out: only of the people who wrote in it.
+    delivered
+      ? db
+          .select({ id: memberships.id, signature: memberships.signature, name: memberships.name, email: memberships.email })
+          .from(memberships)
+          .where(and(
+            eq(memberships.groupId, group.id),
+            isNotNull(memberships.signature),
+            exists(db.select({ id: replies.id }).from(replies).where(and(eq(replies.issueId, issue.id), eq(replies.membershipId, memberships.id)))),
+          ))
+      : Promise.resolve([]),
+    // The scrapbook belongs to a round that has gone out.
+    delivered
+      ? db
+          .select({
+            id: issueStickers.id,
+            replyId: issueStickers.replyId,
+            membershipId: issueStickers.membershipId,
+            sticker: issueStickers.sticker,
+            side: issueStickers.side,
+            offset: issueStickers.offset,
+            tilt: issueStickers.tilt,
+            name: memberships.name,
+            email: memberships.email,
+          })
+          .from(issueStickers)
+          .innerJoin(memberships, eq(memberships.id, issueStickers.membershipId))
+          .where(eq(issueStickers.issueId, issue.id))
+          .orderBy(asc(issueStickers.createdAt), asc(issueStickers.id))
+      : Promise.resolve([]),
   ]);
 
   // A round is a surprise until it goes out. Whatever someone has written counts
@@ -232,7 +317,6 @@ export async function loadIssue(input: {
   // sees only their own; the owner and admins see everyone's, as a preview of the
   // round. Poll results wait for delivery whoever is reading. Owners-only items are
   // for the owner and admins.
-  const delivered = issue.status === "delivered";
   const visibleNow = (membershipId: string) => delivered || Boolean(input.viewerIsAdmin) || membershipId === viewerMembershipId;
   const shown = asked.filter((question) => !question.adminOnly || input.viewerIsAdmin);
   const shownIds = new Set(shown.map((question) => question.id));
@@ -249,6 +333,21 @@ export async function loadIssue(input: {
       : { url: item.url, caption: item.caption };
     mediaByReply.set(item.replyId, [...(mediaByReply.get(item.replyId) ?? []), entry]);
   }
+  const scrapByReply = new Map<string, ScrapSticker[]>();
+  for (const row of scrapRows) {
+    if (!isStickerKey(row.sticker)) continue;
+    const placed = cleanPlacement(row);
+    if (!placed) continue;
+    const stuck: ScrapSticker = {
+      id: row.id,
+      sticker: row.sticker,
+      ...placed,
+      by: row.name ?? row.email.split("@")[0],
+      mine: row.membershipId === viewerMembershipId,
+    };
+    scrapByReply.set(row.replyId, [...(scrapByReply.get(row.replyId) ?? []), stuck]);
+  }
+  const scrapbookUsed = viewerMembershipId ? scrapRows.filter((row) => row.membershipId === viewerMembershipId).length : 0;
   const musicCards = await musicCardsFor(rows.flatMap((row) =>
     row.linkUrl && row.linkProvider ? [{ provider: row.linkProvider as MusicProvider, url: row.linkUrl }] : []));
 
@@ -270,6 +369,26 @@ export async function loadIssue(input: {
     comments: threads.byReply.get(row.replyId) ?? [],
   });
   const cardOf = (url: string) => musicCards.get(url);
+  // Only a sticker someone chose: an answer without one reads exactly as it always has.
+  const stickerOf = (row: (typeof rows)[number]) => ({
+    ...(isStickerKey(row.sticker) ? { sticker: row.sticker } : {}),
+    // Likewise the scrapbook: an answer nobody stuck anything beside reads as it always has.
+    ...(scrapByReply.has(row.replyId) ? { scrapbook: scrapByReply.get(row.replyId) } : {}),
+  });
+  const nameOf = (row: { name: string | null; email: string }) => row.name ?? row.email.split("@")[0];
+  const byName = (a: { name: string; id: string }, b: { name: string; id: string }) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id);
+
+  // A line is a surprise like an answer: before the round goes out, only your own shows.
+  const statusLines: IssueStatusLine[] = lineRows
+    .filter((line) => visibleNow(line.id))
+    .map((line) => ({ id: line.id, name: nameOf(line), photoUrl: line.photoUrl, charm: line.charm, frame: line.frame, body: line.body }))
+    .sort(byName);
+  // Someone whose only answers this viewer can't see (an owners-only item) doesn't sign for them.
+  const wrote = new Set(rows.map((row) => row.membershipId));
+  const signatures: IssueSignature[] = signerRows.flatMap((signer) => {
+    const strokes = parseSignature(signer.signature);
+    return strokes && wrote.has(signer.id) ? [{ id: signer.id, name: nameOf(signer), strokes }] : [];
+  }).sort(byName);
 
   // Copied from a section: it keeps a section's look, exactly as it always read.
   const sectionRows = shown.filter((question) => question.fromSection);
@@ -320,6 +439,7 @@ export async function loadIssue(input: {
             ? { video: { url: row.videoUrl, posterUrl: row.videoPosterUrl, durationMs: row.videoDurationMs ?? 0 } }
             : {}),
           ...(format === "photo_wall" ? { media: mediaByReply.get(row.replyId) ?? [] } : {}),
+          ...stickerOf(row),
         };
       }),
       ...(format === "photo_wall" || format === "music" ? { format } : {}),
@@ -352,6 +472,7 @@ export async function loadIssue(input: {
             addedLater: row.addedAfterDelivery,
             media: [...(row.photoUrl ? [{ url: row.photoUrl, caption: null }] : []), ...(mediaByReply.get(row.replyId) ?? [])],
             ...conversation(row),
+            ...stickerOf(row),
           };
         }),
     };
@@ -366,6 +487,9 @@ export async function loadIssue(input: {
     comments: threads.top,
     commentsEnabled: group.commentsEnabled,
     mentionables: threads.mentionables,
+    ...(statusLines.length > 0 ? { statusLines } : {}),
+    ...(signatures.length > 0 ? { signatures } : {}),
+    ...(scrapbookUsed > 0 ? { scrapbookUsed } : {}),
   };
 }
 
@@ -374,6 +498,20 @@ export async function issueGroupId(issueId: string): Promise<string | null> {
   if (!issueId) return null;
   const [row] = await db.select({ groupId: issues.groupId }).from(issues).where(eq(issues.id, issueId)).limit(1);
   return row?.groupId ?? null;
+}
+
+/**
+ * The round a loop is taking answers for, and when it goes out: what a sign-off can
+ * promise next. Nothing while the loop is paused, since nothing goes out then.
+ */
+export async function nextRoundFor(groupId: string): Promise<{ number: number; deliversAt: Date } | null> {
+  const [row] = await db
+    .select({ number: issues.number, deliversAt: issues.deliversAt })
+    .from(issues)
+    .innerJoin(groups, eq(groups.id, issues.groupId))
+    .where(and(eq(issues.groupId, groupId), eq(issues.status, "open"), isNull(groups.pausedAt)))
+    .limit(1);
+  return row ?? null;
 }
 
 /** Who is looking: a signed-in member, or the token in the delivery link. */

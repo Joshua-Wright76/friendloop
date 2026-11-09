@@ -14,6 +14,7 @@ import { LoopNav } from "@/components/loop-nav";
 import { NoticeFocus } from "@/components/notice-focus";
 import { copy, text } from "@/lib/copy";
 import { useLoopData } from "../loop-data";
+import { parseSignature } from "@/lib/looks";
 import { SubmitButton } from "@/components/submit-button";
 
 export default function MembersTab({ notices }: {
@@ -115,6 +116,7 @@ export default function MembersTab({ notices }: {
                     photoUrl={person.photoUrl}
                     charm={person.charm}
                     frame={person.avatarFrame}
+                    signature={parseSignature(membership.signature)}
                     refresh
                     compact
                   />

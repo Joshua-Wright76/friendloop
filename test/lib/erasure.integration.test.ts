@@ -84,7 +84,10 @@ async function seedWorld() {
   const loop = await seedLoop({ members: [{ email: "alice@friendloop.test", name: "Alice" }] });
   const wren = await addMember(loop, { email: WREN.email, name: WREN.name });
   loop.members.push({ ...wren, participation: "contributor", access: "member" });
-  await rows("update memberships set user_id = $1, photo_url = $2 where id = $3", [user.id, blob("photo", "wren-avatar"), wren.id]);
+  await rows(
+    "update memberships set user_id = $1, photo_url = $2, signature = '[[10,10,40,30]]', signature_png_url = $3 where id = $4",
+    [user.id, blob("photo", "wren-avatar"), blob("photo", "wren-signature"), wren.id],
+  );
   const alice = loop.members.find((member) => member.email === "alice@friendloop.test")!;
   await rows("update groups set header_image_url = $1 where id = $2", [blob("photo", "loop-a-header"), loop.groupId]);
 
@@ -105,6 +108,9 @@ async function seedWorld() {
   await rows("insert into comments (issue_id, membership_id, body, reply_id, photo_url) values ($1, $2, 'Love this', $3, $4)", [issue.issueId, alice.id, wrenReply.id, blob("photo", "alice-on-wren")]);
   await rows("insert into comments (issue_id, membership_id, body, reply_id) values ($1, $2, $3, $4)", [issue.issueId, alice.id, `Agree with @[${wren.id}]`, aliceReply.id]);
   await rows("insert into reactions (reply_id, membership_id, emoji) values ($1, $2, '💛'), ($3, $4, '🎉')", [aliceReply.id, wren.id, wrenReply.id, alice.id]);
+  // Their line this round, and a sticker they stuck beside Alice's answer.
+  await rows("insert into issue_status_lines (issue_id, membership_id, body) values ($1, $2, 'knee-deep in moving boxes')", [issue.issueId, wren.id]);
+  await rows("insert into issue_stickers (issue_id, reply_id, membership_id, sticker, side) values ($1, $2, $3, 'frog', 'left')", [issue.issueId, aliceReply.id, wren.id]);
 
   // A suggestion the owner accepted, credited by name on the round.
   const [question] = await rows<{ id: string }>("insert into questions (group_id, text, position, created_by_membership_id) values ($1, 'Best snack?', 9, $2) returning id", [loop.groupId, wren.id]);
@@ -168,6 +174,7 @@ async function seedWorld() {
       ($1, now(), 1, now() + interval '1 hour'), ($2, now(), 1, now() + interval '1 hour'),
       ($3, now(), 1, now() + interval '1 hour'), ($4, now(), 1, now() + interval '1 hour'),
       ($5, now(), 1, now() + interval '1 hour'), ($6, now(), 1, now() + interval '1 hour'),
+      ($7, now(), 1, now() + interval '1 hour'),
       ('signin:ip:203.0.113.9', now(), 1, now() + interval '1 hour')`,
     [
       limitKey.signInEmail(WREN.email),
@@ -176,6 +183,7 @@ async function seedWorld() {
       limitKey.feedbackMember(wren.id),
       limitKey.comment(pending.id),
       limitKey.comment(alice.id),
+      limitKey.scrapbook(wren.id),
     ],
   );
 
@@ -242,7 +250,7 @@ test("deleting an account leaves no row pointing at the person, in any table the
   );
 
   const result = await eraseAccount(world.userId);
-  assert.deepEqual(result, { ok: true, loopsDeleted: 1, files: 9 });
+  assert.deepEqual(result, { ok: true, loopsDeleted: 1, files: 10 });
 
   for (const key of personal) {
     const ids = people[key.references as "users" | "memberships"];
@@ -277,6 +285,7 @@ test("deleting an account leaves no row pointing at the person, in any table the
   // Every file of theirs, and the ones hanging from their words, went from storage.
   assert.deepEqual(new Set(deleted()), new Set([
     blob("photo", "wren-avatar"),
+    blob("photo", "wren-signature"),
     blob("photo", "wren-reply"),
     blob("audio", "wren-voice"),
     blob("photo", "wren-comment"),
@@ -374,6 +383,7 @@ test("deleting a loop removes every file in it and the email trail, and nothing 
   assert.deepEqual(new Set(deleted()), new Set([
     blob("photo", "loop-a-header"),
     blob("photo", "wren-avatar"),
+    blob("photo", "wren-signature"),
     blob("photo", "wren-reply"),
     blob("audio", "wren-voice"),
     blob("photo", "alice-reply"),

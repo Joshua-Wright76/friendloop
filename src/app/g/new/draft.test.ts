@@ -18,6 +18,7 @@ const fresh: LoopDraft = {
   preset: "gingham",
   accent: "",
   looks: { background: "plain", paperPack: "classic", tapePack: "washi", mascot: "cherry" },
+  marks: { motto: "", signOff: "", sealStyle: "", sealColor: "cherry", divider: "", celebration: "" },
   hasPicture: false,
 };
 
@@ -31,6 +32,17 @@ test("a name, a later step, or a picture is worth keeping", () => {
   assert.equal(draftIsWorthKeeping({ ...fresh, step: 2 }, fresh), true);
   assert.equal(draftIsWorthKeeping({ ...fresh, hasPicture: true }, fresh), true);
   assert.equal(draftIsWorthKeeping({ ...fresh, looks: { ...fresh.looks, mascot: "fox" } }, fresh), true);
+});
+
+test("the marks are kept too, and a draft from before them gets none", () => {
+  const marked = { ...fresh, marks: { ...fresh.marks, motto: "still terrible at replying", sealStyle: "wax", divider: "vine" } };
+  assert.equal(draftIsWorthKeeping(marked, fresh), true);
+  assert.deepEqual(mergeDraft(fresh, JSON.parse(JSON.stringify(marked))).marks, marked.marks);
+  const older: Record<string, unknown> = { ...marked };
+  delete older.marks;
+  assert.deepEqual(mergeDraft(fresh, JSON.parse(JSON.stringify(older))).marks, fresh.marks);
+  assert.equal(mergeDraft(fresh, { ...older, marks: { motto: 7, divider: "lace" } }).marks.divider, "lace");
+  assert.equal(mergeDraft(fresh, { ...older, marks: { motto: 7, divider: "lace" } }).marks.motto, "");
 });
 
 test("a kept draft comes back whole", () => {

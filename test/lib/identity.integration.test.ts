@@ -76,6 +76,29 @@ test("an unknown paper or an unreadable accent code is refused and changes nothi
   assert.equal((await groupOf(loop.groupId)).themeAccent, null);
 });
 
+test("the owner's marks save with the stationery, and a key that isn't ours is refused whole", async () => {
+  const loop = await seedLoop();
+  const marks = async () => {
+    const group = await groupOf(loop.groupId);
+    return { motto: group.motto, signOff: group.signOff, sealStyle: group.sealStyle, sealColor: group.sealColor, divider: group.divider, celebration: group.celebration };
+  };
+
+  assert.deepEqual(
+    await saveTheme(loop.groupId, { preset: "", accent: "", motto: " est.\n2019 ", signOff: "xo", sealStyle: "wax", sealColor: "plum", divider: "lace", celebration: "stars" }),
+    { ok: true, adjusted: false },
+  );
+  assert.deepEqual(await marks(), { motto: "est. 2019", signOff: "xo", sealStyle: "wax", sealColor: "plum", divider: "lace", celebration: "stars" });
+
+  // Left out is left alone; empty and the original wax are stored as nothing.
+  await saveTheme(loop.groupId, { preset: "", accent: "", signOff: "", sealColor: "cherry" });
+  assert.deepEqual(await marks(), { motto: "est. 2019", signOff: null, sealStyle: "wax", sealColor: null, divider: "lace", celebration: "stars" });
+
+  assert.deepEqual(await saveTheme(loop.groupId, { preset: "meadow", accent: "", divider: "url(evil)" }), { ok: false, error: "divider" });
+  assert.deepEqual(await saveTheme(loop.groupId, { preset: "meadow", accent: "", celebration: "fireworks" }), { ok: false, error: "celebration" });
+  assert.equal((await groupOf(loop.groupId)).themePreset, null, "nothing from a refused save is kept");
+  assert.equal((await marks()).divider, "lace");
+});
+
 test("a header picture is stored, replaced without leaving the old file, and cleared", async (t) => {
   const loop = await seedLoop();
   const first = await setHeaderImage(loop.groupId, { bytes: PNG, type: "image/png" });

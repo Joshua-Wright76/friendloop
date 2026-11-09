@@ -11,6 +11,7 @@ import type { QuestionPack } from "@/lib/question-packs";
 import { QuestionPackPicker } from "@/components/question-pack-picker";
 import { InviteParticipation, type Participation } from "@/components/invite-participation";
 import { PaperFields, type StationeryLooks } from "@/components/paper-fields";
+import { EMPTY_MARKS, type MarksDraft } from "@/components/mark-pickers";
 import { DEFAULT_BACKGROUND, DEFAULT_PAPER_PACK, DEFAULT_TAPE_PACK } from "@/lib/stationery";
 import { DEFAULT_MASCOT, stickerSrc } from "@/lib/stickers";
 import { LoopBanner } from "@/components/loop-theme";
@@ -138,6 +139,7 @@ function freshDraft(packs: QuestionPack[]): LoopDraft {
       tapePack: DEFAULT_TAPE_PACK,
       mascot: DEFAULT_MASCOT,
     },
+    marks: EMPTY_MARKS,
     hasPicture: false,
   };
 }
@@ -199,6 +201,7 @@ function Wizard({ packs, userId, onStartOver }: { packs: QuestionPack[]; userId:
   const [preset, setPreset] = useState(fresh.preset);
   const [accent, setAccent] = useState(fresh.accent);
   const [looks, setLooks] = useState<StationeryLooks>(fresh.looks);
+  const [marks, setMarks] = useState<MarksDraft>(fresh.marks);
   // Ready once whatever was kept on this device has been put back, so saving never
   // overwrites a kept draft with the empty wizard.
   const [ready, setReady] = useState(false);
@@ -254,6 +257,7 @@ function Wizard({ packs, userId, onStartOver }: { packs: QuestionPack[]; userId:
     preset,
     accent,
     looks,
+    marks,
     hasPicture: headerFile !== null,
   };
   const draftJson = JSON.stringify(draft);
@@ -282,6 +286,7 @@ function Wizard({ packs, userId, onStartOver }: { packs: QuestionPack[]; userId:
         setPreset(kept.preset);
         setAccent(kept.accent);
         setLooks(kept.looks);
+        setMarks(kept.marks);
         setResumed(true);
         void recallPicture(userId).then((file) => {
           if (!file || created.current) return;
@@ -503,11 +508,17 @@ function Wizard({ packs, userId, onStartOver }: { packs: QuestionPack[]; userId:
       <input type="hidden" name="paperPack" value={looks.paperPack} />
       <input type="hidden" name="tapePack" value={looks.tapePack} />
       <input type="hidden" name="mascot" value={looks.mascot} />
+      <input type="hidden" name="motto" value={marks.motto} />
+      <input type="hidden" name="signOff" value={marks.signOff} />
+      <input type="hidden" name="sealStyle" value={marks.sealStyle} />
+      <input type="hidden" name="sealColor" value={marks.sealColor} />
+      <input type="hidden" name="divider" value={marks.divider} />
+      <input type="hidden" name="celebration" value={marks.celebration} />
       {questions.map((question, index) => <input key={`${index}:${question}`} type="hidden" name="question" value={question} />)}
       {emails.map((email) => <input key={email} type="hidden" name="email" value={email} />)}
 
       {/* The chosen paper dresses the whole page straight away, so the choice is its own preview. */}
-      {step >= 1 ? <LivePaper settings={{ preset, accent: normalizeHex(accent), ...looks }} /> : null}
+      {step >= 1 ? <LivePaper settings={{ preset, accent: normalizeHex(accent), ...looks, divider: marks.divider || null }} /> : null}
       <div className="wizard-progress">
         <div className="wizard-progress__row">
           <span className="text-[13px] font-bold text-ink-soft">
@@ -638,6 +649,8 @@ function Wizard({ packs, userId, onStartOver }: { packs: QuestionPack[]; userId:
                 looks={looks}
                 onLooks={(change) => setLooks((current) => ({ ...current, ...change }))}
                 loopName={name || copy.newLoop.namePlaceholder}
+                marks={marks}
+                onMarks={(change) => setMarks((current) => ({ ...current, ...change }))}
               />
 
               <div className="mt-6 border-t border-dashed border-line pt-4">
@@ -811,6 +824,9 @@ function Wizard({ packs, userId, onStartOver }: { packs: QuestionPack[]; userId:
                   (copy.stationery.backgrounds as Record<string, string>)[looks.background],
                   (copy.stationery.packs as Record<string, { name: string }>)[looks.paperPack]?.name,
                   (copy.stickers as Record<string, string>)[looks.mascot],
+                  marks.sealStyle ? copy.stationery.seals[marks.sealStyle as keyof typeof copy.stationery.seals]?.name : null,
+                  marks.divider ? (copy.stationery.dividers as Record<string, string>)[marks.divider] : null,
+                  marks.celebration ? (copy.stationery.celebrations as Record<string, string>)[marks.celebration] : null,
                 ].filter(Boolean).join(" · ")}</dd></div>
                 <div><dt>{copy.newLoop.wizard.note.summaryQuestions}</dt><dd className="numeric">{questions.length === 1 ? copy.newLoop.wizard.note.summaryQuestionsOne : text(copy.newLoop.wizard.note.summaryQuestionsCount, { count: questions.length })}</dd></div>
                 <div><dt>{copy.newLoop.wizard.note.summaryInvites}</dt><dd className="numeric">{emails.length === 0 ? copy.newLoop.wizard.note.summaryInvitesNone : emails.length === 1 ? copy.newLoop.wizard.note.summaryInvitesOne : text(copy.newLoop.wizard.note.summaryInvitesCount, { count: emails.length })}</dd></div>
@@ -966,6 +982,7 @@ function Wizard({ packs, userId, onStartOver }: { packs: QuestionPack[]; userId:
               )}
             </span>
             <h3 className="mt-3 font-display text-[32px] font-bold leading-tight text-ink">{name || copy.newLoop.namePlaceholder}</h3>
+            {marks.motto.trim() ? <p className="loop-motto !p-0">{marks.motto.trim()}</p> : null}
             <p className="mt-1 text-[13px] font-bold text-ink-muted">{copy.common.brand}</p>
           </div>
           <p className="mt-5 border-y border-line py-3 text-[13px] leading-relaxed text-ink-soft">
@@ -998,6 +1015,7 @@ function Wizard({ packs, userId, onStartOver }: { packs: QuestionPack[]; userId:
               {personalNote.trim() || copy.newLoop.wizard.note.emptyNote}
             </p>
           </div>
+          {marks.signOff.trim() ? <p className="sign-off__words mt-5 text-center">{marks.signOff.trim()}</p> : null}
         </article>
       </AccessibleDialog>
     </form>

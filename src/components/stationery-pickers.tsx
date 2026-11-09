@@ -15,7 +15,7 @@ import { MASCOT_KEYS, stickerSrc } from "@/lib/stickers";
 import type { ResolvedTheme } from "@/lib/theme";
 
 /** The check every picked tile carries, so the choice is never down to colour alone. */
-function PickedMark() {
+export function PickedMark() {
   return (
     <span className="pick-mark" aria-hidden="true">
       <svg viewBox="0 0 20 20" className="h-3 w-3"><path d="m5 10.5 3.4 3.4L15 6.5" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" /></svg>
@@ -23,7 +23,7 @@ function PickedMark() {
   );
 }
 
-function Group({ legend, hint, children }: { legend: string; hint?: string; children: ReactNode }) {
+export function Group({ legend, hint, children }: { legend: string; hint?: string; children: ReactNode }) {
   return (
     <fieldset className="m-0 mt-5 min-w-0 border-0 p-0 first:mt-0">
       <legend className="mb-1 text-[13px] font-medium text-ink-soft">{legend}</legend>
