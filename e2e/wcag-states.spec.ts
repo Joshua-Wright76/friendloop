@@ -2,9 +2,9 @@ import { expect, test, type Page } from "@playwright/test";
 import { UI_PREVIEW } from "@/lib/ui-preview";
 import { resetDatabase } from "./support/db";
 import { ZOOM_400, axeProblems, focusedProblems, keyboardProblems, openAllDetails, reflowProblems, textSpacingProblems, type Problems } from "./support/wcag";
-
 import { copy, copyPattern } from "@/lib/copy";
 import { triggerName } from "./support/harness";
+
 /**
  * WCAG 2.2 AA in the states a plain page load never reaches: an open dialog, a
  * popup, each step of the setup wizard, every disclosure expanded. The sweep in

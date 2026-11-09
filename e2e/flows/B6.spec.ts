@@ -24,7 +24,7 @@ test("B6 · a link nobody opened for months still opens the sheet and takes an a
   await waitForSheet(page);
   await expect(page.getByText(/expired/i)).toHaveCount(0);
   await page.getByLabel(copy.questionPacks[0].questions[0]).fill("Better late than never.");
-  await expect(page.getByText(copy.reply.nameSaved, { exact: true })).toBeVisible();
+  await expect(page.getByText(copy.reply.questionStates.saved, { exact: true })).toBeVisible();
 
   const [written] = await rows<{ count: number }>(
     "select count(*)::int as count from replies r join memberships m on m.id = r.membership_id where m.email = 'slow@friendloop.test'",

@@ -14,7 +14,7 @@ import {
   signInEmail,
 } from "./templates.ts";
 import { emailPatternTiles } from "../stationery.ts";
-import { copy, text, copyPattern } from "../copy.ts";
+import { copy, text, copyPattern, text as copyText } from "../copy.ts";
 
 test("sign-in email carries the link and the code, and says how long both last", () => {
   const email = signInEmail("https://friendloop.dev/signin/confirm?token=test", "042917");
@@ -216,7 +216,7 @@ test("the delivery email asks each question once and shows a poll's results once
   assert.match(email.html, /Dev[\s\S]*The cat\.[\s\S]*Sam[\s\S]*The geese\./);
   const line = (author: string, body: string) => text(copy.emails.delivery.textAnswer, { author, body });
   assert.ok(email.text.includes(`What made you laugh?\n${line("Dev", "The cat.")}\n${line("Sam", "The geese.")}`));
-  assert.ok(email.text.includes(`Where should we camp?\n${results}\n${line("Dev", "Chose: The lake")}\n${line("Sam", "Chose: The lake")}`));
+  assert.ok(email.text.includes(`Where should we camp?\n${results}\n${line("Dev", copyText(copy.polls.emails.chose, { choices: "The lake" }))}\n${line("Sam", "Chose: The lake")}`));
 });
 
 test("a music pick's link says where it opens", () => {
@@ -245,7 +245,7 @@ test("a written answer's music link goes out with it, in HTML and plain text", (
     ],
   });
   assert.match(email.html, /This, all week\.[\s\S]*<strong>Summer &lt;3<\/strong> <a href="https:\/\/open\.spotify\.com\/playlist\/abc"[^>]*>Open in Spotify<\/a>/);
-  assert.equal(email.html.split("Open in Spotify").length - 1, 1);
+  assert.equal(email.html.split(copyText(copy.emails.openIn, { provider: copy.emails.musicProviders.spotify })).length - 1, 1);
   assert.ok(email.text.includes("Dev: This, all week. https://open.spotify.com/playlist/abc\nSam: Nothing new."));
 });
 

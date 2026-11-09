@@ -1127,7 +1127,7 @@
     "voiceMicBusy": "Another app is using the microphone. Close it and try again, or attach an audio file instead.",
     "voiceDurationLabel": "Voice note, {duration}",
     "voiceFormats": "m4a, mp3, webm, or ogg, up to 3 minutes.",
-    "sectionDraftSaved": "Saved",
+    "sectionDraftSaved": "Saved.",
     "sectionSaving": "Saving…",
     "sectionCaptionLabel": "Caption (optional)",
     "sectionCaptionPlaceholder": "One line about it",

@@ -84,17 +84,17 @@ test("D5 · someone signed in on their own link can go on to the loop", async ({
   // Someone else's link, even opened while signed in, offers no way into the loop.
   await page.goto(`/r/${alice.token}`);
   await waitForSheet(page);
-  await page.getByLabel("What made you laugh this week?").fill("Not mine to write.");
-  await page.getByRole("button", { name: "Done", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "All set", exact: true })).toBeVisible();
+  await page.getByLabel(copy.questionPacks[0].questions[0]).fill("Not mine to write.");
+  await page.getByRole("button", { name: copy.reply.done, exact: true }).click();
+  await expect(page.getByRole("heading", { name: copy.reply.confirmation.title, exact: true })).toBeVisible();
   await expect(page.getByRole("link", { name: /^Go to / })).toHaveCount(0);
 
   // Their own link does, and it lands on the loop.
   await page.goto(`/r/${loop.ownerToken}`);
   await waitForSheet(page);
-  await page.getByLabel("What made you laugh this week?").fill("My own words.");
-  await page.getByRole("button", { name: "Done", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "All set", exact: true })).toBeVisible();
+  await page.getByLabel(copy.questionPacks[0].questions[0]).fill("My own words.");
+  await page.getByRole("button", { name: copy.reply.done, exact: true }).click();
+  await expect(page.getByRole("heading", { name: copy.reply.confirmation.title, exact: true })).toBeVisible();
   await page.getByRole("link", { name: /^Go to / }).click();
   await expect(page).toHaveURL(new RegExp(`/g/${loop.groupId}$`));
 });

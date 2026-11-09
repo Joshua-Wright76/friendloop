@@ -35,7 +35,7 @@ test("D4 · typing saves the answer into the round, and it survives a reload", a
 
   const answer = page.getByLabel(copy.questionPacks[0].questions[0]);
   await answer.fill("The dog, the baguette, the whole thing.");
-  await expect(page.getByText(copy.reply.nameSaved, { exact: true })).toBeVisible();
+  await expect(page.getByText(copy.reply.questionStates.saved, { exact: true })).toBeVisible();
   await expect(page.locator("[data-save-status]")).toHaveText(copy.reply.savedInRound);
   // Nothing else to press: what is saved is an answer.
   await expect(page.getByRole("button", { name: /^Send (new )?answers$/ })).toHaveCount(0);

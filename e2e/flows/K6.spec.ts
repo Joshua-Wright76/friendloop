@@ -30,7 +30,7 @@ test("K6 · a delivered issue renders a music card that opens the provider", asy
   await page.getByPlaceholder(copy.reply.sectionMusicPlaceholder).fill(link);
   await page.getByLabel(copy.reply.sectionMusicCaptionLabel).first().fill("Our road trip record");
   await page.getByLabel(copy.reply.sectionMusicCaptionLabel).first().blur();
-  await expect(page.getByText(copy.reply.nameSaved, { exact: true }).first()).toBeVisible();
+  await expect(page.getByText(copy.reply.sectionDraftSaved, { exact: true }).first()).toBeVisible();
 
   await page.getByRole("button", { name: copy.reply.done, exact: true }).click();
   await expect(page.getByRole("heading", { name: copy.reply.confirmation.title, exact: true })).toBeVisible();
