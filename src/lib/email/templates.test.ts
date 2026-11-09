@@ -4,6 +4,7 @@ import path from "node:path";
 import test from "node:test";
 import {
   deliveryEmail,
+  emailMarksOf,
   emailThemeOf,
   inviteEmail,
   joinEmail,
@@ -320,4 +321,74 @@ test("a charm sits beside the name in the answers, and never in the plain text",
   assert.match(email.html, /Dee <img src="http[^"]*\/stickers\/png\/moon\.png" alt=""/);
   assert.doesNotMatch(email.html, /not-a-charm/);
   assert.doesNotMatch(email.text, /frog|moon/);
+});
+
+/* ------------------------------ the owner's marks ----------------------------- */
+
+const ROUND = { number: 14, deliveredAt: new Date("2026-11-08T03:00:00Z") };
+const LOOP = { themePreset: null, themeMascot: "frog", timezone: "America/Los_Angeles" };
+const delivered = (marks?: ReturnType<typeof emailMarksOf>) =>
+  deliveryEmail({
+    groupName: "Friday Loop",
+    issueNumber: 14,
+    url: "https://friendloop.dev/i/123",
+    answers: [
+      { question: "How was it?", author: "Alice", body: "Good." },
+      { question: "How was it?", author: "Bob", body: "Fine." },
+    ],
+    theme: emailThemeOf({ themePreset: null, themeAccent: null, themeBackground: null, headerImageUrl: null, themeMascot: "frog" }),
+    marks,
+  });
+
+test("a loop that chose no marks gets exactly the round email it always did", () => {
+  const none = emailMarksOf({ ...LOOP }, ROUND, { number: 15, deliversAt: new Date("2026-11-15T17:00:00Z") });
+  assert.deepEqual(none, { motto: null, signOff: null, nextLine: null, seal: null, divider: null });
+  assert.equal(delivered(none).html, delivered().html);
+  assert.equal(delivered(none).text, delivered().text);
+});
+
+test("the motto sits under the loop's name, in the hand and the accent, escaped, and in the plain text", () => {
+  const email = delivered(emailMarksOf({ ...LOOP, motto: "est. 2019 <still> terrible" }, ROUND, null));
+  assert.match(email.html, /Friday Loop<\/td><\/tr>\n<tr><td style="padding:0 8px 20px;font:700 17px\/1\.3 'Noteworthy'[^"]*;color:#cc3456">est\. 2019 &lt;still&gt; terrible<\/td><\/tr>/);
+  assert.ok(email.html.indexOf("est. 2019") < email.html.indexOf("<h1"));
+  assert.match(email.text, /^Friday Loop · round 14\nest\. 2019 <still> terrible\n/);
+});
+
+test("a wax seal tops the round's card as a picture of this mascot in this wax", () => {
+  const email = delivered(emailMarksOf({ ...LOOP, sealStyle: "wax", sealColor: "moss" }, ROUND, null));
+  assert.match(email.html, /<img src="http[^"]*\/seals\/wax-frog-moss\.png" alt="" width="72" height="72"/);
+  assert.ok(email.html.indexOf("wax-frog-moss") < email.html.indexOf("<h1"));
+  // No wax chosen is cherry; no mascot is the cherries.
+  const plain = emailMarksOf({ themePreset: null, themeMascot: null, timezone: "UTC", sealStyle: "wax" }, ROUND, null);
+  assert.deepEqual(plain.seal, { kind: "wax", src: "/seals/wax-cherries-cherry.png" });
+});
+
+test("a postmark is the mascot's stamp with the round and the loop's own day written beside it", () => {
+  const email = delivered(emailMarksOf({ ...LOOP, sealStyle: "postmark" }, ROUND, null));
+  assert.match(email.html, /<img src="http[^"]*\/seals\/stamp-frog\.png" alt="" width="52" height="62"/);
+  // Delivered at 03:00 UTC on the 8th: the 7th in Los Angeles.
+  assert.match(email.html, /border-radius:50%[^>]*>Round 14<br \/><span style="font-size:13px">7 NOV<\/span><br \/>2026<\/td>/);
+});
+
+test("a divider runs between answers as its preset's strip; the first answer has none", () => {
+  const email = delivered(emailMarksOf({ ...LOOP, themePreset: "meadow", divider: "ricrac" }, ROUND, null));
+  const strips = email.html.match(/\/dividers\/email\/ricrac-meadow\.png/g) ?? [];
+  assert.equal(strips.length, 1);
+  assert.match(email.html, /height:12px;[^"]*background-image:url\('http[^']*\/dividers\/email\/ricrac-meadow\.png'\);background-repeat:repeat-x/);
+  assert.doesNotMatch(email.html, /border-top:1px dashed #f1dae0;padding-top:14px/);
+});
+
+test("the sign-off closes the round with the mascot and when the next one goes out, in HTML and plain text", () => {
+  const next = { number: 15, deliversAt: new Date("2026-11-20T17:00:00Z") };
+  const email = delivered(emailMarksOf({ ...LOOP, signOff: "xo, the <Friday> crew" }, ROUND, next));
+  assert.match(email.html, /\/stickers\/png\/frog\.png[\s\S]*xo, the &lt;Friday&gt; crew<\/p><p[^>]*>Round 15 goes out Fri 20 Nov\.<\/p>/);
+  assert.ok(email.html.indexOf("xo, the") > email.html.indexOf("Bob"));
+  assert.ok(email.html.indexOf("xo, the") < email.html.indexOf("open the round to read and comment"));
+  assert.match(email.text, /Bob: Fine\.\n\nxo, the <Friday> crew\nRound 15 goes out Fri 20 Nov\./);
+  // Without a next round to promise, the sign-off stands alone.
+  const alone = delivered(emailMarksOf({ ...LOOP, signOff: "xo" }, ROUND, null));
+  assert.doesNotMatch(alone.html, /goes out/);
+  assert.match(alone.text, /Bob: Fine\.\n\nxo$/m);
+  // A next round with no sign-off says nothing extra.
+  assert.equal(emailMarksOf({ ...LOOP }, ROUND, next).nextLine, null);
 });

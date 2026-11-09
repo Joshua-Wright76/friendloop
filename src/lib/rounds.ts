@@ -4,7 +4,7 @@ import { groups, issueQuestions, issues, memberships, musicLinks, replies, reply
 import { carriedOver, groupSchedule, nextSlot } from "./schedule";
 import { sendEmail } from "./email/send";
 import { mailDeadline, roundAsks, sendPromptEmails } from "./notify";
-import { deliveryEmail, emailThemeOf, pausedEmail, type AnswerBlock } from "./email/templates";
+import { deliveryEmail, emailMarksOf, emailThemeOf, pausedEmail, type AnswerBlock } from "./email/templates";
 import { tallyPoll } from "./poll";
 import { replyHasContentCondition } from "./reply-query";
 import { isSectionLike } from "./asks";
@@ -268,6 +268,9 @@ export async function deliverRound(input: { issue: IssueRow; at: Date; early?: b
     .leftJoin(users, eq(users.id, memberships.userId))
     .where(and(eq(memberships.groupId, group.id), isNull(memberships.revokedAt)));
 
+  // The owner's motto, seal, divider and sign-off: the same for everyone, so made once.
+  const marks = emailMarksOf(group, { number: issue.number, deliveredAt: at }, next);
+
   for (const member of everyone) {
     const nextQuestions = nextAsks ? nextAsks(member) : [];
     // Rendered per member: the issue link, the next round's link and the "stop emails" link are theirs.
@@ -295,6 +298,7 @@ export async function deliverRound(input: { issue: IssueRow; at: Date; early?: b
           : undefined,
       theme: emailThemeOf(group),
       unsubscribeUrl: unsubscribeUrl(member.unsubscribeToken),
+      marks,
     });
     await sendEmail({
       ...rendered,

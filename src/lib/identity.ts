@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { groups, issues, memberships } from "@/db/schema";
 import { copy } from "./copy.ts";
 import { cleanIssueName } from "./issue-name.ts";
+import { marksColumns, type LoopMarks, type MarksInput } from "./looks.ts";
 import { deleteStoredPhoto, storePhoto } from "./photo-storage.ts";
 import { MAX_AVATAR_BYTES, MAX_BANNER_BYTES, validatePhoto } from "./photo-validation.ts";
 import {
@@ -57,7 +58,7 @@ async function discard(url: string | null | undefined) {
 /* ------------------------------ themes ------------------------------ */
 
 /** Left out means "leave it as it is"; the wizard and the older callers only send what they mean to change. */
-export type ThemeInput = {
+export type ThemeInput = MarksInput & {
   preset: string;
   accent: string;
   background?: string;
@@ -68,7 +69,7 @@ export type ThemeInput = {
 
 export type ThemeResult =
   | { ok: true; adjusted: boolean }
-  | { ok: false; error: "preset" | "accent" | "background" | "paperPack" | "tapePack" | "mascot" };
+  | { ok: false; error: "preset" | "accent" | "background" | "paperPack" | "tapePack" | "mascot" | keyof LoopMarks };
 
 /** The stationery that isn't colour: which column, how to recognise a good key, and which key means "the original". */
 const STATIONERY_CHOICES = [
@@ -98,8 +99,9 @@ export function stationeryColumns(input: Partial<Record<StationeryChoice["input"
 }
 
 /**
- * Save the owner's stationery. Gingham with no accent is stored as nothing at
- * all, so "back to the original" and "never changed it" are the same row.
+ * Save the owner's stationery and their marks on every round. Gingham with no accent
+ * is stored as nothing at all, so "back to the original" and "never changed it" are
+ * the same row, and a mark that isn't one of ours is refused before anything is saved.
  */
 export async function saveTheme(groupId: string, input: ThemeInput): Promise<ThemeResult> {
   if (input.preset !== "" && !isPresetKey(input.preset)) return { ok: false, error: "preset" };
@@ -108,9 +110,11 @@ export async function saveTheme(groupId: string, input: ThemeInput): Promise<The
 
   const chosen = stationeryColumns(input);
   if (!chosen.ok) return chosen;
+  const marks = marksColumns(input);
+  if (!marks.ok) return marks;
 
   const preset = !input.preset || input.preset === DEFAULT_PRESET ? null : input.preset;
-  await db.update(groups).set({ themePreset: preset, themeAccent: accent, ...chosen.columns }).where(eq(groups.id, groupId));
+  await db.update(groups).set({ themePreset: preset, themeAccent: accent, ...chosen.columns, ...marks.columns }).where(eq(groups.id, groupId));
 
   return { ok: true, adjusted: resolveTheme({ preset, accent })?.adjusted ?? false };
 }

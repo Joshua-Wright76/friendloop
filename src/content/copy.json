@@ -1275,7 +1275,8 @@
     "whoseAnswerNumbered": "{author}'s answer to question {number}",
     "yourAnswerNumbered": "your answer to question {number}",
     "reactMoreTo": "Add a reaction to {whose}",
-    "commentButtonNamed": "{label}: {whose}"
+    "commentButtonNamed": "{label}: {whose}",
+    "signOffNext": "{round} goes out {date}."
   },
   "share": {
     "eyebrow": "Fresh from the loop",
@@ -1757,7 +1758,62 @@
     "mascotHint": "Stands in for the cherries on this loop's pages and in its emails.",
     "mascotPreviewHeader": "In the header",
     "mascotPreviewEmail": "In an email",
-    "mascotPreviewSubject": "Round 12 is here"
+    "mascotPreviewSubject": "Round 12 is here",
+    "wordsLegend": "Motto and sign-off",
+    "mottoLabel": "Motto",
+    "mottoHint": "A line under the loop's name on every round and in its email.",
+    "mottoPlaceholder": "est. 2019 · still terrible at replying",
+    "signOffLabel": "Sign-off",
+    "signOffHint": "The last line of every round, beside the mascot.",
+    "signOffPlaceholder": "xo, the Tuesday crew",
+    "wordsBlank": "Leave either one blank and nothing shows.",
+    "sealLegend": "Seal",
+    "sealHint": "Pressed at the top of every round that goes out, on the web and in the email.",
+    "seals": {
+      "none": {
+        "name": "No seal",
+        "description": "The round as it is today."
+      },
+      "wax": {
+        "name": "Wax seal",
+        "description": "Pressed with the mascot."
+      },
+      "postmark": {
+        "name": "Postmark",
+        "description": "A stamp, inked with the round and the day it went out."
+      }
+    },
+    "waxLegend": "Wax color",
+    "waxes": {
+      "cherry": "Cherry",
+      "moss": "Moss",
+      "midnight": "Midnight",
+      "honey": "Honey",
+      "plum": "Plum",
+      "ink": "Ink"
+    },
+    "dividerLegend": "Divider",
+    "dividerHint": "The line between answers on a round, drawn in the loop's colors.",
+    "dividers": {
+      "stitches": "Stitches",
+      "ricrac": "Ric-rac",
+      "lace": "Lace",
+      "vine": "Vine",
+      "ticket": "Ticket stub",
+      "pinking": "Pinking shears"
+    },
+    "celebrationLegend": "When someone sends",
+    "celebrationHint": "A little moment on screen when someone finishes their answers. If their device asks for less motion, they just see the check mark.",
+    "celebrations": {
+      "none": "Just the check mark",
+      "confetti": "Confetti burst",
+      "petals": "Falling petals",
+      "stars": "Shooting stars",
+      "hop": "Mascot hop",
+      "envelope": "Envelope flies off"
+    },
+    "celebrationPlay": "Play it again",
+    "wordsNone": "None"
   },
   "events": {
     "birthdayRow": "{name}'s birthday",

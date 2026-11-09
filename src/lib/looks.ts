@@ -21,7 +21,6 @@ export const STATUS_LINE_MAX = 60;
  */
 export function cleanLine(value: unknown, max: number): string | null {
   if (typeof value !== "string") return null;
-  // eslint-disable-next-line no-control-regex -- Removing control characters is the point.
   const folded = value.replace(/[\u0000-\u001f\u007f]+/g, " ").replace(/\s+/g, " ").trim();
   const line = [...folded].slice(0, max).join("").trim();
   return line ? line : null;
@@ -69,6 +68,68 @@ export const CELEBRATION_KEYS: readonly string[] = ["confetti", "petals", "stars
 
 export function isCelebrationKey(value: unknown): value is string {
   return typeof value === "string" && CELEBRATION_KEYS.includes(value);
+}
+
+/* ---------------------------- the owner's marks --------------------------- */
+
+/**
+ * What an owner adds to every round: a motto and a sign-off, a seal or postmark
+ * (with its wax), a divider and a send celebration. Null in every place is the round
+ * as it has always been.
+ */
+export type LoopMarks = {
+  motto: string | null;
+  signOff: string | null;
+  sealStyle: string | null;
+  sealColor: string | null;
+  divider: string | null;
+  celebration: string | null;
+};
+
+export const NO_MARKS: LoopMarks = { motto: null, signOff: null, sealStyle: null, sealColor: null, divider: null, celebration: null };
+
+/**
+ * A loop's marks as they're safe to show: text cleaned again on the way out, and a
+ * key that isn't one of ours read as no choice at all, so a bad row can't reach a
+ * class name or an image address.
+ */
+export function marksOf(group: Partial<LoopMarks>): LoopMarks {
+  return {
+    motto: cleanLine(group.motto, MOTTO_MAX),
+    signOff: cleanLine(group.signOff, SIGN_OFF_MAX),
+    sealStyle: isSealStyle(group.sealStyle) ? group.sealStyle : null,
+    sealColor: isWaxColor(group.sealColor) && group.sealColor !== DEFAULT_WAX ? group.sealColor : null,
+    divider: isDividerKey(group.divider) ? group.divider : null,
+    celebration: isCelebrationKey(group.celebration) ? group.celebration : null,
+  };
+}
+
+/** Left out means "leave it"; empty means none (or the original, for the wax). */
+export type MarksInput = Partial<Record<keyof LoopMarks, string>>;
+
+const MARK_KEYS: Array<{ input: Exclude<keyof LoopMarks, "motto" | "signOff">; isKey: (value: unknown) => boolean; original?: string }> = [
+  { input: "sealStyle", isKey: isSealStyle },
+  { input: "sealColor", isKey: isWaxColor, original: DEFAULT_WAX },
+  { input: "divider", isKey: isDividerKey },
+  { input: "celebration", isKey: isCelebrationKey },
+];
+
+/**
+ * The owner's marks as columns, or the first one that isn't ours. Words are cleaned
+ * to one short line (blank is none); a key must be from its table, and anything else
+ * is refused whole rather than stored.
+ */
+export function marksColumns(input: MarksInput): { ok: true; columns: Partial<LoopMarks> } | { ok: false; error: keyof LoopMarks } {
+  const columns: Partial<LoopMarks> = {};
+  if (input.motto !== undefined) columns.motto = cleanLine(input.motto, MOTTO_MAX);
+  if (input.signOff !== undefined) columns.signOff = cleanLine(input.signOff, SIGN_OFF_MAX);
+  for (const mark of MARK_KEYS) {
+    const value = input[mark.input];
+    if (value === undefined) continue;
+    if (value !== "" && !mark.isKey(value)) return { ok: false, error: mark.input };
+    columns[mark.input] = value === "" || value === mark.original ? null : value;
+  }
+  return { ok: true, columns };
 }
 
 /* ------------------------------ round covers ----------------------------- */

@@ -352,6 +352,20 @@ export async function issueGroupId(issueId: string): Promise<string | null> {
   return row?.groupId ?? null;
 }
 
+/**
+ * The round a loop is taking answers for, and when it goes out: what a sign-off can
+ * promise next. Nothing while the loop is paused, since nothing goes out then.
+ */
+export async function nextRoundFor(groupId: string): Promise<{ number: number; deliversAt: Date } | null> {
+  const [row] = await db
+    .select({ number: issues.number, deliversAt: issues.deliversAt })
+    .from(issues)
+    .innerJoin(groups, eq(groups.id, issues.groupId))
+    .where(and(eq(issues.groupId, groupId), eq(issues.status, "open"), isNull(groups.pausedAt)))
+    .limit(1);
+  return row ?? null;
+}
+
 /** Who is looking: a signed-in member, or the token in the delivery link. */
 export async function membershipForViewer(input: {
   groupId: string;

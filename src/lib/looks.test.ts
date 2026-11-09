@@ -8,8 +8,11 @@ import {
   SEAL_STYLES,
   SIGNATURE_BOARD,
   WAX_COLOR_KEYS,
+  NO_MARKS,
   cleanLine,
   cleanPlacement,
+  marksColumns,
+  marksOf,
   isCelebrationKey,
   isCoverTint,
   isDividerKey,
@@ -73,5 +76,32 @@ test("a sticker placement stays in the margins", () => {
   assert.deepEqual(cleanPlacement({ side: "right", offset: 12.4, tilt: 3.6 }), { side: "right", offset: 12, tilt: 4 });
   for (const bad of [null, "x", { side: "top", offset: 1, tilt: 1 }, { side: "left", offset: "1", tilt: 1 }, { side: "left", offset: 1, tilt: NaN }]) {
     assert.equal(cleanPlacement(bad), null, JSON.stringify(bad));
+  }
+});
+
+test("a loop's marks are read back safe: clean words, and only our own keys", () => {
+  assert.deepEqual(marksOf({}), NO_MARKS);
+  assert.deepEqual(
+    marksOf({ motto: "  est.\n2019 ", signOff: "xo", sealStyle: "wax", sealColor: "moss", divider: "lace", celebration: "hop" }),
+    { motto: "est. 2019", signOff: "xo", sealStyle: "wax", sealColor: "moss", divider: "lace", celebration: "hop" },
+  );
+  // Cherry is the original wax, and anything not in a table is no choice at all.
+  assert.deepEqual(
+    marksOf({ motto: "   ", sealStyle: "ribbon", sealColor: "cherry", divider: "<b>", celebration: "fireworks" }),
+    NO_MARKS,
+  );
+  assert.equal(marksOf({ sealColor: "teal" }).sealColor, null);
+});
+
+test("marks become columns: words cleaned, originals stored as nothing, strangers refused", () => {
+  assert.deepEqual(marksColumns({}), { ok: true, columns: {} });
+  assert.deepEqual(
+    marksColumns({ motto: " still\tterrible ", signOff: "", sealStyle: "postmark", sealColor: "cherry", divider: "", celebration: "stars" }),
+    { ok: true, columns: { motto: "still terrible", signOff: null, sealStyle: "postmark", sealColor: null, divider: null, celebration: "stars" } },
+  );
+  assert.deepEqual(marksColumns({ sealColor: "ink", divider: "ticket" }), { ok: true, columns: { sealColor: "ink", divider: "ticket" } });
+  assert.equal(marksColumns({ motto: "x".repeat(200) }).ok && (marksColumns({ motto: "x".repeat(200) }) as { columns: { motto: string } }).columns.motto.length, 60);
+  for (const [field, bad] of [["sealStyle", "ribbon"], ["sealColor", "teal"], ["divider", "url(x)"], ["celebration", "fireworks"]] as const) {
+    assert.deepEqual(marksColumns({ [field]: bad }), { ok: false, error: field });
   }
 });
