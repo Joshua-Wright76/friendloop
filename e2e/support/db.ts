@@ -29,6 +29,8 @@ const TABLES = [
   "media_deletions",
   "outbox",
   "unify_ids",
+  "issue_stickers",
+  "issue_status_lines",
   "reply_media",
   "section_media",
   "section_replies",
