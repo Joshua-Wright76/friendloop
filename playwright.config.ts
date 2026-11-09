@@ -91,8 +91,8 @@ export default defineConfig({
               ? `rm -rf .next/cache && npm run build && node scripts/e2e-build.mjs mark && npx next start -p ${port}`
               : `npx next start -p ${port}`,
           url: `http://localhost:${port}`,
-          // Local opt-in only: production probes have no webServer at all.
-          reuseExistingServer: process.env.E2E_REUSE_SERVER === "1",
+          // Skipped-build local opt-in only: normal runs must always rebuild.
+          reuseExistingServer: process.env.E2E_SKIP_BUILD === "1" && process.env.E2E_REUSE_SERVER === "1",
           timeout: index === 0 && process.env.E2E_SKIP_BUILD !== "1" ? 180_000 : 60_000,
           env: {
             E2E: "1",

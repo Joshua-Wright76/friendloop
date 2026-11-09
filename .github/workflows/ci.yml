@@ -115,6 +115,7 @@ jobs:
             !.next/cache/
             !.next/dev/
           if-no-files-found: error
+          include-hidden-files: true
           retention-days: 1
 
   # The suite runs one test at a time (every test truncates the same database),
