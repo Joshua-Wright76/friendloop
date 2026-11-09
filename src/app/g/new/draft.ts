@@ -113,7 +113,8 @@ export function draftIsWorthKeeping(draft: LoopDraft, fresh: LoopDraft): boolean
   return draft.step > 0 || choices(draft) !== choices(fresh);
 }
 
-// The header picture is a file, which localStorage can't hold, so it waits in IndexedDB.
+// The header picture is a file, which localStorage can't hold, so it waits in IndexedDB,
+// as its bytes: Safari's private windows refuse to store a Blob there, but not bytes.
 const DB_NAME = "friendloop-drafts";
 const STORE = "pictures";
 
@@ -140,13 +141,20 @@ async function withStore<T>(mode: IDBTransactionMode, ask: (store: IDBObjectStor
   }
 }
 
+type KeptPicture = { bytes: ArrayBuffer; name: string; type: string };
+
 export async function keepPicture(userId: string, file: File) {
-  await withStore("readwrite", (store) => store.put(file, userId));
+  const kept: KeptPicture = { bytes: await file.arrayBuffer(), name: file.name, type: file.type };
+  await withStore("readwrite", (store) => store.put(kept, userId));
 }
 
 export async function recallPicture(userId: string): Promise<File | null> {
   const kept = await withStore<unknown>("readonly", (store) => store.get(userId));
-  return kept instanceof Blob ? new File([kept], (kept as File).name || "header", { type: kept.type }) : null;
+  // A picture kept before it went in as bytes is still a Blob.
+  if (kept instanceof Blob) return new File([kept], (kept as File).name || "header", { type: kept.type });
+  if (!kept || typeof kept !== "object" || !((kept as KeptPicture).bytes instanceof ArrayBuffer)) return null;
+  const { bytes, name, type } = kept as KeptPicture;
+  return new File([bytes], name || "header", { type });
 }
 
 export async function forgetPicture(userId: string) {

@@ -1584,8 +1584,9 @@ html[data-theme="dark"] .sticker-picker::backdrop { background: rgb(6 3 5 / .68)
    sticker straddles the card's edge, so it only ever covers the card's padding.
    ------------------------------------------------------------------------------ */
 .scrap-host { position: relative; }
-/* A sticker hangs past the card into the page's gutter; on a phone that's the screen's edge, which it mustn't widen. */
-html:has(.scrap-layer) { overflow-x: clip; }
+/* A sticker hangs past the card into the page's gutter; on a phone that's the screen's edge, which it mustn't widen.
+   Clipped on the page's wrapper, not <html>: Safari still scrolls sideways when the root clips. */
+#main-content:has(.scrap-layer) { overflow-x: clip; }
 /*
  * The card's padding: 36px on the ruled side (.paper), 20px on the other. A sticker
  * reaches `--scrap-in` into it, which leaves room for its tilt before any words.
