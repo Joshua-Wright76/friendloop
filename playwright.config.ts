@@ -13,6 +13,10 @@ import { validateBuild } from "./e2e/support/build";
  */
 // `scripts/e2e-db.mjs run` picks free ports so several suites can run at once.
 const isProd = Boolean(process.env.E2E_BASE_URL);
+// Keep the public build value stable when local servers use fresh random ports;
+// appUrl() uses each server's runtime E2E_APP_URL for actual links.
+const BUILD_APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3100";
+if (!isProd) process.env.NEXT_PUBLIC_APP_URL = BUILD_APP_URL;
 if (!isProd && process.env.E2E_SKIP_BUILD === "1") validateBuild();
 // Playwright loads this file again inside each worker, which is how a worker finds its own server.
 const worker = currentWorker();
@@ -107,7 +111,7 @@ export default defineConfig({
             DATABASE_URL: workerDatabaseUrl(BASE_DATABASE_URL, index),
             // NEXT_PUBLIC_ values are fixed at build time, and this differs per server.
             E2E_APP_URL: `http://localhost:${port}`,
-            NEXT_PUBLIC_APP_URL: `http://localhost:${workerPort(0)}`,
+            NEXT_PUBLIC_APP_URL: BUILD_APP_URL,
           },
         };
       }),

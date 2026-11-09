@@ -29,7 +29,7 @@ async function build() {
       ?? "whsec_ZTJlLXJlc2VuZC13ZWJob29rLXNlY3JldA==",
     DATABASE_URL: process.env.TEST_DATABASE_URL,
     E2E_APP_URL: `http://localhost:${port}`,
-    NEXT_PUBLIC_APP_URL: `http://localhost:${port}`,
+    NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL ?? `http://localhost:${port}`,
   });
   const { resetSchema, migrate } = await import("../e2e/support/db.ts");
   await resetSchema();
@@ -52,6 +52,9 @@ if (isMain) {
   const command = process.argv[2] ?? "build";
   if (command === "build") await build();
   else if (command === "mark") writeBuildMetadata();
-  else if (command === "validate") validateBuild();
+  else if (command === "validate") {
+    process.env.NEXT_PUBLIC_APP_URL ??= `http://localhost:${process.env.E2E_PORT ?? 3100}`;
+    validateBuild();
+  }
   else throw new Error(`Unknown e2e build command: ${command}`);
 }

@@ -234,8 +234,21 @@ production servers.
 
 For repeated runs with fixed ports and a **persistent disposable** database,
 `E2E_REUSE_SERVER=1` additionally lets Playwright reuse local production servers
-that you start and stop separately. For example, with one worker's server
-already listening on port 3100:
+that you start and stop separately. After `npm run e2e` has recorded the current
+build, start a one-worker server in a separate terminal with the complete runtime
+environment (Playwright cannot retrofit env into an already-running process):
+
+```sh
+DATABASE_URL=postgresql://postgres@127.0.0.1:55432/friendloop_test \
+E2E=1 EMAIL_TRANSPORT=outbox \
+RESEND_API_KEY=re_e2e_fake_key RESEND_BASE_URL=http://127.0.0.1:3101/w0 \
+UI_PREVIEW_SECRET=e2e-preview-secret CRON_SECRET=e2e-cron-secret \
+RESEND_WEBHOOK_SECRET=whsec_ZTJlLXJlc2VuZC13ZWJob29rLXNlY3JldA== \
+E2E_APP_URL=http://localhost:3100 NEXT_PUBLIC_APP_URL=http://localhost:3100 \
+npx next start -p 3100
+```
+
+Then run Playwright against it:
 
 ```sh
 TEST_DATABASE_URL=postgresql://postgres@127.0.0.1:55432/friendloop_test \
@@ -247,7 +260,9 @@ Playwright still stops any server it starts itself; this option does not
 daemonize one. It is deliberately separate from `E2E_BASE_URL`, which remains
 the read-only production-probe target. Restart reused servers after rebuilding
 or changing server environment, and stop them when finished. Ordinary e2e runs
-never reuse servers.
+never reuse servers. Externally supplied databases are not dropped on exit:
+after stopping the server, drop the persistent disposable base database and any
+additional worker databases yourself.
 
 ### Accessibility: WCAG 2.2 AA
 
