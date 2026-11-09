@@ -9,7 +9,10 @@ import { CopyLink } from "@/components/copy-link";
 import { NoticeFocus } from "@/components/notice-focus";
 import { formatDate, listNames } from "@/lib/format";
 import { copy, text } from "@/lib/copy";
-import { issueTitle, MAX_ISSUE_NAME } from "@/lib/issue-name";
+import { issueTitle } from "@/lib/issue-name";
+import { coverOf } from "@/lib/looks";
+import { ZineCover } from "@/components/round-cover";
+import { RoundNameFields } from "./round-name-fields";
 import { renameIssueAction } from "./actions";
 import { useLoopData } from "../loop-data";
 import { SubmitButton } from "@/components/submit-button";
@@ -78,11 +81,15 @@ export default function IssuesTab({
       {notices.sent ? <NoticeFocus>{text(copy.rounds.sentNotice, { number: notices.sent, next: notices.next ?? Number(notices.sent) + 1 })}</NoticeFocus> : null}
       {notices.nothingToSend ? <NoticeFocus>{text(copy.rounds.nothingToSendNotice, { number: notices.nothingToSend })}</NoticeFocus> : null}
       {notices.named === "1" ? <NoticeFocus>{copy.rounds.nameSaved}</NoticeFocus> : null}
+      {notices.named === "cover" ? <NoticeFocus>{copy.rounds.coverSaved}</NoticeFocus> : null}
       {notices.named === "0" ? <NoticeFocus>{copy.rounds.nameCleared}</NoticeFocus> : null}
 
       {rounds.length > 0 ? <ul className="mt-4 flex flex-col gap-3">
-        {rounds.map((round) => (
-          <li key={round.id} className="card p-4 sm:p-5">
+        {rounds.map((round) => {
+          // A covered round is a little zine beside its card's words; a plain one looks as it always has.
+          const cover = coverOf(round);
+          const body = (
+            <>
             <div className="flex items-start justify-between gap-3">
               <h2 className="text-ink"><DisplayDigits>{issueTitle(copy.rounds.round, round.number, round.name)}</DisplayDigits></h2>
               <span className={`chip flex-none border px-2.5 py-1 text-[13px] font-bold capitalize ${round.status === "open" ? "bg-accent-soft text-accent-ink" : "bg-card text-ink-soft"}`}>
@@ -120,17 +127,7 @@ export default function IssuesTab({
                 <SafeForm action={renameIssueAction} className="mt-1 flex flex-col gap-2">
                   <input type="hidden" name="groupId" value={id} />
                   <input type="hidden" name="issueId" value={round.id} />
-                  <label className="flex flex-col gap-1.5">
-                    <span className="text-[13px] font-medium text-ink-soft">{text(copy.rounds.nameLabel, { number: round.number })}</span>
-                    <input
-                      name="name"
-                      defaultValue={round.name ?? ""}
-                      maxLength={MAX_ISSUE_NAME}
-                      placeholder={copy.rounds.namePlaceholder}
-                      className="field h-11 py-0"
-                    />
-                  </label>
-                  <p className="text-[13px] leading-relaxed text-ink-muted">{text(copy.rounds.nameHint, { number: round.number })}</p>
+                  <RoundNameFields number={round.number} loopName={group.name} name={round.name} coverSticker={round.coverSticker} coverTint={round.coverTint} />
                   <SubmitButton className="btn btn-quiet h-11 min-h-11 self-start text-[14px]">{copy.rounds.nameSave}</SubmitButton>
                 </SafeForm>
               </details>
@@ -148,8 +145,17 @@ export default function IssuesTab({
                 <CopyLink url={round.shareUrl} />
               </div>
             ) : null}
-          </li>
-        ))}
+            </>
+          );
+          return cover ? (
+            <li key={round.id} className="card round-card--covered p-4 sm:p-5">
+              <ZineCover cover={cover} name={round.name ?? ""} number={text(copy.rounds.cover.zine, { number: round.number })} />
+              <div className="min-w-0">{body}</div>
+            </li>
+          ) : (
+            <li key={round.id} className="card p-4 sm:p-5">{body}</li>
+          );
+        })}
       </ul> : null}
       {rounds.length === 0 && focus ? (
         <div className="card mt-5 p-5 text-[14px] text-ink-muted">

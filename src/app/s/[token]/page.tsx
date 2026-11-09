@@ -11,7 +11,8 @@ import { LoopSnapshot, LoopTheme } from "@/components/loop-theme";
 import { printHref, wantsPrint, webHref } from "@/lib/print-view";
 import { IssuePrint } from "../../i/[id]/issue-print";
 import { DisplayDigits } from "@/components/display-digits";
-import { marksOf } from "@/lib/looks";
+import { coverOf, marksOf } from "@/lib/looks";
+import { RoundCoverBand } from "@/components/round-cover";
 import { Motto, RoundMark, SignOff } from "@/components/round-marks";
 import { RollCall, SignedCard } from "@/components/member-marks";
 
@@ -53,6 +54,15 @@ export default async function SharePage({
   }
 
   const marks = marksOf(view.group);
+  const cover = coverOf(view.issue);
+  const meta = (
+    <>
+      {view.answerCount === 1 ? copy.share.answer : text(copy.share.answers, { count: view.answerCount })}{" "}
+      {text(copy.share.deliveredOn, {
+        date: formatDate(view.issue.deliveredAt ?? view.issue.deliversAt, view.group.timezone),
+      })}
+    </>
+  );
 
   return (
     <main className="mx-auto w-full max-w-[680px] px-4 pb-16 pt-5 sm:px-6">
@@ -66,15 +76,18 @@ export default async function SharePage({
           </span>
         </div>
         <Motto text={marks.motto} />
-        <div className="loop-head__page">
-          <h1><DisplayDigits>{issueTitle(copy.share.round, view.issue.number, view.issue.name)}</DisplayDigits></h1>
-          <p className="numeric">
-            {view.issue.name ? `${text(copy.share.round, { number: view.issue.number })}. ` : null}
-            {view.answerCount === 1 ? copy.share.answer : text(copy.share.answers, { count: view.answerCount })}{" "}
-            {text(copy.share.deliveredOn, {
-              date: formatDate(view.issue.deliveredAt ?? view.issue.deliversAt, view.group.timezone),
-            })}
-          </p>
+        <div className={cover ? "loop-head__page loop-head__page--cover" : "loop-head__page"}>
+          {cover ? (
+            <RoundCoverBand cover={cover} chip={text(copy.share.round, { number: view.issue.number })} title={view.issue.name ?? ""} meta={meta} />
+          ) : (
+            <>
+              <h1><DisplayDigits>{issueTitle(copy.share.round, view.issue.number, view.issue.name)}</DisplayDigits></h1>
+              <p className="numeric">
+                {view.issue.name ? `${text(copy.share.round, { number: view.issue.number })}. ` : null}
+                {meta}
+              </p>
+            </>
+          )}
           <p className="shared-note">{text(copy.share.sharedNote, { loop: view.group.name })}</p>
           <RoundMark
             sealStyle={marks.sealStyle}

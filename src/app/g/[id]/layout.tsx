@@ -103,6 +103,8 @@ async function LoadedGroupLayout({ children, params }: Props) {
       id: issues.id,
       number: issues.number,
       name: issues.name,
+      coverSticker: issues.coverSticker,
+      coverTint: issues.coverTint,
       status: issues.status,
       opensAt: issues.opensAt,
       deliversAt: issues.deliversAt,

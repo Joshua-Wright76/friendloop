@@ -33,7 +33,7 @@ export type LoopSuggestion = {
 };
 
 export type LoopRound = Pick<typeof issues.$inferSelect,
-  "id" | "number" | "name" | "status" | "opensAt" | "deliversAt" | "deliveredAt" | "shareToken"
+  "id" | "number" | "name" | "coverSticker" | "coverTint" | "status" | "opensAt" | "deliversAt" | "deliveredAt" | "shareToken"
 > & { answers: number; shareUrl: string | null };
 
 export type LoopData = {

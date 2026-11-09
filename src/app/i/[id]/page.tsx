@@ -3,7 +3,8 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { currentUser } from "@/lib/auth";
 import { issueGroupId, loadIssue, membershipForViewer, nextRoundFor } from "@/lib/issue-view";
-import { marksOf } from "@/lib/looks";
+import { coverOf, marksOf } from "@/lib/looks";
+import { RoundCoverBand } from "@/components/round-cover";
 import { Motto, RoundMark, SignOff } from "@/components/round-marks";
 import { RollCall, SignedCard } from "@/components/member-marks";
 import { MutedNotice } from "@/components/muted-notice";
@@ -102,6 +103,16 @@ export default async function IssuePage({
     view.sections.some((section) => section.replies.some((reply) => reply.isYou));
   // The owner's marks belong to a round that has gone out; the sign-off may say what's next.
   const marks = marksOf(view.group);
+  // A named round's cover takes the place of its plain title.
+  const cover = coverOf(view.issue);
+  const meta = (
+    <>
+      {view.answerCount === 1 ? copy.issue.answer : text(copy.issue.answers, { count: view.answerCount })}{" "}
+      {text(view.issue.status === "open" ? copy.issue.goesOutOn : copy.issue.deliveredOn, {
+        date: formatDate(view.issue.deliveredAt ?? view.issue.deliversAt, view.group.timezone),
+      })}
+    </>
+  );
   const next = delivered && marks.signOff ? await nextRoundFor(view.group.id) : null;
   // What people added themselves: a line each and a signature, for reading by person.
   const marked: Record<string, { line?: string; signature?: number[][] }> = {};
@@ -121,15 +132,18 @@ export default async function IssuePage({
           </span>
         </div>
         <Motto text={marks.motto} />
-        <div className="loop-head__page">
-          <h1><DisplayDigits>{issueTitle(copy.issue.round, view.issue.number, view.issue.name)}</DisplayDigits></h1>
-          <p className="numeric">
-            {view.issue.name ? `${text(copy.issue.round, { number: view.issue.number })}. ` : null}
-            {view.answerCount === 1 ? copy.issue.answer : text(copy.issue.answers, { count: view.answerCount })}{" "}
-            {text(view.issue.status === "open" ? copy.issue.goesOutOn : copy.issue.deliveredOn, {
-              date: formatDate(view.issue.deliveredAt ?? view.issue.deliversAt, view.group.timezone),
-            })}
-          </p>
+        <div className={cover ? "loop-head__page loop-head__page--cover" : "loop-head__page"}>
+          {cover ? (
+            <RoundCoverBand cover={cover} chip={text(copy.issue.round, { number: view.issue.number })} title={view.issue.name ?? ""} meta={meta} />
+          ) : (
+            <>
+              <h1><DisplayDigits>{issueTitle(copy.issue.round, view.issue.number, view.issue.name)}</DisplayDigits></h1>
+              <p className="numeric">
+                {view.issue.name ? `${text(copy.issue.round, { number: view.issue.number })}. ` : null}
+                {meta}
+              </p>
+            </>
+          )}
           {delivered ? (
             <RoundMark
               sealStyle={marks.sealStyle}
