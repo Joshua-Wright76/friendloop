@@ -43,12 +43,33 @@ test.beforeEach(async () => {
   await resetDatabase();
 });
 
-test("WCAG AA · public and authentication pages", async ({ page }) => {
-  test.setTimeout(90_000);
+async function seedPublicPages() {
   const loop = await seedLoop({ name: "Join Club" });
   await rows("insert into invite_links (group_id, token) values ($1, 'a11y-join-token')", [loop.groupId]);
-  await auditThemes(page, ["/", "/signin", "/signin/check-email", "/signin/confirm?problem=unknown", "/r/invalid", "/join/a11y-join-token", "/join/not-a-token", "/privacy", "/terms", "/goodbye"]);
-});
+}
+
+const PUBLIC_PAGES = [
+  ["Home", "/"],
+  ["Sign in", "/signin"],
+  ["Check email", "/signin/check-email"],
+  ["Confirm sign-in problem", "/signin/confirm?problem=unknown"],
+  ["Invalid reply", "/r/invalid"],
+  ["Valid invitation", "/join/a11y-join-token"],
+  ["Invalid invitation", "/join/not-a-token"],
+  ["Privacy", "/privacy"],
+  ["Terms", "/terms"],
+  ["Goodbye", "/goodbye"],
+] as const;
+
+for (const [name, path] of PUBLIC_PAGES) {
+  for (const theme of ["light", "dark"] as const) {
+    test(`WCAG AA · public and authentication pages · ${name} · ${theme}`, async ({ page }) => {
+      test.setTimeout(90_000);
+      await seedPublicPages();
+      await auditTheme(page, path, theme);
+    });
+  }
+}
 
 async function seedLoopManagement() {
   const loop = await seedLoop();
