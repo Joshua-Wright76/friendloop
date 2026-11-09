@@ -352,8 +352,10 @@ Suites can run at the same time from separate checkouts (git worktrees). Each
 exits, together with its Playwright `_w` worker databases and integration `_i_<hash>`
 file databases. A run that was killed leaves its database behind, and the next run
 drops it. Each run also picks free ports for the app and the Resend stub; set
-`E2E_PORT` / `E2E_FAKE_MAIL_PORT` to pin them. The `.next` build belongs to the
-checkout, so a second Playwright run in the same folder stops right away
+`E2E_PORT` to pin app ports or `E2E_FAKE_MAIL_PORT` to pin Playwright's mail stub.
+Integration children require isolated, individually allocated mail ports, so the
+Playwright mail-port pin does not override their per-file assignments. The `.next`
+build belongs to the checkout, so a second Playwright run in the same folder stops right away
 (`.e2e-run.lock`). `e2e:db:stop` and `e2e:db:reset` affect every run sharing the
 cluster, so don't use them while another suite is running.
 

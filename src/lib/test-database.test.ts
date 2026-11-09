@@ -1,6 +1,14 @@
 import assert from "node:assert/strict";
+import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join, relative, sep } from "node:path";
 import { test } from "node:test";
-import { databaseUrlForTest, integrationDatabaseName, integrationDatabaseUrl } from "../../test/database.mjs";
+import {
+  databaseUrlForTest,
+  integrationDatabaseName,
+  integrationDatabaseUrl,
+  integrationTestFiles,
+} from "../../test/database.mjs";
 
 const BASE = "postgresql://postgres@127.0.0.1:55432/friendloop_test_run_42_abc";
 
@@ -45,4 +53,29 @@ test("literal percent sequences in database names survive URL mapping", () => {
 
   assert.match(mapped.pathname, /^\/my%2520db_i_/);
   assert.equal(decodeURIComponent(mapped.pathname.slice(1)), name);
+});
+
+test("integration enumeration recurses and ignores other test files", () => {
+  const directory = mkdtempSync(join(tmpdir(), "friendloop-integration-files-"));
+  try {
+    mkdirSync(join(directory, "nested", "deeper"), { recursive: true });
+    for (const file of [
+      "root.integration.test.ts",
+      "nested/child.integration.test.ts",
+      "nested/deeper/leaf.integration.test.ts",
+      "nested/ignored.test.ts",
+    ]) {
+      writeFileSync(join(directory, file), "");
+    }
+
+    const files = integrationTestFiles(directory)
+      .map((file: string) => relative(directory, file).split(sep).join("/"));
+    assert.deepEqual(files, [
+      "nested/child.integration.test.ts",
+      "nested/deeper/leaf.integration.test.ts",
+      "root.integration.test.ts",
+    ]);
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
 });

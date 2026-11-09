@@ -1,9 +1,9 @@
 import { createHash } from "node:crypto";
 import { readdirSync } from "node:fs";
-import { isAbsolute, relative, resolve, sep } from "node:path";
+import { isAbsolute, join, relative, resolve, sep } from "node:path";
 
 const INTEGRATION_SUFFIX = ".integration.test.ts";
-const INTEGRATION_DIRECTORY = "test/lib";
+const INTEGRATION_DIRECTORY = "test";
 
 /** The same repo-relative filename produces the same key in every checkout. */
 export function integrationTestHash(file) {
@@ -39,10 +39,13 @@ export function databaseUrlForTest(baseUrl, file) {
   return integrationDatabaseUrl(baseUrl, file);
 }
 
-/** Must match the integration glob in package.json. */
-export function integrationTestFiles() {
-  return readdirSync(INTEGRATION_DIRECTORY, { withFileTypes: true })
-    .filter((entry) => entry.isFile() && entry.name.endsWith(INTEGRATION_SUFFIX))
-    .map((entry) => `${INTEGRATION_DIRECTORY}/${entry.name}`)
+/** Must match the recursive integration glob in package.json. */
+export function integrationTestFiles(directory = INTEGRATION_DIRECTORY) {
+  return readdirSync(directory, { withFileTypes: true })
+    .flatMap((entry) => {
+      const file = join(directory, entry.name);
+      if (entry.isDirectory()) return integrationTestFiles(file);
+      return entry.isFile() && entry.name.endsWith(INTEGRATION_SUFFIX) ? [file] : [];
+    })
     .sort();
 }
