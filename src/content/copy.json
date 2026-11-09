@@ -288,6 +288,10 @@
       "progressValue": "Step {current} of {total}: {label}",
       "backAriaLabel": "Back, go to the previous setup step",
       "nextAriaLabel": "Next, continue to the next setup step",
+      "resumed": {
+        "notice": "Picked up where you left off.",
+        "startOver": "Start over"
+      },
       "steps": [
         "Name and rhythm",
         "Stationery",

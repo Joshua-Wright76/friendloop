@@ -26,7 +26,7 @@ export default async function NewLoopPage() {
           <Link href="/you" className="link link--quiet">{copy.common.yourLoops}</Link>
         </header>
 
-        <NewLoopForm packs={QUESTION_PACKS} />
+        <NewLoopForm packs={QUESTION_PACKS} userId={user.id} />
       </div>
     </main>
   );
