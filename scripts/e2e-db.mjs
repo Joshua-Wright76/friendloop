@@ -329,11 +329,23 @@ switch (command) {
     }
     // Only Playwright builds and serves the app; integration tests share nothing
     // but the cluster, which per-run databases already isolate.
+    const env = { ...process.env };
     const usesBuild = [cmd, ...args].some((part) => part.includes("playwright"));
+    if (usesBuild && env.E2E_REUSE_SERVER === "1") {
+      // A reusable server must keep pointing at the same database and ports. The
+      // normal per-run database is dropped on exit, so it cannot survive with it.
+      if (!env.TEST_DATABASE_URL) {
+        console.error("E2E_REUSE_SERVER=1 requires TEST_DATABASE_URL for a persistent disposable database.");
+        process.exit(1);
+      }
+      if (!env.E2E_PORT) {
+        console.error("E2E_REUSE_SERVER=1 requires an explicit E2E_PORT (and normally E2E_FAKE_MAIL_PORT).");
+        process.exit(1);
+      }
+    }
     const lockFile = usesBuild ? join(process.cwd(), ".e2e-run.lock") : null;
     if (lockFile && !takeRunLock(lockFile)) process.exit(1);
 
-    const env = { ...process.env };
     let runDatabase = null;
     let cleanedUp = false;
     const cleanup = () => {

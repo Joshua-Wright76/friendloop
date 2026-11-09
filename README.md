@@ -213,11 +213,41 @@ npm run test:coverage       # 100% line/function coverage of src/lib, enforced
 npm run e2e                 # Playwright — starts its own Postgres if needed, one database and server per worker
 E2E_WORKERS=1 npm run e2e   # one at a time; the default is a third of your cores, up to 6
 npm run e2e -- --grep-invert "WCAG AA"  # the quick pass: everything but the accessibility sweeps
+npm run e2e:fast           # explicit opt-in: reuse the recorded production build, with fresh DBs and servers
+npm run e2e:fast -- --last-failed
+npm run e2e:fast -- --only-changed
+npm run e2e:fast -- e2e/flows/A1.spec.ts  # normal Playwright file/filter arguments work too
 npm run check:flows -- --strict   # what CI enforces on every run
 npx playwright test e2e/accessibility.spec.ts  # WCAG 2.2 AA axe checks, both themes
 npx playwright test e2e/wcag-sweep.spec.ts e2e/wcag-states.spec.ts --project=desktop  # what axe cannot judge: see below
 E2E_BASE_URL=https://friendloop.dev npx playwright test --grep @probe   # read-only production smoke
 ```
+
+`npm run e2e` remains the clean full-validation path: it builds the current
+source and records a fingerprint of the source, build configuration,
+dependencies, and local env files. `npm run e2e:fast` skips that build only when
+this recorded output still matches; missing, incomplete, mixed, or stale output
+fails with a rebuild instruction. Run the normal `npm run e2e` after changing
+application code, Next configuration, dependencies, or build-time environment.
+Fast runs still create fresh disposable databases, migrate them, and start fresh
+production servers.
+
+For repeated runs with fixed ports and a **persistent disposable** database,
+`E2E_REUSE_SERVER=1` additionally lets Playwright reuse local production servers
+that you start and stop separately. For example, with one worker's server
+already listening on port 3100:
+
+```sh
+TEST_DATABASE_URL=postgresql://postgres@127.0.0.1:55432/friendloop_test \
+E2E_WORKERS=1 E2E_PORT=3100 E2E_FAKE_MAIL_PORT=3101 E2E_REUSE_SERVER=1 \
+npm run e2e:fast -- --last-failed
+```
+
+Playwright still stops any server it starts itself; this option does not
+daemonize one. It is deliberately separate from `E2E_BASE_URL`, which remains
+the read-only production-probe target. Restart reused servers after rebuilding
+or changing server environment, and stop them when finished. Ordinary e2e runs
+never reuse servers.
 
 ### Accessibility: WCAG 2.2 AA
 

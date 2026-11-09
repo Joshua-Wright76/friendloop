@@ -66,6 +66,57 @@ jobs:
       - name: Flow coverage (strict)
         run: npm run check:flows -- --strict
 
+  # Build once from this exact commit while Verify runs independently. The
+  # database is migrated first because Next prerenders routes during the build.
+  e2e-build:
+    name: Build shared end-to-end output
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: friendloop_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/friendloop_test
+      # NEXT_PUBLIC_APP_URL is baked into the shared artifact; shards use these too.
+      E2E_PORT: "3100"
+      E2E_FAKE_MAIL_PORT: "3102"
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build the production output
+        run: npm run e2e:build
+
+      # Runtime output only. In particular, do not share the compiler cache or
+      # any development-server state with the shards.
+      - name: Upload the shared production output
+        uses: actions/upload-artifact@v7
+        with:
+          name: e2e-build-${{ github.sha }}
+          path: |
+            .next/
+            !.next/cache/
+            !.next/dev/
+          if-no-files-found: error
+          retention-days: 1
+
   # The suite runs one test at a time (every test truncates the same database),
   # so one runner took ~28 minutes. Shards each get their own runner and their
   # own Postgres, and none of them wait for `verify`: the two gates are
@@ -78,6 +129,7 @@ jobs:
   # which suits the runners' four cores; scripts/e2e-db.mjs sets that from CI.
   e2e-shard:
     name: End-to-end (${{ matrix.group }} ${{ matrix.shard }}/${{ matrix.of }})
+    needs: e2e-build
     runs-on: ubuntu-24.04
     # A stalled download should fail the job, not hold it for an hour.
     timeout-minutes: 30
@@ -121,6 +173,11 @@ jobs:
       TEST_DATABASE_URL: postgresql://postgres:postgres@postgres:5432/friendloop_test
       # That Postgres lasts one job, so it needn't flush every commit to disk.
       E2E_RELAX_DB: server
+      # Every shard serves the artifact built from this commit, never a rebuild.
+      E2E_SKIP_BUILD: "1"
+      # Match the URL baked by e2e-build; two app workers use 3100 and 3101.
+      E2E_PORT: "3100"
+      E2E_FAKE_MAIL_PORT: "3102"
     steps:
       - uses: actions/checkout@v7
 
@@ -132,6 +189,12 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Download the shared production output
+        uses: actions/download-artifact@v7
+        with:
+          name: e2e-build-${{ github.sha }}
+          path: .next
+
       - name: Check the image matches the lockfile's Playwright
         run: |
           version=$(node -p "require('@playwright/test/package.json').version")
@@ -140,9 +203,8 @@ jobs:
             exit 1
           fi
 
-      # No Next.js build cache. Restoring one from older source left a build
-      # missing new CSS, which failed accessibility checks on main (PR #35), and
-      # keying it to the exact source would only ever help a rerun.
+      # No Next.js build cache is restored. An old cache left a build missing new
+      # CSS (PR #35); this artifact is instead built once from the exact commit.
       - name: Run the suite (${{ matrix.group }}, shard ${{ matrix.shard }} of ${{ matrix.of }})
         env:
           GROUP: ${{ matrix.group }}

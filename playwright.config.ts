@@ -1,5 +1,6 @@
 import { defineConfig, devices } from "@playwright/test";
 import { WORKERS, currentWorker, workerDatabaseUrl, workerPort } from "./e2e/support/parallel";
+import { validateBuild } from "./e2e/support/build";
 
 /**
  * Two targets, one suite:
@@ -12,6 +13,7 @@ import { WORKERS, currentWorker, workerDatabaseUrl, workerPort } from "./e2e/sup
  */
 // `scripts/e2e-db.mjs run` picks free ports so several suites can run at once.
 const isProd = Boolean(process.env.E2E_BASE_URL);
+if (!isProd && process.env.E2E_SKIP_BUILD === "1") validateBuild();
 // Playwright loads this file again inside each worker, which is how a worker finds its own server.
 const worker = currentWorker();
 if (!isProd && worker !== null && worker >= WORKERS) {
@@ -81,15 +83,17 @@ export default defineConfig({
         const port = workerPort(index);
         return {
           // A production build, not dev: no on-demand compilation mid-test, and the
-          // suite exercises the same rendering path that ships. Servers start in
-          // order, so the rest can rely on the first one's build. Its cache goes first:
-          // a reused one has built without recent stylesheet changes (see ci.yml).
-          command: index === 0
-            ? `rm -rf .next/cache && npm run build && npx next start -p ${port}`
-            : `npx next start -p ${port}`,
+          // suite exercises the same rendering path that ships. The first server builds
+          // unless CI or e2e:fast supplied one recorded for the current source.
+          command: process.env.E2E_SKIP_BUILD === "1"
+            ? `npx next start -p ${port}`
+            : index === 0
+              ? `rm -rf .next/cache && npm run build && node scripts/e2e-build.mjs mark && npx next start -p ${port}`
+              : `npx next start -p ${port}`,
           url: `http://localhost:${port}`,
-          reuseExistingServer: false,
-          timeout: index === 0 ? 180_000 : 60_000,
+          // Local opt-in only: production probes have no webServer at all.
+          reuseExistingServer: process.env.E2E_REUSE_SERVER === "1",
+          timeout: index === 0 && process.env.E2E_SKIP_BUILD !== "1" ? 180_000 : 60_000,
           env: {
             E2E: "1",
             EMAIL_TRANSPORT: "outbox",
