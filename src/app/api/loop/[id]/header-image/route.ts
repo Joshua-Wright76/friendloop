@@ -3,20 +3,20 @@ import { NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { copy } from "@/lib/copy";
 import { clearHeaderImage, setHeaderImage } from "@/lib/identity";
-import { viewerFor } from "@/lib/permissions";
+import { atLeast, viewerFor } from "@/lib/permissions";
 import { imageFromRequest } from "../../../image-form";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
-async function ownerOf(groupId: string) {
+async function managerOf(groupId: string) {
   const viewer = await viewerFor(groupId);
-  return viewer?.membership.access === "owner" ? viewer : null;
+  return viewer && atLeast(viewer.membership.access, "admin") ? viewer : null;
 }
 
-/** The loop's header picture. Owner only. */
+/** The loop's header picture. The owner and admins. */
 export async function POST(request: Request, { params }: RouteContext) {
   const { id } = await params;
-  if (!(await ownerOf(id))) return NextResponse.json({ error: copy.identity.errors.notAllowed }, { status: 403 });
+  if (!(await managerOf(id))) return NextResponse.json({ error: copy.identity.errors.notAllowed }, { status: 403 });
 
   const refused = await uploadRefused(`loop:${id}`, copy.identity.errors.tooManyUploads);
   if (refused) return refused;
@@ -33,7 +33,7 @@ export async function POST(request: Request, { params }: RouteContext) {
 
 export async function DELETE(_request: Request, { params }: RouteContext) {
   const { id } = await params;
-  if (!(await ownerOf(id))) return NextResponse.json({ error: copy.identity.errors.notAllowed }, { status: 403 });
+  if (!(await managerOf(id))) return NextResponse.json({ error: copy.identity.errors.notAllowed }, { status: 403 });
 
   await clearHeaderImage(id);
   revalidatePath(`/g/${id}`, "layout");

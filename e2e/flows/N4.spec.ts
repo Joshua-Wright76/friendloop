@@ -61,7 +61,7 @@ test("N4 · the owner names a round and the name shows on the dashboard, the web
   expect(mail.text).toContain("Spring cleaning");
 });
 
-test("N4 · clearing the name puts the number back, and only the owner is offered the control", async ({ page, browser }) => {
+test("N4 · clearing the name puts the number back, and admins are offered the control too", async ({ page, browser }) => {
   const { loop, delivered } = await seedWorld();
   await rows("update issues set name = 'Camping weekend' where id = $1", [delivered.issueId]);
   await signIn(page, "owner@friendloop.test");
@@ -82,14 +82,13 @@ test("N4 · clearing the name puts the number back, and only the owner is offere
   await page.goto(`/i/${delivered.issueId}`);
   await expect(page.getByRole("heading", { level: 1, name: text(copy.issue.round, { number: 1 }) })).toBeVisible();
 
-  // An admin reads the rounds but isn't offered the rename.
+  // An admin runs the loop with the owner, so naming rounds is theirs too.
   await addMember(loop, { email: "admin@friendloop.test", access: "admin" });
   const adminContext = await browser.newContext();
   const adminPage = await adminContext.newPage();
   await signIn(adminPage, "admin@friendloop.test");
   await adminPage.goto(`/g/${loop.groupId}/issues`);
   await expect(adminPage.getByText(text(copy.rounds.round, { number: 1 }), { exact: true })).toBeVisible();
-  await expect(adminPage.getByText(copy.rounds.rename)).toHaveCount(0);
-  await expect(adminPage.getByText(copy.rounds.renameNamed, { exact: true })).toHaveCount(0);
+  await expect(adminPage.getByText(copy.rounds.rename, { exact: true }).first()).toBeVisible();
   await adminContext.close();
 });

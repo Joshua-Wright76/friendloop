@@ -295,6 +295,21 @@ export async function requireUiPreview() {
 }
 
 /**
+ * Whether this deployment shows the captured inbox. Production never does, key
+ * or not: a sent email there is someone's private loop, and nobody running
+ * Friendloop should have a page that reads it back.
+ */
+export function capturedInboxAllowed(): boolean {
+  return process.env.VERCEL_ENV !== "production";
+}
+
+/** The captured inbox's lock: the preview key, and never in production. */
+export async function requireCapturedInbox() {
+  if (!capturedInboxAllowed()) notFound();
+  await requireUiPreview();
+}
+
+/**
  * True for Postgres integrity errors (SQLSTATE class 23), the way stale demo
  * rows fail. Drizzle wraps the driver's error, so the code is usually on `cause`.
  */

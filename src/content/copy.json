@@ -739,6 +739,7 @@
     "roleSaving": "Saving…",
     "roleUpdated": "Role updated",
     "roleError": "The role didn't change. Check your connection and try again.",
+    "rolesHint": "An admin can invite people, choose the questions and change the loop's settings. Only the owner can download the loop, delete it or hand it to someone else.",
     "participation": {
       "ariaLabel": "How {name} takes part",
       "contributor": "Answers and reads",
@@ -965,6 +966,7 @@
   },
   "settings": {
     "title": "Settings",
+    "adminNote": "You're an admin, so you can change everything here. Downloading and deleting the loop stay with the owner.",
     "savedNotice": "Saved.",
     "confirmError": "Type the loop's name exactly to delete it.",
     "name": "Name",
@@ -1000,6 +1002,7 @@
     "groupStationery": "Stationery",
     "groupKeep": "Pause and export",
     "groupDanger": "Reset and delete",
+    "groupDangerAdmin": "Reset links",
     "groupPaper": "Stationery",
     "tabsLabel": "Parts of the settings",
     "headerSavesItself": "",
@@ -1647,7 +1650,7 @@
       "avatarFailed": "That photo didn't save. Try again in a moment.",
       "bannerTooLarge": "That picture is over 4 MB. Try a smaller one.",
       "bannerFailed": "That picture didn't save. Try again in a moment.",
-      "notAllowed": "Only the owner can change that.",
+      "notAllowed": "You can't change that here.",
       "tooManyUploads": "That's a lot of pictures for one hour. Try again a little later."
     },
     "profile": {
@@ -2030,7 +2033,7 @@
             "For each loop you are in: your name there, your profile photo if you add one, your role, your reminder choice, and the private link that lets you answer without an account.",
             "Everything you write: answers (saved as you type, and part of the round as soon as they save), poll picks, photos, videos, voice notes, photo walls and music links, comments, reactions, and questions you suggest.",
             "Birthdays and dates the loop's owner adds to its calendar.",
-            "A copy of every email we send, and delivery notices from our email provider (sent, bounced, and so on), so a failed send can be retried and never doubled.",
+            "Each email we send while it waits to go out, so a failed send can be retried and never doubled. Once it has gone, we keep only who it went to, when, and its subject line, not what it said. Delivery notices from our email provider (sent, bounced, and so on) are kept too.",
             "Notes you send with the feedback button, with the page you were on, your screen size, and your browser.",
             "One cookie when you sign in, which keeps you signed in for a year from the last time you visit, and a short-lived one that remembers the address you asked to sign in with, until you have. Your light or dark choice is kept in your own browser."
           ]
@@ -2040,7 +2043,7 @@
           "paragraphs": [
             "The people in your loop see the answers you write, your name and photo, your comments and reactions. An answer is part of the round as soon as it saves: the owner and admins can read it while the round is open, and everyone else sees it when the round goes out. Clear an answer before then to take it out. The owner and admins also see members' email addresses and who has answered so far.",
             "If you reply to a loop's email, your reply goes straight to the loop's owner, since their address is set as the reply-to. So members can see the owner's address when they reply.",
-            "If the loop's owner turns on share links, anyone holding a round's share link can read that round. They are off unless the owner turns them on, and the owner can replace them at any time.",
+            "If the loop's owner or an admin turns on share links, anyone holding a round's share link can read that round. They are off unless one of them turns them on, and they can replace them at any time.",
             "Photos, videos, and voice notes are stored at long, unguessable web addresses. Anyone given one of those addresses can open that file."
           ]
         },
@@ -2096,9 +2099,9 @@
           ]
         },
         {
-          "heading": "Owners",
+          "heading": "Owners and admins",
           "paragraphs": [
-            "The owner of a loop decides who is in it, which questions it asks, whether rounds can be shared by link, and whether it keeps going. Owners can remove people and can delete the whole loop, with everything in it."
+            "The owner of a loop, and any admins they choose, decide who is in it, which questions it asks, whether rounds can be shared by link, and whether it keeps going. They can remove people. Only the owner can delete the whole loop, with everything in it."
           ]
         },
         {

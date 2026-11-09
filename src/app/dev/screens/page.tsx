@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Brand, Tape } from "@/components/stationery";
 import { copy } from "@/lib/copy";
-import { PREVIEW_LOOKS, UI_PREVIEW, type PreviewLookKey } from "@/lib/ui-preview";
+import { PREVIEW_LOOKS, UI_PREVIEW, capturedInboxAllowed, type PreviewLookKey } from "@/lib/ui-preview";
 
 export const instant = false;
 
@@ -61,7 +61,7 @@ export default async function UiScreensPage() {
       title: copy.devUi.emailHeading,
       links: [
         [screens.emails, "/dev/emails"],
-        [screens.outbox, "/dev/outbox"],
+        ...(capturedInboxAllowed() ? [[screens.outbox, "/dev/outbox"] as [string, string]] : []),
         [screens.feedback, "/dev/feedback"],
       ],
     },
