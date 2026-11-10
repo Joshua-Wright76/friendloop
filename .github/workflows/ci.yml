@@ -126,7 +126,8 @@ jobs:
   # 42578068946, flows 3/3 took 215s (137s suite) and WCAG 3/5 took 203s (116s
   # suite) behind a 78s shared build, in a 305s overall run. Hence three groups,
   # each sharded on its own: four flows shards and six WCAG shards to shorten
-  # those tails, plus four stationery shards now their long loops are split. The
+  # those tails, plus four stationery shards now their long loops are split.
+  # Every flow also runs in Safari on an iPhone, in e2e-safari-shard below. The
   # greps on the shared title prefixes make the groups exact complements. Each job
   # runs three app/browser workers, each with its own database and server
   # (e2e/support/parallel.ts), on the runners' four cores; scripts/e2e-db.mjs sets
@@ -220,7 +221,7 @@ jobs:
           SHARD: ${{ matrix.shard }}/${{ matrix.of }}
         run: |
           case "$GROUP" in
-            flows) npm run e2e -- --grep-invert "WCAG AA" --shard="$SHARD" ;;
+            flows) npm run e2e -- --project=desktop --grep-invert "WCAG AA" --shard="$SHARD" ;;
             wcag) npm run e2e -- --grep "WCAG AA" --grep-invert "WCAG AA sweep · stationery" --shard="$SHARD" ;;
             stationery) npm run e2e -- --grep "WCAG AA sweep · stationery" --shard="$SHARD" ;;
             *) echo "::error::Unknown group $GROUP"; exit 1 ;;
@@ -246,17 +247,82 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
 
+  # Every flow again, in Safari on an iPhone: Playwright's iPhone profile runs WebKit,
+  # Safari's engine. On macOS, not in the Linux image: Linux WebKit is a different
+  # port (no MediaRecorder, software painting that took minutes over the stationery
+  # pages on a CI runner), while the macOS build is the one Safari itself is made
+  # from. The repository is public, so these runners cost nothing. No container, so
+  # scripts/e2e-db.mjs starts a Homebrew Postgres of its own.
+  e2e-safari-shard:
+    name: End-to-end (safari ${{ matrix.shard }}/4)
+    needs: e2e-build
+    runs-on: macos-15
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+    env:
+      E2E_SKIP_BUILD: "1"
+      # Match the URL baked by e2e-build; the app workers use 3100 and up.
+      E2E_PORT: "3100"
+      E2E_FAKE_MAIL_PORT: "3103"
+      # The runner has three cores: two browsers and their two servers.
+      E2E_WORKERS: "2"
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Postgres and WebKit
+        run: |
+          brew install postgresql@16
+          npx playwright install webkit
+
+      - name: Download the shared production output
+        uses: actions/download-artifact@v7
+        with:
+          name: e2e-build-${{ github.sha }}
+          path: .next
+
+      - name: Run the suite (safari, shard ${{ matrix.shard }} of 4)
+        run: npm run e2e -- --project=phone --grep-invert "WCAG AA" --shard="${{ matrix.shard }}/4"
+
+      - name: Upload per-shard timing results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: e2e-timings-safari-${{ matrix.shard }}
+          path: test-results/e2e-results.json
+          if-no-files-found: ignore
+          retention-days: 30
+
+      - name: Upload report on failure
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-report-safari-${{ matrix.shard }}
+          path: playwright-report/
+          if-no-files-found: ignore
+          retention-days: 7
+
   # One stable check name for branch protection, whatever the shard count.
   e2e:
     name: End-to-end
     runs-on: ubuntu-24.04
     timeout-minutes: 5
-    needs: e2e-shard
+    needs: [e2e-shard, e2e-safari-shard]
     if: always()
     steps:
       - name: All shards passed
         run: |
-          if [ "${{ needs.e2e-shard.result }}" != "success" ]; then
-            echo "::error::An end-to-end shard did not pass (${{ needs.e2e-shard.result }})"
+          if [ "${{ needs.e2e-shard.result }}" != "success" ] || [ "${{ needs.e2e-safari-shard.result }}" != "success" ]; then
+            echo "::error::An end-to-end shard did not pass (${{ needs.e2e-shard.result }}, safari ${{ needs.e2e-safari-shard.result }})"
             exit 1
           fi

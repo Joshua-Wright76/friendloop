@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Page } from "./support/test";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { groups } from "@/db/schema";

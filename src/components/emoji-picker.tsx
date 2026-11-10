@@ -1,7 +1,7 @@
 "use client";
 
 import { wrapTab } from "./focus-wrap";
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type RefObject } from "react";
 import { copy } from "@/lib/copy";
 
 /** One line of `public/emoji-picker.json`: the emoji, its name, group, search words, and five skin tones if it has them. */
@@ -66,7 +66,13 @@ function searchable(entry: Entry, words: string[]): boolean {
  * and a centred card elsewhere. Arrow keys move through the grid, so tabbing doesn't
  * mean walking through two thousand buttons.
  */
-export function EmojiPicker({ label, onPick, onClose }: { label: string; onPick: (emoji: string) => void; onClose: () => void }) {
+export function EmojiPicker({ label, opener, onPick, onClose }: {
+  label: string;
+  /** The button that opened it. Safari doesn't focus a button it clicks, so this can't be read off the page. */
+  opener: RefObject<HTMLElement | null>;
+  onPick: (emoji: string) => void;
+  onClose: () => void;
+}) {
   const dialog = useRef<HTMLDialogElement>(null);
   const search = useRef<HTMLInputElement>(null);
   const scroller = useRef<HTMLDivElement>(null);
@@ -82,15 +88,15 @@ export function EmojiPicker({ label, onPick, onClose }: { label: string; onPick:
     if (!node) return;
     // React takes the dialog off the page before this cleanup runs, and a dialog that's
     // already gone can't hand focus back on its own, so it's done by hand.
-    const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const back = opener.current;
     node.showModal();
     // On a phone, opening the keyboard would hide the very grid someone came to browse.
     if (window.matchMedia("(pointer: fine)").matches) search.current?.focus();
     return () => {
       node.close();
-      opener?.focus();
+      back?.focus();
     };
-  }, []);
+  }, [opener]);
 
   useEffect(() => {
     let live = true;

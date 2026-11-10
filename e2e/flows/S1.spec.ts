@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "../support/test";
 import { resetDatabase, rows } from "../support/db";
 import { seedLoop, seedOpenIssue } from "../support/seed";
 import { signIn } from "../support/harness";
@@ -107,6 +107,8 @@ test("S1 · the button sits clear of the reply bar and the theme switch", async 
   await seedOpenIssue(loop, { openedAt: AFTER_FIRST_SLOT });
   await page.goto(`/r/${alice.token}`);
 
+  // On a phone it is the last row of the page rather than a floating pill: look there.
+  await page.getByRole("button", { name: copy.feedback.open }).scrollIntoViewIfNeeded();
   const feedback = await page.getByRole("button", { name: copy.feedback.open }).boundingBox();
   const theme = await page.locator(".theme-switch").boundingBox();
   const bar = await page.locator(".reply-actionbar").boundingBox();

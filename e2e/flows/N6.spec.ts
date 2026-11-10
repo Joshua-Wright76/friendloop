@@ -1,7 +1,7 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, type Page } from "../support/test";
 import AxeBuilder from "@axe-core/playwright";
 import { resetDatabase, rows } from "../support/db";
-import { DELIVERY_DAY, openPart, runSweep, signIn } from "../support/harness";
+import { DELIVERY_DAY, openPart, runSweep, signIn, unfoldLooks } from "../support/harness";
 import { cssVar, gotoScheme, seedWorld } from "../support/identity";
 import { copy, copyPattern } from "@/lib/copy";
 
@@ -31,6 +31,7 @@ test("N6 · the owner picks a page, paper pack, tape pack and mascot separately,
   await signIn(page, "owner@friendloop.test");
   await page.goto(`/g/${loop.groupId}/settings`);
   await openPart(page, copy.settings.groupPaper);
+  await unfoldLooks(page);
 
   // The originals are chosen, and stored as nothing.
   for (const name of [copyPattern(copy.stationery.backgrounds.gingham, { start: true, end: true }), copyPattern(copy.stationery.packs.cream.name, { start: true }), copyPattern(copy.stationery.tapes.picnic, { start: true, end: true }), /^Cherries$/]) {
@@ -95,6 +96,7 @@ test("N6 · back to the originals stores nothing and adds no CSS, so the loop re
   await signIn(page, "owner@friendloop.test");
   await page.goto(`/g/${loop.groupId}/settings`);
   await openPart(page, copy.settings.groupPaper);
+  await unfoldLooks(page);
   await expect(page.getByRole("radio", { name: copyPattern(copy.stationery.backgrounds.stars, { start: true }) })).toBeChecked();
 
   await page.getByRole("radio", { name: copyPattern(copy.stationery.backgrounds.gingham, { start: true, end: true }) }).check();

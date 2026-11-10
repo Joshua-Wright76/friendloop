@@ -1,6 +1,6 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "../support/test";
 import { resetDatabase, rows } from "../support/db";
-import { signIn, uniqueEmail } from "../support/harness";
+import { signIn, uniqueEmail, unfoldLooks } from "../support/harness";
 import { TINY_PNG } from "../support/comments";
 import { PAPER, chooseFile, cssVar, gotoScheme } from "../support/identity";
 import { copy, copyPattern } from "@/lib/copy";
@@ -18,6 +18,7 @@ async function toLookStep(page: Page, title: string) {
   await page.getByLabel(copy.newLoop.nameLabel).fill(title);
   await page.getByRole("button", { name: NEXT }).click();
   await expect(page.getByRole("heading", { name: copy.newLoop.wizard.look.title })).toBeVisible();
+  await unfoldLooks(page);
 }
 
 /** From the paper step through the questions, invitations and note to the end. */
@@ -121,6 +122,7 @@ test("B7 · the wizard also offers the page, paper pack, tape pack and mascot, s
   // Moving on and coming back costs nothing.
   await page.getByRole("button", { name: NEXT }).click();
   await page.getByRole("button", { name: "Go to the previous setup step" }).click();
+  await unfoldLooks(page);
   await expect(page.getByRole("radio", { name: copyPattern(copy.stationery.tapes.candy, { start: true }) })).toBeChecked();
 
   await createFromLookStep(page);

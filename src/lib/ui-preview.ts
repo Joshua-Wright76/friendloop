@@ -23,6 +23,7 @@ import {
   reactions,
 } from "@/db/schema";
 import { createSession } from "./auth";
+import { secureCookies } from "./e2e";
 import { nextSlot } from "./schedule";
 import { hashToken, safeEqual } from "./tokens";
 
@@ -81,7 +82,7 @@ export async function unlockUiInbox(key: string | null): Promise<void> {
     sameSite: "lax",
     // Fail closed over plain HTTP: a self-hosted deployment without TLS keeps
     // /dev locked instead of leaking the cookie across the network.
-    secure: process.env.NODE_ENV === "production",
+    secure: secureCookies(),
     path: "/dev",
     maxAge: PREVIEW_COOKIE_MAX_AGE,
   });

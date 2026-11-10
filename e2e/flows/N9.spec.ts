@@ -1,4 +1,4 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, type Page } from "../support/test";
 import AxeBuilder from "@axe-core/playwright";
 import { resetDatabase, rows } from "../support/db";
 import { copy, copyPattern, text } from "@/lib/copy";
@@ -113,9 +113,10 @@ test("N9 · a contributor signs, writes a line and sticks a sticker while answer
     await expect(card.getByRole("img", { name: signedBy("Alice") })).toBeVisible();
     await expectAccessible(page, `round ${scheme}`);
   }
-  // On a wide screen the sticker is slapped on the answer's corner.
+  // On a wide screen the sticker is slapped on the answer's corner; a phone keeps it in the line.
   const sticker = page.locator("img.answer-sticker").first();
-  expect(await sticker.evaluate((el) => getComputedStyle(el).position)).toBe("absolute");
+  const wide = (page.viewportSize()?.width ?? 0) >= 640;
+  expect(await sticker.evaluate((el) => getComputedStyle(el).position)).toBe(wide ? "absolute" : "static");
 
   // By person: the line as a bubble under Alice's name and her signature closing her answers.
   await page.goto(`/i/${open.issueId}?m=${bob.token}&sort=member`);

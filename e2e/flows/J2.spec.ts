@@ -1,4 +1,4 @@
-import { test } from "@playwright/test";
+import { test } from "../support/test";
 import { resetDatabase, rows } from "../support/db";
 import { seedLoop, seedOpenIssue } from "../support/seed";
 import { expect, installFakeRecorder, recordOnFirstQuestion } from "../support/recorder";

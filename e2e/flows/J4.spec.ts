@@ -1,7 +1,9 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "../support/test";
 import { resetDatabase, rows } from "../support/db";
 import { seedLoop, seedOpenIssue } from "../support/seed";
 import { makeMp3 } from "../support/audio";
+import { showAttachments } from "../support/harness";
+import { installFakeRecorder } from "../support/recorder";
 import { copy, text } from "@/lib/copy";
 
 test.beforeEach(async () => {
@@ -34,7 +36,14 @@ test("J4 · without a recorder, the file picker answers", async ({ page }) => {
     "select audio_url, audio_duration_ms from replies where audio_url is not null limit 1",
   );
   expect(reply.audio_url).toMatch(/\.mp3$/);
-  expect(reply.audio_duration_ms).toBeGreaterThan(0);
+  // Its length is what the browser reads from the file. Linux WebKit can't read one from
+  // this synthetic MP3 (a real recording is fine), so there it is only checked when known.
+  const readable = await page.evaluate(async (bytes) => {
+    const audio = new Audio(URL.createObjectURL(new Blob([new Uint8Array(bytes)], { type: "audio/mpeg" })));
+    await new Promise((done) => { audio.onloadedmetadata = audio.onerror = done; setTimeout(done, 3000); });
+    return Number.isFinite(audio.duration) && audio.duration > 0;
+  }, [...makeMp3()]);
+  if (readable) expect(reply.audio_duration_ms).toBeGreaterThan(0);
 });
 
 test("J4 · a page that isn't https says so, and a blocked or missing microphone is named, not blamed on the browser", async ({ page }) => {
@@ -58,6 +67,9 @@ test("J4 · a refused microphone permission and a missing microphone each get th
   await seedOpenIssue(loop, { openedAt: new Date("2026-01-02T08:00:00Z") });
   const alice = loop.members.find((member) => member.email.startsWith("alice"))!;
 
+  // A recorder to offer (Linux WebKit is built without one), then a microphone that says no.
+  await installFakeRecorder(page);
+
   await page.addInitScript(() => {
     (window as unknown as { __mic: string }).__mic = "NotAllowedError";
     Object.defineProperty(navigator, "mediaDevices", {
@@ -67,6 +79,7 @@ test("J4 · a refused microphone permission and a missing microphone each get th
     });
   });
   await page.goto(`/r/${alice.token}`);
+  await showAttachments(page);
   const record = page.getByRole("button", { name: copy.reply.voiceRecord }).first();
   await record.click();
   await expect(page.getByText(copy.reply.voiceBlocked).first()).toBeVisible();
@@ -90,6 +103,7 @@ test.describe("J4 · on an iPhone", () => {
     await seedOpenIssue(loop, { openedAt: new Date("2026-01-02T08:00:00Z") });
     const alice = loop.members.find((member) => member.email.startsWith("alice"))!;
 
+    await installFakeRecorder(page);
     await page.addInitScript(() => {
       const state = window as unknown as { __asks: number };
       state.__asks = 0;
@@ -103,6 +117,7 @@ test.describe("J4 · on an iPhone", () => {
       });
     });
     await page.goto(`/r/${alice.token}`);
+    await showAttachments(page);
     await page.getByRole("button", { name: copy.reply.voiceRecord }).first().click();
     await expect(page.getByText(copy.reply.voiceBlocked).first()).toBeVisible();
 

@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./support/test";
 import { resetDatabase } from "./support/db";
 import { freezeClock } from "./support/harness";
 import { GOLDEN, matchGolden, migrateLikeTheDeploy, seedGoldenWorld } from "./support/golden";

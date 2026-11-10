@@ -1,5 +1,5 @@
 import { readFile } from "node:fs/promises";
-import { test, expect, type Download, type Page } from "@playwright/test";
+import { test, expect, type Download, type Page } from "../support/test";
 import { resetDatabase } from "../support/db";
 import { seedDeliveredIssue, seedLoop } from "../support/seed";
 import { DELIVERY_DAY, openPart, signIn } from "../support/harness";

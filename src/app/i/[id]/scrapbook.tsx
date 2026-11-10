@@ -167,10 +167,12 @@ export function ScrapbookProvider({
 export function StickButton({ replyId, whose, reserved }: { replyId: string; whose: string; reserved: StickerPlacement[] }) {
   const book = useScrapbook();
   const [open, setOpen] = useState(false);
+  const stick = useRef<HTMLButtonElement>(null);
   if (!book?.canStick) return null;
   return (
     <>
       <button
+        ref={stick}
         type="button"
         id={`stick-${replyId}`}
         aria-haspopup="dialog"
@@ -191,6 +193,7 @@ export function StickButton({ replyId, whose, reserved }: { replyId: string; who
       {open ? (
         <StickerSheet
           current={null}
+          opener={stick}
           withNone={false}
           title={words.sheetTitle}
           note={words.sheetNote}
@@ -255,9 +258,20 @@ function ScrapStickerButton({ replyId, sticker, layer }: { replyId: string; stic
     const away = (event: PointerEvent) => {
       if (!menuRef.current?.contains(event.target as Node) && !button.current?.contains(event.target as Node)) setMenu(false);
     };
+    // Safari doesn't focus a button it clicks, so after a move focus can be back on the
+    // page rather than in the menu, where the menu's own Escape wouldn't hear it.
+    const escape = (event: globalThis.KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      setMenu(false);
+      button.current?.focus();
+    };
     document.addEventListener("pointerdown", away);
+    document.addEventListener("keydown", escape);
     menuRef.current?.querySelector<HTMLButtonElement>("button")?.focus();
-    return () => document.removeEventListener("pointerdown", away);
+    return () => {
+      document.removeEventListener("pointerdown", away);
+      document.removeEventListener("keydown", escape);
+    };
   }, [menu]);
   useEffect(() => {
     if (!tag) return;

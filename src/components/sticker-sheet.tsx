@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState, type RefObject } from "react";
 import { wrapTab } from "./focus-wrap";
 import { copy, text } from "@/lib/copy";
 import { postReply } from "@/lib/reply-client";
@@ -16,6 +16,7 @@ const nameOf = (key: string) => copy.stickers[key as keyof typeof copy.stickers]
  */
 export function StickerSheet({
   current,
+  opener,
   onPick,
   onClose,
   title = copy.reply.sticker.sheetTitle,
@@ -24,6 +25,8 @@ export function StickerSheet({
   withNone = true,
 }: {
   current: string | null;
+  /** The button that opened it. Safari doesn't focus a button it clicks, so this can't be read off the page. */
+  opener: RefObject<HTMLElement | null>;
   onPick: (key: string | null) => void;
   onClose: () => void;
   title?: string;
@@ -42,14 +45,14 @@ export function StickerSheet({
     const node = dialog.current;
     if (!node) return;
     // React takes the dialog off the page before this cleanup runs, so focus goes back by hand.
-    const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const back = opener.current;
     node.showModal();
     (node.querySelector<HTMLButtonElement>("[aria-pressed=true]") ?? first.current)?.focus();
     return () => {
       node.close();
-      opener?.focus();
+      back?.focus();
     };
-  }, []);
+  }, [opener]);
 
   return (
     <dialog
@@ -128,6 +131,7 @@ export function StickerControl({
 }) {
   const [sticker, setSticker] = useState(initial);
   const [open, setOpen] = useState(false);
+  const button = useRef<HTMLButtonElement>(null);
   const [popped, setPopped] = useState(0);
   const [message, setMessage] = useState<{ text: string; error: boolean } | null>(null);
   const confirmed = useRef(initial);
@@ -161,6 +165,7 @@ export function StickerControl({
         <img key={popped} src={stickerSrc(sticker)} alt="" aria-hidden="true" width={40} height={40} className={`stuck-sticker${popped > 0 ? " stuck-sticker--pop" : ""}`} />
       ) : null}
       <button
+        ref={button}
         type="button"
         className="attach-btn sticker-btn aria-disabled:cursor-not-allowed aria-disabled:opacity-45"
         aria-haspopup="dialog"
@@ -180,7 +185,7 @@ export function StickerControl({
         {sticker ? copy.reply.sticker.change : copy.reply.sticker.add}
       </button>
       <p aria-live="polite" className={message ? `sticker-control__note${message.error ? " text-danger" : ""}` : "sr-only"}>{message?.text}</p>
-      {open ? <StickerSheet current={sticker} onPick={choose} onClose={() => setOpen(false)} /> : null}
+      {open ? <StickerSheet current={sticker} opener={button} onPick={choose} onClose={() => setOpen(false)} /> : null}
     </div>
   );
 }

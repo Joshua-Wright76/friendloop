@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "../support/test";
 import AxeBuilder from "@axe-core/playwright";
 import { resetDatabase } from "../support/db";
 import { pickOption, signIn, unfold } from "../support/harness";

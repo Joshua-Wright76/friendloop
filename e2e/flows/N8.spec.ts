@@ -1,7 +1,7 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, type Page } from "../support/test";
 import AxeBuilder from "@axe-core/playwright";
 import { resetDatabase, rows } from "../support/db";
-import { DELIVERY_DAY, openPart, runSweep, signIn, uniqueEmail } from "../support/harness";
+import { DELIVERY_DAY, openPart, runSweep, signIn, unfoldLooks, uniqueEmail } from "../support/harness";
 import { cssVar, gotoScheme, seedWorld } from "../support/identity";
 import { copy, copyPattern, text } from "@/lib/copy";
 
@@ -35,6 +35,7 @@ test("N8 · the owner sets a motto, sign-off, seal, divider and celebration, and
   await signIn(page, "owner@friendloop.test");
   await page.goto(`/g/${loop.groupId}/settings`);
   await openPart(page, copy.settings.groupPaper);
+  await unfoldLooks(page);
 
   // Nothing chosen is stored as nothing.
   await expect(page.getByRole("radio", { name: choice(S.seals.none.name) })).toBeChecked();
@@ -161,6 +162,7 @@ test("N8 · the wizard offers the marks, previews them, and creates the loop wit
   await page.getByLabel(copy.newLoop.nameLabel).fill("Marked Up");
   await page.getByRole("button", { name: NEXT }).click();
   await expect(page.getByRole("heading", { name: copy.newLoop.wizard.look.title })).toBeVisible();
+  await unfoldLooks(page);
 
   await page.getByLabel(S.mottoLabel).fill("still terrible at replying");
   await page.getByLabel(S.signOffLabel).fill("xo, everyone");

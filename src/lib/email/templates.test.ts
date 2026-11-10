@@ -542,7 +542,10 @@ test("a video in the delivery email is its still, linked to the web issue with i
       { question: "What did you see?", author: "Bob", body: "Nothing much" },
     ],
   });
-  assert.match(email.html, /<a href="https:\/\/friendloop\.dev\/i\/abc"[^>]*><img src="https:\/\/store\.public\.blob\.vercel-storage\.com\/reply-photos\/still\.jpg" alt="Video from Alice, 0:42"/);
-  assert.match(email.html, /Video · 0:42\. <a href="https:\/\/friendloop\.dev\/i\/abc"[^>]*>Watch it on the web<\/a>/);
+  const still = '<a href="https://friendloop.dev/i/abc" style="display:block;margin:14px 0 0;text-decoration:none"><img src="https://store.public.blob.vercel-storage.com/reply-photos/still.jpg"';
+  assert.ok(email.html.includes(still), "the still links to the round");
+  assert.ok(email.html.includes(`alt="${text(copy.issue.videoLabel, { author: "Alice", duration: "0:42" })}"`));
+  assert.ok(email.html.includes(text(copy.emails.videoNote, { duration: "0:42" })));
+  assert.match(email.html, new RegExp(`<a href="https://friendloop\\.dev/i/abc"[^>]*>${copyPattern(copy.emails.videoNoteWatch).source}</a>`));
   assert.equal(email.html.match(/still\.jpg/g)?.length, 1, "Bob's answer has no clip");
 });

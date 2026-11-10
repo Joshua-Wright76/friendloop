@@ -1,4 +1,4 @@
-import { test, expect, type Locator, type Page } from "@playwright/test";
+import { test, expect, type Locator, type Page } from "../support/test";
 import AxeBuilder from "@axe-core/playwright";
 import { copy, copyPattern, text } from "@/lib/copy";
 import { COVER_TINTS, SCRAPBOOK_PER_ROUND } from "@/lib/looks";
@@ -284,7 +284,7 @@ test("N10 · members stick, move and peel stickers in a delivered round's margin
   await expect(page.getByRole("button", { name: copyPattern(words.stick) })).toHaveCount(0);
 });
 
-test("N10 · on a phone stickers sit half off the card's edge, clear of the words, and drag by touch", async ({ browser }) => {
+test("N10 · on a phone stickers sit half off the card's edge, clear of the words, and drag by touch", async ({ browser, browserName }) => {
   const { loop, delivered, alice } = await seedWorld();
   const bob = loop.members.find((member) => member.email.startsWith("bob"))!;
   const [reply] = await rows<{ id: string }>("select id from replies where issue_id = $1 and membership_id = $2", [delivered.issueId, alice.id]);
@@ -312,6 +312,8 @@ test("N10 · on a phone stickers sit half off the card's edge, clear of the word
   await page.locator("section[id^='question-']").first().scrollIntoViewIfNeeded();
   await shot(page, "scrapbook-phone");
 
+  // Only Chromium takes raw touch moves from a test (through its DevTools protocol).
+  if (browserName !== "chromium") return context.close();
   // Drag Bob's frog down the left margin and across to the right, by finger.
   const frog = page.getByRole("button", { name: text(words.labelYours, { sticker: copy.stickers.frog }) });
   await frog.scrollIntoViewIfNeeded();

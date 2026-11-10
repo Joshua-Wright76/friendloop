@@ -1,4 +1,4 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, type Page } from "../support/test";
 import { resetDatabase, rows } from "../support/db";
 import { clockHeaders, E2E_NOW, uniqueEmail } from "../support/harness";
 import { LIMITS } from "../../src/lib/rate-limit-policy";
