@@ -79,8 +79,8 @@ export default defineConfig({
       // phone size with touch. Most replies are written there, so every flow runs
       // here as well as on desktop Chromium, plus the phone-only checks.
       name: "phone",
-      // Linux WebKit paints in software, and the stationery pages (patterned tiles,
-      // drop-shadowed stickers) take it seconds a frame on a busy CI runner.
+      // WebKit is the slower engine to drive, most of all over the stationery pages
+      // (patterned tiles, drop-shadowed stickers) on a small CI runner.
       timeout: 60_000,
       testMatch: /(flows\/[^/]+|theme-switch|a11y-phone|picker-phone)\.spec\.ts$/,
       use: { ...devices["iPhone 13"] },
