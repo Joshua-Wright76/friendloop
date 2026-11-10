@@ -29,6 +29,8 @@ test("C2 · moving a turn-taker changes the order coming rounds ask them, not th
 
   // A tap on the grip opens Up and Down on that row.
   await page.getByRole("button", { name: copyText(copy.reorder.gripLabel, { item: "Q2" }) }).click();
+  // A saved move refreshes the page's data; a list re-rendered under a keyboard drag drops it.
+  const refreshed = page.waitForResponse((response) => response.request().headers()["rsc"] === "1" && response.url().includes("/questions"));
   await page.getByRole("button", { name: copyText(copy.reorder.downLabel, { item: "Q2" }) }).click();
   await expect(rowsOf.first()).toContainText("Q3");
   await expect.poll(() => queue(loop.groupId)).toEqual(["Q3", "Q2", "Q4", "Q1"]);
@@ -38,8 +40,9 @@ test("C2 · moving a turn-taker changes the order coming rounds ask them, not th
 
   // The keyboard picks a row up with Space, carries it, and sets it down. Each step is announced.
   const spoken = (words: string) => expect(page.locator('[id^="DndLiveRegion"]').filter({ hasText: words })).toHaveCount(1);
-  // The list holds still while the last move saves.
+  // The list holds still while the last move saves and the page catches up with it.
   await expect(queueList(page).locator("[data-locked]")).toHaveCount(0);
+  await refreshed;
   const grip = page.getByRole("button", { name: copyText(copy.reorder.gripLabel, { item: "Q4" }) });
   await grip.focus();
   await page.keyboard.press("Space");
