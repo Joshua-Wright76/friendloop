@@ -134,6 +134,7 @@ export function emailPreviews(): EmailPreview[] {
         unsubscribeUrl: PREVIEW_STOP_URL,
         isReader: false,
         theme: emailThemeOf({
+          id: "preview",
           themePreset: "lilac",
           themeAccent: null,
           themeBackground: "hearts",
@@ -222,13 +223,18 @@ export function emailPreviews(): EmailPreview[] {
         url: "https://friendloop.dev/i/preview",
         unsubscribeUrl: PREVIEW_STOP_URL,
         answers: ANSWERS.slice(0, 2).map((answer, index) => ({ ...answer, authorCharm: ["frog", "star"][index] })),
-        theme: emailThemeOf({
-          themePreset: "bluebell",
-          themeAccent: null,
-          themeBackground: "daisies",
+        theme: {
+          ...emailThemeOf({
+            id: "preview",
+            themePreset: "bluebell",
+            themeAccent: null,
+            themeBackground: "daisies",
+            headerImageUrl: null,
+            themeMascot: "duck",
+          }),
+          // A preview has no loop to ask, so it names the picture outright.
           headerImageUrl: "https://friendloop.dev/dev-preview/header.svg",
-          themeMascot: "duck",
-        }),
+        },
       })),
     },
     ...(["wax", "postmark"] as const).map((sealStyle) => ({
@@ -240,7 +246,7 @@ export function emailPreviews(): EmailPreview[] {
         url: "https://friendloop.dev/i/preview",
         unsubscribeUrl: PREVIEW_STOP_URL,
         answers: ANSWERS,
-        theme: emailThemeOf({ themePreset: "meadow", themeAccent: null, themeBackground: null, headerImageUrl: null, themeMascot: "frog" }),
+        theme: emailThemeOf({ id: "preview", themePreset: "meadow", themeAccent: null, themeBackground: null, headerImageUrl: null, themeMascot: "frog" }),
         marks: emailMarksOf(
           {
             themePreset: "meadow",

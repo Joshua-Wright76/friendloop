@@ -52,3 +52,12 @@ export function unsubscribeUrl(token: string): string {
 export function oneClickUnsubscribeUrl(token: string): string {
   return url(`/api/unsubscribe/${token}`);
 }
+
+/**
+ * The loop's picture as emails show it. Mail lives forever but a picture can be
+ * replaced or removed, so emails never name the stored file: this address always
+ * leads to whatever the loop shows now.
+ */
+export function loopPictureUrl(groupId: string): string {
+  return url(`/api/loop/${encodeURIComponent(groupId)}/header-image`);
+}
