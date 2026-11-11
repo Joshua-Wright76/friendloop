@@ -1,4 +1,4 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, type Page } from "../support/test";
 import { resetDatabase, rows } from "../support/db";
 import { seedLoop } from "../support/seed";
 import { AFTER_FIRST_SLOT, freezeClock, runSweep, signIn } from "../support/harness";
@@ -29,6 +29,8 @@ test("C2 · moving a turn-taker changes the order coming rounds ask them, not th
 
   // A tap on the grip opens Up and Down on that row.
   await page.getByRole("button", { name: copyText(copy.reorder.gripLabel, { item: "Q2" }) }).click();
+  // A saved move refreshes the page's data; a list re-rendered under a keyboard drag drops it.
+  const refreshed = page.waitForResponse((response) => response.request().headers()["rsc"] === "1" && response.url().includes("/questions"));
   await page.getByRole("button", { name: copyText(copy.reorder.downLabel, { item: "Q2" }) }).click();
   await expect(rowsOf.first()).toContainText("Q3");
   await expect.poll(() => queue(loop.groupId)).toEqual(["Q3", "Q2", "Q4", "Q1"]);
@@ -38,10 +40,18 @@ test("C2 · moving a turn-taker changes the order coming rounds ask them, not th
 
   // The keyboard picks a row up with Space, carries it, and sets it down. Each step is announced.
   const spoken = (words: string) => expect(page.locator('[id^="DndLiveRegion"]').filter({ hasText: words })).toHaveCount(1);
-  // The list holds still while the last move saves.
+  // The list holds still while the last move saves and the page catches up with it.
   await expect(queueList(page).locator("[data-locked]")).toHaveCount(0);
+  await refreshed;
+  // A second tap folds Up and Down away again, so the keyboard starts from a settled list.
+  const q2Grip = page.getByRole("button", { name: copyText(copy.reorder.gripLabel, { item: "Q2" }) });
+  await q2Grip.click();
+  await expect(q2Grip).toHaveAttribute("aria-expanded", "false");
   const grip = page.getByRole("button", { name: copyText(copy.reorder.gripLabel, { item: "Q4" }) });
   await grip.focus();
+  // Focus glides the page to clear the grip of the bottom bar. Picked up mid-glide, the
+  // rows dnd-kit has just measured keep moving and the carried row drifts on its own.
+  await settledScroll(page);
   await page.keyboard.press("Space");
   await spoken("Picked up Q4, at 3 of 4.");
   await page.keyboard.press("ArrowUp");
@@ -70,7 +80,7 @@ test("C2 · every-round items reorder among themselves", async ({ page }) => {
     .toEqual(["Wall", "Notes", "Music"]);
 });
 
-test("C2 · dragging a card by its grip moves the whole card, by mouse and by touch", async ({ page }) => {
+test("C2 · dragging a card by its grip moves the whole card, by mouse and by touch", async ({ page, browserName }) => {
   const loop = await seedLoop({ questions: ["Q1", "Q2", "Q3", "Q4"] });
   await signIn(page, "owner@friendloop.test");
   await page.goto(`/g/${loop.groupId}/questions`);
@@ -95,13 +105,16 @@ test("C2 · dragging a card by its grip moves the whole card, by mouse and by to
   await page.mouse.move(from.x, to.y + 8, { steps: 12 });
   await expect(cards.nth(3)).toHaveAttribute("data-dragging", "");
   expect(await cards.nth(3).evaluate((el) => new DOMMatrix(getComputedStyle(el).transform).m42)).toBeLessThan(-50);
-  expect(await cards.nth(0).evaluate((el) => new DOMMatrix(getComputedStyle(el).transform).m42)).toBeGreaterThan(20);
+  // The others glide aside rather than jump, so give them the moment it takes.
+  await expect.poll(() => cards.nth(0).evaluate((el) => new DOMMatrix(getComputedStyle(el).transform).m42)).toBeGreaterThan(20);
   await page.mouse.up();
   await expect.poll(() => queue(loop.groupId)).toEqual(["Q4", "Q1", "Q2", "Q3"]);
   await expect(queueList(page).locator("[data-locked]")).toHaveCount(0);
   await expect(page.getByRole("button", { name: copyText(copy.reorder.upLabel, { item: "Q4" }) })).toHaveCount(0); // a drag doesn't open Up and Down
 
   // Touch, as on a phone: the finger on the grip carries the card, without scrolling the page.
+  // Only Chromium takes raw touch moves from a test (through its DevTools protocol).
+  if (browserName !== "chromium") return;
   const cdp = await page.context().newCDPSession(page);
   await cdp.send("Emulation.setTouchEmulationEnabled", { enabled: true, maxTouchPoints: 1 });
   const touchGrip = (await cards.nth(3).locator("button").first().boundingBox())!;
@@ -115,3 +128,18 @@ test("C2 · dragging a card by its grip moves the whole card, by mouse and by to
   await touch("touchEnd", top.y + 8);
   await expect.poll(() => queue(loop.groupId)).toEqual(["Q4", "Q3", "Q1", "Q2"]);
 });
+
+/** Resolves once the page has held its scroll position for a few frames. */
+async function settledScroll(page: Page) {
+  await page.evaluate(() => new Promise<void>((resolve) => {
+    let last = scrollY;
+    let still = 0;
+    const tick = () => {
+      still = scrollY === last ? still + 1 : 0;
+      last = scrollY;
+      if (still >= 6) resolve();
+      else requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  }));
+}

@@ -11,6 +11,7 @@ import type { QuestionPack } from "@/lib/question-packs";
 import { QuestionPackPicker } from "@/components/question-pack-picker";
 import { InviteParticipation, type Participation } from "@/components/invite-participation";
 import { PaperFields, type StationeryLooks } from "@/components/paper-fields";
+import { EMPTY_MARKS, type MarksDraft } from "@/components/mark-pickers";
 import { DEFAULT_BACKGROUND, DEFAULT_PAPER_PACK, DEFAULT_TAPE_PACK } from "@/lib/stationery";
 import { DEFAULT_MASCOT, stickerSrc } from "@/lib/stickers";
 import { LoopBanner } from "@/components/loop-theme";
@@ -18,6 +19,7 @@ import { LivePaper } from "@/components/live-paper";
 import { PHOTO_ACCEPT } from "@/lib/photo-validation";
 import { BANNER_TARGET, prepareImage } from "@/components/prepare-image";
 import { DEFAULT_PRESET, normalizeHex } from "@/lib/theme";
+import { draftIsWorthKeeping, forgetDraft, forgetPicture, keepDraft, keepPicture, recallDraft, recallPicture, type LoopDraft } from "./draft";
 
 const WEEKDAYS = copy.common.weekdays;
 const HOURS = Array.from({ length: 24 }, (_, hour) => hour);
@@ -115,39 +117,95 @@ function AccessibleDialog({
   );
 }
 
-export function NewLoopForm({ packs }: { packs: QuestionPack[] }) {
+function freshDraft(packs: QuestionPack[]): LoopDraft {
+  return {
+    step: 0,
+    name: "",
+    cadence: "1",
+    weekday: "5",
+    hour: "9",
+    timezone: "",
+    picked: packs.flatMap((pack) => pack.questions).slice(0, 2),
+    customQuestions: [],
+    pickedIdeas: [],
+    emails: [],
+    participation: "contributor",
+    personalNote: "",
+    preset: DEFAULT_PRESET,
+    accent: "",
+    looks: {
+      background: DEFAULT_BACKGROUND,
+      paperPack: DEFAULT_PAPER_PACK,
+      tapePack: DEFAULT_TAPE_PACK,
+      mascot: DEFAULT_MASCOT,
+    },
+    marks: EMPTY_MARKS,
+    hasPicture: false,
+  };
+}
+
+/** A redirect into the new loop means it exists; a redirect to sign in means it doesn't. */
+function createdTheLoop(error: unknown): boolean {
+  const digest = (error as { digest?: unknown } | null)?.digest;
+  if (typeof digest !== "string" || !digest.startsWith("NEXT_REDIRECT")) return false;
+  return (digest.split(";")[2] ?? "").startsWith("/g/");
+}
+
+export function NewLoopForm({ packs, userId }: { packs: QuestionPack[]; userId: string }) {
+  // Starting over mounts a fresh wizard, so nothing chosen before can linger.
+  const [round, setRound] = useState(0);
+  return (
+    <Wizard
+      key={round}
+      packs={packs}
+      userId={userId}
+      onStartOver={() => {
+        forgetDraft(userId);
+        setRound((current) => current + 1);
+      }}
+    />
+  );
+}
+
+function Wizard({ packs, userId, onStartOver }: { packs: QuestionPack[]; userId: string; onStartOver: () => void }) {
+  const [fresh] = useState(() => freshDraft(packs));
+  const created = useRef(false);
   const [state, action, pending] = useActionState(async (previous: CreateState, data: FormData): Promise<CreateState> => {
     // A dropped connection leaves the wizard as it is, everything chosen still in place.
     try {
       return await createLoopAction(previous, data);
     } catch (error) {
+      if (createdTheLoop(error)) {
+        created.current = true;
+        forgetDraft(userId);
+      }
       if (isFrameworkSignal(error)) throw error;
       return { error: copy.newLoop.errors.createFailed };
     }
   }, {} as CreateState);
-  const [step, setStep] = useState(0);
-  const [name, setName] = useState("");
-  const [cadence, setCadence] = useState("1");
-  const [weekday, setWeekday] = useState("5");
-  const [hour, setHour] = useState("9");
-  const [timezone, setTimezone] = useState("");
-  const [picked, setPicked] = useState<string[]>(() => packs.flatMap((pack) => pack.questions).slice(0, 2));
+  const [step, setStep] = useState(fresh.step);
+  const [name, setName] = useState(fresh.name);
+  const [cadence, setCadence] = useState(fresh.cadence);
+  const [weekday, setWeekday] = useState(fresh.weekday);
+  const [hour, setHour] = useState(fresh.hour);
+  const [timezone, setTimezone] = useState(fresh.timezone);
+  const [picked, setPicked] = useState<string[]>(fresh.picked);
   const [customQuestions, setCustomQuestions] = useState<Array<{ id: number; value: string }>>([]);
-  const [pickedIdeas, setPickedIdeas] = useState<string[]>([]);
-  const [emails, setEmails] = useState<string[]>([]);
-  const [participation, setParticipation] = useState<Participation>("contributor");
+  const [pickedIdeas, setPickedIdeas] = useState<string[]>(fresh.pickedIdeas);
+  const [emails, setEmails] = useState<string[]>(fresh.emails);
+  const [participation, setParticipation] = useState<Participation>(fresh.participation);
   const [emailDraft, setEmailDraft] = useState("");
   const [emailError, setEmailError] = useState("");
   const [emailNotice, setEmailNotice] = useState("");
-  const [personalNote, setPersonalNote] = useState("");
-  const [preset, setPreset] = useState(DEFAULT_PRESET);
-  const [accent, setAccent] = useState("");
-  const [looks, setLooks] = useState<StationeryLooks>({
-    background: DEFAULT_BACKGROUND,
-    paperPack: DEFAULT_PAPER_PACK,
-    tapePack: DEFAULT_TAPE_PACK,
-    mascot: DEFAULT_MASCOT,
-  });
+  const [personalNote, setPersonalNote] = useState(fresh.personalNote);
+  const [preset, setPreset] = useState(fresh.preset);
+  const [accent, setAccent] = useState(fresh.accent);
+  const [looks, setLooks] = useState<StationeryLooks>(fresh.looks);
+  const [marks, setMarks] = useState<MarksDraft>(fresh.marks);
+  // Ready once whatever was kept on this device has been put back, so saving never
+  // overwrites a kept draft with the empty wizard.
+  const [ready, setReady] = useState(false);
+  const [resumed, setResumed] = useState(false);
   const [headerFile, setHeaderFile] = useState<File | null>(null);
   const [headerPreview, setHeaderPreview] = useState<string | null>(null);
   const [headerError, setHeaderError] = useState("");
@@ -182,6 +240,74 @@ export function NewLoopForm({ packs }: { packs: QuestionPack[] }) {
   const currentStepLabel = copy.newLoop.wizard.steps[step];
   const weekdayName = WEEKDAYS[Number(weekday)] ?? WEEKDAYS[5];
   const scheduleWhen = copy.newLoop.wizard.details.scheduleWhen[cadence as CadenceKey] ?? copy.newLoop.wizard.details.scheduleWhen["1"];
+
+  const draft: LoopDraft = {
+    step,
+    name,
+    cadence,
+    weekday,
+    hour,
+    timezone,
+    picked,
+    customQuestions: customQuestions.map((question) => question.value),
+    pickedIdeas,
+    emails,
+    participation,
+    personalNote,
+    preset,
+    accent,
+    looks,
+    marks,
+    hasPicture: headerFile !== null,
+  };
+  const draftJson = JSON.stringify(draft);
+
+  // Put back a setup that was interrupted. A frame later, so the timezone field
+  // has already filled in the browser's zone and a kept zone wins.
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => {
+      const kept = recallDraft(userId, fresh);
+      if (kept && draftIsWorthKeeping(kept, fresh)) {
+        const keptStep = Math.min(Math.max(kept.step, 0), LAST_STEP);
+        // Coming back mid-way is not a step change to announce with a focus ring.
+        focusedStep.current = keptStep;
+        setStep(keptStep);
+        setName(kept.name);
+        setCadence(kept.cadence);
+        setWeekday(kept.weekday);
+        setHour(kept.hour);
+        if (kept.timezone) setTimezone(kept.timezone);
+        setPicked(kept.picked);
+        setCustomQuestions(kept.customQuestions.map((value) => ({ id: nextQuestionId.current++, value })));
+        setPickedIdeas(kept.pickedIdeas);
+        setEmails(kept.emails);
+        setParticipation(kept.participation);
+        setPersonalNote(kept.personalNote);
+        setPreset(kept.preset);
+        setAccent(kept.accent);
+        setLooks(kept.looks);
+        setMarks(kept.marks);
+        setResumed(true);
+        void recallPicture(userId).then((file) => {
+          if (!file || created.current) return;
+          setHeaderFile(file);
+          showHeaderPreview(URL.createObjectURL(file));
+        });
+      }
+      setReady(true);
+    });
+    return () => cancelAnimationFrame(frame);
+    // Once, on arrival: later changes are the person's own.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Keep every change on the device until the loop is made.
+  useEffect(() => {
+    if (!ready || pending || created.current) return;
+    const current = JSON.parse(draftJson) as LoopDraft;
+    if (draftIsWorthKeeping(current, fresh)) keepDraft(userId, current);
+    else forgetDraft(userId);
+  }, [ready, pending, draftJson, fresh, userId, state]);
 
   useEffect(() => {
     if (focusedStep.current === step) return;
@@ -293,12 +419,14 @@ export function NewLoopForm({ packs }: { packs: QuestionPack[] }) {
     }
     setHeaderFile(prepared.file);
     showHeaderPreview(URL.createObjectURL(prepared.file));
+    void keepPicture(userId, prepared.file);
   }
 
   function clearHeader() {
     setHeaderFile(null);
     setHeaderError("");
     showHeaderPreview(null);
+    void forgetPicture(userId);
     if (headerInput.current) headerInput.current.value = "";
   }
 
@@ -319,6 +447,7 @@ export function NewLoopForm({ packs }: { packs: QuestionPack[] }) {
 
   function goNext() {
     clearStepError();
+    setResumed(false);
     if (step === 1 && accent.trim() !== "" && !normalizeHex(accent)) {
       // The field already says what's wrong, in place. Take the person there.
       setFocusRequest({ id: "accent-input" });
@@ -344,6 +473,7 @@ export function NewLoopForm({ packs }: { packs: QuestionPack[] }) {
 
   function goBack() {
     clearStepError();
+    setResumed(false);
     setStep((current) => Math.max(current - 1, 0));
   }
 
@@ -378,11 +508,17 @@ export function NewLoopForm({ packs }: { packs: QuestionPack[] }) {
       <input type="hidden" name="paperPack" value={looks.paperPack} />
       <input type="hidden" name="tapePack" value={looks.tapePack} />
       <input type="hidden" name="mascot" value={looks.mascot} />
+      <input type="hidden" name="motto" value={marks.motto} />
+      <input type="hidden" name="signOff" value={marks.signOff} />
+      <input type="hidden" name="sealStyle" value={marks.sealStyle} />
+      <input type="hidden" name="sealColor" value={marks.sealColor} />
+      <input type="hidden" name="divider" value={marks.divider} />
+      <input type="hidden" name="celebration" value={marks.celebration} />
       {questions.map((question, index) => <input key={`${index}:${question}`} type="hidden" name="question" value={question} />)}
       {emails.map((email) => <input key={email} type="hidden" name="email" value={email} />)}
 
       {/* The chosen paper dresses the whole page straight away, so the choice is its own preview. */}
-      {step >= 1 ? <LivePaper settings={{ preset, accent: normalizeHex(accent), ...looks }} /> : null}
+      {step >= 1 ? <LivePaper settings={{ preset, accent: normalizeHex(accent), ...looks, divider: marks.divider || null }} /> : null}
       <div className="wizard-progress">
         <div className="wizard-progress__row">
           <span className="text-[13px] font-bold text-ink-soft">
@@ -406,6 +542,15 @@ export function NewLoopForm({ packs }: { packs: QuestionPack[] }) {
           <span style={{ width: `${((step + 1) / copy.newLoop.wizard.steps.length) * 100}%` }} />
         </div>
       </div>
+
+      {resumed ? (
+        <div role="status" className="mt-3 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-md border border-dashed border-accent-line bg-accent-soft/60 px-3.5 py-2 text-[14px] leading-snug text-ink">
+          <span>{copy.newLoop.wizard.resumed.notice}</span>
+          <button type="button" onClick={onStartOver} className="link min-h-11 cursor-pointer">
+            {copy.newLoop.wizard.resumed.startOver}
+          </button>
+        </div>
+      ) : null}
 
       <section className="wizard-step" aria-labelledby="wizard-step-heading">
         {step === 0 ? (
@@ -504,6 +649,8 @@ export function NewLoopForm({ packs }: { packs: QuestionPack[] }) {
                 looks={looks}
                 onLooks={(change) => setLooks((current) => ({ ...current, ...change }))}
                 loopName={name || copy.newLoop.namePlaceholder}
+                marks={marks}
+                onMarks={(change) => setMarks((current) => ({ ...current, ...change }))}
               />
 
               <div className="mt-6 border-t border-dashed border-line pt-4">
@@ -677,6 +824,9 @@ export function NewLoopForm({ packs }: { packs: QuestionPack[] }) {
                   (copy.stationery.backgrounds as Record<string, string>)[looks.background],
                   (copy.stationery.packs as Record<string, { name: string }>)[looks.paperPack]?.name,
                   (copy.stickers as Record<string, string>)[looks.mascot],
+                  marks.sealStyle ? copy.stationery.seals[marks.sealStyle as keyof typeof copy.stationery.seals]?.name : null,
+                  marks.divider ? (copy.stationery.dividers as Record<string, string>)[marks.divider] : null,
+                  marks.celebration ? (copy.stationery.celebrations as Record<string, string>)[marks.celebration] : null,
                 ].filter(Boolean).join(" · ")}</dd></div>
                 <div><dt>{copy.newLoop.wizard.note.summaryQuestions}</dt><dd className="numeric">{questions.length === 1 ? copy.newLoop.wizard.note.summaryQuestionsOne : text(copy.newLoop.wizard.note.summaryQuestionsCount, { count: questions.length })}</dd></div>
                 <div><dt>{copy.newLoop.wizard.note.summaryInvites}</dt><dd className="numeric">{emails.length === 0 ? copy.newLoop.wizard.note.summaryInvitesNone : emails.length === 1 ? copy.newLoop.wizard.note.summaryInvitesOne : text(copy.newLoop.wizard.note.summaryInvitesCount, { count: emails.length })}</dd></div>
@@ -832,6 +982,7 @@ export function NewLoopForm({ packs }: { packs: QuestionPack[] }) {
               )}
             </span>
             <h3 className="mt-3 font-display text-[32px] font-bold leading-tight text-ink">{name || copy.newLoop.namePlaceholder}</h3>
+            {marks.motto.trim() ? <p className="loop-motto !p-0">{marks.motto.trim()}</p> : null}
             <p className="mt-1 text-[13px] font-bold text-ink-muted">{copy.common.brand}</p>
           </div>
           <p className="mt-5 border-y border-line py-3 text-[13px] leading-relaxed text-ink-soft">
@@ -864,6 +1015,7 @@ export function NewLoopForm({ packs }: { packs: QuestionPack[] }) {
               {personalNote.trim() || copy.newLoop.wizard.note.emptyNote}
             </p>
           </div>
+          {marks.signOff.trim() ? <p className="sign-off__words mt-5 text-center">{marks.signOff.trim()}</p> : null}
         </article>
       </AccessibleDialog>
     </form>

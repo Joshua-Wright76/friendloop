@@ -14,6 +14,7 @@ import { Picker } from "@/components/picker";
 import { ConfirmAction } from "@/components/confirm-action";
 import { copy, text } from "@/lib/copy";
 import { formatHour } from "@/lib/format";
+import { marksOf } from "@/lib/looks";
 import { useLoopData } from "../loop-data";
 import { SubmitButton } from "@/components/submit-button";
 
@@ -27,6 +28,9 @@ export default function SettingsTab({ notices }: { notices: { saved?: string; er
   const { group, membership } = useLoopData();
   const id = group.id;
   const isOwner = membership.access === "owner";
+  // Admins run the loop with the owner. Downloading it and deleting it stay the owner's.
+  const manages = membership.access !== "member";
+  const hasDanger = isOwner || group.shareEnabled;
   const [confirmation, setConfirmation] = useState("");
   const [nameError, setNameError] = useState(false);
   const [view, setView] = useState<"details" | "paper" | "keep" | "danger">(() =>
@@ -35,19 +39,20 @@ export default function SettingsTab({ notices }: { notices: { saved?: string; er
   // The same comparison the server makes; the server still checks.
   const confirmed = confirmation.trim() === group.name.trim();
 
-  if (!isOwner) redirect(`/g/${id}`);
+  if (!manages) redirect(`/g/${id}`);
 
   return (
     <main className="loop-page mx-auto w-full max-w-[680px] px-4 pb-16 pt-5 sm:px-6 lg:max-w-[1040px]">
       <LoopNav id={id} name={group.name} access={membership.access} active="Settings">
         <h1>{copy.settings.title}</h1>
         <div className="subtabs" role="group" aria-label={copy.settings.tabsLabel}>
-          {([["details", copy.settings.groupDetails], ["paper", copy.settings.groupPaper], ["keep", copy.settings.groupKeep], ["danger", copy.settings.groupDanger]] as const).map(([key, label]) => (
+          {([["details", copy.settings.groupDetails], ["paper", copy.settings.groupPaper], ["keep", copy.settings.groupKeep], ["danger", isOwner ? copy.settings.groupDanger : copy.settings.groupDangerAdmin]] as const).filter(([key]) => key !== "danger" || hasDanger).map(([key, label]) => (
             <button key={key} type="button" className="subtab" aria-pressed={view === key} onClick={() => setView(key)}>{label}</button>
           ))}
         </div>
       </LoopNav>
 
+      {isOwner ? null : <p className="mt-3 text-[14px] leading-relaxed text-ink-soft">{copy.settings.adminNote}</p>}
       {notices.saved ? <NoticeFocus>{copy.settings.savedNotice}</NoticeFocus> : null}
       {notices.shares ? <NoticeFocus key={notices.shares}>{copy.settings.sharesResetNotice}</NoticeFocus> : null}
       {notices.stationery === "1" ? <NoticeFocus>{copy.stationery.saved}</NoticeFocus> : null}
@@ -148,6 +153,7 @@ export default function SettingsTab({ notices }: { notices: { saved?: string; er
         tapePack={group.themeTapePack}
         mascot={group.themeMascot}
         headerImageUrl={group.headerImageUrl}
+        marks={marksOf(group)}
       />
       {/* The owner's own look lives with their card on People; this is the way there from the loop's look. */}
       <section className="card mt-4 p-5" aria-labelledby="your-look-title">
@@ -174,13 +180,16 @@ export default function SettingsTab({ notices }: { notices: { saved?: string; er
           </SubmitButton>
         </SafeForm>
 
-        <div className="mt-4 border-t border-dashed border-line pt-4">
-          <h2 className="text-ink">{copy.settings.archiveTitle}</h2>
-          <p className="mt-1 text-[14px] leading-relaxed text-ink-soft">{copy.settings.archiveBody}</p>
-          <a href={`/g/${id}/export`} download className="btn btn-quiet mt-3">{copy.settings.archive}</a>
-        </div>
+        {isOwner ? (
+          <div className="mt-4 border-t border-dashed border-line pt-4">
+            <h2 className="text-ink">{copy.settings.archiveTitle}</h2>
+            <p className="mt-1 text-[14px] leading-relaxed text-ink-soft">{copy.settings.archiveBody}</p>
+            <a href={`/g/${id}/export`} download className="btn btn-quiet mt-3">{copy.settings.archive}</a>
+          </div>
+        ) : null}
       </div>
 
+      {hasDanger ? (
       <div id="settings-danger" hidden={view !== "danger"} className="danger-zone mt-4">
       <h2 className="mb-3 text-danger">{copy.settings.dangerTitle}</h2>
       {group.shareEnabled ? (
@@ -202,6 +211,7 @@ export default function SettingsTab({ notices }: { notices: { saved?: string; er
         </section>
       ) : null}
 
+      {isOwner ? (
       <SafeForm action={deleteAction}>
         <input type="hidden" name="groupId" value={id} />
         <input type="hidden" name="name" value={group.name} />
@@ -227,7 +237,9 @@ export default function SettingsTab({ notices }: { notices: { saved?: string; er
         </SubmitButton>
         {confirmed ? null : <p className="m-0 mt-2 text-[13px] text-ink-soft">{copy.settings.deleteHint}</p>}
       </SafeForm>
+      ) : null}
       </div>
+      ) : null}
     </main>
   );
 }

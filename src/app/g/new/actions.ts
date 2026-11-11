@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { currentUser } from "@/lib/auth";
 import { getNow } from "@/lib/clock";
 import { setHeaderImage, stationeryColumns } from "@/lib/identity";
+import { marksColumns } from "@/lib/looks";
 import { createLoop, inviteMembers, ownedLoopCount } from "@/lib/manage";
 import { MAX_LOOPS_PER_OWNER, MAX_MEMBERS_PER_LOOP } from "@/lib/rate-limit";
 import { MAX_BANNER_BYTES, validatePhoto } from "@/lib/photo-validation";
@@ -67,6 +68,15 @@ export async function createLoopAction(
     mascot: String(formData.get("mascot") ?? ""),
   });
   if (!looks.ok) return { error: copy.newLoop.errors.theme };
+  const marks = marksColumns({
+    motto: String(formData.get("motto") ?? ""),
+    signOff: String(formData.get("signOff") ?? ""),
+    sealStyle: String(formData.get("sealStyle") ?? ""),
+    sealColor: String(formData.get("sealColor") ?? ""),
+    divider: String(formData.get("divider") ?? ""),
+    celebration: String(formData.get("celebration") ?? ""),
+  });
+  if (!marks.ok) return { error: copy.newLoop.errors.theme };
 
   const picture = formData.get("headerImage");
   let header: { bytes: Uint8Array; type: string } | null = null;
@@ -93,6 +103,7 @@ export async function createLoopAction(
     themePreset: preset && preset !== DEFAULT_PRESET ? preset : null,
     themeAccent: normalizeHex(accent),
     ...looks.columns,
+    ...marks.columns,
   });
 
   // Validated above, so a failure here is the store or the database; the loop is

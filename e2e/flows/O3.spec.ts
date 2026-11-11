@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "../support/test";
 import { resetDatabase, rows } from "../support/db";
 import { seedLoop, seedReplies } from "../support/seed";
 import { AFTER_FIRST_SLOT, DAY, runSweep } from "../support/harness";

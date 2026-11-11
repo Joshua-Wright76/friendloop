@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef } from "react";
+import { useRef, type ReactNode } from "react";
 import { Tape } from "@/components/stationery";
 import { copy } from "@/lib/copy";
 
@@ -16,13 +16,15 @@ type Props = {
   status: PollCardStatus;
   disabled: boolean;
   onChange: (next: number[]) => void;
+  /** Anything else the card carries under the poll, like its sticker. */
+  children?: ReactNode;
 };
 
 /**
  * A poll on the reply sheet: tap to choose, change your mind until the round goes
  * out. Nothing here shows what anyone else picked — results arrive with the issue.
  */
-export function PollCard({ id, index, prompt, options, multiple, picks, status, disabled, onChange }: Props) {
+export function PollCard({ id, index, prompt, options, multiple, picks, status, disabled, onChange, children }: Props) {
   const firstOption = useRef<HTMLInputElement>(null);
   const toggle = (option: number) => {
     if (multiple) {
@@ -85,6 +87,7 @@ export function PollCard({ id, index, prompt, options, multiple, picks, status, 
           </button>
         ) : null}
       </div>
+      {children}
     </section>
   );
 }

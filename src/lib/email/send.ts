@@ -144,6 +144,13 @@ export async function suppressionFor(input: {
 
 export type Transport = "outbox" | "resend";
 
+/**
+ * What an outbox row's html and text become once the provider has the email.
+ * The body is kept only while it may still need sending. A captured outbox
+ * (tests, local dev) keeps it, since nothing left and it is the only copy.
+ */
+export const SENT_BODY = "";
+
 /** Header a test uses to force one request down the real provider path. */
 export const TRANSPORT_HEADER = "x-e2e-email-transport";
 
@@ -277,9 +284,10 @@ async function dispatch(row: {
       ...(row.headers ? { headers: row.headers } : {}),
     });
     if (error) throw new Error(error.message ?? "resend rejected the message");
+    // Once it has left, the body is someone's private loop, so only the envelope stays.
     await db
       .update(outbox)
-      .set({ status: "sent", sentAt: new Date(), providerId: data?.id ?? null, error: null })
+      .set({ status: "sent", sentAt: new Date(), providerId: data?.id ?? null, error: null, html: SENT_BODY, text: SENT_BODY })
       .where(eq(outbox.id, row.id));
     if (used !== null && used + 1 >= Math.ceil(loopMailAllowance() * BUDGET_WARNING_SHARE)) {
       await alertBudget("near", used + 1);

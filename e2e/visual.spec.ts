@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Page } from "./support/test";
 import { resetDatabase } from "./support/db";
 import { seedDeliveredIssue, seedLoop, seedOpenIssue } from "./support/seed";
 import { AFTER_FIRST_SLOT, waitForSheet } from "./support/harness";

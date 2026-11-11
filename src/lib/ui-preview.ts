@@ -23,6 +23,7 @@ import {
   reactions,
 } from "@/db/schema";
 import { createSession } from "./auth";
+import { secureCookies } from "./e2e";
 import { nextSlot } from "./schedule";
 import { hashToken, safeEqual } from "./tokens";
 
@@ -81,7 +82,7 @@ export async function unlockUiInbox(key: string | null): Promise<void> {
     sameSite: "lax",
     // Fail closed over plain HTTP: a self-hosted deployment without TLS keeps
     // /dev locked instead of leaking the cookie across the network.
-    secure: process.env.NODE_ENV === "production",
+    secure: secureCookies(),
     path: "/dev",
     maxAge: PREVIEW_COOKIE_MAX_AGE,
   });
@@ -292,6 +293,21 @@ export async function requireUiPreview() {
   if (isLocalUiPreview()) return;
   const jar = await cookies();
   if (!previewCookieMatches(jar.get(PREVIEW_COOKIE)?.value)) notFound();
+}
+
+/**
+ * Whether this deployment shows the captured inbox. Production never does, key
+ * or not: a sent email there is someone's private loop, and nobody running
+ * Friendloop should have a page that reads it back.
+ */
+export function capturedInboxAllowed(): boolean {
+  return process.env.VERCEL_ENV !== "production";
+}
+
+/** The captured inbox's lock: the preview key, and never in production. */
+export async function requireCapturedInbox() {
+  if (!capturedInboxAllowed()) notFound();
+  await requireUiPreview();
 }
 
 /**

@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "../support/test";
 import { resetDatabase, rows } from "../support/db";
 import { addMember, seedLoop } from "../support/seed";
 import { openPart, signIn } from "../support/harness";
@@ -57,8 +57,10 @@ test("N3 · the owner hands the loop to an admin, names them in the confirmation
   // The founder is still signed in, now as an admin: owner-only actions are gone and cannot be undone alone.
   await page.goto(`/g/${loop.groupId}/members`);
   await expect(page.getByRole("button", { name: copyPattern(copy.members.transferAction) })).toHaveCount(0);
+  // Settings stay open to an admin, but deleting the loop is the owner's alone.
   await page.goto(`/g/${loop.groupId}/settings`);
-  await expect(page).toHaveURL(new RegExp(`/g/${loop.groupId}$`));
+  await expect(page.getByText(copy.settings.adminNote)).toBeVisible();
+  await expect(page.getByRole("button", { name: copy.settings.delete })).toHaveCount(0);
 
   // The new owner holds the owner-only keys, and can hand it back.
   const heirContext = await browser.newContext();

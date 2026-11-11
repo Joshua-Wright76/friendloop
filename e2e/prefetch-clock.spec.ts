@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./support/test";
 import { resetDatabase } from "./support/db";
 import { signIn, uniqueEmail } from "./support/harness";
 import { copy } from "@/lib/copy";

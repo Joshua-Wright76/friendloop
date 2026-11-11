@@ -76,6 +76,29 @@ test("an unknown paper or an unreadable accent code is refused and changes nothi
   assert.equal((await groupOf(loop.groupId)).themeAccent, null);
 });
 
+test("the owner's marks save with the stationery, and a key that isn't ours is refused whole", async () => {
+  const loop = await seedLoop();
+  const marks = async () => {
+    const group = await groupOf(loop.groupId);
+    return { motto: group.motto, signOff: group.signOff, sealStyle: group.sealStyle, sealColor: group.sealColor, divider: group.divider, celebration: group.celebration };
+  };
+
+  assert.deepEqual(
+    await saveTheme(loop.groupId, { preset: "", accent: "", motto: " est.\n2019 ", signOff: "xo", sealStyle: "wax", sealColor: "plum", divider: "lace", celebration: "stars" }),
+    { ok: true, adjusted: false },
+  );
+  assert.deepEqual(await marks(), { motto: "est. 2019", signOff: "xo", sealStyle: "wax", sealColor: "plum", divider: "lace", celebration: "stars" });
+
+  // Left out is left alone; empty and the original wax are stored as nothing.
+  await saveTheme(loop.groupId, { preset: "", accent: "", signOff: "", sealColor: "cherry" });
+  assert.deepEqual(await marks(), { motto: "est. 2019", signOff: null, sealStyle: "wax", sealColor: null, divider: "lace", celebration: "stars" });
+
+  assert.deepEqual(await saveTheme(loop.groupId, { preset: "meadow", accent: "", divider: "url(evil)" }), { ok: false, error: "divider" });
+  assert.deepEqual(await saveTheme(loop.groupId, { preset: "meadow", accent: "", celebration: "fireworks" }), { ok: false, error: "celebration" });
+  assert.equal((await groupOf(loop.groupId)).themePreset, null, "nothing from a refused save is kept");
+  assert.equal((await marks()).divider, "lace");
+});
+
 test("a header picture is stored, replaced without leaving the old file, and cleared", async (t) => {
   const loop = await seedLoop();
   const first = await setHeaderImage(loop.groupId, { bytes: PNG, type: "image/png" });
@@ -112,11 +135,19 @@ test("a header picture must be a real image under its own cap, for a loop that e
   assert.deepEqual(tooBig, { ok: false, status: 413, error: copy.identity.errors.bannerTooLarge });
   assert.equal((await groupOf(loop.groupId)).headerImageUrl, null);
 
-  const { readdir } = await import("node:fs/promises");
-  const before = (await readdir(path.join(process.cwd(), "public", "uploads"))).length;
-  const missing = await setHeaderImage("00000000-0000-4000-8000-000000000000", { bytes: PNG, type: "image/png" });
+  // Other test files write to the same folder at the same time, so look for
+  // these exact bytes rather than counting files.
+  const { randomBytes } = await import("node:crypto");
+  const { readdir, readFile } = await import("node:fs/promises");
+  const uploads = path.join(process.cwd(), "public", "uploads");
+  const unique = new Uint8Array([...PNG, ...randomBytes(16)]);
+  const before = new Set(await readdir(uploads));
+  const missing = await setHeaderImage("00000000-0000-4000-8000-000000000000", { bytes: unique, type: "image/png" });
   assert.equal(missing.ok === false && missing.status, 404);
-  assert.equal((await readdir(path.join(process.cwd(), "public", "uploads"))).length, before, "no orphan file is left behind");
+  for (const name of (await readdir(uploads)).filter((entry) => !before.has(entry))) {
+    const bytes = await readFile(path.join(uploads, name)).catch(() => null);
+    assert.equal(bytes !== null && Buffer.from(unique).equals(bytes), false, "no orphan file is left behind");
+  }
 
   const original = { NODE_ENV: process.env.NODE_ENV, E2E: process.env.E2E, TOKEN: process.env.BLOB_READ_WRITE_TOKEN };
   t.after(() => {
@@ -173,7 +204,7 @@ test("delivery carries the round's name and the loop's stationery into the email
   );
   assert.match(mail.subject, /· Camping weekend$/);
   assert.match(mail.html, /#f5f0fb/, "the lilac paper");
-  assert.match(mail.html, /<img src="https:\/\/cdn\.test\/banner\.png" alt=""/);
+  assert.match(mail.html, new RegExp(`<img src="[^"]+/api/loop/${loop.groupId}/header-image" alt=""`), "the lasting address, not the file");
 });
 
 test("prompt, reminder and nudge emails wear the stationery; an untouched loop stays Gingham", async () => {

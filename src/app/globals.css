@@ -274,7 +274,7 @@ select.field { cursor: pointer; }
 /* Long names, emails and URLs wrap instead of truncating: an ellipsis loses text once spacing or zoom changes (1.4.4, 1.4.12). */
 .wrap-any { min-width: 0; overflow-wrap: anywhere; }
 /* A control that is blocked but still focusable (aria-disabled) is dimmed; its focus ring must not be. */
-.btn[aria-disabled="true"]:focus-visible { opacity: 1; }
+:is(.btn, .attach-btn)[aria-disabled="true"]:focus-visible { opacity: 1; }
 /* In flight, not unavailable: keep it readable and say so with the cursor. */
 .btn[aria-busy="true"] { opacity: .7; cursor: progress; }
 
@@ -1213,8 +1213,8 @@ html[data-theme="dark"] .album-viewer::before { opacity: .6; }
   .look-group:last-child { border-bottom: 1px dashed var(--line-strong); }
   .look-group__summary { display: flex; min-height: 52px; align-items: center; gap: 10px; padding: 6px 2px; cursor: pointer; list-style: none; }
   .look-group__summary::-webkit-details-marker { display: none; }
-  .look-group__title { flex: none; color: var(--ink); font-size: 15px; font-weight: 800; }
-  .look-group__value { min-width: 0; flex: 1; color: var(--ink-soft); font-size: 14px; font-weight: 700; line-height: 1.3; text-align: right; overflow-wrap: anywhere; }
+  .look-group__title { flex: 0 1 auto; color: var(--ink); font-size: 15px; font-weight: 800; }
+  .look-group__value { min-width: 0; flex: 1; color: var(--ink-soft); font-size: 14px; font-weight: 700; line-height: 1.3; text-align: right; overflow-wrap: break-word; }
   .look-group__chevron { width: 18px; height: 18px; flex: none; color: var(--ink-muted); transition: transform 160ms ease; }
   .look-group[open] .look-group__chevron { transform: rotate(180deg); }
   .look-group__body { padding: 2px 0 16px; }
@@ -1297,3 +1297,338 @@ html[data-theme="dark"] .toast { background: var(--card); color: var(--ink); box
 @media (prefers-reduced-motion: reduce) {
   .mic-help :is(.mic-help__screen, .mic-help__row--hit, .mic-help__check, .mic-help__switch, .mic-help__knob, .mic-help__tap, .mic-help__tap::after) { animation: none; }
 }
+
+/* ------------------------------------------------------------------------------
+   The owner's marks on a round (src/lib/looks.ts): a motto, a seal or postmark, a
+   divider between answers, a sign-off, and a send celebration. Each only exists on
+   the page when it was chosen; a loop that chose none never meets these rules.
+   ------------------------------------------------------------------------------ */
+.loop-motto { margin: -2px 0 0; padding-left: 36px; color: var(--accent-ink); font-family: var(--font-display); font-size: 20px; font-weight: 700; line-height: 1.15; overflow-wrap: anywhere; }
+@media (max-width: 520px) { .loop-motto { padding-left: 0; font-size: 19px; } }
+
+/* The seal or postmark sits beside the round's title; the words keep their column. */
+.loop-head__page:has(> .round-mark) { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 12px; align-items: start; }
+.loop-head__page > .round-mark { grid-column: 2; grid-row: 1 / span 3; align-self: center; }
+.loop-head__page:has(> .round-mark) > :not(.round-mark) { grid-column: 1; }
+.wax-seal { display: block; width: 84px; height: 84px; flex: none; transform: rotate(-8deg); }
+.wax-seal > svg { display: block; width: 100%; height: 100%; overflow: visible; }
+html[data-theme="dark"] .wax-seal > svg { filter: drop-shadow(0 0 .6px rgb(255 255 255 / .22)); }
+.postmark-mark { position: relative; display: block; width: 132px; height: 92px; flex: none; }
+.postmark-mark__stamp { position: absolute; top: 2px; right: 2px; width: 64px; transform: rotate(4deg); }
+.postmark-mark__cancel { position: absolute; top: 18px; left: 0; width: 120px; transform: rotate(-9deg); }
+.postmark-mark svg { display: block; width: 100%; height: auto; overflow: visible; }
+/* The stamp and the cancellation's ink carry their own fallbacks (seal-art.ts); evening dims the one and lightens the other. */
+html[data-theme="dark"] { --stamp-paper: #ece2d6; --postmark-ink: rgb(214 222 248 / .78); }
+html[data-theme="dark"] .postmark-mark__stamp { filter: brightness(.9); }
+@media (max-width: 520px) {
+  .wax-seal { width: 68px; height: 68px; }
+  .postmark-mark { width: 104px; height: 74px; }
+  .postmark-mark__stamp { width: 52px; }
+  .postmark-mark__cancel { top: 14px; width: 96px; }
+}
+
+/* A chosen divider is drawn along the top edge of each answer; unchosen, the border is the stitches as ever. */
+.divided:not(:first-child) { border-image: var(--divider, none); }
+
+.sign-off { margin-top: 0; padding: 20px 20px 18px; text-align: center; }
+.sign-off__mark { display: block; width: 44px; height: 44px; margin: 0 auto 6px; }
+.sign-off__words { margin: 0; color: var(--accent-ink); font-family: var(--font-display); font-size: 30px; font-weight: 700; line-height: 1.15; overflow-wrap: anywhere; transform: rotate(-1.5deg); }
+.sign-off__next { margin: 8px 0 0; color: var(--ink-muted); font-size: 13.5px; font-weight: 700; line-height: 1.45; }
+@media (max-width: 520px) { .sign-off__words { font-size: 26px; } }
+
+/* Send celebrations: a layer of a few nodes over the page, gone after one play. */
+.celebration { position: fixed; z-index: 60; inset: 0; overflow: hidden; pointer-events: none; }
+.celebration--contained { position: absolute; z-index: 2; border-radius: inherit; }
+.fx { position: absolute; display: block; will-change: transform, opacity; animation-delay: var(--delay, 0s); animation-fill-mode: both; }
+.fx > svg, .fx > img { display: block; width: 100%; height: 100%; }
+.fx--confetti { top: calc(100% - 64px); width: 8px; height: 13px; border-radius: 2px; animation: fx-confetti var(--dur) cubic-bezier(.2, .7, .4, 1); }
+@keyframes fx-confetti { 0% { opacity: 1; transform: translate(0, 0) rotate(0); } 38% { opacity: 1; transform: translate(calc(var(--dx) * .7), var(--dy)) rotate(calc(var(--rot) * .5)); } 100% { opacity: 0; transform: translate(var(--dx), calc(var(--dy) + 460px)) rotate(var(--rot)); } }
+.fx--petal { top: -28px; width: 14px; height: 19px; border-radius: 80% 0 80% 0; box-shadow: inset 0 0 0 1px rgb(0 0 0 / .05); animation: fx-petal var(--dur) ease-in; }
+@keyframes fx-petal { 0% { opacity: 0; transform: translate(0, 0) rotate(0); } 8% { opacity: 1; } 30% { transform: translate(var(--sway), 30vh) rotate(170deg); } 60% { transform: translate(calc(var(--sway) * -1), 62vh) rotate(320deg); } 100% { opacity: .5; transform: translate(var(--sway), 108vh) rotate(560deg); } }
+.fx--star { top: calc(100% - 80px); left: calc(50% - 11px); width: 22px; height: 22px; animation: fx-star var(--dur) cubic-bezier(.15, .8, .3, 1); }
+@keyframes fx-star { 0% { opacity: 1; transform: translate(0, 0) scale(.2) rotate(0); } 60% { opacity: 1; } 100% { opacity: 0; transform: translate(var(--dx), var(--dy)) scale(var(--scale)) rotate(var(--rot)); } }
+.fx--hop { top: calc(100% - 170px); left: 50%; width: 88px; height: 88px; transform-origin: 50% 100%; animation: fx-hop 1.6s cubic-bezier(.3, 0, .3, 1); filter: drop-shadow(0 0 1.2px #fff) drop-shadow(0 0 1.2px #fff) drop-shadow(0 6px 6px rgb(61 42 48 / .25)); }
+@keyframes fx-hop { 0% { opacity: 0; transform: translate(-50%, 40px) scale(1, 1); } 12% { opacity: 1; transform: translate(-50%, 0) scale(1.16, .8); } 22% { transform: translate(-50%, 0) scale(.9, 1.12); } 45% { transform: translate(-50%, -160px) scale(1, 1) rotate(-8deg); } 66% { transform: translate(-50%, 0) scale(1.18, .8); } 76% { transform: translate(-50%, -26px) scale(1, 1); } 86% { transform: translate(-50%, 0) scale(1.06, .94); } 94% { opacity: 1; transform: translate(-50%, 0) scale(1); } 100% { opacity: 0; transform: translate(-50%, 0) scale(1); } }
+.fx--heart { top: calc(100% - 180px); width: 20px; height: 18px; animation: fx-heart 1.6s ease-out; }
+@keyframes fx-heart { 0% { opacity: 0; transform: translate(0, 0) scale(.4); } 20% { opacity: 1; } 100% { opacity: 0; transform: translate(var(--dx), -190px) scale(1.15); } }
+.fx--envelope { top: calc(100% - 150px); left: 50%; width: 76px; color: var(--accent-ink); animation: fx-envelope 1.5s cubic-bezier(.5, 0, .6, 1); }
+.fx--envelope .envelope { width: 100%; margin: 0; color: inherit; }
+@keyframes fx-envelope { 0% { opacity: 0; transform: translate(-50%, 0) scale(.6) rotate(0); } 15% { opacity: 1; transform: translate(-50%, -20px) scale(1) rotate(-6deg); } 35% { transform: translate(-50%, -30px) scale(1) rotate(-10deg); } 100% { opacity: 0; transform: translate(190px, -560px) scale(.5) rotate(24deg); } }
+.fx--trail { top: calc(100% - 120px); left: calc(50% + 6px); width: 6px; height: 6px; border-radius: 50%; background: var(--accent); animation: fx-trail 1.6s ease-out; }
+@keyframes fx-trail { 0% { opacity: 0; transform: translate(var(--x), var(--y)) scale(.4); } 15% { opacity: 1; transform: translate(var(--x), var(--y)) scale(1); } 100% { opacity: 0; transform: translate(var(--x), var(--y)) scale(1); } }
+.celebration--contained .fx--confetti, .celebration--contained .fx--star { top: calc(100% - 24px); }
+.celebration--contained .fx--hop { top: calc(100% - 92px); width: 56px; height: 56px; }
+.celebration--contained .fx--heart { top: calc(100% - 96px); }
+.celebration--contained .fx--envelope { top: calc(100% - 70px); width: 48px; }
+.celebration--contained .fx--trail { top: calc(100% - 60px); }
+@media (prefers-reduced-motion: reduce) { .celebration { display: none; } }
+
+/* The marks' pickers, in the stationery settings and the wizard. */
+.mark-tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+@media (min-width: 560px) { .mark-tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.mark-tile { position: relative; display: flex; min-width: 0; min-height: 44px; flex-direction: column; align-items: center; gap: 2px; padding: 10px 6px 9px; border: 2px solid var(--line-strong); border-radius: 6px; background: var(--card); cursor: pointer; text-align: center; }
+.mark-tile > input { position: absolute; z-index: 3; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
+.mark-tile:has(> input:focus-visible) { outline: 3px solid var(--accent-ink); outline-offset: 2px; }
+.mark-tile:has(> input:checked) { border-color: var(--accent-ink); box-shadow: 0 0 0 1px var(--accent-ink); }
+.mark-tile .pick-mark { top: 5px; right: 5px; width: 20px; height: 20px; }
+.mark-tile__art { display: grid; height: 78px; place-items: center; }
+.mark-tile__art .wax-seal { width: 66px; height: 66px; }
+.mark-tile__art .postmark-mark { width: 104px; height: 72px; }
+.mark-tile__art .postmark-mark__stamp { width: 50px; }
+.mark-tile__art .postmark-mark__cancel { top: 14px; width: 94px; }
+.mark-tile__none { display: block; width: 54px; height: 54px; border: 2px dashed var(--line-strong); border-radius: 50%; }
+.mark-tile__name { color: var(--ink); font-size: 13px; font-weight: 800; line-height: 1.2; overflow-wrap: anywhere; }
+.mark-tile__desc { color: var(--ink-muted); font-size: 12px; line-height: 1.3; }
+.mark-tile--text { justify-content: center; padding: 12px 24px 12px 8px; }
+.mark-tiles--seals { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+@media (max-width: 400px) { .mark-tiles--seals .mark-tile__desc { display: none; } }
+.wax-tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+@media (min-width: 560px) { .wax-tiles { grid-template-columns: repeat(6, minmax(0, 1fr)); } }
+.wax-tile .wax-seal { width: 46px; height: 46px; }
+.wax-tile:has(> input:checked) { border-color: var(--accent-ink); box-shadow: 0 0 0 1px var(--accent-ink); }
+.wax-tile:has(> input:focus-visible) { outline: 3px solid var(--accent-ink); outline-offset: 2px; }
+.divider-tile { --divider: var(--divider-light); }
+html[data-theme="dark"] .divider-tile { --divider: var(--divider-dark); }
+.divider-tile__scrap { display: flex; width: 100%; flex-direction: column; gap: 0; padding: 10px 12px 4px; border: 1px solid var(--line); border-radius: 4px; background: var(--card); }
+.divider-tile__line { display: block; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--line); }
+.celebration-stage { position: relative; display: grid; height: 120px; margin-bottom: 8px; place-items: center; overflow: hidden; border: 1px dashed var(--line-strong); border-radius: 6px; background: var(--card); }
+.celebration-stage__check { color: var(--success); }
+.preview-mark { position: relative; z-index: 1; float: right; margin: -4px -4px 4px 6px; }
+.preview-mark.wax-seal { width: 46px; height: 46px; }
+.preview-mark.postmark-mark { width: 84px; height: 58px; }
+.preview-mark .postmark-mark__stamp { width: 40px; }
+.preview-mark .postmark-mark__cancel { top: 12px; width: 76px; }
+@media (max-width: 520px) {
+  .preview-mark.wax-seal { width: 34px; height: 34px; }
+  .preview-mark.postmark-mark { width: 52px; height: 38px; }
+  .preview-mark .postmark-mark__stamp { width: 26px; }
+  .preview-mark .postmark-mark__cancel { top: 8px; width: 46px; }
+  .preview-motto { font-size: 13.5px; }
+  .preview-sign-off { font-size: 17px; }
+}
+.preview-motto { margin: 0; font-family: var(--font-display); font-size: 17px; font-weight: 700; line-height: 1.15; overflow-wrap: anywhere; }
+.preview-sign-off { margin: 10px 0 0; font-family: var(--font-display); font-size: 20px; font-weight: 700; line-height: 1.15; text-align: center; overflow-wrap: anywhere; }
+
+/* ------------------------------------------------------------------------------
+   What people add themselves (src/lib/looks.ts): a signature, a line per round and
+   a sticker on an answer. Each only exists on the page when someone chose it.
+   ------------------------------------------------------------------------------ */
+
+/* The pad: the board's own 3:1 shape, a dashed line to sign on, and touch taken over only here. */
+.signature-pad { position: relative; isolation: isolate; aspect-ratio: 3 / 1; overflow: hidden; border: 1.5px solid var(--line-strong); border-radius: 8px; background: var(--field); color: var(--accent-ink); }
+.signature-pad::after { content: ""; position: absolute; left: 7%; right: 5%; bottom: 26%; border-bottom: 2px dashed var(--line-strong); pointer-events: none; }
+/* The × is a drawn mark, not a letter. */
+.signature-pad__x { position: absolute; left: 3%; bottom: calc(26% + 4px); width: 14px; height: 14px; fill: none; stroke: var(--line-strong); stroke-width: 2.6; stroke-linecap: round; pointer-events: none; }
+/* "Draw here" sits above the canvas on its own patch of the pad's fill, so the words are measured against a colour, never the ink. */
+.signature-pad__hint { position: absolute; z-index: 1; inset: 0 0 26% 0; display: none; place-items: center; pointer-events: none; }
+.signature-pad__hint > span { padding: 2px 8px; border-radius: 6px; background: var(--field); color: var(--ink-muted); font-size: 13px; font-weight: 800; }
+.signature-pad[data-empty] .signature-pad__hint { display: grid; }
+.signature-pad canvas { position: absolute; inset: 0; display: block; width: 100%; height: 100%; color: inherit; cursor: crosshair; touch-action: none; }
+
+/* A signature drawn from its strokes, in the loop's ink. It writes itself in once, as it comes into view. */
+.signature-ink { display: block; max-width: 100%; height: auto; overflow: visible; }
+.signature-ink path { fill: none; stroke: var(--accent-ink); stroke-width: 5; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 1; stroke-dashoffset: 0; }
+.signature-ink[data-ink="waiting"] path { stroke-dashoffset: 1; }
+.signature-ink[data-ink="drawing"] path { animation: signature-write 1.8s cubic-bezier(.45, .05, .35, 1) both; }
+@keyframes signature-write { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
+.signature-sign-off { display: flex; align-items: flex-end; gap: 10px; margin-top: 18px; padding-top: 12px; border-top: 1px solid var(--line); }
+.signature-sign-off__dash { color: var(--ink-muted); font-family: var(--font-display); font-size: 28px; font-weight: 700; line-height: 1.3; }
+
+.signed-card { padding: 26px 18px 20px; text-align: center; }
+.signed-card__note { margin: 2px 0 0; color: var(--ink-muted); font-size: 13.5px; font-weight: 700; }
+.signed-card__list { display: flex; flex-wrap: wrap; justify-content: center; gap: 14px 22px; margin: 14px 0 0; padding: 0; list-style: none; }
+.signed-card__person { display: flex; min-width: 0; max-width: 46%; flex-direction: column; align-items: center; transform: rotate(var(--tilt, 0deg)); }
+.signed-card__person:nth-child(even) { margin-top: 16px; }
+.signed-card__name { margin-top: -2px; color: var(--ink-muted); font-size: 12px; font-weight: 800; overflow-wrap: anywhere; }
+@media (max-width: 400px) { .signed-card__list { gap: 10px 14px; } }
+
+/* The roll call at the top of a round, and each line as a bubble under its person's name. */
+.roll-call__list { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px 16px; margin: 12px 0 0; padding: 0; list-style: none; }
+.roll-call__person { display: flex; min-width: 0; align-items: flex-start; gap: 10px; }
+.roll-call__name { display: block; color: var(--ink); font-size: 14px; font-weight: 800; line-height: 1.3; overflow-wrap: anywhere; }
+.roll-call__line { display: block; margin-top: 1px; color: var(--ink-soft); font-size: 14px; line-height: 1.4; overflow-wrap: anywhere; }
+.status-bubble { position: relative; display: inline-block; max-width: 100%; margin: 8px 0 0 48px; padding: 5px 12px; border-radius: 12px; background: var(--accent-soft); color: var(--ink-soft); font-size: 14px; font-weight: 700; line-height: 1.4; overflow-wrap: anywhere; }
+.status-bubble::before { content: ""; position: absolute; top: -6px; left: 14px; border: 7px solid transparent; border-top: 0; border-bottom-color: var(--accent-soft); }
+.status-bubble__lead { color: var(--ink-muted); font-weight: 800; }
+
+/* The line on the reply sheet, with its starters. */
+.status-starters { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.status-starter { display: inline-flex; min-height: 44px; align-items: center; padding: 0 12px; border: 0; border-radius: 999px; background: var(--card); box-shadow: inset 0 0 0 1px var(--line-strong); color: var(--ink-soft); font-size: 13.5px; font-weight: 700; cursor: pointer; }
+.status-starter:hover:not(:disabled) { background: var(--accent-soft); color: var(--ink); }
+.status-starter:disabled { opacity: .45; cursor: not-allowed; }
+/* On a phone they wrap rather than scroll sideways (1.4.10), packed a little tighter so they stay short. */
+@media (max-width: 639px) {
+  .status-starters { gap: 6px 4px; }
+  .status-starter { padding: 0 10px; font-size: 13px; }
+}
+
+/* A sticker on an answer: beside the name on a phone, slapped on the answer's corner with a die-cut edge when there's room. */
+.answer-sticker { display: inline-block; flex: none; width: 28px; height: 28px; margin-inline: 2px; vertical-align: -6px; transform: rotate(-8deg); filter: drop-shadow(0 0 1px #fff) drop-shadow(0 0 1px #fff) drop-shadow(0 1px 1px rgb(61 42 48 / .3)); }
+@media (min-width: 640px) {
+  .has-sticker { position: relative; }
+  .has-sticker > :first-child { padding-right: 56px; }
+  .has-sticker > :first-child .answer-sticker { position: absolute; z-index: 1; top: 4px; right: -16px; width: 60px; height: 60px; margin: 0; transform: rotate(12deg); filter: drop-shadow(0 0 0 #fff) drop-shadow(1.5px 0 0 #fff) drop-shadow(-1.5px 0 0 #fff) drop-shadow(0 1.5px 0 #fff) drop-shadow(0 -1.5px 0 #fff) drop-shadow(0 3px 3px rgb(61 42 48 / .3)); }
+}
+
+/* The reply sheet's sticker button, the sticker stuck on, and the sheet itself. */
+.sticker-control { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin-top: 10px; }
+.stuck-sticker { width: 40px; height: 40px; flex: none; transform: rotate(-9deg); filter: drop-shadow(0 0 0 #fff) drop-shadow(1.2px 0 0 #fff) drop-shadow(-1.2px 0 0 #fff) drop-shadow(0 1.2px 0 #fff) drop-shadow(0 -1.2px 0 #fff) drop-shadow(0 2px 2px rgb(61 42 48 / .3)); }
+.stuck-sticker--pop { animation: sticker-pop 360ms cubic-bezier(.3, 1.6, .5, 1) both; }
+@keyframes sticker-pop { from { opacity: 0; transform: scale(.4) rotate(-30deg); } to { opacity: 1; transform: scale(1) rotate(-9deg); } }
+.sticker-control__note { flex-basis: 100%; margin: 0; color: var(--ink-muted); font-size: 13px; line-height: 1.45; }
+.sticker-picker { width: min(440px, 100vw); max-width: none; max-height: min(86dvh, 560px); margin: auto auto 0; padding: 0; border: 1px solid var(--line-strong); border-radius: 16px 16px 0 0; background: var(--card); color: var(--ink); box-shadow: var(--shadow-lift); }
+@media (min-width: 640px) { .sticker-picker { margin: auto; border-radius: 10px; } }
+.sticker-picker::backdrop { background: rgb(43 24 28 / .5); }
+html[data-theme="dark"] .sticker-picker::backdrop { background: rgb(6 3 5 / .68); }
+.sticker-picker__panel { padding: 8px 16px calc(16px + env(safe-area-inset-bottom)); }
+.sticker-picker__grab { display: block; width: 40px; height: 5px; margin: 0 auto 4px; border-radius: 3px; background: var(--line-strong); }
+@media (min-width: 640px) { .sticker-picker__grab { display: none; } }
+.sticker-picker__head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.sticker-picker__title { margin: 0; font-size: 24px !important; }
+.sticker-picker__note { margin: 0; color: var(--ink-soft); font-size: 13.5px; line-height: 1.45; }
+.sticker-picker__grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; margin-top: 12px; }
+.sticker-picker__cell { display: grid; min-height: 52px; aspect-ratio: 1; place-items: center; padding: 6px; border: 1.5px solid var(--line); border-radius: 12px; background: var(--field); cursor: pointer; }
+.sticker-picker__cell img { width: 100%; max-width: 44px; height: auto; filter: drop-shadow(0 0 .6px #fff) drop-shadow(0 0 .6px #fff) drop-shadow(0 1px 1px rgb(61 42 48 / .28)); transition: transform 180ms cubic-bezier(.16, 1, .3, 1); }
+.sticker-picker__cell:hover img { transform: rotate(-6deg) scale(1.08); }
+.sticker-picker__cell[aria-pressed="true"] { border-color: var(--accent-ink); background: var(--accent-soft); box-shadow: 0 0 0 1px var(--accent-ink); }
+.sticker-picker__cell--none { color: var(--ink-soft); font-size: 12.5px; font-weight: 800; }
+@media (max-width: 360px) { .sticker-picker__grid { gap: 6px; } .sticker-picker__cell { min-height: 44px; padding: 4px; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .signature-ink[data-ink] path { animation: none; stroke-dashoffset: 0; }
+  .stuck-sticker--pop { animation: none; }
+  .sticker-picker__cell img { transition: none; }
+}
+
+/* ------------------------------------------------------------------------------
+   A named round's cover (src/lib/looks.ts): its tint and ink are a fixed, checked
+   pair, so a cover reads the same in light and dark. Only a covered round meets these.
+   ------------------------------------------------------------------------------ */
+.round-cover, .zine-cover, .cover-tint { --cover-motif: radial-gradient(circle, color-mix(in srgb, var(--cover-ink) 16%, transparent) 2px, transparent 2.5px); }
+[data-tint="sky"], [data-tint="plum"] { --cover-motif: radial-gradient(circle, color-mix(in srgb, var(--cover-ink) 15%, transparent) 1.6px, transparent 2px); }
+[data-tint="butter"] { --cover-motif: linear-gradient(90deg, color-mix(in srgb, var(--cover-ink) 10%, transparent) 50%, transparent 0), linear-gradient(color-mix(in srgb, var(--cover-ink) 10%, transparent) 50%, transparent 0); }
+[data-tint="peach"] { --cover-motif: repeating-linear-gradient(45deg, color-mix(in srgb, var(--cover-ink) 9%, transparent) 0 6px, transparent 6px 14px); }
+
+.round-cover { position: relative; overflow: hidden; border-radius: 6px; background: var(--cover-tint); color: var(--cover-ink); box-shadow: inset 0 0 0 1px rgb(61 42 48 / .1); }
+.round-cover__band { position: relative; display: grid; height: 128px; place-items: center; background-image: var(--cover-motif); background-size: 18px 18px; }
+.round-cover__no { position: absolute; top: 10px; left: 12px; padding: 3px 9px; border-radius: 999px; background: rgb(255 255 255 / .74); color: var(--cover-ink); font-size: 11.5px; font-weight: 800; letter-spacing: .08em; line-height: 1.3; text-transform: uppercase; }
+.round-cover__sticker { width: 84px; height: 84px; transform: rotate(-6deg); filter: drop-shadow(1.5px 0 0 #fff) drop-shadow(-1.5px 0 0 #fff) drop-shadow(0 1.5px 0 #fff) drop-shadow(0 -1.5px 0 #fff) drop-shadow(0 4px 4px rgb(61 42 48 / .25)); }
+.round-cover__words { padding: 10px 18px 16px; text-align: center; }
+.round-cover__name { margin: 0; color: var(--cover-ink); font-family: var(--font-display); font-size: 34px; font-weight: 700; line-height: 1.08; text-wrap: balance; }
+.round-cover__meta { margin: 4px auto 0; color: var(--cover-ink); font-size: 14px; font-weight: 700; line-height: 1.45; }
+.loop-head__page .round-cover__name { color: var(--cover-ink); }
+.loop-head__page .round-cover__meta { max-width: none; color: var(--cover-ink); font-size: 14px; }
+/* With a cover the seal is pressed onto the band's corner, clear of the number and the sticker. */
+.loop-head__page.loop-head__page--cover { position: relative; display: block; }
+.loop-head__page--cover > .round-mark { position: absolute; z-index: 2; top: 14px; right: 8px; }
+.loop-head__page--cover > .shared-note { margin-top: 10px; }
+@media (max-width: 520px) {
+  .round-cover__band { height: 112px; }
+  .round-cover__sticker { width: 68px; height: 68px; }
+  .round-cover__name, .loop-head__page .round-cover__name { font-size: 29px !important; }
+  .loop-head__page--cover > .round-mark { top: 22px; right: 4px; }
+  .loop-head__page--cover > .round-mark.wax-seal { width: 58px; height: 58px; }
+  .loop-head__page--cover > .round-mark.postmark-mark { width: 92px; height: 64px; }
+}
+
+/* The rounds list: a covered round is a little zine beside its card's words. */
+.round-card--covered { display: grid; grid-template-columns: 88px minmax(0, 1fr); align-items: start; gap: 16px; }
+.zine-cover { display: flex; aspect-ratio: 3 / 4; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 8px 6px; overflow: hidden; border-radius: 3px 8px 8px 3px; background-color: var(--cover-tint); background-image: var(--cover-motif); background-size: 14px 14px; box-shadow: inset 5px 0 0 rgb(0 0 0 / .06), 0 6px 12px -8px rgb(61 42 48 / .5); text-align: center; transform: rotate(-1.5deg); }
+.zine-cover > * { flex: none; }
+.zine-cover img { width: 40px; height: 40px; transform: rotate(-6deg); filter: drop-shadow(1px 0 0 #fff) drop-shadow(-1px 0 0 #fff) drop-shadow(0 1px 0 #fff) drop-shadow(0 -1px 0 #fff); }
+.zine-cover__name { display: -webkit-box; overflow: hidden; color: var(--cover-ink); font-family: var(--font-display); font-size: 15px; font-weight: 700; line-height: 1.05; overflow-wrap: anywhere; -webkit-box-orient: vertical; -webkit-line-clamp: 3; }
+.zine-cover__no { color: var(--cover-ink); font-size: 11px; font-weight: 800; letter-spacing: .04em; }
+@media (max-width: 520px) {
+  /* On a phone the words wrap around the zine, and an open rename form takes the card's full width below it. */
+  .round-card--covered { display: flow-root; }
+  .round-card--covered > .zine-cover { float: left; width: 68px; margin: 2px 12px 8px 0; }
+  .round-card--covered > div > :has(> .round-rename[open]) { clear: both; }
+  .zine-cover img { width: 30px; height: 30px; }
+  .zine-cover__name { font-size: 13px; -webkit-line-clamp: 2; }
+  .zine-cover__no { font-size: 10.5px; }
+}
+
+/* The cover picker beside the round's name. */
+.cover-picker { min-width: 0; margin: 4px 0 0; padding: 12px 0 0; border: 0; border-top: 1px dashed var(--line-strong); }
+.cover-picker__legend { float: left; width: 100%; padding: 0; color: var(--ink); font-size: 14px; font-weight: 800; }
+.cover-picker__hint { clear: both; margin: 2px 0 0; color: var(--ink-muted); font-size: 13px; line-height: 1.45; }
+.cover-picker__group { min-width: 0; margin: 10px 0 0; padding: 0; border: 0; }
+.cover-picker__label { float: left; width: 100%; margin: 0 0 6px; padding: 0; color: var(--ink-soft); font-size: 13px; font-weight: 700; }
+.cover-picker:disabled .cover-stickers, .cover-picker:disabled .cover-tints { opacity: .45; }
+.cover-stickers { clear: both; display: grid; grid-template-columns: repeat(auto-fill, minmax(46px, 1fr)); gap: 6px; }
+.cover-sticker { position: relative; display: grid; min-height: 46px; aspect-ratio: 1; place-items: center; padding: 4px; border: 1.5px solid var(--line); border-radius: 10px; background: var(--field); cursor: pointer; }
+.cover-sticker input, .cover-tint input { position: absolute; z-index: 1; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
+.cover-sticker img { width: 100%; max-width: 34px; height: auto; }
+.cover-sticker--none { color: var(--ink-soft); font-size: 11.5px; font-weight: 800; line-height: 1.1; text-align: center; }
+.cover-sticker:has(input:checked) { border-color: var(--accent-ink); background: var(--accent-soft); box-shadow: 0 0 0 1px var(--accent-ink); }
+.cover-sticker:has(input:focus-visible), .cover-tint:has(input:focus-visible) { outline: 3px solid var(--accent-ink); outline-offset: 2px; }
+.cover-picker:disabled .cover-sticker, .cover-picker:disabled .cover-sticker input { cursor: not-allowed; }
+.cover-tints { clear: both; display: grid; grid-template-columns: repeat(auto-fill, minmax(64px, 76px)); gap: 6px; }
+.cover-tint { position: relative; display: flex; min-height: 44px; flex-direction: column; align-items: center; gap: 3px; padding: 4px 2px; border-radius: 8px; cursor: pointer; }
+.cover-tint__swatch { display: block; width: 34px; height: 34px; border: 2px solid var(--card); border-radius: 50%; background-color: var(--swatch); background-image: var(--cover-motif); background-size: 10px 10px; box-shadow: 0 0 0 1.5px var(--line-strong); }
+.cover-tint:has(input:checked) .cover-tint__swatch { box-shadow: 0 0 0 3px var(--accent-ink); }
+.cover-tint__name { color: var(--ink-soft); font-size: 12px; font-weight: 700; }
+.cover-tint:has(input:checked) .cover-tint__name { color: var(--ink); font-weight: 800; }
+.cover-preview { margin-top: 12px; }
+/* Floated only as a legend; beside a cover (its own block) it would squeeze it to nothing. */
+.cover-preview > .cover-picker__label { float: none; }
+.round-cover--preview .round-cover__band { height: 96px; }
+.round-cover--preview .round-cover__sticker { width: 60px; height: 60px; }
+.round-cover--preview .round-cover__name { font-size: 26px; }
+.email-line { clear: both; display: flex; align-items: center; gap: 8px; margin: 0; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--field); color: var(--ink-soft); font-size: 13.5px; font-weight: 700; }
+.email-line img { width: 24px; height: 24px; flex: none; }
+
+/* ------------------------------------------------------------------------------
+   The scrapbook layer (src/app/i/[id]/scrapbook.tsx): stickers in an answer's
+   margins on a delivered round. The layer is as wide as the answer's card, and a
+   sticker straddles the card's edge, so it only ever covers the card's padding.
+   ------------------------------------------------------------------------------ */
+.scrap-host { position: relative; }
+/* A sticker hangs past the card into the page's gutter; on a phone that's the screen's edge, which it mustn't widen.
+   Clipped on the page's wrapper, not <html>: Safari still scrolls sideways when the root clips. */
+#main-content:has(.scrap-layer) { overflow-x: clip; }
+/*
+ * The card's padding: 36px on the ruled side (.paper), 20px on the other. A sticker
+ * reaches `--scrap-in` into it, which leaves room for its tilt before any words.
+ */
+.scrap-layer { --scrap-size: 32px; --scrap-in: 14px; position: absolute; z-index: 3; inset: 0 -20px 0 -36px; pointer-events: none; }
+@media (min-width: 640px) { .scrap-layer { --scrap-size: 40px; --scrap-in: 13px; } }
+@media (min-width: 780px) { .scrap-layer { --scrap-size: 52px; --scrap-in: 12px; } }
+.scrap-sticker { position: absolute; top: calc((100% - var(--scrap-size)) * var(--offset)); display: block; width: var(--scrap-size); height: var(--scrap-size); padding: 0; border: 0; border-radius: 50%; background: none; cursor: pointer; pointer-events: auto; touch-action: none; transform: rotate(var(--tilt)); -webkit-tap-highlight-color: transparent; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; transition: top 260ms cubic-bezier(.3, 1.3, .5, 1), left 260ms cubic-bezier(.3, 1.3, .5, 1), right 260ms cubic-bezier(.3, 1.3, .5, 1); }
+.scrap-sticker--left { left: calc(var(--scrap-in) - var(--scrap-size)); }
+.scrap-sticker--right { right: calc(var(--scrap-in) - var(--scrap-size)); }
+/* A finger's worth to aim at, whatever the drawing's size. */
+.scrap-sticker::after { content: ""; position: absolute; inset: calc((44px - var(--scrap-size)) / -2); border-radius: 50%; }
+.scrap-sticker img { display: block; width: 100%; height: 100%; pointer-events: none; filter: drop-shadow(1.2px 0 0 #fff) drop-shadow(-1.2px 0 0 #fff) drop-shadow(0 1.2px 0 #fff) drop-shadow(0 -1.2px 0 #fff) drop-shadow(0 2px 2px rgb(61 42 48 / .3)); }
+.scrap-sticker.is-mine { cursor: grab; }
+.scrap-sticker:focus-visible { outline: 3px solid var(--accent-ink); outline-offset: 3px; }
+.scrap-sticker[aria-disabled="true"] { cursor: progress; opacity: .7; }
+.scrap-sticker.is-dragging { z-index: 5; cursor: grabbing; transform: rotate(var(--tilt)) scale(1.18); transition: none; }
+.scrap-sticker.is-dragging img { filter: drop-shadow(1.6px 0 0 #fff) drop-shadow(-1.6px 0 0 #fff) drop-shadow(0 1.6px 0 #fff) drop-shadow(0 -1.6px 0 #fff) drop-shadow(0 10px 8px rgb(61 42 48 / .35)); }
+.scrap-sticker--pop img { animation: scrap-pop 320ms cubic-bezier(.3, 1.6, .5, 1) both; }
+@keyframes scrap-pop { from { opacity: 0; transform: scale(1.6); } to { opacity: 1; transform: scale(1); } }
+/* "Stuck by Maya": on hover, on focus and on a tap, reading inward from the card's edge. */
+.scrap-sticker__tag { position: absolute; top: calc(100% + 4px); padding: 2px 8px; border-radius: 999px; background: var(--ink); color: var(--card); font-size: 11.5px; font-weight: 800; line-height: 1.4; white-space: nowrap; opacity: 0; pointer-events: none; transform: rotate(calc(var(--tilt) * -1)); transition: opacity 150ms; }
+.scrap-sticker--left .scrap-sticker__tag { left: 50%; }
+.scrap-sticker--right .scrap-sticker__tag { right: 50%; }
+.scrap-sticker:hover .scrap-sticker__tag, .scrap-sticker:focus-visible .scrap-sticker__tag, .scrap-sticker.is-told .scrap-sticker__tag { opacity: 1; }
+.scrap-sticker.is-dragging .scrap-sticker__tag { opacity: 0; }
+/* Its menu opens inward, over the answer, and upward from a sticker low on it. */
+.scrap-menu { position: absolute; z-index: 6; top: calc((100% - var(--scrap-size)) * var(--offset)); display: flex; width: max-content; min-width: 168px; max-width: min(240px, calc(100vw - 48px)); flex-direction: column; padding: 4px; border: 1px solid var(--line-strong); border-radius: 10px; background: var(--card); box-shadow: var(--shadow-lift); pointer-events: auto; }
+.scrap-menu--up { top: auto; bottom: calc((100% - var(--scrap-size)) * (1 - var(--offset))); }
+.scrap-menu--left { left: calc(var(--scrap-in) + 10px); }
+.scrap-menu--right { right: calc(var(--scrap-in) + 10px); }
+.scrap-menu__who { margin: 0; padding: 6px 10px 2px; color: var(--ink-muted); font-size: 12.5px; font-weight: 800; }
+.scrap-menu button { display: flex; min-height: 44px; align-items: center; padding: 0 10px; border: 0; border-radius: 7px; background: none; color: var(--ink); font-size: 14.5px; font-weight: 700; text-align: left; cursor: pointer; }
+.scrap-menu button:hover:not([aria-disabled="true"]) { background: var(--accent-soft); }
+.scrap-menu button[aria-disabled="true"] { color: var(--ink-muted); cursor: default; }
+.scrap-menu .scrap-menu__peel { color: var(--danger); }
+.scrap-menu .scrap-menu__done { border-top: 1px solid var(--line); border-radius: 0 0 7px 7px; color: var(--ink-soft); }
+.scrap-note { margin: 2px 0 0; color: var(--ink-muted); font-size: 13px; font-weight: 700; line-height: 1.45; }
+.sticker-picker__extra { display: block; margin-top: 4px; color: var(--accent-ink); font-weight: 800; }
+@media (prefers-reduced-motion: reduce) {
+  .scrap-sticker { transition: none; }
+  .scrap-sticker--pop img { animation: none; }
+  .scrap-sticker.is-dragging { transform: rotate(var(--tilt)); }
+}
+@media print { .scrap-layer { display: none; } }

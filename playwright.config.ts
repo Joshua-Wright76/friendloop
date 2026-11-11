@@ -75,9 +75,14 @@ export default defineConfig({
   projects: [
     { name: "desktop", use: { ...devices["Desktop Chrome"] } },
     {
-      // The reply form is the surface that actually ships to phones.
+      // Safari on an iPhone: Playwright's iPhone runs WebKit, Safari's engine, at
+      // phone size with touch. Most replies are written there, so every flow runs
+      // here as well as on desktop Chromium, plus the phone-only checks.
       name: "phone",
-      testMatch: /(A2|B4|D4|D5|D6|theme-switch|a11y-phone|picker-phone)\.spec\.ts/,
+      // WebKit is the slower engine to drive, most of all over the stationery pages
+      // (patterned tiles, drop-shadowed stickers) on a small CI runner.
+      timeout: 60_000,
+      testMatch: /(flows\/[^/]+|theme-switch|a11y-phone|picker-phone)\.spec\.ts$/,
       use: { ...devices["iPhone 13"] },
     },
   ],

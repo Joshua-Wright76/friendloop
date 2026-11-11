@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "../support/test";
 import { resetDatabase } from "../support/db";
 import { seedLoop, seedOpenIssue, seedReplies } from "../support/seed";
 import { signIn } from "../support/harness";

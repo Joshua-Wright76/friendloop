@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
-import { test, expect } from "@playwright/test";
+import { test, expect } from "../support/test";
 import { copy, text } from "@/lib/copy";
 import { resetDatabase, rows } from "../support/db";
 import { seedLoop } from "../support/seed";

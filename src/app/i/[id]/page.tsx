@@ -2,7 +2,11 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { currentUser } from "@/lib/auth";
-import { issueGroupId, loadIssue, membershipForViewer } from "@/lib/issue-view";
+import { issueGroupId, loadIssue, membershipForViewer, nextRoundFor } from "@/lib/issue-view";
+import { coverOf, marksOf } from "@/lib/looks";
+import { RoundCoverBand } from "@/components/round-cover";
+import { Motto, RoundMark, SignOff } from "@/components/round-marks";
+import { RollCall, SignedCard } from "@/components/member-marks";
 import { MutedNotice } from "@/components/muted-notice";
 import { formatDate } from "@/lib/format";
 import { IssueBody } from "./issue-body";
@@ -100,6 +104,23 @@ export default async function IssuePage({
   const answeredHere =
     view.blocks.some((block) => block.answers.some((answer) => answer.isYou)) ||
     view.sections.some((section) => section.replies.some((reply) => reply.isYou));
+  // The owner's marks belong to a round that has gone out; the sign-off may say what's next.
+  const marks = marksOf(view.group);
+  // A named round's cover takes the place of its plain title.
+  const cover = coverOf(view.issue);
+  const meta = (
+    <>
+      {view.answerCount === 1 ? copy.issue.answer : text(copy.issue.answers, { count: view.answerCount })}{" "}
+      {text(view.issue.status === "open" ? copy.issue.goesOutOn : copy.issue.deliveredOn, {
+        date: formatDate(view.issue.deliveredAt ?? view.issue.deliversAt, view.group.timezone),
+      })}
+    </>
+  );
+  const next = delivered && marks.signOff ? await nextRoundFor(view.group.id) : null;
+  // What people added themselves: a line each and a signature, for reading by person.
+  const marked: Record<string, { line?: string; signature?: number[][] }> = {};
+  for (const line of view.statusLines ?? []) marked[line.id] = { line: line.body };
+  for (const signature of view.signatures ?? []) marked[signature.id] = { ...marked[signature.id], signature: signature.strokes };
 
   return (
     <main className="mx-auto w-full max-w-[680px] px-4 pb-16 pt-4 sm:px-6">
@@ -113,15 +134,30 @@ export default async function IssuePage({
             <span className="loop-head__name wrap-any">{view.group.name}</span>
           </span>
         </div>
-        <div className="loop-head__page">
-          <h1><DisplayDigits>{issueTitle(copy.issue.round, view.issue.number, view.issue.name)}</DisplayDigits></h1>
-          <p className="numeric">
-            {view.issue.name ? `${text(copy.issue.round, { number: view.issue.number })}. ` : null}
-            {view.answerCount === 1 ? copy.issue.answer : text(copy.issue.answers, { count: view.answerCount })}{" "}
-            {text(view.issue.status === "open" ? copy.issue.goesOutOn : copy.issue.deliveredOn, {
-              date: formatDate(view.issue.deliveredAt ?? view.issue.deliversAt, view.group.timezone),
-            })}
-          </p>
+        <Motto text={marks.motto} />
+        <div className={cover ? "loop-head__page loop-head__page--cover" : "loop-head__page"}>
+          {cover ? (
+            <RoundCoverBand cover={cover} chip={text(copy.issue.round, { number: view.issue.number })} title={view.issue.name ?? ""} meta={meta} />
+          ) : (
+            <>
+              <h1><DisplayDigits>{issueTitle(copy.issue.round, view.issue.number, view.issue.name)}</DisplayDigits></h1>
+              <p className="numeric">
+                {view.issue.name ? `${text(copy.issue.round, { number: view.issue.number })}. ` : null}
+                {meta}
+              </p>
+            </>
+          )}
+          {delivered ? (
+            <RoundMark
+              sealStyle={marks.sealStyle}
+              sealColor={marks.sealColor}
+              mascot={view.group.themeMascot}
+              number={view.issue.number}
+              loopName={view.group.name}
+              deliveredAt={view.issue.deliveredAt ?? view.issue.deliversAt}
+              timezone={view.group.timezone}
+            />
+          ) : null}
         </div>
       </header>
 
@@ -144,6 +180,24 @@ export default async function IssuePage({
         mentionables={view.mentionables}
         editHref={editHref}
         barTitle={issueTitle(copy.issue.round, view.issue.number, view.issue.name)}
+        opening={view.statusLines ? <RollCall lines={view.statusLines} /> : undefined}
+        people={view.statusLines || view.signatures ? marked : undefined}
+        scrapbook={delivered ? {
+          canStick: Boolean(membership),
+          canModerate: membership?.access === "owner" || membership?.access === "admin",
+          used: view.scrapbookUsed ?? 0,
+        } : undefined}
+        closing={view.signatures || (delivered && marks.signOff) ? (
+          <>
+            <SignedCard signatures={view.signatures} round={view.issue.number} />
+            {delivered && marks.signOff ? (
+              <SignOff
+                text={marks.signOff}
+                next={next ? text(copy.issue.signOffNext, { round: text(copy.issue.round, { number: next.number }), date: formatDate(next.deliversAt, view.group.timezone) }) : null}
+              />
+            ) : null}
+          </>
+        ) : undefined}
         reading={people.length > 1 ? (
           <ReadingControls base={`/i/${id}`} token={m ?? null} people={people} reading={effective} focus={arranged.focus} />
         ) : undefined}

@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "../support/test";
 import { db } from "@/db";
 import { musicLinks } from "@/db/schema";
 import { resetDatabase, rows } from "../support/db";

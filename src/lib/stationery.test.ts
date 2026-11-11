@@ -81,8 +81,18 @@ test("nothing inlined can close the style tag", () => {
 test("stationery is read from the loop's columns", () => {
   assert.deepEqual(
     stationeryOf({ themePreset: "lilac", themeAccent: "#123456", themeBackground: "dots", themePaperPack: "airmail", themeTapePack: "kraft", themeMascot: "bee" }),
-    { preset: "lilac", accent: "#123456", background: "dots", paperPack: "airmail", tapePack: "kraft", mascot: "bee" },
+    { preset: "lilac", accent: "#123456", background: "dots", paperPack: "airmail", tapePack: "kraft", mascot: "bee", divider: null },
   );
+  assert.equal(stationeryOf({ themePreset: null, themeAccent: null, themeBackground: null, themePaperPack: null, themeTapePack: null, themeMascot: null, divider: "lace" }).divider, "lace");
+});
+
+test("a divider adds its own rule per scheme, and the stitches add nothing", () => {
+  const plain = { preset: null, accent: null };
+  assert.equal(stationeryCss({ ...plain, divider: null }), "");
+  assert.equal(stationeryCss({ ...plain, divider: "zigzag" }), "");
+  const css = stationeryCss({ ...plain, divider: "ricrac" });
+  assert.match(css, /^html\[data-theme="light"\]\{--divider:url\(/);
+  assert.match(css, /html\[data-theme="dark"\]\{--divider:url\(/);
 });
 
 test("the key checks accept their own tables and nothing else", () => {

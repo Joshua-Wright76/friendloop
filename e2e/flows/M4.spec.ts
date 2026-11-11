@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "../support/test";
 import { resetDatabase, rows } from "../support/db";
 import { seedConversation, TINY_PNG } from "../support/comments";
 import { copy, text } from "@/lib/copy";

@@ -4,6 +4,8 @@ import {
   comments,
   groups,
   issueQuestions,
+  issueStatusLines,
+  issueStickers,
   issues,
   memberships,
   questionSuggestions,
@@ -20,6 +22,7 @@ import { plainBody } from "./mentions.ts";
 import { appUrl } from "./urls.ts";
 import { replyHasContentCondition } from "./reply-query";
 import { formatOf } from "./asks";
+import { coverOf, isStickerKey, parseSignature } from "./looks.ts";
 
 /**
  * Taking your words with you.
@@ -62,6 +65,11 @@ function photosOf(reply: ReplyRow, media: MediaRow[], includePhotoUrl: boolean) 
       ...(item.videoUrl ? { videoUrl: absolute(item.videoUrl) } : {}),
     })),
   ];
+}
+
+/** The sticker on an answer, listed only where someone stuck one. */
+function stickerField(reply: ReplyRow) {
+  return isStickerKey(reply.sticker) ? { sticker: reply.sticker } : {};
 }
 
 /** A clip on an answer, listed only where there is one. */
@@ -207,11 +215,29 @@ async function contributionsOf(membership: Membership, group: Pick<Group, "id" |
     .where(eq(reactions.membershipId, membership.id))
     .orderBy(asc(reactions.createdAt));
 
+  // Stickers they stuck in a delivered round's margins: where, and on whose answer.
+  const stuck = await db
+    .select({ stuck: issueStickers, question: issueQuestions, issue: issues, authorId: replies.membershipId })
+    .from(issueStickers)
+    .innerJoin(replies, eq(replies.id, issueStickers.replyId))
+    .innerJoin(issueQuestions, eq(issueQuestions.id, replies.issueQuestionId))
+    .innerJoin(issues, eq(issues.id, issueStickers.issueId))
+    .where(eq(issueStickers.membershipId, membership.id))
+    .orderBy(asc(issueStickers.createdAt));
+
   const suggested = await db
     .select()
     .from(questionSuggestions)
     .where(eq(questionSuggestions.membershipId, membership.id))
     .orderBy(asc(questionSuggestions.createdAt));
+
+  const lines = await db
+    .select({ line: issueStatusLines, issue: issues })
+    .from(issueStatusLines)
+    .innerJoin(issues, eq(issues.id, issueStatusLines.issueId))
+    .where(eq(issueStatusLines.membershipId, membership.id))
+    .orderBy(asc(issues.number));
+  const signature = parseSignature(membership.signature);
 
   return {
     loop: group.name,
@@ -223,6 +249,8 @@ async function contributionsOf(membership: Membership, group: Pick<Group, "id" |
       photoUrl: absolute(membership.photoUrl),
       charm: membership.charm,
       avatarFrame: membership.avatarFrame,
+      // Their signature's pen strokes (x,y pairs on a 600×200 board) and its picture, when they signed.
+      ...(signature ? { signature: { strokes: signature, pngUrl: absolute(membership.signaturePngUrl) } } : {}),
       invitedAt: membership.invitedAt,
       acceptedAt: membership.acceptedAt,
     },
@@ -239,6 +267,7 @@ async function contributionsOf(membership: Membership, group: Pick<Group, "id" |
       updatedAt: reply.updatedAt,
       ...formatFields(question),
       ...answerExtras(question, reply, media),
+      ...stickerField(reply),
     })),
     sectionAnswers: sectionAnswers.map(({ reply, question, issue }) => ({
       round: issue.number,
@@ -249,6 +278,7 @@ async function contributionsOf(membership: Membership, group: Pick<Group, "id" |
       photos: photosOf(reply, media, true),
       neverSent: reply.neverSent,
       updatedAt: reply.updatedAt,
+      ...stickerField(reply),
     })),
     comments: written.map(({ comment, issue }) => ({
       round: issue.number,
@@ -269,6 +299,22 @@ async function contributionsOf(membership: Membership, group: Pick<Group, "id" |
       credit: suggestion.authorDisplay,
       createdAt: suggestion.createdAt,
     })),
+    ...(stuck.length > 0
+      ? {
+          scrapbook: stuck.map(({ stuck: sticker, question, issue, authorId }) => ({
+            round: issue.number,
+            question: question.text,
+            answerBy: names.get(authorId) ?? copy.issue.unknownMention,
+            sticker: sticker.sticker,
+            side: sticker.side,
+            offset: sticker.offset,
+            createdAt: sticker.createdAt,
+          })),
+        }
+      : {}),
+    ...(lines.length > 0
+      ? { roundLines: lines.map(({ line, issue }) => ({ round: issue.number, line: line.body, updatedAt: line.updatedAt })) }
+      : {}),
   };
 }
 
@@ -322,7 +368,7 @@ export async function replyLinkExport(token: string, at: Date): Promise<{ groupN
 
 async function roundOf(issue: typeof issues.$inferSelect, names: Names) {
   // One round trip per round: everything here hangs off the issue id alone.
-  const [all, answered, thread, reacted] = await Promise.all([
+  const [all, answered, thread, reacted, lines, stuck] = await Promise.all([
     db
       .select()
       .from(issueQuestions)
@@ -344,6 +390,15 @@ async function roundOf(issue: typeof issues.$inferSelect, names: Names) {
       .innerJoin(replies, eq(replies.id, reactions.replyId))
       .where(and(eq(replies.issueId, issue.id), replyHasContentCondition()))
       .orderBy(asc(reactions.createdAt)),
+    db
+      .select({ membershipId: issueStatusLines.membershipId, body: issueStatusLines.body })
+      .from(issueStatusLines)
+      .where(eq(issueStatusLines.issueId, issue.id)),
+    db
+      .select({ replyId: issueStickers.replyId, membershipId: issueStickers.membershipId, sticker: issueStickers.sticker })
+      .from(issueStickers)
+      .where(eq(issueStickers.issueId, issue.id))
+      .orderBy(asc(issueStickers.createdAt), asc(issueStickers.id)),
   ]);
   const asked = all.filter((question) => !question.fromSection);
   const carried = all.filter((question) => question.fromSection);
@@ -353,10 +408,17 @@ async function roundOf(issue: typeof issues.$inferSelect, names: Names) {
   const reactionsOn = (replyId: string) => reacted
     .filter((reaction) => reaction.replyId === replyId)
     .map((reaction) => ({ by: author(reaction.membershipId), emoji: reaction.emoji }));
+  // The scrapbook, listed only on answers someone stuck something beside.
+  const scrapbookOn = (replyId: string) => {
+    const on = stuck.filter((row) => row.replyId === replyId).map((row) => ({ by: author(row.membershipId), sticker: row.sticker }));
+    return on.length > 0 ? { scrapbook: on } : {};
+  };
+  const cover = coverOf(issue);
 
   return {
     round: issue.number,
     name: issue.name,
+    ...(cover ? { cover: { sticker: cover.sticker, tint: cover.tint } } : {}),
     status: issue.status,
     opensAt: issue.opensAt,
     deliversAt: issue.deliversAt,
@@ -380,6 +442,8 @@ async function roundOf(issue: typeof issues.$inferSelect, names: Names) {
           addedLate: reply.addedAfterDelivery,
           reactions: reactionsOn(reply.id),
           ...answerExtras(question, reply, media),
+          ...stickerField(reply),
+          ...scrapbookOn(reply.id),
         })),
     })),
     sections: carried.map((section) => {
@@ -401,6 +465,8 @@ async function roundOf(issue: typeof issues.$inferSelect, names: Names) {
               addedLate: reply.addedAfterDelivery,
               // Former section answers take reactions now; listed only where there are some.
               ...(conversation.length > 0 ? { reactions: conversation } : {}),
+              ...stickerField(reply),
+              ...scrapbookOn(reply.id),
             };
           }),
       };
@@ -414,6 +480,8 @@ async function roundOf(issue: typeof issues.$inferSelect, names: Names) {
       photoUrl: absolute(comment.photoUrl),
       createdAt: comment.createdAt,
     })),
+    // Everyone's line this round, listed only when someone wrote one.
+    ...(lines.length > 0 ? { lines: lines.map((line) => ({ by: author(line.membershipId), line: line.body })).sort((a, b) => a.by.localeCompare(b.by)) } : {}),
   };
 }
 

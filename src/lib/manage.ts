@@ -44,6 +44,13 @@ export type CreateLoopInput = {
   themePaperPack?: string | null;
   themeTapePack?: string | null;
   themeMascot?: string | null;
+  /** The owner's marks on every round, already validated (`marksColumns`); left out is none. */
+  motto?: string | null;
+  signOff?: string | null;
+  sealStyle?: string | null;
+  sealColor?: string | null;
+  divider?: string | null;
+  celebration?: string | null;
 };
 
 export async function createLoop(input: CreateLoopInput): Promise<string> {
@@ -62,6 +69,12 @@ export async function createLoop(input: CreateLoopInput): Promise<string> {
       themePaperPack: input.themePaperPack ?? null,
       themeTapePack: input.themeTapePack ?? null,
       themeMascot: input.themeMascot ?? null,
+      motto: input.motto ?? null,
+      signOff: input.signOff ?? null,
+      sealStyle: input.sealStyle ?? null,
+      sealColor: input.sealColor ?? null,
+      divider: input.divider ?? null,
+      celebration: input.celebration ?? null,
       createdAt: input.at,
     })
     .returning({ id: groups.id });

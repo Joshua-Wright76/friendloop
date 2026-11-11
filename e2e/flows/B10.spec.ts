@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "../support/test";
 import { latestOutbox, resetDatabase, rows } from "../support/db";
 import { seedLoop } from "../support/seed";
 import { signIn } from "../support/harness";
@@ -10,10 +10,11 @@ test.beforeEach(async () => {
 
 const tokenIn = (html: string) => decodeURIComponent(/token=([A-Za-z0-9_%-]+)/.exec(html)![1]);
 
-test("B10 · the owner copies the loop's link, and a friend joins with just their email", async ({ page, browser }) => {
+test("B10 · the owner copies the loop's link, and a friend joins with just their email", async ({ page, browser, browserName }) => {
   const loop = await seedLoop({ members: [] });
   await signIn(page, "owner@friendloop.test");
-  await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
+  // Safari needs no permission to copy on a tap; only Chromium has these to grant.
+  if (browserName === "chromium") await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
 
   await page.goto(`/g/${loop.groupId}/members`);
   const field = page.getByRole("textbox", { name: copy.members.inviteLink.fieldLabel });
@@ -21,7 +22,8 @@ test("B10 · the owner copies the loop's link, and a friend joins with just thei
   expect(link).toMatch(/\/join\/[A-Za-z0-9_-]{20,}$/);
   await page.getByRole("button", { name: copy.members.inviteLink.copy }).click();
   await expect(page.getByRole("button", { name: copy.common.copied })).toBeVisible();
-  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(link);
+  // Safari won't let a page read the clipboard back without a person pasting.
+  if (browserName === "chromium") expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(link);
 
   // The friend, on their own phone, with no account.
   const friendContext = await browser.newContext();

@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "../support/test";
 import { resetDatabase, rows } from "../support/db";
 import { addMember, seedLoop } from "../support/seed";
 import { signIn } from "../support/harness";
@@ -8,7 +8,7 @@ test.beforeEach(async () => {
   await resetDatabase();
 });
 
-test("G3 · an admin manages people but never reaches owner settings", async ({ page }) => {
+test("G3 · an admin manages people and settings, while downloading and deleting the loop stay the owner's", async ({ page }) => {
   const loop = await seedLoop();
   const member = await addMember(loop, { email: "admin@friendloop.test", access: "member" });
   await signIn(page, "owner@friendloop.test");
@@ -34,6 +34,31 @@ test("G3 · an admin manages people but never reaches owner settings", async ({ 
   await page.goto(`/g/${loop.groupId}/questions`);
   await expect(page.getByLabel(copyPattern(copy.questions.item.textLabel, { start: true }))).toBeVisible();
 
+  // Settings are theirs to change too, and the nav says where.
+  await expect(page.getByRole("navigation", { name: copy.common.navigation.ariaLabel }).getByRole("link", { name: copy.common.navigation.settings })).toBeVisible();
+  await page.goto(`/g/${loop.groupId}/settings`);
+  await expect(page.getByText(copy.settings.adminNote)).toBeVisible();
+  await page.locator('input[name="name"]').fill("Admin's Loop");
+  await page.getByRole("button", { name: copy.settings.save }).click();
+  await expect(page.getByText(copy.settings.savedNotice)).toBeVisible();
+  const [group] = await rows<{ name: string }>("select name from groups where id = $1", [loop.groupId]);
+  expect(group.name).toBe("Admin's Loop");
+
+  // Downloading everything and deleting it are not offered, and not served.
+  await page.getByRole("button", { name: copy.settings.groupKeep }).click();
+  await expect(page.getByRole("link", { name: copy.settings.archive })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: copy.settings.groupDanger })).toHaveCount(0);
+  await expect(page.getByText(copy.settings.deleteTitle)).toHaveCount(0);
+  expect((await page.request.get(`/g/${loop.groupId}/export`)).status()).toBe(404);
+});
+
+test("G3 · a plain member never reaches settings", async ({ page }) => {
+  const loop = await seedLoop();
+  await addMember(loop, { email: "member@friendloop.test", access: "member" });
+  await signIn(page, "member@friendloop.test");
+
+  await page.goto(`/g/${loop.groupId}/members`);
+  await expect(page.getByRole("navigation", { name: copy.common.navigation.ariaLabel }).getByRole("link", { name: copy.common.navigation.settings })).toHaveCount(0);
   await page.goto(`/g/${loop.groupId}/settings`);
   await expect(page).toHaveURL(new RegExp(`/g/${loop.groupId}$`));
 });

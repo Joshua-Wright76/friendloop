@@ -1,4 +1,4 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, type Page } from "../support/test";
 import { resetDatabase, rows } from "../support/db";
 import { seedLoop, seedReplies } from "../support/seed";
 import { AFTER_FIRST_SLOT, addWithCard, freezeClock, openItem, runSweep, signIn } from "../support/harness";

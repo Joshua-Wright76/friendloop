@@ -2,8 +2,7 @@ import { test, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import { randomBytes } from "node:crypto";
 import { existsSync } from "node:fs";
-import { chmod, mkdir, writeFile } from "node:fs/promises";
-import path from "node:path";
+import { mkdir, writeFile } from "node:fs/promises";
 import {
   authorizeVideoForReply,
   removeVideoFor,
@@ -28,6 +27,8 @@ import { parseAlbumFilters } from "../../src/lib/album-query.ts";
 import { replyLinkExport } from "../../src/lib/data-export.ts";
 import { leaveLoop } from "../../src/lib/erasure.ts";
 import { addSection } from "../support/items.ts";
+import { makeUndeletable, onDisk, UPLOADS } from "../support/uploads.ts";
+import { copy } from "../../src/lib/copy.ts";
 import { videoUploadRefused } from "../../src/lib/upload-limit.ts";
 import { LIMITS } from "../../src/lib/rate-limit-policy.ts";
 import { resetDatabase, rows, seedDeliveredIssue, seedLoop, setEnv, setupDatabase } from "../support/app.ts";
@@ -53,10 +54,8 @@ beforeEach(async () => {
 
 const { sweep } = await import("../../src/lib/sweep.ts");
 
-const UPLOADS = path.join(process.cwd(), "public", "uploads");
 const MP4_HEAD = new Uint8Array([0, 0, 0, 0x20, ...Buffer.from("ftypisom"), ...new Array(20).fill(0)]);
 const local = (hex: string, extension = "mp4") => `/uploads/${hex.repeat(64)}.${extension}`;
-const onDisk = (url: string) => path.join(UPLOADS, url.split("/").at(-1)!);
 
 async function put(url: string, bytes: Uint8Array | string = "bytes") {
   await mkdir(UPLOADS, { recursive: true });
@@ -191,7 +190,7 @@ test("a clip someone else attached can't be claimed, and only written answers an
   const { alice, bob, questionId, wallId } = await openLoop();
   assert.equal((await saveVideoFor({ token: bob.token, issueQuestionId: questionId, videoUrl: local("5"), posterUrl: local("6", "jpg"), durationMs: 1000 })).ok, true);
   const stolen = await saveVideoFor({ token: alice.token, issueQuestionId: questionId, videoUrl: local("5"), posterUrl: local("7", "jpg"), durationMs: 1000 });
-  assert.deepEqual(stolen, { ok: false, status: 409, error: "We couldn't upload that video. Try again." });
+  assert.deepEqual(stolen, { ok: false, status: 409, error: copy.reply.errors.videoUploadFailed });
   const stolenOnWall = await saveWallVideoFor({ token: alice.token, issueQuestionId: wallId, videoUrl: local("5"), posterUrl: local("7", "jpg"), durationMs: 1000, caption: "", position: 0 });
   assert.equal(stolenOnWall.ok, false);
 
@@ -207,7 +206,7 @@ test("a clip someone else attached can't be claimed, and only written answers an
 
   // A card copied from a section never took voice notes, and takes no clips either.
   await rows("update issue_questions set from_section = true where id = $1", [questionId]);
-  assert.deepEqual(await authorizeVideoForReply(alice.token, questionId), { ok: false, status: 409, error: "That question isn't in this round." });
+  assert.deepEqual(await authorizeVideoForReply(alice.token, questionId), { ok: false, status: 409, error: copy.reply.errors.wrongQuestion });
   const copied = await saveVideoFor({ token: alice.token, issueQuestionId: questionId, videoUrl: local("8"), posterUrl: local("9", "jpg"), durationMs: 1000 });
   assert.equal(copied.ok, false);
 });
@@ -221,7 +220,7 @@ test("a photo wall takes two clips among its six, and taking one off removes its
   assert.ok(first.ok && first.mediaId);
   assert.equal((await saveWallVideoFor({ token: alice.token, issueQuestionId: wallId, videoUrl: local("c"), posterUrl: local("e", "jpg"), durationMs: 3_000, caption: "", position: 1 })).ok, true);
   const third = await saveWallVideoFor({ token: alice.token, issueQuestionId: wallId, videoUrl: local("d"), posterUrl: local("f", "jpg"), durationMs: 3_000, caption: "", position: 2 });
-  assert.deepEqual(third, { ok: false, status: 409, error: "A photo wall takes two videos from each person, and you've added both." });
+  assert.deepEqual(third, { ok: false, status: 409, error: copy.reply.errors.wallVideoCap });
 
   const sheet = await sheetFor(alice.token);
   const wall = sheet!.questions.find((question) => question.id === wallId)!;
@@ -235,7 +234,7 @@ test("a photo wall takes two clips among its six, and taking one off removes its
   }
   // Six already: the wall is full before the two-clip rule comes into it.
   const full = await saveWallVideoFor({ token: alice.token, issueQuestionId: wallId, videoUrl: local("d"), posterUrl: local("f", "jpg"), durationMs: 3_000, caption: "", position: 5 });
-  assert.deepEqual(full, { ok: false, status: 409, error: "A photo wall holds six photos or videos, and this one is full." });
+  assert.deepEqual(full, { ok: false, status: 409, error: copy.reply.errors.sectionPhotoCap });
 
   assert.equal((await removeWallPhotoFor({ token: alice.token, issueQuestionId: wallId, mediaId: first.mediaId! })).ok, true);
   assert.equal(existsSync(onDisk(local("a"))), false, "the clip goes with its wall item");
@@ -245,11 +244,11 @@ test("a clip whose file won't go still comes off the answer", async (t) => {
   const { alice, questionId } = await openLoop();
   await put(local("1"));
   assert.equal((await saveVideoFor({ token: alice.token, issueQuestionId: questionId, videoUrl: local("1"), posterUrl: local("2", "jpg"), durationMs: 1000 })).ok, true);
-  await chmod(UPLOADS, 0o500);
-  t.after(async () => { await chmod(UPLOADS, 0o755).catch(() => undefined); });
+  await makeUndeletable(t, local("1"));
   assert.equal((await removeVideoFor({ token: alice.token, issueQuestionId: questionId })).ok, true);
   const [row] = await rows<{ video_url: string | null }>("select video_url from replies where membership_id = $1 and issue_question_id = $2", [alice.id, questionId]);
   assert.equal(row.video_url, null);
+  assert.equal(existsSync(onDisk(local("1"))), true, "the file really did refuse");
 });
 
 test("a clip alone is an answer: the round, the album and the export all carry it", async () => {

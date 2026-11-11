@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Page } from "./support/test";
 import AxeBuilder from "@axe-core/playwright";
 import type { RunOptions } from "axe-core";
 import { copy, copyPattern } from "@/lib/copy";

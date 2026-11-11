@@ -9,3 +9,12 @@
 export function e2eSeamsAllowed(): boolean {
   return process.env.E2E === "1" && process.env.VERCEL_ENV !== "production";
 }
+
+/**
+ * Cookies are Secure wherever the app is really served. The suite runs a
+ * production build over plain http://localhost, where WebKit, unlike Chromium,
+ * drops a Secure cookie, so there alone they go without it.
+ */
+export function secureCookies(): boolean {
+  return process.env.NODE_ENV === "production" && !e2eSeamsAllowed();
+}
