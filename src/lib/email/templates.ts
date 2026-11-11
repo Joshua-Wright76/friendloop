@@ -12,7 +12,7 @@ import { DEFAULT_MASCOT, isCharmKey, isMascotKey, stickerPng } from "../stickers
 import { isStickerKey } from "../looks.ts";
 import { emailPalette, GINGHAM_EMAIL, type EmailPalette } from "../theme.ts";
 import { emailPatternTile, type EmailPatternTile } from "../stationery.ts";
-import { appUrl } from "../urls.ts";
+import { appUrl, loopPictureUrl } from "../urls.ts";
 import { emailDividerStrip, type EmailDividerStrip } from "../dividers.ts";
 import { marksOf, type LoopMarks, type RoundCover } from "../looks.ts";
 import { EMAIL_SEAL_SIZE, EMAIL_STAMP, postmarkDate, sealPng, stampPng } from "../seal-art.ts";
@@ -116,6 +116,7 @@ export type EmailTheme = {
 
 /** What an email needs from a loop to wear its stationery. */
 export function emailThemeOf(group: {
+  id: string;
   themePreset: string | null;
   themeAccent: string | null;
   /** Required, so a caller that selects only some columns can't quietly fall back to gingham. */
@@ -125,7 +126,8 @@ export function emailThemeOf(group: {
 }): EmailTheme {
   return {
     palette: emailPalette({ preset: group.themePreset, accent: group.themeAccent }),
-    headerImageUrl: group.headerImageUrl,
+    // The stable address, not the stored file: replacing the picture deletes that.
+    headerImageUrl: group.headerImageUrl ? loopPictureUrl(group.id) : null,
     mascot: group.themeMascot,
     pattern: emailPatternTile(group.themeBackground, group.themePreset),
   };

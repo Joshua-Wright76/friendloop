@@ -5,12 +5,34 @@ import { copy } from "@/lib/copy";
 import { clearHeaderImage, setHeaderImage } from "@/lib/identity";
 import { atLeast, viewerFor } from "@/lib/permissions";
 import { imageFromRequest } from "../../../image-form";
+import { eq } from "drizzle-orm";
+import { db } from "@/db";
+import { groups } from "@/db/schema";
+import { url } from "@/lib/urls";
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 type RouteContext = { params: Promise<{ id: string }> };
 
 async function managerOf(groupId: string) {
   const viewer = await viewerFor(groupId);
   return viewer && atLeast(viewer.membership.access, "admin") ? viewer : null;
+}
+
+/**
+ * Where emails find the loop's picture (see `loopPictureUrl`). Old emails keep
+ * asking long after the picture changes, so this always answers with today's,
+ * and with a see-through strip once there is none, never a broken image.
+ */
+export async function GET(_request: Request, { params }: RouteContext) {
+  const { id } = await params;
+  const [group] = UUID.test(id)
+    ? await db.select({ url: groups.headerImageUrl }).from(groups).where(eq(groups.id, id)).limit(1)
+    : [];
+  const response = NextResponse.redirect(group?.url ? new URL(group.url, url("/")) : url("/email/no-picture.png"), 302);
+  // Short, so a new picture reaches old emails soon; mail proxies cache on their own terms.
+  response.headers.set("Cache-Control", "public, max-age=300");
+  return response;
 }
 
 /** The loop's header picture. The owner and admins. */

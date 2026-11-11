@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { existsSync, readdirSync } from "node:fs";
 import path from "node:path";
+import { loopPictureUrl } from "../urls.ts";
 import test from "node:test";
 import {
   deliveryEmail,
@@ -115,7 +116,7 @@ test("a loop with no stationery renders Gingham, and with some it wears the pape
   const themed = pausedEmail({
     groupName: "Friday Loop",
     url: "https://friendloop.dev/loop",
-    theme: emailThemeOf({ themePreset: "meadow", themeAccent: null, themeBackground: null, headerImageUrl: null }),
+    theme: emailThemeOf({ id: "loop-1", themePreset: "meadow", themeAccent: null, themeBackground: null, headerImageUrl: null }),
   });
   assert.match(plain.html, /#fff3f5/);
   assert.doesNotMatch(plain.html, /#f0f6ec/);
@@ -124,7 +125,7 @@ test("a loop with no stationery renders Gingham, and with some it wears the pape
   assert.equal(themed.text, plain.text);
   assert.equal(themed.subject, plain.subject);
 
-  const gingham = emailThemeOf({ themePreset: "gingham", themeAccent: null, themeBackground: null, headerImageUrl: null });
+  const gingham = emailThemeOf({ id: "loop-1", themePreset: "gingham", themeAccent: null, themeBackground: null, headerImageUrl: null });
   assert.equal(pausedEmail({ groupName: "Friday Loop", url: "https://friendloop.dev/loop", theme: gingham }).html, plain.html);
 });
 
@@ -132,7 +133,7 @@ test("a loop's page pattern goes out as a PNG tile on its page colour; gingham s
   const send = (themePreset: string | null, themeBackground: string | null) =>
     inviteEmail({
       groupName: "Friday Loop", inviterName: "Mars", url: "https://friendloop.dev/r/token", isReader: false,
-      theme: emailThemeOf({ themePreset, themeAccent: "#123456", themeBackground, headerImageUrl: null }),
+      theme: emailThemeOf({ id: "loop-1", themePreset, themeAccent: "#123456", themeBackground, headerImageUrl: null }),
     });
   const hearts = send("lilac", "hearts");
   // The accent never changes a pattern's colour, so the tile is keyed by preset alone.
@@ -156,8 +157,16 @@ test("every pattern tile email can ask for has been rendered", () => {
   assert.equal(pngs.length, emailPatternTiles().length);
 });
 
+test("an email names the loop's picture by a lasting address, never the stored file", () => {
+  // Replacing a picture deletes the old file; a sent email must not point at it.
+  const theme = emailThemeOf({ id: "loop-1", themePreset: null, themeAccent: null, themeBackground: null, headerImageUrl: "https://blob.test/reply-photos/old.jpg" });
+  assert.equal(theme.headerImageUrl, loopPictureUrl("loop-1"));
+  assert.match(theme.headerImageUrl ?? "", /\/api\/loop\/loop-1\/header-image$/);
+  assert.equal(emailThemeOf({ id: "loop-1", themePreset: null, themeAccent: null, themeBackground: null, headerImageUrl: null }).headerImageUrl, null);
+});
+
 test("a header picture sits above the brand line, decorative and escaped", () => {
-  const theme = emailThemeOf({ themePreset: null, themeAccent: null, themeBackground: null, headerImageUrl: 'https://cdn.test/a"b.png' });
+  const theme = { ...emailThemeOf({ id: "loop-1", themePreset: null, themeAccent: null, themeBackground: null, headerImageUrl: null }), headerImageUrl: 'https://cdn.test/a"b.png' };
   const email = promptEmail({
     groupName: "Friday Loop", memberName: "Dev", issueNumber: 3, questionCount: 4,
     url: "https://friendloop.dev/answer", deadlineLabel: "Friday", theme,
@@ -311,7 +320,7 @@ test("a mascot goes out as a picture from the app's own address; the cherries st
     pausedEmail({
       groupName: "Friday Loop",
       url: "https://friendloop.dev/loop",
-      theme: emailThemeOf({ themePreset: null, themeAccent: null, themeBackground: null, headerImageUrl: null, themeMascot }),
+      theme: emailThemeOf({ id: "loop-1", themePreset: null, themeAccent: null, themeBackground: null, headerImageUrl: null, themeMascot }),
     });
   const frog = send("frog");
   assert.match(frog.html, /<img src="http[^"]*\/stickers\/png\/frog\.png" alt="" width="24" height="24"/);
@@ -356,7 +365,7 @@ const delivered = (marks?: ReturnType<typeof emailMarksOf>) =>
       { question: "How was it?", author: "Alice", body: "Good." },
       { question: "How was it?", author: "Bob", body: "Fine." },
     ],
-    theme: emailThemeOf({ themePreset: null, themeAccent: null, themeBackground: null, headerImageUrl: null, themeMascot: "frog" }),
+    theme: emailThemeOf({ id: "loop-1", themePreset: null, themeAccent: null, themeBackground: null, headerImageUrl: null, themeMascot: "frog" }),
     marks,
   });
 

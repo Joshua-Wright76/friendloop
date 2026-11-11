@@ -204,7 +204,7 @@ test("delivery carries the round's name and the loop's stationery into the email
   );
   assert.match(mail.subject, /· Camping weekend$/);
   assert.match(mail.html, /#f5f0fb/, "the lilac paper");
-  assert.match(mail.html, /<img src="https:\/\/cdn\.test\/banner\.png" alt=""/);
+  assert.match(mail.html, new RegExp(`<img src="[^"]+/api/loop/${loop.groupId}/header-image" alt=""`), "the lasting address, not the file");
 });
 
 test("prompt, reminder and nudge emails wear the stationery; an untouched loop stays Gingham", async () => {

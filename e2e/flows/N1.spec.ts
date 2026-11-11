@@ -166,7 +166,12 @@ test("N1 · a header picture shows above every surface and in the email; only th
   await runSweep(DELIVERY_DAY);
   const mails = await rows<{ html: string }>("select html from outbox where kind in ('prompt', 'delivery')");
   expect(mails.length).toBeGreaterThan(0);
-  for (const mail of mails) expect(mail.html).toContain(`<img src="${row.header_image_url}" alt=""`);
+  // Emails name a lasting address, not the stored file, which a new picture deletes.
+  const lasting = `/api/loop/${loop.groupId}/header-image`;
+  for (const mail of mails) expect(mail.html).toMatch(new RegExp(`<img src="https?://[^"]+${lasting}" alt=""`));
+  const followed = await request.get(lasting, { maxRedirects: 0 });
+  expect(followed.status()).toBe(302);
+  expect(followed.headers().location).toBe(row.header_image_url);
 
   // Something that cannot be read as a picture is refused before it leaves the browser
   // (a real oversize photo is shrunk instead: see T1).
