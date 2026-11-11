@@ -17,13 +17,14 @@
       "title": "This page isn't here",
       "body": "The link may have been replaced, or the loop was deleted.",
       "home": "Back to Friendloop",
-      "yourLoops": "Back to your loops"
+      "yourLoops": "Your loops"
     },
     "errorPage": {
       "title": "That page didn't load",
-      "body": "Check your connection, then try again. Anything already saved is safe.",
+      "body": "Something went wrong on our side. Try again, and anything already saved is safe.",
       "retry": "Try again",
-      "home": "Back to Friendloop"
+      "home": "Back to Friendloop",
+      "yourLoops": "Your loops"
     },
     "yourLoops": "Your loops",
     "backToLoop": "← Back to loop",
@@ -82,7 +83,9 @@
       "light": "Light",
       "dark": "Dark",
       "switchToDark": "Light mode: switch to dark mode",
-      "switchToLight": "Dark mode: switch to light mode"
+      "switchToLight": "Dark mode: switch to light mode",
+      "darkMode": "Dark mode",
+      "lightMode": "Light mode"
     },
     "actionFailed": "That didn't go through. Check your connection and try again.",
     "offlineUpload": "That didn't upload. Check your connection and try again.",
@@ -99,6 +102,15 @@
     "titleAccentSpoken": "written by your friends",
     "description": "Every week, month, or season, your group gets a few questions. Everyone answers in their own time, and the answers come back as one round you all read.",
     "startLoop": "Start a loop",
+    "sample": {
+      "description": "A sample round: Round 12 asks what made you laugh this week, and two friends answer.",
+      "round": "Round 12",
+      "question": "What made you laugh this week?",
+      "answers": [
+        { "name": "Alex", "text": "The cat accepted a fist bump but refused a high five.", "reaction": "😂 2" },
+        { "name": "Sam", "text": "My dad's voicemail. All four minutes.", "reaction": "" }
+      ]
+    },
     "howTitle": "How it works",
     "steps": [
       {
@@ -123,7 +135,9 @@
   "signIn": {
     "eyebrow": "Hello,",
     "title": "Sign in",
-    "subtitle": "New or returning, we'll email you a link and a code. No password needed.",
+    "startTitle": "Start your loop",
+    "startSubtitle": "First, your email. We'll send a link, no password.",
+    "subtitle":"New or returning, we'll email you a link and a code. No password needed.",
     "haveCode": "Already have a code?",
     "memberHint": "Answering questions? Use the link in your loop's email.",
     "emailLabel": "Your email",
@@ -140,10 +154,16 @@
     "sentTo": "We sent a sign-in link and code to",
     "sentToEnd": ". Tap the link, or type the code here. Both work for 4 days.",
     "differentEmail": "Use a different email",
+    "coldTitle": "Got an email from us?",
+    "coldBody": "Type the code from it here, or ask for a new one.",
+    "coldSignIn": "Back to sign in",
+    "joinTitle": "Confirm your email to join {groupName}",
+    "joinNext": "Open the link in it, or type the code below, and you're in. Both work for 4 days.",
     "codeTitle": "Type the code",
     "codeLabel": "Code from the email",
     "codeEmailLabel": "Your email",
     "codeSubmit": "Sign in with the code",
+    "codeSubmitJoin": "Join with the code",
     "codeWrong": "That code doesn't match. Check it's from the newest sign-in email.",
     "codeBusy": "Lots of codes are coming from your network right now. Wait a little while, then try again.",
     "codeLocked": "That's a lot of codes for this address today. Use the link in the email instead, or try again tomorrow.",
@@ -151,7 +171,10 @@
     "previewLogged": "Every preview email is kept as a copy. ",
     "openOutbox": "open the dev outbox",
     "nothingArrived": "Nothing arrived? Check spam, then",
-    "tryAgain": "try again"
+    "tryAgain": "try again",
+    "sendAgain": "Send it again",
+    "sendingAgain": "Sending…",
+    "sentAgain": "Sent again to {email}."
   },
   "confirm": {
     "newLink": "Send me a new link",
@@ -189,8 +212,8 @@
     "haveCode": "Already have a code?",
     "problems": {
       "gone": {
-        "title": "This invite link doesn't work anymore",
-        "body": "The loop's owner made a new one. Ask whoever sent you this for the new link."
+        "title": "This invite link isn't working",
+        "body": "It may have been replaced, or a letter went missing when it was copied. Ask whoever invited you for a fresh link."
       },
       "full": {
         "title": "{groupName} is full",
@@ -205,13 +228,16 @@
   "you": {
     "title": "Your loops",
     "newLoop": "New loop",
+    "startAnother": "Start another loop",
+    "startAnotherBody": "A new name, new questions, new people.",
     "emptyTitle": "No loops yet",
     "emptyBody": "Start one, or wait for someone to invite you.",
     "openLoop": "Open loop",
+    "accountLabel": "Your account",
     "deletedNotice": "That loop is gone.",
     "signedInAs": "Signed in as {email}",
     "status": {
-      "open": "Round {number} goes out {date}. {answered} of {writers} in.",
+      "open": "Round {number} goes out {date}. {answered} of {writers} answered.",
       "delivered": "Last round went out {date}",
       "first": "First round goes out {date}",
       "paused": "Paused"
@@ -268,7 +294,7 @@
       },
       {
         "value": "2",
-        "label": "Every 2 weeks"
+        "label": "Every two weeks"
       },
       {
         "value": "4",
@@ -297,7 +323,7 @@
         "Stationery",
         "Choose questions",
         "Invite your people",
-        "Your note"
+        "Review and create"
       ],
       "details": {
         "title": "Give your loop a name and rhythm",
@@ -310,7 +336,7 @@
         "scheduleSummary": "It goes out {when} at {hour}. Answers are open until then, and the next round opens as it goes out. If nobody has answered, it waits for the next date.",
         "scheduleWhen": {
           "1": "every {weekday}",
-          "2": "every other {weekday}",
+          "2": "every two weeks on {weekday}",
           "4": "every 4 weeks on {weekday}",
           "13": "every 13 weeks on {weekday}"
         },
@@ -350,7 +376,9 @@
         "title": "What should everyone answer?",
         "description": "Pick as many as you like.",
         "selected": "{count} selected",
-        "addOwn": "Add your own question",
+        "yourList": "Your questions",
+      "packsLabel": "Question packs",
+    "addOwn": "Add your own question",
         "addOwnTitle": "Add a question",
         "questionLabel": "Question",
         "questionPlaceholder": "What would you like to ask?",
@@ -382,7 +410,8 @@
       },
       "look": {
         "title": "Pick its stationery",
-        "description": "Optional. Choose what your loop is written on, and a header picture.",
+        "description": "Optional. Choose what your loop is written on.",
+        "changeLater": "You can change all of this later in Settings.",
         "pictureChosen": "Picture ready. It's added when you create the loop.",
         "picturePreparing": "Preparing picture…"
       },
@@ -399,9 +428,9 @@
         "readerCount": "{count} invited"
       },
       "note": {
-        "title": "Add a personal note",
-        "description": "This note goes only in the invitation emails. The loop doesn't keep it.",
-        "label": "Your invitation note",
+        "title": "Review and create",
+        "description": "Check everything below, then create your loop. The note is optional.",
+        "label": "Invitation note (optional)",
         "placeholder": "A short hello to the people you're inviting",
         "previewButton": "Preview the first round",
         "previewTitle": "A first look",
@@ -418,7 +447,7 @@
         "newsletterCardDescription": "See the name, schedule, and questions before you create the loop.",
         "summaryTitle": "Here's your loop",
         "summaryName": "Name",
-        "summaryRhythm": "How often",
+        "summaryRhythm": "Goes out",
         "summaryLook": "Stationery",
         "summaryQuestions": "Questions",
         "summaryQuestionsCount": "{count} to start with",
@@ -631,6 +660,7 @@
     "schedule": "Goes out every {cadence} on {weekday} at {hour}, {timezone} time.",
     "cadenceWeek": "week",
     "cadenceWeeks": "{count} weeks",
+    "cadenceTwoWeeks": "two weeks",
     "paused": "Paused",
     "nothingScheduled": "Nothing scheduled",
     "pausedDescription": "Nothing goes out and nobody can answer until you resume it.",
@@ -645,7 +675,7 @@
     "welcomeJoined": "You're in. Answer whenever you like; everyone's answers go out together.",
     "welcomeNoPicture": "The header picture didn't save, so add it again from the settings.",
     "round": "Round {number}",
-    "progress": "{answered} of {writers} people in",
+    "progress": "{answered} of {writers} people answered",
     "waitingTitle": "Waiting on",
     "everyoneIn": "Everyone's in.",
     "nudge": "Send a nudge",
@@ -669,11 +699,16 @@
     "firstRunBody": "A loop of one is a diary. Add the friends you want to hear from, and they can answer round 1 as soon as they join.",
     "firstRunInvite": "Invite people",
     "firstRunQuestions": "Check the questions",
-    "inTitle": "In",
+    "inTitle": "Answered",
     "peopleLink": "{count} in the loop",
     "questionsLink": "{count} questions to ask",
     "nudgeBodyOne": "They get one short reminder with their link. Nobody else is told.",
     "nudgedAt": "Last nudged {when}.",
+    "nudgedToday": "Nudged today.",
+    "momentMidnight": "{moment}",
+    "momentYours": "{moment} your time",
+    "momentElsewhere": "{moment} in {place}",
+    "momentNamed": "{moment} {place} time",
     "nudgeAgain": "Nudge again",
     "nudgeAgainLabel": "Nudge {names} again",
     "nextAsThisCloses": "The next round opens as soon as this one goes out.",
@@ -700,14 +735,15 @@
     "removedNotice": "Removed. Their past answers stay in the rounds they were in.",
     "transferredNotice": "The loop has a new owner. You're an admin now.",
     "you": "you",
-    "invitePending": "Hasn't answered anything yet",
+    "invitePending": "Link sent \u00b7 waiting for {name} to open it",
+    "inviteButton": "Invite someone",
     "muted": "Emails off",
     "mutedHint": "They turned off emails from this loop. They're still in it and can answer through their link.",
     "bouncing": "Emails bouncing",
     "bouncingHint": "Emails to this address bounce, so the loop has stopped sending to it. Fix the address, or remove them and invite the right one.",
     "complaintHint": "This address marked a loop email as spam, so the loop has stopped sending to it. Ask them if they still want these emails, or remove them.",
     "roleAriaLabel": "Role for {name}",
-    "resendInvite": "Resend invitation",
+    "resendInvite": "Resend invite",
     "remove": "Remove",
     "inviteTitle": "Invite people",
     "inviteLink": {
@@ -743,11 +779,13 @@
     "roleSaving": "Saving…",
     "roleUpdated": "Role updated",
     "roleError": "The role didn't change. Check your connection and try again.",
-    "rolesHint": "An admin can invite people, choose the questions and change the loop's settings. Only the owner can download the loop, delete it or hand it to someone else.",
+    "rolesHint": "An admin can invite people, choose the questions and change the loop's settings. Only the owner can download the loop, delete it or make someone else the owner.",
     "participation": {
       "ariaLabel": "How {name} takes part",
       "contributor": "Answers and reads",
       "reader": "Reads only",
+      "short": { "contributor": "Answers", "reader": "Reads only" },
+      "help": "Answers means they write answers and read the round. Reads only means they just read.",
       "saving": "Saving…",
       "updated": "Saved",
       "error": "That didn't save. Check your connection and try again."
@@ -776,55 +814,94 @@
       "taken": "Someone in this loop already uses that address.",
       "failed": "That didn't go through. Check your connection and try again.",
       "notice": "Address changed, and a new invitation is on its way. The old link no longer works.",
-      "doneNote": "Address changed, and a new invitation is on its way. It went to {email}, and the old link no longer works."
-    }
+      "doneNote": "New link sent to {email}. The old link no longer works."
+    },
+    "manageLabel": "{name}: role, address and more",
+    "invited": "Link sent"
   },
   "questions": {
     "title": "Questions",
-    "description": "What the open round asks, and what comes up after it.",
-    "memberDescription": "What the open round asks, and what comes up after it. Whoever runs the loop chooses them.",
+    "description": "What this round asks. Tap a question to change it.",
+    "memberDescription": "What this round asks. Whoever runs the loop chooses them.",
     "pausedNote": "This loop is paused. Changes here apply when it resumes.",
     "pausedNoRound": "This loop is paused, so no round is open. Changes here apply to the round that opens when it resumes.",
     "thisRound": {
-      "title": "This round asks",
+      "title": "This round",
       "meta": "Round {number} · goes out {when}",
       "metaNamed": "{name} · goes out {when}",
-      "listLabel": "What this round asks, in order",
-      "empty": "This round asks nothing yet. Add a question below, or pull one in from Up next.",
-      "none": "No round is open right now. Up next shows what the next one asks.",
+      "listLabel": "Questions in this round, in order",
+      "stepsLabel": "Move in this round",
+      "whenMore": "Exact time",
+      "empty": "Nothing in this round yet. Add a question, or pick one from Not in this round.",
+      "none": "No round is open right now. These are what the next one can ask.",
+      "noneMember": "No round is open right now.",
       "add": "Add to this round",
       "remove": "Remove from this round",
       "removeLabel": "Remove from this round: {item}",
+      "menu": {
+        "open": "Remove",
+        "openLabel": "Remove {item}",
+        "title": "Take it out how?",
+        "skip": "Skip this round",
+        "skipHint": "Leave it out of this round only. You can undo it.",
+        "skipLabel": "Skip this round: {item}",
+        "stop": "Stop asking",
+        "stopHint": "Never ask it again. It waits under Stopped, and Ask again brings it back.",
+        "close": "Never mind"
+      },
       "writtenOne": "{name} already wrote here, so it stays in this round",
-      "writtenMany": "{name} and {count} more already wrote here, so it stays in this round"
+      "writtenMany": "{name} and {count} more already wrote here, so it stays in this round",
+      "undo": "Undo"
     },
     "upNext": {
-      "title": "Up next",
-      "countBefore": "Each round asks",
-      "countAfter": "of the questions that take turns.",
-      "countLabel": "Questions per round",
-      "countAll": "All",
+      "title": "Your questions",
+      "intro": "Everything this loop can ask. Rounds are filled from here.",
+      "summary": "Your questions · {count}",
+    "summaryOne": "Your questions · 1",
+    "summaryNone": "Your questions · none yet",
+    "countBefore": "Turn-taking questions each round:",
+      "countAfter": "",
+      "countLabel": "Turn-taking questions each round",
+      "countAll": "all",
       "turnsTitle": "Takes turns",
-      "turnsHelp": "Each round asks the ones at the top. Once asked, a question moves to the back of the line.",
-      "turnsAllHelp": "Each round asks all of these, in this order.",
-      "turnsEmpty": "Nothing takes turns yet. Add questions here, and rounds will work through them in order.",
-      "turnsLabel": "Questions that take turns, in the order rounds ask them",
+      "turnsHelp": "These take turns, a few each round. The top ones go first, then move to the back.",
+      "turnsAllHelp": "All of these come up each round.",
+      "turnsEmpty": "Nothing yet. Add questions and rounds will work through them.",
+      "turnsLabel": "Questions that take turns, in order",
       "everyRoundTitle": "Every round",
-      "everyRoundHelp": "Every round asks these, after the ones taking turns.",
-      "everyRoundEmpty": "Nothing is asked every round.",
-      "everyRoundLabel": "Asked every round, in order",
+      "everyRoundHelp": "Asked each round.",
+      "everyRoundEmpty": "Nothing yet.",
+      "everyRoundLabel": "Every round questions, in order",
       "datedTitle": "On a date",
-      "datedHelp": "An event or a birthday joins the round its day falls in.",
+      "datedHelp": "Joins the round its day falls in.",
       "datedEmpty": "No events or birthdays yet.",
       "datedLabel": "Events and birthdays, soonest first",
-      "roundTag": "Round {number} · {date}",
+      "roundTag": "Next asked: Round {number}, {date}",
+    "askedIn": "Asked in Round {number}",
       "roundShort": "Round {number}",
-      "later": "Later",
+      "later": "Next asked: later",
       "passed": "Already happened",
       "yearly": "every year",
-      "askNow": "Ask this round too",
-      "askNowLabel": "Ask this round too: {item}",
+      "askNow": "Add to this round",
+      "askNowLabel": "Add to this round: {item}",
       "inThisRound": "In this round"
+    },
+    "notInRound": {
+      "title": "Not in this round",
+      "label": "Questions not in this round",
+      "backInRound": "Back in Round {number}",
+      "backLater": "Back in a later round",
+      "onDate": "On {date}",
+      "passed": "Already happened"
+    },
+    "plan": {
+      "summary": "Plan future rounds",
+      "intro": "Change the usual order, and how many turn-taking questions each round asks.",
+      "nextOne": "Next round will ask: 1 question",
+      "nextMany": "Next round will ask: {count} questions",
+      "nextNone": "Next round will ask: nothing yet",
+      "nextTitles": "{titles}",
+      "andMore": "{titles}, and {count} more"
     },
     "item": {
       "editPrefix": "Edit",
@@ -842,6 +919,11 @@
         "rotating": "Takes turns",
         "every_round": "Every round",
         "on_date": "On a date"
+      },
+      "frequencyHints": {
+        "rotating": "Shares rounds with your other turn-taking questions, a few at a time.",
+        "every_round": "Asked in every round.",
+        "on_date": "Asked in the round its date falls in. A birthday comes back every year."
       },
       "dateKindLabel": "Which kind of date",
       "dateKinds": {
@@ -862,7 +944,7 @@
       "stop": "Stop asking",
       "stopLabel": "Stop asking: {item}",
       "stopQuestion": "Stop asking “{item}”?",
-      "stopBody": "It leaves Up next, and this round too unless someone has already answered it. Past rounds keep it, and you can bring it back from Stopped.",
+      "stopBody": "It leaves your questions, and this round too unless someone has already answered it. Past rounds keep it, and you can bring it back from Stopped.",
       "stopConfirm": "Yes, stop asking",
       "askAgain": "Ask again",
       "askAgainLabel": "Ask again: {item}",
@@ -877,19 +959,20 @@
     },
     "add": {
       "title": "Add something to ask",
-      "thisRound": "Ask it this round too",
-      "thisRoundHint": "Every-round questions, and anything dated this round, are already in it.",
+    "open": "Add a question",
+      "thisRound": "Add it to this round too",
+      "thisRoundHint": "Every round questions, and anything dated this round, are already in it.",
       "submit": "Add question",
       "packsSummary": "Ideas from question packs"
     },
     "done": {
-      "added": "Added. It's in Up next.",
+      "added": "Added to your questions.",
       "addedNow": "Added to this round.",
       "alreadyAsked": "This round already asks that.",
       "saved": "Saved.",
       "stopped": "Stopped asking. It's under Stopped if you want it back.",
       "stoppedStays": "Stopped asking. Someone has written there this round, so this round keeps it.",
-      "again": "Asking it again. It's in Up next.",
+      "again": "Asking it again. It's back in your questions.",
       "removed": "Removed from this round.",
       "removedTurn": "Removed from this round. It's first in line for the next one.",
       "stays": "Someone has written there already, so it stays in this round.",
@@ -1018,21 +1101,24 @@
     "deleteDescription": "Every round, answer, comment, photo, and voice note goes with it. This can't be undone.",
     "deleteConfirmLabel": "Type \"{name}\" to confirm",
     "delete": "Delete forever",
-    "archiveTitle": "Download the loop",
+    "archiveTitle": "Keep a copy",
     "archiveBody": "Every round, question, answer, and comment in one file, with links to photos, videos, and voice notes. The links stop working if you delete the loop.",
-    "archive": "Download the archive",
+    "archive": "Download the loop",
     "jumpLabel": "Jump to",
     "groupDetails": "Details",
     "groupStationery": "Stationery",
-    "groupKeep": "Pause and export",
-    "groupDanger": "Reset and delete",
-    "groupDangerAdmin": "Reset links",
+    "groupKeep": "Pause",
+    "groupDanger": "Delete",
+    "groupDangerAdmin": "Links",
+    "detailsSaveLine": "Saves as you go.",
+    "nameShort": "A name needs at least two letters.",
+    "detailsSaved": "Saved. Everyone sees it right away.",
     "groupPaper": "Stationery",
     "tabsLabel": "Parts of the settings",
     "headerSavesItself": "",
     "readersGroup": "Who can read and comment",
     "deleteHint": "Type the name above to unlock this.",
-    "dangerTitle": "Serious stuff",
+    "dangerTitle": "Reset or delete",
     "nameRequired": "Your loop needs a name.",
     "yourLookTitle": "Just yours: your charm and frame",
     "yourLookBody": "The stationery above is for everyone.",
@@ -1058,7 +1144,8 @@
     "nameError": "Your name didn't save. Check your connection and try again.",
     "round": "Round {number}",
     "closes": "Goes out {deadline}",
-    "goesOutNote": "Everything you write here goes out then, finished or not, and whoever runs the loop can read it before. Clear an answer to leave it out.",
+    "goesOutNote": "Whatever you've written goes out then, finished or not.",
+    "readBeforeNote": "Whoever runs the loop can read answers before it goes out. Clear an answer to leave it out.",
     "viewerTimezone": "your time ({time})",
     "confirmation": {
       "title": "All set",
@@ -1234,11 +1321,13 @@
     "jumpOpen": "not answered yet",
     "sectionAddPhotoTo": "Add a photo to {section}",
     "addAttachment": "Add a photo, video, voice note, or link",
+    "addSomethingElse": "Add something else",
     "pausedTitle": "Paused for now",
     "pausedBody": "{groupName} is paused, so it isn't taking answers right now. Your link will work again as soon as it's resumed.",
     "voiceBlockedHelp": "Show me how",
     "statusLine": {
-      "label": "Your line this round",
+      "label": "A one-line update",
+      "helper": "Shown next to your name in this round.",
       "optional": "optional",
       "placeholder": "knee-deep in moving boxes",
       "count": "{count} / {max}",
@@ -1254,7 +1343,8 @@
       "error": "Your line didn't save. Try again."
     },
     "sticker": {
-      "add": "Sticker",
+      "add": "Add a sticker",
+      "hint": "A little picture stuck on your answer",
       "addLabel": "Add a sticker",
       "change": "Change sticker",
       "needsAnswer": "Write something first, then you can stick a sticker on it.",
@@ -1288,6 +1378,8 @@
       "showEveryone": "Show everyone",
       "questionLabel": "On: {question}",
       "menuLabel": "{who}, {order}",
+      "menuButton": "Sort and filter",
+      "current": "{order} · {who}",
       "everyoneLower": "Everyone",
       "byQuestionLower": "by question",
       "byPersonLower": "by person"
@@ -1328,12 +1420,23 @@
     "commentCount": "{count} comments",
     "commentCountOne": "1 comment",
     "commentOnAnswer": "Comment",
+    "commentCount": "{count} comments",
+    "commentCountOne": "1 comment",
     "threadLabel": "Comments on {owner} answer",
     "threadComposerLabel": "Comment on {owner} answer",
     "ownerYour": "your",
     "ownerOther": "{author}'s",
     "mentionCount": "{count} people to mention. Use the arrow keys, then Enter.",
     "commentReply": "Reply",
+    "commentDelete": "Delete",
+    "commentDeleteLabel": "Delete your comment",
+    "commentDeleted": "Comment deleted",
+    "commentUndo": "Undo",
+    "commentUndoLabel": "Undo deleting your comment",
+    "commentDeleteQuestion": "Delete this comment?",
+    "commentDeleteBody": "It disappears for everyone in the loop. This can't be undone.",
+    "commentDeleteConfirm": "Delete comment",
+    "commentDeleteCancel": "Keep it",
     "commentReplyLabel": "Reply to {author}",
     "replyingTo": "Replying to {author}",
     "replyingToCancel": "Cancel reply",
@@ -1361,6 +1464,8 @@
     "reactFailed": "That reaction didn't land. Check your connection and try again.",
     "reactMore": "Add a reaction to {author}'s answer",
     "reactMoreOwn": "Add a reaction to your answer",
+    "reactHeading": "React to {author}'s answer",
+    "reactHeadingOwn": "React to your answer",
     "reactAriaLabelTo": "React with {emoji} to {whose}",
     "reactWithCountTo": "React with {emoji} to {whose}, {count}",
     "whoseAnswer": "{author}'s answer",
@@ -1370,8 +1475,15 @@
     "whoseAnswerNumbered": "{author}'s answer to question {number}",
     "yourAnswerNumbered": "your answer to question {number}",
     "reactMoreTo": "Add a reaction to {whose}",
+    "reactShort": "React",
+    "reactionTally": "{emoji} {count} reactions",
+    "reactionTallyOne": "{emoji} 1 reaction",
+    "showAllComments": "Show all {count} comments",
+    "showAllCommentsLabel": "Show all {count} comments, oldest first",
     "commentButtonNamed": "{label}: {whose}",
     "signOffNext": "{round} goes out {date}.",
+    "letterOpening": "Dear {loop},",
+    "letterClosing": "Until next round, x",
     "rollCallTitle": "Who's here this round",
     "currently": "currently",
     "scrapbook": {
@@ -1686,6 +1798,7 @@
     "doneTitle": "Suggestion sent",
     "doneBody": "Thank you. Whoever runs the loop will take a look, and if they add it you'll see it in a future round.",
     "backToSheet": "Back to your answers",
+    "another": "Suggest another",
     "unavailableTitle": "Not available here",
     "unavailableBody": "Only people who answer can suggest questions. Ask whoever runs the loop if you'd like to join in.",
     "errors": {
@@ -1766,6 +1879,7 @@
     },
     "look": {
       "open": "Charm and frame",
+      "openHint": "A little icon by your name and a border for your photo.",
       "charmLegend": "Your charm",
       "frameLegend": "Your frame",
       "none": "None",
@@ -1803,8 +1917,11 @@
   },
   "stationery": {
     "title": "Stationery",
-    "intro": "Pick what your loop is written on: the page behind it, its colors, its paper and tape, its mascot, and the marks every round goes out with.",
-    "paperLegend": "Color set",
+    "intro": "Pick what your loop is written on.",
+    "savesLine": "Saves as you tap. Everyone sees it on their next visit.",
+    "customValueNone": "Not set",
+    "moreTouches": "More touches",
+    "paperLegend": "Colors",
     "presets": {
       "gingham": {
         "name": "Gingham Picnic",
@@ -1843,7 +1960,7 @@
         "description": "Toasty neutrals, like a well-loved letter."
       }
     },
-    "accentLegend": "Accent color",
+    "accentLegend": "Custom color",
     "accentHint": "Buttons, links, and highlights. If a color would be hard to read, we adjust it.",
     "accentPicker": "Pick an accent color",
     "accentInput": "Accent color as a hex code",
@@ -1874,11 +1991,11 @@
     "error": "That didn't save. Check the accent code and try again.",
     "autoSaveNote": "Each choice saves straight away, for the whole loop.",
     "statusSaving": "Saving…",
-    "statusSaved": "Saved. Everyone sees it on their next visit.",
+    "statusSaved": "Saved",
     "statusAdjusted": "Saved. We adjusted the accent so it stays easy to read.",
     "statusError": "That didn't save, so nothing changed.",
     "statusRetry": "Try again",
-    "backgroundLegend": "Page background",
+    "backgroundLegend": "Background",
     "backgroundHint": "The pattern behind everything, in your color set's colors.",
     "backgrounds": {
       "gingham": "Gingham",
@@ -1897,7 +2014,7 @@
       "moons": "Moons & stars",
       "rainbows": "Rainbows"
     },
-    "packLegend": "Paper pack",
+    "packLegend": "Paper",
     "packHint": "A set of papers for answers, polls, playlists, and notes.",
     "packs": {
       "cream": {
@@ -1941,7 +2058,7 @@
         "description": "Fibrous paper with a stamp and postmark."
       }
     },
-    "tapeLegend": "Washi tape",
+    "tapeLegend": "Tape",
     "tapeHint": "Chosen separately from the paper. Tap a roll to try it on.",
     "tapes": {
       "picnic": "Picnic",
@@ -1969,7 +2086,7 @@
     "signOffHint": "The last line of every round, beside the mascot.",
     "signOffPlaceholder": "xo, the Tuesday crew",
     "wordsBlank": "Leave either one blank and nothing shows.",
-    "sealLegend": "Seal",
+    "sealLegend": "Seal or postmark",
     "sealHint": "Pressed at the top of every round that goes out, on the web and in the email.",
     "seals": {
       "none": {
@@ -2004,8 +2121,8 @@
       "ticket": "Ticket stub",
       "pinking": "Pinking shears"
     },
-    "celebrationLegend": "When someone sends",
-    "celebrationHint": "A little moment on screen when someone finishes their answers. If their device asks for less motion, they just see the check mark.",
+    "celebrationLegend": "Send animation",
+    "celebrationHint": "A little moment on screen when someone sends their answers. If their device asks for less motion, they just see the check mark.",
     "celebrations": {
       "none": "Just the check mark",
       "confetti": "Confetti burst",
@@ -2156,6 +2273,9 @@
     "somethingWrong": "Something went wrong",
     "confirmEmail": "Confirm your new address"
   },
+  "deadLink": {
+    "signIn": "Sign in to find your loops"
+  },
   "unsubscribe": {
     "metaTitle": "Emails from your loop",
     "title": "Stop emails from {groupName}?",
@@ -2164,6 +2284,7 @@
     "mutedTitle": "Emails from {groupName} are off",
     "mutedBody": "You're still in the loop, and the answer link in your earlier emails still works. Changed your mind? Turn them back on.",
     "unmute": "Turn emails back on",
+    "backOn": "Emails from {groupName} are back on",
     "invalidTitle": "This link doesn't work",
     "invalidBody": "It may have been copied incompletely, or you're no longer in this loop. Use the stop link in your newest email from the loop.",
     "oneClickDone": "Done. This loop won't email you anymore, but you're still in it.",
@@ -2186,39 +2307,41 @@
     "downloadFirst": "Want a copy first?",
     "download": "Download my data",
     "soloTitle": "These loops have nobody else in them, so they go too:",
-    "blockedTitle": "First, hand on or delete the loops you own",
-    "blockedBody": "Other people are still in these loops. Make someone in them the owner on the people page, or delete the loop from its settings, then come back.",
+    "blockedTitle": "First, sort out the loops you own",
+    "blockedBody": "Make someone else the owner of each one, or delete it, then come back.",
     "blockedPeople": "{count} other people",
     "blockedPerson": "1 other person",
-    "handOn": "Hand it on",
+    "handOn": "Make someone else the owner",
+    "thenBanner": "You're here to hand over or delete this loop before deleting your account.",
+    "thenBack": "Back to deleting your account",
     "deleteLoop": "Delete the loop",
     "confirmLabel": "Type your email address to confirm",
     "confirmHint": "Type {email} exactly.",
     "confirmError": "That doesn't match your email address. Nothing was deleted.",
-    "ownerError": "You still own a loop with other people in it. Hand it on or delete it first. Nothing was deleted.",
+    "ownerError": "You still own a loop with other people in it. Make someone else the owner, or delete it, first. Nothing was deleted.",
     "submit": "Delete my account forever",
     "cancel": "Keep my account"
   },
   "leave": {
     "metadataTitle": "Leave this loop",
-    "eyebrow": "Leaving {groupName}",
     "title": "Leave {groupName}?",
-    "body": "You'll stop getting emails from this loop, and everything you've written here goes: answers, photos, videos, voice notes, comments, reactions, and suggested questions. Rounds that already went out won't show anything from you. This can't be undone.",
-    "otherLoops": "This only affects {groupName}. If you're in other loops, each has its own link.",
+    "body": "Your answers, photos, videos, voice notes, comments, reactions, and suggested questions in this loop will be deleted. Rounds that already went out stay, just without you. This can't be undone.",
     "downloadFirst": "Want a copy first?",
     "download": "Download what I wrote here",
     "confirmLabel": "I understand everything I wrote in {groupName} will be deleted",
     "submit": "Leave and delete everything I wrote",
     "cancel": "Stay in the loop",
     "ownerTitle": "You own {groupName}",
-    "ownerBody": "An owner can't leave through their link. Sign in and hand the loop to someone in it, or delete the loop from its settings.",
+    "ownerBody": "An owner can't leave through their link. Sign in and make someone else the owner, or delete the loop from its settings.",
     "ownerAction": "Open the loop's settings",
+    "confirmInline": "Tick the box to confirm.",
     "confirmError": "Check the box to confirm. Nothing was deleted."
   },
   "goodbye": {
     "metadataTitle": "Deleted",
-    "title": "Everything you wrote is gone.",
-    "body": "Everything you wrote has been deleted, along with your photos, videos, and voice notes. Copies of emails that already reached people's inboxes are theirs, and we can't recall those.",
+    "title": "You're all signed off",
+    "body": "Your account and everything you wrote have been deleted. Emails that already reached inboxes are theirs, and we can't recall those.",
+    "closing": "Thanks for the time you spent with your friends here. Take care.",
     "home": "Back to Friendloop"
   },
   "legal": {
@@ -2365,6 +2488,10 @@
   },
   "emojiPicker": {
     "title": "Pick a reaction",
+    "tabsLabel": "What to react with",
+    "tabEmoji": "Emoji",
+    "tabStickers": "Stickers",
+    "quick": "Quick picks",
     "searchLabel": "Search for an emoji",
     "searchPlaceholder": "Search emoji",
     "toneLabel": "Skin tone",
@@ -2506,7 +2633,8 @@
   },
   "reorder": {
     "gripLabel": "Move: {item}",
-    "gripTitle": "Drag to move, or tap for Up and Down",
+    "gripTitle": "Drag to move, or tap for more ways to move it",
+    "gripTitleInline": "Drag to move. Open the question for up and down buttons",
     "roleDescription": "movable",
     "instructions": "To move a row, press Space or Enter on its grip, use the arrow keys, and press Space or Enter again to put it down. Escape cancels.",
     "pickedUp": "Picked up {item}, at {position} of {total}.",
@@ -2517,7 +2645,11 @@
     "up": "Up",
     "down": "Down",
     "upLabel": "Move up: {item}",
-    "downLabel": "Move down: {item}"
+    "downLabel": "Move down: {item}",
+    "top": "Top",
+    "bottom": "Bottom",
+    "topLabel": "Move to top: {item}",
+    "bottomLabel": "Move to bottom: {item}"
   },
   "micHelp": {
     "title": "Turn on the microphone",

@@ -17,9 +17,10 @@ import { MusicCard } from "@/components/music-card";
 import { PhotoLightbox, useLightbox, type LightboxPhoto } from "@/components/photo-lightbox";
 import { Tape } from "@/components/stationery";
 import { AnswerSticker, SignOffSignature, StatusBubble } from "@/components/member-marks";
-import { ScrapbookProvider, ScrapLayer, ScrapNote, StickButton, useScrapbook, type ScrapbookSetup } from "./scrapbook";
+import { ScrapbookProvider, ScrapLayer, ScrapNote, useScrapbook, type ScrapbookSetup } from "./scrapbook";
 import type { ScrapSticker } from "@/lib/issue-view";
 import { copy, text } from "@/lib/copy";
+import { DEFAULT_REACTIONS } from "@/lib/reaction-emoji";
 
 type Props = {
   issueId: string;
@@ -79,7 +80,7 @@ export function IssueBody({
   const numberOf = new Map(answered.map((block, index) => [block.question, index + 1]));
   // The contents: every card on the page, numbered as the cards are.
   const contents: Array<{ href: string; number: number | null; label: string }> = groups
-    ? groups.map((group) => ({ href: `#person-${group.id}`, number: null, label: group.name }))
+    ? groups.map((group) => ({ href: `#person-${group.id}`, number: null, label: shownName(group) }))
     : [
         ...answered.map((block, index) => ({ href: `#question-${block.questionId}`, number: index + 1, label: block.question })),
         ...sections.map((section, index) => ({
@@ -106,8 +107,9 @@ export function IssueBody({
             <section key={group.id} id={`person-${group.id}`} aria-label={group.name} data-paper="answer" className="card paper ride-in scroll-mt-20 p-5 pt-7">
               <Tape tone={(["dots", "stripe", "mint", "check"] as const)[index % 4]} position={index % 2 ? "right" : "left"} />
               <h2 className="issue-question flex items-center gap-3 text-ink">
-                <span aria-hidden="true"><Avatar name={group.name} photoUrl={group.photoUrl} frame={group.frame} /></span>
-                {group.name}
+                <span aria-hidden="true"><Avatar name={group.name} photoUrl={group.photoUrl} frame={group.frame} className="avatar-flush" /></span>
+                {shownName(group)}
+                {isMine(group) ? <span className="sr-only">{` (${group.name})`}</span> : null}
                 <NameCharm charm={group.charm} />
               </h2>
               <StatusBubble body={people?.[group.id]?.line} />
@@ -321,7 +323,7 @@ function PhotoWall({ title, entries, talk, number }: { title: string; entries: W
       {entries.filter((entry) => talk.canInteract || entry.reply.comments.length > 0 || entry.reply.reactions.some((reaction) => reaction.count > 0) || (book?.stickersOn(entry.reply.replyId).length ?? 0) > 0).map((entry) => (
         <div key={entry.reply.replyId} className={`divided mt-4 border-t border-line pt-3${book ? " scrap-host" : ""}`}>
           <div className="flex items-center gap-2.5">
-            <Avatar name={entry.reply.author} photoUrl={entry.reply.authorPhotoUrl} frame={entry.reply.authorFrame} />
+            <Avatar name={entry.reply.author} photoUrl={entry.reply.authorPhotoUrl} frame={entry.reply.authorFrame} className="avatar-flush" />
             <p className="m-0 text-[14px] font-extrabold text-ink-soft">{entry.reply.author}</p>
             <NameCharm charm={entry.reply.authorCharm} />
           </div>
@@ -342,7 +344,7 @@ function SectionReplyCard({ reply, label, talk, number }: { reply: IssueSectionR
         <h3 className="m-0 text-[22px] leading-tight text-ink">{label}<AnswerSticker sticker={reply.sticker} /></h3>
       ) : (
         <div className="flex items-center gap-2.5">
-          <Avatar name={reply.author} photoUrl={reply.authorPhotoUrl} frame={reply.authorFrame} />
+          <Avatar name={reply.author} photoUrl={reply.authorPhotoUrl} frame={reply.authorFrame} className="avatar-flush" />
           <p className="m-0 text-[14px] font-extrabold text-ink-soft">{reply.author}</p>
           <NameCharm charm={reply.authorCharm} />
           <AnswerSticker sticker={reply.sticker} />
@@ -377,6 +379,16 @@ function SectionReplyCard({ reply, label, talk, number }: { reply: IssueSectionR
       <ScrapLayer replyId={reply.replyId} />
     </div>
   );
+}
+
+/** Whether the reader wrote this person's answers: the by-question view already calls them "You". */
+function isMine(group: PersonGroup): boolean {
+  return group.entries.some((entry) => (entry.kind === "answer" ? entry.answer.isYou : entry.reply.isYou));
+}
+
+/** The same label for the reader in both ways of reading. */
+function shownName(group: PersonGroup): string {
+  return isMine(group) ? copy.issue.you : group.name;
 }
 
 /** Back to the viewer's own reply sheet, beside their name. */
@@ -463,7 +475,7 @@ function AnswerCard({
         <h3 className="m-0 text-[22px] leading-tight text-ink">{questionLabel}<AnswerSticker sticker={answer.sticker} /></h3>
       ) : (
         <div className="flex flex-wrap items-center gap-x-2.5">
-          <Avatar name={answer.author} photoUrl={answer.authorPhotoUrl} frame={answer.authorFrame} />
+          <Avatar name={answer.author} photoUrl={answer.authorPhotoUrl} frame={answer.authorFrame} className="avatar-flush" />
           <p className="m-0 text-[14px] font-extrabold text-ink-soft">{answer.author}</p>
           <NameCharm charm={answer.authorCharm} />
           <AnswerSticker sticker={answer.sticker} />
@@ -543,15 +555,18 @@ function AnswerCard({
         </p>
       ) : null}
 
-      <AnswerActions
-        issueId={issueId}
-        viewerToken={viewerToken}
-        canInteract={canInteract}
-        commentsEnabled={commentsEnabled}
-        mentionables={mentionables}
-        answer={answer}
-        questionNumber={questionNumber}
-      />
+      {/* A pick from a poll is a tick in a box, not something to answer: no row under it (unless people already have). */}
+      {answer.choices.length > 0 && answer.comments.length === 0 && !answer.reactions.some((reaction) => reaction.count > 0) ? null : (
+        <AnswerActions
+          issueId={issueId}
+          viewerToken={viewerToken}
+          canInteract={canInteract}
+          commentsEnabled={commentsEnabled}
+          mentionables={mentionables}
+          answer={answer}
+          questionNumber={questionNumber}
+        />
+      )}
       <ScrapLayer replyId={answer.replyId} />
     </article>
   );
@@ -568,10 +583,13 @@ function AnswerActions({
   questionNumber,
 }: Conversation & { answer: Reactable; questionNumber?: number }) {
   const [pending, startTransition] = useTransition();
-  const [threadOpen, setThreadOpen] = useState(false);
+  // A thread with comments reads open, like a letter's margin notes; the box to write in waits for a tap.
+  const [threadOpen, setThreadOpen] = useState(answer.comments.length > 0);
+  const [writing, setWriting] = useState(false);
   const [reactFailed, setReactFailed] = useState<string | null>(null);
   const [picking, setPicking] = useState(false);
   const addReaction = useRef<HTMLButtonElement>(null);
+  const [touched, setTouched] = useState<string[]>([]);
   // Once the connection is back, the message no longer applies.
   useEffect(() => {
     if (!reactFailed) return;
@@ -600,16 +618,17 @@ function AnswerActions({
   const whose = questionNumber
     ? answer.isYou ? text(copy.issue.yourAnswerNumbered, { number: questionNumber }) : text(copy.issue.whoseAnswerNumbered, { author: answer.author, number: questionNumber })
     : answer.isYou ? copy.issue.yourAnswer : text(copy.issue.whoseAnswer, { author: answer.author });
-  const commentLabel = count === 0
-    ? copy.issue.commentOnAnswer
-    : count === 1
-      ? copy.issue.commentCountOne
-      : text(copy.issue.commentCount, { count });
+  const commentLabel = count === 0 ? copy.issue.commentOnAnswer : count === 1 ? copy.issue.commentCountOne : text(copy.issue.commentCount, { count });
+  // Existing reactions only; a chip you just took back stays put until the page is reloaded, so focus has somewhere to be.
+  const real = local.filter((reaction) => reaction.count > 0 || reaction.mine || touched.includes(reaction.emoji));
+  const shown = real;
+  const book = useScrapbook();
   const addLabel = questionNumber ? text(copy.issue.reactMoreTo, { whose }) : answer.isYou ? copy.issue.reactMoreOwn : text(copy.issue.reactMore, { author: answer.author });
 
   function react(emoji: string) {
     if (pending) return;
     setReactFailed(null);
+    setTouched((now) => (now.includes(emoji) ? now : [...now, emoji]));
     startTransition(async () => {
       addLocal(emoji);
       try {
@@ -628,13 +647,12 @@ function AnswerActions({
       <div className="answer-actions">
         {/* Reactions wrap within their own row; Comment keeps its place at the right, however many there are. */}
         <div className="reaction-row">
-        {/* Untouched quick picks would repeat under every answer: only the heart stays one tap away until someone reacts; the picker has the rest. */}
-        {local.filter((reaction) => reaction.count > 0 || reaction.mine || reaction.emoji === "❤️").map((reaction) => (
+        {/* Only what people have used, so a delivered letter isn't a wall of controls; the picker's first row has the quick picks. */}
+        {canInteract ? shown.map((reaction) => (
           <button
             key={reaction.emoji}
             type="button"
-            disabled={!canInteract}
-            // aria-disabled, not disabled, while a toggle is in flight: the pressed button keeps keyboard focus.
+            // aria-disabled while a toggle is in flight: the pressed button keeps keyboard focus.
             aria-disabled={pending ? true : undefined}
             aria-pressed={reaction.mine}
             aria-label={
@@ -643,28 +661,36 @@ function AnswerActions({
                 : text(copy.issue.reactAriaLabelTo, { emoji: reaction.emoji, whose })
             }
             onClick={() => react(reaction.emoji)}
-            // Read-only (a shared copy) stays at full contrast: the counts are content there, not a control.
-            className={`reaction-chip ${canInteract ? "disabled:opacity-50" : "reaction-chip--static"} ${reaction.count === 0 && !reaction.mine ? "reaction-chip--idle" : ""} aria-disabled:opacity-50 ${
-              reaction.mine
-                ? "reaction-chip--mine"
-                : "hover:bg-field"
-            }`}
+            className={`reaction-chip aria-disabled:opacity-50 ${reaction.mine ? "reaction-chip--mine" : ""}`}
           >
             <span className={reaction.mine ? "reaction-selected" : ""} aria-hidden>{reaction.emoji}</span>
             {/* Always there, so a first reaction moves nothing beside it. */}
             <span key={reaction.count} className="reaction-count-slot numeric">{reaction.count > 0 ? reaction.count : ""}</span>
           </button>
-        ))}
+        )) : shown.length > 0 ? (
+          // Read-only (a shared copy): the tally is plain text, not a row of dead buttons.
+          <ul className="reaction-tally" data-testid="reaction-tally">
+            {shown.map((reaction) => (
+              <li key={reaction.emoji}>
+                <span role="img" aria-label={text(reaction.count === 1 ? copy.issue.reactionTallyOne : copy.issue.reactionTally, { emoji: reaction.emoji, count: reaction.count })}>
+                  <span aria-hidden="true">{reaction.emoji}</span>{" "}
+                  <span aria-hidden="true" className="numeric">{reaction.count}</span>
+                </span>
+              </li>
+            ))}
+          </ul>
+        ) : null}
         {canInteract ? (
           <button
             type="button"
             ref={addReaction}
+            id={`react-${answer.replyId}`}
             aria-haspopup="dialog"
             aria-label={addLabel}
             onClick={() => setPicking(true)}
-            className="reaction-chip reaction-chip--add hover:bg-field"
+            className="reaction-add"
           >
-            <svg viewBox="0 0 24 24" aria-hidden="true" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+            <svg viewBox="0 0 24 24" aria-hidden="true" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
               <path d="M20 12.8A8.5 8.5 0 1 1 11.2 3.5" />
               <path d="M8.5 14.5c1.7 2 5 2 6.7 0" />
               <path d="M9 9.5h.01M14.5 9.5h.01" strokeWidth="2.6" />
@@ -672,16 +698,17 @@ function AnswerActions({
             </svg>
           </button>
         ) : null}
-        {/* The author's own sticker holds the right margin's top, so a new one goes elsewhere. */}
-        <StickButton replyId={answer.replyId} whose={whose} reserved={answer.sticker ? [{ side: "right", offset: 0, tilt: 0 }] : []} />
         </div>
-        {commentsEnabled && (count > 0 || canInteract) ? (
+        {commentsEnabled && canInteract ? (
           <button
             type="button"
-            aria-expanded={threadOpen}
+            aria-expanded={writing}
             aria-controls={threadId}
-            onClick={() => setThreadOpen((open) => !open)}
-            className="link cursor-pointer"
+            onClick={() => {
+              setWriting((now) => !now);
+              setThreadOpen((now) => (writing ? count > 0 && now : true));
+            }}
+            className="comment-link cursor-pointer"
             aria-label={text(copy.issue.commentButtonNamed, { label: commentLabel, whose })}
           >
             {commentLabel}
@@ -695,6 +722,16 @@ function AnswerActions({
         <EmojiPicker
           label={addLabel}
           opener={addReaction}
+          quick={DEFAULT_REACTIONS}
+          stickers={book?.canStick ? {
+            note: book.leftLine(book.left),
+            onPick: (key) => {
+              setPicking(false);
+              // The author's own sticker holds the right margin's top, so a new one goes elsewhere.
+              book.stick(answer.replyId, key, answer.sticker ? [{ side: "right", offset: 0, tilt: 0 }] : []);
+            },
+          } : undefined}
+          heading={answer.isYou ? copy.issue.reactHeadingOwn : text(copy.issue.reactHeading, { author: answer.author })}
           onClose={() => setPicking(false)}
           onPick={(emoji) => {
             setPicking(false);
@@ -708,6 +745,7 @@ function AnswerActions({
         <div className="mt-1">
             <div id={threadId} role="group" aria-label={text(copy.issue.threadLabel, { owner })} className="mt-1">
               <CommentThread
+                notes
                 issueId={issueId}
                 viewerToken={viewerToken}
                 replyId={answer.replyId}
@@ -717,6 +755,7 @@ function AnswerActions({
                 composerLabel={text(copy.issue.threadComposerLabel, { owner })}
                 placeholder={copy.issue.commentPlaceholder}
                 focusComposer
+                composerHidden={!writing}
               />
             </div>
         </div>

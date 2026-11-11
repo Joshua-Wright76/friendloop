@@ -12,7 +12,7 @@ import { resetInviteLinkAction } from "./actions";
 export function InviteLinkCard({ groupId, url }: { groupId: string; url: string }) {
   const labels = copy.members.inviteLink;
   return (
-    <section id="invite-link" aria-labelledby="invite-link-title" className="mt-3 scroll-mt-4 border-t border-dashed border-line pt-3">
+    <section id="invite-link" aria-labelledby="invite-link-title" className="invite-section scroll-mt-4">
       <h2 id="invite-link-title" className="text-[14px] font-bold text-ink-soft">{labels.title}</h2>
       <p id="invite-link-hint" className="mt-0.5 text-[13px] leading-relaxed text-ink-muted">{labels.hint}</p>
       <div className="invite-line mt-1.5">

@@ -101,6 +101,8 @@ export default async function SharePage({
         </div>
       </header>
 
+      <p className="mb-0 mt-6 font-display text-[24px] font-bold leading-tight text-ink-soft wrap-any">{text(copy.issue.letterOpening, { loop: view.group.name })}</p>
+
       <IssueBody
         issueId={view.issue.id}
         viewerToken={null}
@@ -121,6 +123,10 @@ export default async function SharePage({
         ) : undefined}
       />
 
+
+      {!marks.signOff ? (
+        <p className="m-0 mt-6 text-center font-display text-[22px] font-bold leading-tight text-ink-soft">{copy.issue.letterClosing}</p>
+      ) : null}
 
       <footer className="card mt-6 flex flex-wrap items-center justify-center gap-x-6 gap-y-0 px-4 py-2 text-[14px] text-ink-soft">
         <Link href={printHref(`/s/${token}`)} className="link link--quiet">{copy.print.action}</Link>

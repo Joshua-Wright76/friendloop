@@ -26,7 +26,7 @@ const alongTheList: Modifier = ({ transform }) => ({ ...transform, x: 0 });
  * Enter on the grip, carries it with the arrow keys and sets it down again.
  * Each move saves at once and the list shows the order the server kept.
  */
-export function SortableList<T extends { id: string }>({ items: fresh, label, nameOf, move, rowClassName = "", disabled = false, children }: {
+export function SortableList<T extends { id: string }>({ items: fresh, label, nameOf, move, rowClassName = "", disabled = false, stepsInRow = false, children }: {
   items: T[];
   /** The list's accessible name. */
   label: string;
@@ -37,7 +37,9 @@ export function SortableList<T extends { id: string }>({ items: fresh, label, na
   rowClassName?: string;
   /** Hold the order still, as for someone who can't change it. */
   disabled?: boolean;
-  children: (item: T, index: number) => ReactNode;
+  /** Hand each row its step buttons to place in its own panel, instead of opening them from the grip. */
+  stepsInRow?: boolean;
+  children: (item: T, index: number, steps: ReactNode) => ReactNode;
 }) {
   const router = useRouter();
   const contextId = useId();
@@ -163,25 +165,80 @@ export function SortableList<T extends { id: string }>({ items: fresh, label, na
                 first={index === 0}
                 last={index === items.length - 1}
                 stepping={stepping === item.id}
+                inline={stepsInRow}
                 onToggleSteps={() => { if (!dragging.current) setStepping((current) => (current === item.id ? null : item.id)); }}
                 onStep={(control, offset) => {
                   refocus.current = { id: item.id, control };
                   commit(item.id, index + offset);
                 }}
+                onJump={(control, target) => {
+                  refocus.current = { id: item.id, control };
+                  commit(item.id, target === "top" ? 0 : items.length - 1);
+                }}
               >
-                {children(item, index)}
+                {(steps) => children(item, index, steps)}
               </SortableRow>
             ))}
           </ol>
         </SortableContext>
       </DndContext>
-      <p role="status" aria-live="polite" className="sr-only">{announcement}</p>
+      {/* Seen as well as heard: where the move happened says it happened. */}
+      <p role="status" aria-live="polite" className={announcement ? "reorder-note" : "sr-only"}>{announcement}</p>
       <p role="alert" className={failed ? "toast toast--danger" : "sr-only"}>{failed ? copy.reorder.error : ""}</p>
     </>
   );
 }
 
-function SortableRow({ id, name, className, locked, hidden, first, last, stepping, onToggleSteps, onStep, children }: {
+const STEP_PATHS = {
+  up: "M10 15V5M5.5 9.5 10 5l4.5 4.5",
+  down: "M10 5v10M5.5 10.5 10 15l4.5-4.5",
+  top: "M5 4.5h10M10 16V8M5.5 11.5 10 7l4.5 4.5",
+  bottom: "M5 15.5h10M10 4v8M5.5 8.5 10 13l4.5-4.5",
+} as const;
+
+/** Up, down, to the top, to the bottom: plain buttons, for anyone who can't or won't drag (WCAG 2.5.7). */
+function StepButtons({ id, name, locked, first, last, icons, onStep, onJump }: {
+  id: string;
+  name: string;
+  locked: boolean;
+  first: boolean;
+  last: boolean;
+  icons: boolean;
+  onStep: (control: "up" | "down", offset: number) => void;
+  onJump: (control: "top" | "bottom", target: "top" | "bottom") => void;
+}) {
+  const controls = [
+    { control: "up", blocked: first, label: copy.reorder.upLabel, word: copy.reorder.up, run: () => onStep("up", -1) },
+    { control: "down", blocked: last, label: copy.reorder.downLabel, word: copy.reorder.down, run: () => onStep("down", 1) },
+    { control: "top", blocked: first, label: copy.reorder.topLabel, word: copy.reorder.top, run: () => onJump("top", "top") },
+    { control: "bottom", blocked: last, label: copy.reorder.bottomLabel, word: copy.reorder.bottom, run: () => onJump("bottom", "bottom") },
+  ] as const;
+  return (
+    <div className={icons ? "sortable-steps sortable-steps--icons" : "sortable-steps"} role="group" aria-label={copy.questions.thisRound.stepsLabel}>
+      {controls.map(({ control, blocked, label, word, run }) => (
+        <button
+          key={control}
+          type="button"
+          data-row={id}
+          data-control={control}
+          aria-disabled={locked || blocked ? true : undefined}
+          aria-label={text(label, { item: name })}
+          title={icons ? word : undefined}
+          onClick={() => { if (!locked && !blocked) run(); }}
+          className={icons ? "step-icon aria-disabled:cursor-not-allowed aria-disabled:opacity-45" : "btn btn-quiet min-h-11 px-4 text-[13px] aria-disabled:cursor-not-allowed aria-disabled:opacity-45"}
+        >
+          {icons ? (
+            <svg viewBox="0 0 20 20" aria-hidden="true" className="h-5 w-5">
+              <path d={STEP_PATHS[control]} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          ) : word}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function SortableRow({ id, name, className, locked, hidden, first, last, stepping, inline, onToggleSteps, onStep, onJump, children }: {
   id: string;
   name: string;
   className: string;
@@ -190,10 +247,16 @@ function SortableRow({ id, name, className, locked, hidden, first, last, steppin
   first: boolean;
   last: boolean;
   stepping: boolean;
+  /** The caller places the step buttons itself (children gets them), so the grip only drags. */
+  inline: boolean;
   onToggleSteps: () => void;
   onStep: (control: "up" | "down", offset: number) => void;
-  children: ReactNode;
+  onJump: (control: "top" | "bottom", target: "top" | "bottom") => void;
+  children: ReactNode | ((steps: ReactNode) => ReactNode);
 }) {
+  const steps = hidden || (!inline && !stepping) ? null : (
+    <StepButtons id={id} name={name} locked={locked} first={first} last={last} icons={inline} onStep={onStep} onJump={onJump} />
+  );
   const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({
     id,
     disabled: locked,
@@ -220,11 +283,11 @@ function SortableRow({ id, name, className, locked, hidden, first, last, steppin
           data-row={id}
           data-control="grip"
           aria-label={text(copy.reorder.gripLabel, { item: name })}
-          aria-expanded={stepping}
-          title={copy.reorder.gripTitle}
+          aria-expanded={inline ? undefined : stepping}
+          title={inline ? copy.reorder.gripTitleInline : copy.reorder.gripTitle}
           className="sortable-grip"
           // A keyboard's Space or Enter carries no pointer detail: there it picks the row up instead.
-          onClick={(event) => { if (event.detail !== 0) onToggleSteps(); }}
+          onClick={(event) => { if (!inline && event.detail !== 0) onToggleSteps(); }}
         >
           <svg viewBox="0 0 20 20" aria-hidden="true" className="h-5 w-5 flex-none" fill="currentColor">
             {[4, 10, 16].flatMap((y) => [7, 13].map((x) => <circle key={`${x}-${y}`} cx={x} cy={y} r="1.6" />))}
@@ -232,33 +295,8 @@ function SortableRow({ id, name, className, locked, hidden, first, last, steppin
         </button>
       )}
       <div className="sortable-body">
-        {children}
-        {stepping && !hidden ? (
-          <div className="sortable-steps">
-            <button
-              type="button"
-              data-row={id}
-              data-control="up"
-              aria-disabled={locked || first ? true : undefined}
-              aria-label={text(copy.reorder.upLabel, { item: name })}
-              onClick={() => { if (!locked && !first) onStep("up", -1); }}
-              className="btn btn-quiet min-h-11 px-4 text-[13px] aria-disabled:cursor-not-allowed aria-disabled:opacity-45"
-            >
-              {copy.reorder.up}
-            </button>
-            <button
-              type="button"
-              data-row={id}
-              data-control="down"
-              aria-disabled={locked || last ? true : undefined}
-              aria-label={text(copy.reorder.downLabel, { item: name })}
-              onClick={() => { if (!locked && !last) onStep("down", 1); }}
-              className="btn btn-quiet min-h-11 px-4 text-[13px] aria-disabled:cursor-not-allowed aria-disabled:opacity-45"
-            >
-              {copy.reorder.down}
-            </button>
-          </div>
-        ) : null}
+        {typeof children === "function" ? children(inline ? steps : null) : children}
+        {inline ? null : steps}
       </div>
     </li>
   );

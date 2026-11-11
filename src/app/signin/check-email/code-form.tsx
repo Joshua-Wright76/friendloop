@@ -23,7 +23,7 @@ function browserTimezone(): string {
  * For signing in where the email isn't: another device, or the app on a home
  * screen. `askEmail` is set when this browser didn't just ask for the code.
  */
-export function CodeForm({ askEmail }: { askEmail: boolean }) {
+export function CodeForm({ askEmail, joining = false }: { askEmail: boolean; joining?: boolean }) {
   const [state, action, pending] = useActionState(enterCode, initial);
   const timezone = useSyncExternalStore(subscribeToNothing, browserTimezone, () => "");
   // Controlled, so a wrong code doesn't wipe the address.
@@ -83,7 +83,7 @@ export function CodeForm({ askEmail }: { askEmail: boolean }) {
         }}
         className="btn btn-primary w-full aria-disabled:cursor-not-allowed aria-disabled:opacity-45"
       >
-        {copy.checkEmail.codeSubmit}
+        {joining ? copy.checkEmail.codeSubmitJoin : copy.checkEmail.codeSubmit}
       </button>
     </form>
   );

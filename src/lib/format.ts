@@ -1,3 +1,5 @@
+import { copy, text } from "./copy.ts";
+
 const dateFormatters = new Map<string, Intl.DateTimeFormat>();
 const timeFormatters = new Map<string, Intl.DateTimeFormat>();
 
@@ -111,4 +113,24 @@ export function formatHour(hour: number): string {
 export function listNames(names: string[]): string {
   if (names.length <= 1) return names[0] ?? "";
   return `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
+}
+
+/**
+ * A moment on the reader's own clock, and on the loop's when the two differ: the
+ * deadline wording every surface shares ("Goes out at the end of Thu 12 Nov your
+ * time (Fri 13 Nov, 9:00 AM in Amsterdam)").
+ */
+export function momentsOf(instant: Date, loopTimezone: string, viewerTimezone: string | null | undefined) {
+  // "end of Thu 12 Nov" is the night before midnight; say so, so the clock time is never a guess.
+  const clocked = (zone: string) => {
+    const moment = formatMoment(instant, zone);
+    return moment.startsWith("end of") ? text(copy.loop.momentMidnight, { moment }) : moment;
+  };
+  // An unlabelled time is a promise that it's the reader's own. If we don't know theirs, name the place.
+  if (!viewerTimezone) return { primary: text(copy.loop.momentNamed, { moment: clocked(loopTimezone), place: timezonePlace(loopTimezone) }), loop: null };
+  if (viewerTimezone === loopTimezone) return { primary: clocked(loopTimezone), loop: null };
+  return {
+    primary: text(copy.loop.momentYours, { moment: clocked(viewerTimezone) }),
+    loop: text(copy.loop.momentElsewhere, { moment: clocked(loopTimezone), place: timezonePlace(loopTimezone) }),
+  };
 }

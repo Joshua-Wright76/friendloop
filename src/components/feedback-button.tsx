@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { DialogClose } from "@/components/dialog-close";
 import { copy, text } from "@/lib/copy";
 
 const MAX_LENGTH = 2000;
@@ -76,15 +77,6 @@ export function FeedbackButton() {
   return (
     <>
       <button type="button" className="feedback-button" onClick={open} aria-haspopup="dialog">
-        <svg viewBox="0 0 24 24" aria-hidden="true" className="feedback-button-icon">
-          <path
-            d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v8a2.5 2.5 0 0 1-2.5 2.5H11l-4.2 3.6a.5.5 0 0 1-.8-.4V16h-.5A2.5 2.5 0 0 1 4 13.5Z"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinejoin="round"
-          />
-        </svg>
         <span className="feedback-button-label">{copy.feedback.open}</span>
       </button>
 
@@ -92,6 +84,9 @@ export function FeedbackButton() {
         ref={dialog}
         className="wizard-dialog feedback-dialog"
         aria-labelledby="feedback-title"
+        onClick={(event) => {
+          if (event.target === event.currentTarget) close();
+        }}
         onClose={() => {
           setIsOpen(false);
           if (status === "sent") {
@@ -102,16 +97,17 @@ export function FeedbackButton() {
         }}
       >
         <p role="status" aria-live="polite" className="sr-only">{announcement}</p>
+        {isOpen ? <DialogClose onClick={close} /> : null}
         {!isOpen ? null : status === "sent" ? (
           <div>
-            <h2 id="feedback-title" className="text-ink">{copy.feedback.thanks}</h2>
+            <h2 id="feedback-title" className="pr-11 text-ink">{copy.feedback.thanks}</h2>
             <button ref={done} type="button" className="btn btn-primary mt-5" onClick={close}>
               {copy.feedback.done}
             </button>
           </div>
         ) : (
           <form onSubmit={send}>
-            <h2 id="feedback-title" className="text-ink">{copy.feedback.title}</h2>
+            <h2 id="feedback-title" className="pr-11 text-ink">{copy.feedback.title}</h2>
             <p className="mt-1.5 text-[14px] leading-relaxed text-ink-soft">{copy.feedback.hint}</p>
             <p className="mt-1 text-[13px] leading-relaxed text-ink-muted">{copy.feedback.audience}</p>
             <label htmlFor="feedback-message" className="sr-only">{copy.feedback.label}</label>

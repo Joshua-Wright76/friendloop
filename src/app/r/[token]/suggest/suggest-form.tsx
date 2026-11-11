@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { copy, text } from "@/lib/copy";
 import { FieldLabel } from "@/components/field-label";
@@ -68,6 +69,19 @@ export function SuggestForm({ token, displayName }: Props) {
           <div>
             <p className="text-[15px] font-extrabold text-ink">{copy.suggest.doneTitle}</p>
             <p className="mt-1 text-[14px] leading-relaxed text-ink-soft">{copy.suggest.doneBody}</p>
+            <button
+              type="button"
+              className="btn btn-quiet mt-3"
+              onClick={() => {
+                setQuestion("");
+                setError(null);
+                setSent(false);
+                // The box comes back with the form; focus follows once it has rendered.
+                requestAnimationFrame(() => field.current?.focus());
+              }}
+            >
+              {copy.suggest.another}
+            </button>
           </div>
         </div>
       ) : (
@@ -143,6 +157,11 @@ export function SuggestForm({ token, displayName }: Props) {
           {question.trim().length === 0 ? <p className="m-0 mt-2 text-[13px] text-ink-soft">{copy.suggest.writeFirst}</p> : null}
         </form>
       )}
+      <p className="mt-4 text-center text-[13px] text-ink-muted">
+        <Link href={`/r/${token}`} className="inline-flex min-h-11 items-center px-3 underline decoration-line-strong underline-offset-4">
+          {copy.suggest.backToSheet}
+        </Link>
+      </p>
     </>
   );
 }

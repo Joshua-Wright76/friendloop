@@ -16,7 +16,10 @@ export default function SharedIssueGone() {
         <Tape tone="mint" position="left" />
         <h1 className="text-ink">{copy.share.goneTitle}</h1>
         <p className="mt-2 text-[15px] leading-relaxed text-ink-soft">{copy.share.goneBody}</p>
-        <Link href="/" className="btn btn-quiet mt-5 inline-flex">{copy.share.goneHome}</Link>
+        <div className="mt-5 flex flex-wrap gap-3">
+          <Link href="/signin" className="btn btn-primary">{copy.deadLink.signIn}</Link>
+          <Link href="/" className="btn btn-quiet">{copy.share.goneHome}</Link>
+        </div>
       </div>
     </main>
   );

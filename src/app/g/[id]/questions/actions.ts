@@ -60,7 +60,7 @@ export async function addItemAction(formData: FormData) {
     at: await getNow(),
     createdByMembershipId: viewer.membership.id,
   });
-  back(groupId, result.ok ? { done: thisRound ? "addedNow" : "added" } : { problem: result.code });
+  back(groupId, result.ok ? { done: thisRound ? "addedNow" : "added", q: result.id } : { problem: result.code });
 }
 
 export async function updateItemAction(formData: FormData) {
@@ -72,35 +72,42 @@ export async function updateItemAction(formData: FormData) {
     item: itemInputFrom(formData),
     at: await getNow(),
   });
-  back(groupId, result.ok ? { done: "saved" } : { problem: result.code });
+  back(groupId, result.ok ? { done: "saved", q: field(formData, "questionId") } : { problem: result.code });
 }
 
 export async function stopAskingAction(formData: FormData) {
   const groupId = field(formData, "groupId");
   await requireManager(groupId);
   const result = await stopAsking(groupId, field(formData, "questionId"), await getNow());
-  back(groupId, { done: result === "written" ? "stoppedStays" : "stopped" });
+  back(groupId, { done: result === "written" ? "stoppedStays" : "stopped", q: field(formData, "questionId") });
 }
 
 export async function askAgainAction(formData: FormData) {
   const groupId = field(formData, "groupId");
   await requireManager(groupId);
   await askAgain(groupId, field(formData, "questionId"));
-  back(groupId, { done: "again" });
+  back(groupId, { done: "again", q: field(formData, "questionId") });
 }
 
 export async function askThisRoundAction(formData: FormData) {
   const groupId = field(formData, "groupId");
   await requireManager(groupId);
   const added = await askThisRound(groupId, field(formData, "questionId"));
-  back(groupId, { done: added ? "addedNow" : "alreadyAsked" });
+  back(groupId, { done: added ? "addedNow" : "alreadyAsked", q: field(formData, "questionId") });
 }
 
 export async function removeFromRoundAction(formData: FormData) {
   const groupId = field(formData, "groupId");
   await requireManager(groupId);
   const result = await removeSnapshot(groupId, field(formData, "snapshotId"));
-  back(groupId, { done: result === "written" ? "stays" : formData.get("turn") === "1" ? "removedTurn" : "removed" });
+  const questionId = field(formData, "questionId");
+  back(groupId, {
+    done: result === "written" ? "stays" : formData.get("turn") === "1" ? "removedTurn" : "removed",
+    // Lets the notice offer Undo, which asks the question this round again.
+    ...(result !== "written" && questionId ? { undo: questionId } : {}),
+    // Where the change happened, so the page can show the notice beside it.
+    ...(questionId ? { q: questionId } : {}),
+  });
 }
 
 export async function rotationAction(formData: FormData) {

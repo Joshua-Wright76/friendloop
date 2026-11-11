@@ -42,7 +42,6 @@ export function ProfilePhoto({
 }) {
   const router = useRouter();
   const input = useRef<HTMLInputElement>(null);
-  const change = useRef<HTMLButtonElement>(null);
   const [photoUrl, setPhotoUrl] = useState(initial);
   const [frameNow, setFrameNow] = useState(frame);
   const [lookOpened, setLookOpened] = useState(false);
@@ -70,7 +69,7 @@ export function ProfilePhoto({
         return;
       }
       // Remove leaves with the photo; Change/Add is the control that stays.
-      if (done === "removed") change.current?.focus();
+      if (done === "removed") input.current?.focus();
       setPhotoUrl(body.photoUrl ?? null);
       setStatus(done);
       if (refresh) router.refresh();
@@ -118,17 +117,24 @@ export function ProfilePhoto({
       {compact ? null : <Avatar name={name} photoUrl={photoUrl} frame={frameNow} className="!h-14 !w-14 !text-[20px]" />}
       <div className="min-w-0">
         <div className={compact ? "flex flex-wrap gap-x-5" : "flex flex-wrap gap-2"}>
-          <button
-            ref={change}
-            type="button"
-            className={`${compact ? "link link--quiet cursor-pointer" : "btn btn-quiet h-11 text-[14px]"} aria-disabled:cursor-not-allowed aria-disabled:opacity-45`}
+          {/* The visible label takes the focus ring when its (visually hidden) file input is focused. */}
+          <label
+            className={`file-pick ${compact ? "link link--quiet cursor-pointer" : "btn btn-quiet h-11 text-[14px]"}`}
             aria-disabled={status === "saving" ? true : undefined}
-            onClick={() => {
-              if (status !== "saving") input.current?.click();
-            }}
           >
             {photoUrl ? copy.identity.profile.change : copy.identity.profile.add}
-          </button>
+            <input
+              ref={input}
+              type="file"
+              className="sr-only"
+              accept={PHOTO_ACCEPT}
+              aria-label={copy.identity.profile.inputLabel}
+              onClick={(event) => {
+                if (status === "saving") event.preventDefault();
+              }}
+              onChange={(event) => void choose(event.target.files?.[0])}
+            />
+          </label>
           {photoUrl ? (
             <button
               type="button"
@@ -142,14 +148,6 @@ export function ProfilePhoto({
             </button>
           ) : null}
         </div>
-        <input
-          ref={input}
-          type="file"
-          hidden
-          accept={PHOTO_ACCEPT}
-          aria-label={copy.identity.profile.inputLabel}
-          onChange={(event) => void choose(event.target.files?.[0])}
-        />
         <p
           aria-live="polite"
           className={`text-[13px] leading-relaxed ${status === "error" ? "text-danger" : "text-ink-muted"} ${compact ? "empty:hidden" : "mt-1"}`}
@@ -168,10 +166,13 @@ export function ProfilePhoto({
     </div>
     {/* In the members list the row is already busy, so the sheet waits behind a tap. */}
     {compact ? (
+      <div className="look-disclosure-wrap">
+        <p className="look-disclosure__hint">{copy.identity.look.openHint}</p>
       <details ref={disclosure} id={compact ? "your-look" : undefined} className="look-disclosure" onToggle={(event) => { if (event.currentTarget.open) setLookOpened(true); }}>
         <summary className="link link--quiet cursor-pointer">{copy.identity.look.open}</summary>
         {lookOpened ? look : null}
       </details>
+      </div>
     ) : look}
     </>
   );

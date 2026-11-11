@@ -140,7 +140,10 @@ export function IssueBar({ contents, reading, readingLabel, title }: {
         <details className="issue-bar__menu issue-bar__menu--grow" onToggle={onToggle}>
           <summary className="issue-bar__button">
             <svg viewBox="0 0 20 20" aria-hidden="true" className="h-4 w-4 flex-none"><path d="M3 6h14M6 10h8M8.5 14h3" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>
-            <span className="min-w-0 wrap-any">{readingLabel}</span>
+            <span className="issue-bar__stack">
+              <span>{copy.issue.reading.menuButton}</span>
+              <span className="issue-bar__current wrap-any">{readingLabel}</span>
+            </span>
           </summary>
           {/* Choosing who or how to read is a page change: the menu closes behind it. */}
           <div className="issue-bar__panel" onClick={(event) => { if ((event.target as Element).closest("a")) closeAll(); }}>{reading}</div>

@@ -1,11 +1,12 @@
 "use client";
 
 import { SafeForm } from "@/components/safe-form";
-import { useState } from "react";
+import { SaveChip, type SaveState } from "@/components/save-chip";
+import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { TimezoneField } from "../../new/timezone-field";
-import { deleteAction, pauseHereAction, rotateSharesAction, settingsAction } from "./actions";
+import { deleteAction, pauseHereAction, rotateSharesAction, saveDetails, settingsAction } from "./actions";
 import { LoopNav } from "@/components/loop-nav";
 import { FieldLabel } from "@/components/field-label";
 import { NoticeFocus } from "@/components/notice-focus";
@@ -16,6 +17,7 @@ import { copy, text } from "@/lib/copy";
 import { formatHour } from "@/lib/format";
 import { marksOf } from "@/lib/looks";
 import { useLoopData } from "../loop-data";
+import { ThenBanner } from "../then-banner";
 import { SubmitButton } from "@/components/submit-button";
 
 const WEEKDAYS = copy.common.weekdays;
@@ -24,7 +26,12 @@ const WEEKDAY_OPTIONS = WEEKDAYS.map((day, index) => ({ value: String(index), la
 const HOUR_OPTIONS = HOURS.map((hour) => ({ value: String(hour), label: formatHour(hour) }));
 const CADENCE_OPTIONS = copy.newLoop.cadences;
 
-export default function SettingsTab({ notices }: { notices: { saved?: string; error?: string; shares?: string; stationery?: string } }) {
+/** What the details form holds right now, to tell a real change from none. */
+function snapshotOf(form: HTMLFormElement): string {
+  return JSON.stringify(Array.from(new FormData(form).entries()));
+}
+
+export default function SettingsTab({ notices }: { notices: { saved?: string; error?: string; shares?: string; stationery?: string; then?: string } }) {
   const { group, membership } = useLoopData();
   const id = group.id;
   const isOwner = membership.access === "owner";
@@ -32,12 +39,71 @@ export default function SettingsTab({ notices }: { notices: { saved?: string; er
   const manages = membership.access !== "member";
   const hasDanger = isOwner || group.shareEnabled;
   const [confirmation, setConfirmation] = useState("");
-  const [nameError, setNameError] = useState(false);
+  const [nameProblem, setNameProblem] = useState<"required" | "short" | null>(null);
+  const nameError = nameProblem !== null;
+  // Details save as you go: the form's own post stays for a page without script.
+  const detailsForm = useRef<HTMLFormElement>(null);
+  const [detailsState, setDetailsState] = useState<SaveState>("idle");
+  const [, startDetails] = useTransition();
+  const detailsBusy = useRef(false);
+  const detailsSaved = useRef<string | null>(null);
+  const detailsTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [view, setView] = useState<"details" | "paper" | "keep" | "danger">(() =>
-    notices.stationery || notices.error === "stationery" ? "paper" : notices.shares || notices.error === "confirm" ? "danger" : "details",
+    notices.stationery || notices.error === "stationery" ? "paper" : notices.shares || notices.error === "confirm" || (notices.then && isOwner) ? "danger" : "details",
   );
   // The same comparison the server makes; the server still checks.
   const confirmed = confirmation.trim() === group.name.trim();
+
+  useEffect(() => {
+    if (detailsForm.current) detailsSaved.current = snapshotOf(detailsForm.current);
+  }, []);
+
+  useEffect(() => {
+    if (detailsState !== "saved") return;
+    const timer = setTimeout(() => setDetailsState("idle"), 2500);
+    return () => clearTimeout(timer);
+  }, [detailsState]);
+
+  const saveDetailsNow = useCallback(() => {
+    const form = detailsForm.current;
+    if (!form) return;
+    if (detailsTimer.current) clearTimeout(detailsTimer.current);
+    const typed = (form.elements.namedItem("name") as HTMLInputElement).value.trim();
+    if (typed.length < 2) {
+      setNameProblem(typed ? "short" : "required");
+      return;
+    }
+    setNameProblem(null);
+    if (detailsBusy.current || snapshotOf(form) === detailsSaved.current) return;
+    detailsBusy.current = true;
+    setDetailsState("saving");
+    startDetails(async () => {
+      try {
+        let sent: string;
+        let result: Awaited<ReturnType<typeof saveDetails>>;
+        // A change made during a save waits its turn and is never dropped.
+        do {
+          sent = snapshotOf(form);
+          result = await saveDetails(new FormData(form));
+        } while (result.ok && snapshotOf(form) !== sent);
+        if (result.ok) {
+          detailsSaved.current = sent;
+          setDetailsState("saved");
+        } else if (result.problem === "name") {
+          setNameProblem("short");
+          setDetailsState("idle");
+        } else {
+          setDetailsState("error");
+        }
+      } catch {
+        setDetailsState("error");
+      } finally {
+        detailsBusy.current = false;
+      }
+    });
+  }, []);
+  // Picked from a list: the hidden field already holds it, so save once this tick ends.
+  const savePicked = useCallback(() => { setTimeout(saveDetailsNow, 0); }, [saveDetailsNow]);
 
   if (!manages) redirect(`/g/${id}`);
 
@@ -52,8 +118,8 @@ export default function SettingsTab({ notices }: { notices: { saved?: string; er
         </div>
       </LoopNav>
 
+      <ThenBanner then={notices.then} />
       {isOwner ? null : <p className="mt-3 text-[14px] leading-relaxed text-ink-soft">{copy.settings.adminNote}</p>}
-      {notices.saved ? <NoticeFocus>{copy.settings.savedNotice}</NoticeFocus> : null}
       {notices.shares ? <NoticeFocus key={notices.shares}>{copy.settings.sharesResetNotice}</NoticeFocus> : null}
       {notices.stationery === "1" ? <NoticeFocus>{copy.stationery.saved}</NoticeFocus> : null}
       {notices.stationery === "adjusted" ? <NoticeFocus>{copy.stationery.savedAdjusted}</NoticeFocus> : null}
@@ -62,45 +128,69 @@ export default function SettingsTab({ notices }: { notices: { saved?: string; er
         <NoticeFocus tone="danger">{copy.settings.confirmError}</NoticeFocus>
       ) : null}
 
-      <SafeForm
+      <form
+        ref={detailsForm}
         action={settingsAction}
         id="settings-details"
         hidden={view !== "details"}
         noValidate
-        validate={(form) => {
-          const field = form.elements.namedItem("name") as HTMLInputElement;
-          if (field.value.trim()) { setNameError(false); return true; }
-          setNameError(true);
-          field.focus();
-          return false;
+        onSubmit={(event) => {
+          event.preventDefault();
+          saveDetailsNow();
+        }}
+        onChange={(event) => {
+          const field = event.target as unknown as HTMLInputElement;
+          if (field.name === "name") {
+            // Typing waits for a pause; leaving the field (below) saves at once.
+            setNameProblem(null);
+            if (detailsTimer.current) clearTimeout(detailsTimer.current);
+            detailsTimer.current = setTimeout(saveDetailsNow, 1200);
+          } else if (field.type === "checkbox") {
+            saveDetailsNow();
+          }
         }}
         className="card mt-4 p-5"
       >
         <input type="hidden" name="groupId" value={id} />
+        {/* Where the stationery says it too: what happens to edits here. */}
+        {notices.saved && detailsState === "idle" ? (
+          <NoticeFocus spacing="mb-4">{copy.settings.detailsSaved}</NoticeFocus>
+        ) : (
+          <SaveChip
+            state={detailsState}
+            idle={copy.settings.detailsSaveLine}
+            saving={copy.stationery.statusSaving}
+            saved={copy.stationery.statusSaved}
+            error={copy.stationery.statusError}
+            retryLabel={copy.stationery.statusRetry}
+            onRetry={saveDetailsNow}
+            className="mb-3 mt-0"
+          />
+        )}
         <label className="flex flex-col gap-1.5">
           <FieldLabel required>{copy.settings.name}</FieldLabel>
-          <input name="name" defaultValue={group.name} required aria-invalid={nameError || undefined} aria-describedby={nameError ? "settings-name-error" : undefined} onChange={() => setNameError(false)} className="field h-[46px] py-0" />
+          <input name="name" defaultValue={group.name} required aria-invalid={nameError || undefined} aria-describedby={nameError ? "settings-name-error" : undefined} onBlur={saveDetailsNow} className="field h-[46px] py-0" />
         </label>
-        {nameError ? <p id="settings-name-error" role="alert" className="m-0 mt-1.5 text-[14px] font-bold text-danger">{copy.settings.nameRequired}</p> : null}
+        {nameError ? <p id="settings-name-error" role="alert" className="m-0 mt-1.5 text-[14px] font-bold text-danger">{nameProblem === "short" ? copy.settings.nameShort : copy.settings.nameRequired}</p> : null}
 
         <div className="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-[1fr_1fr_1fr_1.4fr]">
           <div className="col-span-2 flex flex-col gap-1.5 lg:col-span-1">
             <span className="text-[13px] font-medium text-ink-soft">{copy.settings.every}</span>
-            <Picker name="cadence" defaultValue={String(group.cadenceWeeks)} options={CADENCE_OPTIONS} ariaLabel={copy.settings.every} />
+            <Picker name="cadence" defaultValue={String(group.cadenceWeeks)} options={CADENCE_OPTIONS} ariaLabel={copy.settings.every} onValueChange={savePicked} />
           </div>
           <div className="flex flex-col gap-1.5">
             <span className="text-[13px] font-medium text-ink-soft">{copy.settings.day}</span>
-            <Picker name="weekday" defaultValue={String(group.promptWeekday)} options={WEEKDAY_OPTIONS} ariaLabel={copy.settings.day} />
+            <Picker name="weekday" defaultValue={String(group.promptWeekday)} options={WEEKDAY_OPTIONS} ariaLabel={copy.settings.day} onValueChange={savePicked} />
           </div>
           <div className="flex flex-col gap-1.5">
             <span className="text-[13px] font-medium text-ink-soft">{copy.settings.time}</span>
-            <Picker name="hour" defaultValue={String(group.promptHour)} options={HOUR_OPTIONS} ariaLabel={copy.settings.time} />
+            <Picker name="hour" defaultValue={String(group.promptHour)} options={HOUR_OPTIONS} ariaLabel={copy.settings.time} onValueChange={savePicked} />
           </div>
           {/* Full width, as on the new-loop form: zone names are long and a half
               column cuts "Europe/Amsterdam" to "Europe…" on a phone. */}
           <div className="col-span-2 flex min-w-0 flex-col gap-1.5 lg:col-span-1">
             <span className="text-[13px] font-medium text-ink-soft">{copy.settings.timezone}</span>
-            <TimezoneField defaultValue={group.timezone} />
+            <TimezoneField defaultValue={group.timezone} onValueChange={savePicked} />
           </div>
         </div>
         <p className="m-0 mt-2 text-[13px] leading-relaxed text-ink-muted">{copy.settings.scheduleHint}</p>
@@ -137,10 +227,20 @@ export default function SettingsTab({ notices }: { notices: { saved?: string; er
           </span>
         </label>
 
-        <SubmitButton className="btn btn-primary mt-5">
-          {copy.settings.save}
-        </SubmitButton>
-      </SafeForm>
+        {/* Keeping a copy is about the loop itself, so it lives with the details; Pause only pauses. */}
+        {isOwner ? (
+          <div className="mt-4 border-t border-dashed border-line pt-4">
+            <h2 className="text-ink">{copy.settings.archiveTitle}</h2>
+            <p className="mt-1 text-[14px] leading-relaxed text-ink-soft">{copy.settings.archiveBody}</p>
+            <a href={`/g/${id}/export`} download className="btn btn-quiet mt-3">{copy.settings.archive}</a>
+          </div>
+        ) : null}
+
+        {/* Without script nothing saves as you go, so the form keeps its own button. */}
+        <noscript>
+          <button type="submit" className="btn btn-primary mt-5">{copy.settings.save}</button>
+        </noscript>
+      </form>
 
       <div hidden={view !== "paper"}>
       <StationeryForm
@@ -179,14 +279,6 @@ export default function SettingsTab({ notices }: { notices: { saved?: string; er
             {group.pausedAt ? copy.settings.resume : copy.settings.pause}
           </SubmitButton>
         </SafeForm>
-
-        {isOwner ? (
-          <div className="mt-4 border-t border-dashed border-line pt-4">
-            <h2 className="text-ink">{copy.settings.archiveTitle}</h2>
-            <p className="mt-1 text-[14px] leading-relaxed text-ink-soft">{copy.settings.archiveBody}</p>
-            <a href={`/g/${id}/export`} download className="btn btn-quiet mt-3">{copy.settings.archive}</a>
-          </div>
-        ) : null}
       </div>
 
       {hasDanger ? (
@@ -212,8 +304,9 @@ export default function SettingsTab({ notices }: { notices: { saved?: string; er
       ) : null}
 
       {isOwner ? (
-      <SafeForm action={deleteAction}>
+      <SafeForm action={deleteAction} id="delete-loop">
         <input type="hidden" name="groupId" value={id} />
+        {notices.then ? <input type="hidden" name="then" value={notices.then} /> : null}
         <input type="hidden" name="name" value={group.name} />
         <h3 className="text-[22px] text-ink">{copy.settings.deleteTitle}</h3>
         <p className="mt-1 text-[14px] leading-relaxed text-ink-soft">{copy.settings.deleteDescription}</p>

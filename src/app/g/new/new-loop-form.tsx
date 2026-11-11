@@ -3,6 +3,7 @@
 import { useActionState, useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { createLoopAction, type CreateState } from "./actions";
 import { isFrameworkSignal } from "@/components/safe-form";
+import { DialogClose } from "@/components/dialog-close";
 import { TimezoneField } from "./timezone-field";
 import { Picker } from "@/components/picker";
 import { copy, text } from "@/lib/copy";
@@ -39,10 +40,6 @@ const LAST_STEP = copy.newLoop.wizard.steps.length - 1;
 const QUESTIONS_STEP = 2;
 const INVITE_STEP = 3;
 
-function IconClose() {
-  return <span aria-hidden="true" className="text-[26px] font-normal leading-none">×</span>;
-}
-
 function IconPlus() {
   return (
     <svg viewBox="0 0 20 20" aria-hidden="true" className="h-4 w-4">
@@ -63,7 +60,6 @@ function AccessibleDialog({
   open,
   title,
   description,
-  closeLabel,
   onClose,
   children,
   className = "",
@@ -71,7 +67,6 @@ function AccessibleDialog({
   open: boolean;
   title: string;
   description?: string;
-  closeLabel: string;
   onClose: () => void;
   children: ReactNode;
   className?: string;
@@ -108,9 +103,7 @@ function AccessibleDialog({
           <h2 id={titleId} className="font-display text-[30px] font-bold leading-tight text-ink">{title}</h2>
           {description ? <p id={descriptionId} className="mt-1 text-[14px] leading-relaxed text-ink-soft">{description}</p> : null}
         </div>
-        <button type="button" aria-label={closeLabel} onClick={onClose} className="btn btn-quiet h-11 min-h-11 w-11 flex-none p-0!">
-          <IconClose />
-        </button>
+        <DialogClose onClick={onClose} />
       </div>
       {children}
     </dialog>
@@ -235,6 +228,12 @@ function Wizard({ packs, userId, onStartOver }: { packs: QuestionPack[]; userId:
     ...picked,
     ...customQuestions.map((question) => question.value.trim()).filter(Boolean),
     ...IDEAS.filter((idea) => pickedIdeas.includes(idea.id)).map((idea) => idea.question),
+  ];
+  // Everything chosen, in the order it will go out, each with its own way to take it off.
+  const chosenQuestions = [
+    ...picked.map((question) => ({ key: `pack:${question}`, text: question, remove: () => toggleQuestion(question) })),
+    ...customQuestions.filter((question) => question.value.trim()).map((question) => ({ key: `own:${question.id}`, text: question.value.trim(), remove: () => setCustomQuestions((current) => current.filter((item) => item.id !== question.id)) })),
+    ...IDEAS.filter((idea) => pickedIdeas.includes(idea.id)).map((idea) => ({ key: `idea:${idea.id}`, text: idea.question, remove: () => setPickedIdeas((current) => current.filter((id) => id !== idea.id)) })),
   ];
   const selectedCadence = CADENCE_OPTIONS.find((option) => option.value === cadence) ?? CADENCE_OPTIONS[0];
   const currentStepLabel = copy.newLoop.wizard.steps[step];
@@ -541,6 +540,15 @@ function Wizard({ packs, userId, onStartOver }: { packs: QuestionPack[]; userId:
         >
           <span style={{ width: `${((step + 1) / copy.newLoop.wizard.steps.length) * 100}%` }} />
         </div>
+        {/* On a wide screen the steps list down the side; the bar above says the same on a phone. */}
+        <ol className="wizard-steps">
+          {copy.newLoop.wizard.steps.map((label, index) => (
+            <li key={label} aria-current={index === step ? "step" : undefined} data-done={index < step || undefined}>
+              <span className="wizard-steps__number numeric" aria-hidden="true">{index + 1}</span>
+              <span>{label}</span>
+            </li>
+          ))}
+        </ol>
       </div>
 
       {resumed ? (
@@ -651,34 +659,38 @@ function Wizard({ packs, userId, onStartOver }: { packs: QuestionPack[]; userId:
                 loopName={name || copy.newLoop.namePlaceholder}
                 marks={marks}
                 onMarks={(change) => setMarks((current) => ({ ...current, ...change }))}
-              />
-
-              <div className="mt-6 border-t border-dashed border-line pt-4">
+                variant="wizard"
+                moreNote={copy.newLoop.wizard.look.changeLater}
+                extra={(
+              <div className="mt-5 border-t border-dashed border-line pt-4">
                 <p className="text-[13px] font-medium text-ink-soft">{copy.stationery.headerLegend}</p>
                 <p className="mt-1 text-[13px] leading-snug text-ink-muted">{copy.stationery.headerHint}</p>
                 <LoopBanner url={headerPreview} className="mt-3" />
                 <div className="mt-3 flex flex-wrap gap-2">
-                  <button type="button" className="btn btn-quiet h-10 text-[14px]" onClick={() => headerInput.current?.click()}>
+                  <label className="file-pick btn btn-quiet h-10 text-[14px]">
                     {headerFile ? copy.stationery.headerReplace : copy.stationery.headerUpload}
-                  </button>
+                    <input
+                      ref={headerInput}
+                      type="file"
+                      className="sr-only"
+                      accept={PHOTO_ACCEPT}
+                      aria-label={copy.stationery.headerInput}
+                      onChange={(event) => void chooseHeader(event.target.files?.[0])}
+                    />
+                  </label>
                   {headerFile ? (
                     <button type="button" className="btn btn-quiet h-10 text-[14px]" onClick={clearHeader}>
                       {copy.stationery.headerRemove}
                     </button>
                   ) : null}
                 </div>
-                <input
-                  ref={headerInput}
-                  type="file"
-                  hidden
-                  accept={PHOTO_ACCEPT}
-                  aria-label={copy.stationery.headerInput}
-                  onChange={(event) => void chooseHeader(event.target.files?.[0])}
-                />
                 <p aria-live="polite" className={`mt-1.5 text-[13px] ${headerError ? "text-danger" : "text-ink-muted"}`}>
                   {headerError || (headerPreparing ? copy.newLoop.wizard.look.picturePreparing : headerFile ? copy.newLoop.wizard.look.pictureChosen : "")}
                 </p>
               </div>
+                )}
+              />
+
             </div>
           </>
         ) : null}
@@ -695,29 +707,36 @@ function Wizard({ packs, userId, onStartOver }: { packs: QuestionPack[]; userId:
               </span>
             </div>
             <div className="mt-5 flex flex-col gap-3">
+              {chosenQuestions.length > 0 ? (
+                <section aria-labelledby="wizard-chosen-heading">
+                  <h2 id="wizard-chosen-heading" className="font-display text-[23px] font-bold text-ink">{copy.newLoop.wizard.questions.yourList}</h2>
+                  <ul className="mt-2 flex flex-col gap-2">
+                    {chosenQuestions.map((item, index) => (
+                      <li key={item.key} className="wizard-saved-prompt">
+                        <span className="min-w-0 flex-1 text-[15px] leading-snug text-ink">{item.text}</span>
+                        <button
+                          type="button"
+                          aria-label={text(copy.newLoop.wizard.questions.removeQuestion, { number: index + 1 })}
+                          onClick={item.remove}
+                          className="btn btn-quiet h-11 min-h-11 w-11 flex-none p-0!"
+                        >
+                          <IconRemove />
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              ) : null}
               <QuestionPackPicker
                 packs={packs}
                 selected={picked}
                 onToggleQuestion={toggleQuestion}
                 onTogglePack={togglePack}
-                ariaLabel={copy.newLoop.wizard.questions.title}
+                ariaLabel={copy.newLoop.wizard.questions.packsLabel}
                 headingLevel={2}
               />
 
-              {customQuestions.map((question, index) => (
-                <div key={question.id} className="wizard-saved-prompt">
-                  <span className="min-w-0 flex-1 text-[15px] leading-snug text-ink">{question.value}</span>
-                  <button
-                    type="button"
-                    aria-label={text(copy.newLoop.wizard.questions.removeQuestion, { number: index + 1 })}
-                    onClick={() => setCustomQuestions((current) => current.filter((item) => item.id !== question.id))}
-                    className="btn btn-quiet h-11 min-h-11 w-11 flex-none p-0!"
-                  >
-                    <IconRemove />
-                  </button>
-                </div>
-              ))}
-              {questions.length === 0 ? (
+              {chosenQuestions.length === 0 ? (
                 <p className="rounded-md border border-dashed border-line-strong px-4 py-3 text-[14px] leading-relaxed text-ink-soft">{copy.newLoop.wizard.questions.empty}</p>
               ) : null}
               <button
@@ -818,7 +837,7 @@ function Wizard({ packs, userId, onStartOver }: { packs: QuestionPack[]; userId:
               <h2 id="wizard-summary-heading" className="wizard-summary__title">{copy.newLoop.wizard.note.summaryTitle}</h2>
               <dl>
                 <div><dt>{copy.newLoop.wizard.note.summaryName}</dt><dd className="wrap-any">{name.trim()}</dd></div>
-                <div><dt>{copy.newLoop.wizard.note.summaryRhythm}</dt><dd>{text(copy.newLoop.wizard.details.scheduleSummary, { when: text(scheduleWhen, { weekday: weekdayName }), hour: formatHour(Number(hour)) })}</dd></div>
+                <div><dt>{copy.newLoop.wizard.note.summaryRhythm}</dt><dd>{text(scheduleWhen, { weekday: weekdayName })}, {formatHour(Number(hour))}</dd></div>
                 <div><dt>{copy.newLoop.wizard.note.summaryLook}</dt><dd>{[
                   copy.stationery.presets[preset as keyof typeof copy.stationery.presets]?.name ?? preset,
                   (copy.stationery.backgrounds as Record<string, string>)[looks.background],
@@ -833,15 +852,15 @@ function Wizard({ packs, userId, onStartOver }: { packs: QuestionPack[]; userId:
               </dl>
             </section>
             <div className="mt-4">
-              <label htmlFor="personal-note" className="mb-2 block text-[14px] font-bold text-ink">{copy.newLoop.wizard.note.label}</label>
+              <label htmlFor="personal-note" className="mb-2 block text-[14px] font-bold text-ink-soft">{copy.newLoop.wizard.note.label}</label>
               <textarea
                 id="personal-note"
                 value={personalNote}
                 onChange={(event) => setPersonalNote(event.target.value)}
                 maxLength={1000}
-                rows={5}
+                rows={3}
                 placeholder={copy.newLoop.wizard.note.placeholder}
-                className="field min-h-[130px] resize-y leading-relaxed"
+                className="field min-h-[84px] resize-y leading-relaxed"
               />
               <div className="mt-5 border-t border-dashed border-accent-line pt-4">
                 <h2 className="font-display text-[23px] font-bold text-ink">{copy.newLoop.wizard.note.newsletterCardTitle}</h2>
@@ -902,7 +921,6 @@ function Wizard({ packs, userId, onStartOver }: { packs: QuestionPack[]; userId:
         open={modal === "name-ideas"}
         title={copy.newLoop.wizard.details.ideasTitle}
         description={copy.newLoop.wizard.details.ideasDescription}
-        closeLabel={copy.newLoop.wizard.details.closeIdeas}
         onClose={() => setModal(null)}
         className="wizard-dialog--wide"
       >
@@ -934,7 +952,6 @@ function Wizard({ packs, userId, onStartOver }: { packs: QuestionPack[]; userId:
       <AccessibleDialog
         open={modal === "question"}
         title={copy.newLoop.wizard.questions.addOwnTitle}
-        closeLabel={copy.newLoop.wizard.questions.closeQuestion}
         onClose={() => setModal(null)}
       >
         <label htmlFor="question-draft" className="mt-5 block text-[14px] font-bold text-ink">{copy.newLoop.wizard.questions.questionLabel} {copy.a11yLabels.required}</label>
@@ -969,7 +986,6 @@ function Wizard({ packs, userId, onStartOver }: { packs: QuestionPack[]; userId:
         open={modal === "preview"}
         title={copy.newLoop.wizard.note.previewTitle}
         description={copy.newLoop.wizard.note.previewDescription}
-        closeLabel={copy.newLoop.wizard.note.closePreview}
         onClose={() => setModal(null)}
         className="wizard-dialog--wide"
       >

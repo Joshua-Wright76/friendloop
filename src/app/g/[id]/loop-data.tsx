@@ -54,6 +54,8 @@ export type LoopData = {
   nextMoment: { primary: string; loop: string | null };
   openMoment: { primary: string; loop: string | null } | null;
   lastNudge: string | null;
+  /** The last nudge went out today (viewer's clock): Nudge rests as a quiet link. */
+  lastNudgeToday: boolean;
   weekdayLabel: string;
   /** Membership id to the ids of the delivered rounds they answered in. */
   roundsAnsweredBy: Record<string, string[]>;

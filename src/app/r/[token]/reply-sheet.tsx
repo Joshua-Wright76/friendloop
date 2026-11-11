@@ -368,6 +368,8 @@ export function ReplySheet({
   const jumpMenu = useRef<HTMLDivElement>(null);
   const [jumpOpen, setJumpOpen] = useState(false);
   const [attachOpen, setAttachOpen] = useState<Record<string, boolean>>({});
+  // Once something is attached, the other ways to attach wait behind "Add something else".
+  const [moreOpen, setMoreOpen] = useState<Record<string, boolean>>({});
   // A tap anywhere else, or Escape, closes the question list.
   useEffect(() => {
     if (!jumpOpen) return;
@@ -420,7 +422,7 @@ export function ReplySheet({
   const questionList = useRef<HTMLDivElement>(null);
   const nudgeMessage = useRef<HTMLParagraphElement>(null);
   // The deadline in the loop's zone, and the reader's own when it differs.
-  const deadlineBoth = viewerTime
+  const deadlineBoth = viewerTime && viewerTime !== deadlineMoment
     ? `${atMoment(viewerTime)} ${text(copy.reply.viewerTimezone, { time: `${deadlineMoment} in ${timezonePlace(loopTimezone)}` })}`
     : atMoment(deadlineMoment);
   // A refused music link and an unsaved extra are different problems with different words.
@@ -550,7 +552,7 @@ export function ReplySheet({
         setRetryablePhotos((current) => ({ ...current, [questionId]: false }));
       }
       setPhotoStates((current) => ({ ...current, [questionId]: "uploadError" }));
-      setPhotoErrors((current) => ({ ...current, [questionId]: navigator.onLine === false ? copy.common.offlineUpload : result.error }));
+      setPhotoErrors((current) => ({ ...current, [questionId]: navigator.onLine === false ? copy.common.offlineUpload : result.rejected ? `${result.error} ${copy.reply.photoFormats}` : result.error }));
     }
     clearPhotoPreview(questionId);
   }, [clearPhotoPreview, token]);
@@ -656,7 +658,7 @@ export function ReplySheet({
         setRetryableAudio((current) => ({ ...current, [questionId]: true }));
       }
       setAudioStates((current) => ({ ...current, [questionId]: "uploadError" }));
-      setAudioErrors((current) => ({ ...current, [questionId]: navigator.onLine === false ? copy.common.offlineUpload : result.error }));
+      setAudioErrors((current) => ({ ...current, [questionId]: navigator.onLine === false ? copy.common.offlineUpload : result.rejected ? `${result.error} ${copy.reply.voiceFormats}` : result.error }));
     }
     clearAudioPreview(questionId);
   }, [clearAudioPreview, token]);
@@ -1599,12 +1601,12 @@ export function ReplySheet({
             {text(copy.reply.closes, { deadline: deadlineBoth })}
           </p>
           {/* Nothing has to be pressed for an answer to count, so half a thought goes out too. Say so where the deadline is. */}
-          <p className="m-0 mt-1 text-[14.5px] font-bold leading-snug text-ink">{copy.reply.goesOutNote}</p>
+          <p className="m-0 mt-1.5 text-[14.5px] leading-snug text-ink-soft">{copy.reply.goesOutNote}</p>
 
           {/* Who is answering is settled in one line; changing it is there for anyone who wants to. */}
           <details className="reply-identity" open={nameStatus === "error" || nameMissing ? true : undefined}>
             <summary>
-              <Avatar name={name.trim() || displayName} photoUrl={photoUrl} frame={frameNow} className="album-avatar" />
+              <Avatar name={name.trim() || displayName} photoUrl={photoUrl} frame={frameNow} className="album-avatar avatar-flush" />
               <span className="min-w-0 flex-1 wrap-any">{shownName ? text(copy.reply.answeringAs, { name: shownName }) : copy.reply.addYourName}</span>
               <span className="reply-identity__change">{copy.reply.changeIdentity}</span>
               <span className="reply-identity__close">{copy.common.close}</span>
@@ -1669,8 +1671,7 @@ export function ReplySheet({
           {showNudge ? copy.reply.nothingWritten : null}
         </p>
 
-        <div ref={questionList} className="mt-5 flex flex-col gap-6">
-          <StatusLineField token={token} initial={statusLine} disabled={finishing} onStatus={setLineStatus} track={trackSectionSave} />
+        <div ref={questionList} className="mt-4 flex flex-col gap-4 sm:mt-5 sm:gap-6">
           {items.map((item, index) => {
             const section = sections.find((candidate) => candidate.id === item.id);
             if (section) return renderSection(section, index);
@@ -1746,7 +1747,13 @@ export function ReplySheet({
             const videoState = replyVideos.states[question.id] ?? "idle";
             const videoBlocked = finishing || videoState === "preparing" || videoState === "uploading" || videoState === "removing";
             const showVideoRemove = Boolean(video || videoPreview || replyVideos.retryable(question.id));
-            const attached = Boolean(photoUrl || preview || audioUrl || video || videoPreview || links[question.id] || attachOpen[question.id]);
+            const hasPhoto = Boolean(photoUrl || preview);
+            const hasClip = Boolean(video || videoPreview);
+            const hasVoice = Boolean(audioUrl || isRecordingHere);
+            const hasLink = Boolean(links[question.id]);
+            const hasMedia = hasPhoto || hasClip || hasVoice || hasLink || Boolean(audioUrl);
+            const attached = hasMedia || Boolean(attachOpen[question.id]);
+            const collapsed = hasMedia && !moreOpen[question.id];
 
             return (
             <section key={question.id} id={`card-${question.id}`} data-paper="answer" className="card paper ride-in block p-5 pt-7">
@@ -1893,8 +1900,23 @@ export function ReplySheet({
                   {copy.reply.addAttachment}
                 </button>
               ) : null}
+              {collapsed ? (
+                <button
+                  type="button"
+                  className="attach-toggle"
+                  aria-expanded="false"
+                  aria-controls={`attach-${question.id}`}
+                  onClick={() => {
+                    setMoreOpen((current) => ({ ...current, [question.id]: true }));
+                    requestAnimationFrame(() => document.getElementById(`attach-${question.id}`)?.querySelector<HTMLElement>("label:not(.hidden *), button:not(.hidden *)")?.focus());
+                  }}
+                >
+                  <svg viewBox="0 0 20 20" aria-hidden="true" className="attach-btn__icon"><path d="M10 4v12M4 10h12" /></svg>
+                  {copy.reply.addSomethingElse}
+                </button>
+              ) : null}
               <div className="attach-row" id={`attach-${question.id}`} data-folded={attached ? undefined : ""}>
-                <div className="contents">
+                <div className={collapsed && !hasPhoto ? "hidden" : "contents"}>
                   <input
                     id={`photo-${question.id}`}
                     type="file"
@@ -1902,7 +1924,6 @@ export function ReplySheet({
                     className="peer sr-only"
                     aria-disabled={photoBlocked ? true : undefined}
                     aria-label={forQuestion(photoUrl ? copy.reply.replacePhoto : copy.reply.addPhoto)}
-                    aria-describedby={`photo-help-${question.id}`}
                     onClick={(event) => {
                       if (photoBlocked) event.preventDefault();
                     }}
@@ -1935,7 +1956,7 @@ export function ReplySheet({
                 </div>
 
                 {question.voice ? (
-                  <div className="contents">
+                  <div className={collapsed && !hasClip ? "hidden" : "contents"}>
                     <input
                       id={`video-${question.id}`}
                       type="file"
@@ -1943,7 +1964,6 @@ export function ReplySheet({
                       className="peer sr-only"
                       aria-disabled={videoBlocked ? true : undefined}
                       aria-label={forQuestion(video ? copy.reply.replaceVideo : copy.reply.addVideo)}
-                      aria-describedby={`video-help-${question.id}`}
                       onClick={(event) => {
                         if (videoBlocked) event.preventDefault();
                       }}
@@ -1979,7 +1999,7 @@ export function ReplySheet({
                 ) : null}
 
                 {question.voice ? (
-                <div role="group" aria-label={forQuestion(copy.reply.voiceGroup)} className="contents">
+                <div role="group" aria-label={forQuestion(copy.reply.voiceGroup)} className={collapsed && !hasVoice ? "hidden" : "contents"}>
                   {isRecordingHere ? (
                     // Visual only: a ticking live region would be read out every second.
                     <p className="text-[13px] font-medium text-ink numeric" aria-hidden="true">
@@ -1993,7 +2013,6 @@ export function ReplySheet({
                       type="button"
                       className={`${isRecordingHere ? "btn btn-primary min-h-11 px-4 text-[13px]" : "attach-btn"} aria-disabled:cursor-not-allowed aria-disabled:opacity-45`}
                       aria-label={forQuestion(isRecordingHere ? copy.reply.voiceStop : audioUrl ? copy.reply.voiceReplace : copy.reply.voiceRecord)}
-                      aria-describedby={`voice-help-${question.id}`}
                       aria-disabled={(isRecordingHere ? stopping : recordBlocked) ? true : undefined}
                       onClick={() => {
                         if (isRecordingHere) stopRecording(question.id, false);
@@ -2012,8 +2031,7 @@ export function ReplySheet({
                         accept={AUDIO_ACCEPT}
                         className="peer sr-only"
                         aria-label={forQuestion(copy.reply.voicePick)}
-                        aria-describedby={`voice-help-${question.id}`}
-                        aria-disabled={voiceBlocked || recording ? true : undefined}
+                          aria-disabled={voiceBlocked || recording ? true : undefined}
                         onClick={(event) => {
                           if (voiceBlocked || recording) event.preventDefault();
                         }}
@@ -2047,7 +2065,7 @@ export function ReplySheet({
                   )}
                 </div>
                 ) : null}
-                {linkOpen[question.id] || links[question.id] ? null : (
+                {linkOpen[question.id] || links[question.id] || collapsed ? null : (
                   <button
                     id={`add-link-${question.id}`}
                     type="button"
@@ -2071,19 +2089,7 @@ export function ReplySheet({
                   {secureContext ? copy.reply.voiceNoRecorder : copy.reply.voiceInsecure}
                 </p>
               ) : null}
-              {/* Format and size limits stay with the controls for assistive tech, and show when something went wrong. */}
-              <p
-                id={`photo-help-${question.id}`}
-                className="sr-only"
-              >
-                {copy.reply.photoFormats}
-              </p>
-              <p
-                id={`voice-help-${question.id}`}
-                className="sr-only"
-              >
-                {copy.reply.voiceFormats}
-              </p>
+              {/* Format and size help is not listed up front: a rejected file says it in its error. */}
               <LiveMessage
                 id={`photo-status-${question.id}`}
                 message={photoStatusText}
@@ -2127,7 +2133,6 @@ export function ReplySheet({
               ) : null}
               {question.voice ? (
                 <>
-                  <p id={`video-help-${question.id}`} className="sr-only">{copy.reply.videoFormats}</p>
                   <LiveMessage
                     id={`video-status-${question.id}`}
                     message={replyVideos.statusText(question.id)}
@@ -2167,6 +2172,8 @@ export function ReplySheet({
             </section>
             );
           })}
+          {/* An extra, not a question: it comes after the questions so the first one is the first thing to answer. */}
+          <StatusLineField token={token} initial={statusLine} disabled={finishing} onStatus={setLineStatus} track={trackSectionSave} />
         </div>
 
 

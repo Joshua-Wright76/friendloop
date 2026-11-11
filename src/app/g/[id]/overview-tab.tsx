@@ -16,7 +16,7 @@ import { useLoopData } from "./loop-data";
 import { SubmitButton } from "@/components/submit-button";
 
 export default function OverviewTab({ welcome, nudged }: { welcome?: string; nudged?: string }) {
-  const { group, membership, people, questionsPage, rounds, suggestions, openIssue, openProgress, openWaiting, nextMoment, openMoment, weekdayLabel, lastNudge, answerHref } = useLoopData();
+  const { group, membership, people, questionsPage, rounds, suggestions, openIssue, openProgress, openWaiting, nextMoment, openMoment, weekdayLabel, lastNudge, lastNudgeToday, answerHref } = useLoopData();
   const manages = membership.access !== "member";
   const writers = people.filter((person) => person.participation === "contributor").length;
   // Everything still asked: turn-takers, every-round items, and dates still to come.
@@ -33,6 +33,17 @@ export default function OverviewTab({ welcome, nudged }: { welcome?: string; nud
   const viewerIsIn = openProgress.some((person) => person.id === membership.id);
   // Answering your own round comes first; while it's undone, it is the one primary button.
   const answerFirst = Boolean(answerHref) && !viewerIsIn;
+  // Sending early lives on the Rounds page. Here it is only the main button once there is nothing left to wait for.
+  const sendPrimary = manages && openProgress.length > 0 && !answerFirst && nudgeable.length === 0;
+  const waitingOnYou = manages && suggestions.length > 0 ? (
+    <Link href={`/g/${group.id}/questions#suggestions`} className="needs-strip ride-in mt-5">
+      <span className="needs-strip__title">{copy.loop.needsTitle}</span>
+      <span className="needs-strip__text numeric">
+        {suggestions.length === 1 ? copy.loop.yoursSuggestionsOne : text(copy.loop.yoursSuggestions, { count: suggestions.length })}
+      </span>
+      <span aria-hidden="true" className="needs-strip__go">&rarr;</span>
+    </Link>
+  ) : null;
 
   return (
     <main className="loop-page mx-auto w-full max-w-[680px] px-4 pb-16 pt-5 sm:px-6 lg:max-w-[1040px]">
@@ -75,11 +86,12 @@ export default function OverviewTab({ welcome, nudged }: { welcome?: string; nud
 
       <div className="overview-grid">
       <div className="overview-grid__main">
+      {waitingOnYou}
       {liveIssue ? (
         <section className="card ride-in mt-5 p-5 pt-7" aria-labelledby="this-round">
           <Tape tone="dots" position="left" />
           <p className="text-[14px] font-extrabold text-ink-soft">{issueTitle(copy.loop.round, liveIssue.number, liveIssue.name)}</p>
-          <h2 id="this-round" className="status-count mt-0.5 text-ink numeric">
+          <h2 id="this-round" className="mt-0.5 text-ink numeric">
             {text(copy.loop.progress, { answered: openProgress.length, writers })}
           </h2>
           <p className="mt-1 text-[15px] leading-relaxed text-ink-soft numeric">
@@ -120,31 +132,12 @@ export default function OverviewTab({ welcome, nudged }: { welcome?: string; nud
             </div>
           </div>
 
+          {answerFirst || (manages && nudgeable.length > 0) ? (
           <div className="mt-4 flex flex-wrap items-start gap-x-4 gap-y-2">
             {answerFirst ? (
               <Link href={answerHref!} prefetch={false} className="btn btn-primary">
                 {text(copy.loop.answerRound, { number: liveIssue.number })}
               </Link>
-            ) : null}
-            {/* "Send now" sends this round as it stands, so it needs something in it. */}
-            {manages && openProgress.length > 0 ? (
-              <ConfirmAction
-                className="w-full sm:w-auto"
-                action={sendNowAction}
-                fields={{ groupId: group.id }}
-                label={copy.loop.sendNow}
-                triggerLabel={copy.loop.sendNow}
-                tone="primary"
-                triggerTone={answerFirst || nudgeable.length > 0 ? "quiet" : "primary"}
-                question={text(copy.loop.sendNowQuestion, { number: liveIssue.number })}
-                body={text(openProgress.length === 1 ? copy.loop.sendNowBodyOne : copy.loop.sendNowBody, {
-                  count: openProgress.length,
-                  next: liveIssue.number + 1,
-                  when: atMoment(nextMoment.primary),
-                })}
-                confirmLabel={copy.loop.sendNowConfirm}
-                cancelLabel={copy.a11yLabels.confirmCancel}
-              />
             ) : null}
             {manages && nudgeable.length > 0 ? (
               <>
@@ -155,7 +148,7 @@ export default function OverviewTab({ welcome, nudged }: { welcome?: string; nud
                   label={lastNudge ? copy.loop.nudgeAgain : text(copy.loop.nudgeNamed, { names: waitingNames })}
                   triggerLabel={lastNudge ? text(copy.loop.nudgeAgainLabel, { names: waitingNames }) : text(copy.loop.nudgeNamed, { names: waitingNames })}
                   tone="primary"
-                  triggerTone={answerFirst || lastNudge ? "quiet" : "primary"}
+                  triggerTone={answerFirst || lastNudgeToday ? "quiet" : "primary"}
                   question={text(copy.loop.nudgeQuestion, { names: waitingNames })}
                   body={nudgeable.length === 1 ? copy.loop.nudgeBodyOne : copy.loop.nudgeBody}
                   confirmLabel={copy.loop.nudgeConfirm}
@@ -164,20 +157,42 @@ export default function OverviewTab({ welcome, nudged }: { welcome?: string; nud
                 {lastNudge ? (
                   <p className="done-note numeric" role="status">
                     <svg viewBox="0 0 20 20" aria-hidden="true" className="h-4 w-4 flex-none"><path d="m4 10 4 4 8-9" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" /></svg>
-                    {text(copy.loop.nudgedAt, { when: lastNudge })}
+                    {lastNudgeToday ? copy.loop.nudgedToday : text(copy.loop.nudgedAt, { when: lastNudge })}
                   </p>
                 ) : null}
               </>
             ) : null}
+          </div>
+          ) : null}
+          {/* Everything else is quiet and side by side: the one filled button above is the main thing to do. */}
+          <div className={`${answerFirst || (manages && nudgeable.length > 0) ? "mt-2.5" : "mt-4"} flex flex-wrap items-center gap-x-3 gap-y-0`}>
+            {/* Everyone has answered: sending is the thing to do. Otherwise "Send now" waits on the Rounds page. */}
+            {sendPrimary ? (
+              <ConfirmAction
+                action={sendNowAction}
+                fields={{ groupId: group.id }}
+                label={copy.loop.sendNow}
+                triggerLabel={copy.loop.sendNow}
+                tone="primary"
+                triggerTone="primary"
+                question={text(copy.loop.sendNowQuestion, { number: liveIssue.number })}
+                body={text(openProgress.length === 1 ? copy.loop.sendNowBodyOne : copy.loop.sendNowBody, {
+                  count: openProgress.length,
+                  next: liveIssue.number + 1,
+                  when: atMoment(nextMoment.primary),
+                })}
+                confirmLabel={copy.loop.sendNowConfirm}
+                cancelLabel={copy.a11yLabels.confirmCancel}
+              />
+            ) : null}
             {/* Already in: editing is there, but the owner's own jobs come first. */}
             {answerHref && viewerIsIn ? (
-              <Link href={answerHref} prefetch={false} className="btn btn-quiet">{copy.loop.editAnswers}</Link>
+              <Link href={answerHref} prefetch={false} className="link px-2">{copy.loop.editAnswers}</Link>
             ) : null}
             {/* The owner and admins can read the round as it stands before it goes out. */}
             {manages ? (
-              <Link href={`/i/${liveIssue.id}`} prefetch={false} className="btn btn-quiet">{copy.loop.previewRound}</Link>
+              <Link href={`/i/${liveIssue.id}`} prefetch={false} className="link px-2">{copy.loop.previewRound}</Link>
             ) : null}
-            <Link href={`/g/${group.id}/issues`} className="link">{copy.loop.seeRound}</Link>
           </div>
         </section>
       ) : null}
@@ -189,7 +204,7 @@ export default function OverviewTab({ welcome, nudged }: { welcome?: string; nud
         </h2>
         <p className="m-0 mt-1 text-[16px] font-extrabold leading-snug text-ink numeric">
           {text(copy.loop.schedule, {
-            cadence: group.cadenceWeeks === 1 ? copy.loop.cadenceWeek : text(copy.loop.cadenceWeeks, { count: group.cadenceWeeks }),
+            cadence: group.cadenceWeeks === 1 ? copy.loop.cadenceWeek : group.cadenceWeeks === 2 ? copy.loop.cadenceTwoWeeks : text(copy.loop.cadenceWeeks, { count: group.cadenceWeeks }),
             weekday: weekdayLabel,
             hour: formatHour(group.promptHour),
             timezone: timezonePlace(group.timezone),
@@ -222,17 +237,6 @@ export default function OverviewTab({ welcome, nudged }: { welcome?: string; nud
       </section>
       </div>
       <div className="overview-grid__side">
-      {manages && suggestions.length > 0 ? (
-        <section className="card needs-card ride-in mt-5 p-5 pt-6" aria-labelledby="needs-you">
-          <h2 id="needs-you" className="text-ink">{copy.loop.needsTitle}</h2>
-          <Link href={`/g/${group.id}/questions#suggestions`} className="yours-link mt-1">
-            <span className="yours-link__title numeric">
-              {suggestions.length === 1 ? copy.loop.yoursSuggestionsOne : text(copy.loop.yoursSuggestions, { count: suggestions.length })}
-            </span>
-            <span className="yours-link__hint">{copy.loop.yoursSuggestionsHint}</span>
-          </Link>
-        </section>
-      ) : null}
       <section className="card ride-in mt-5 p-5 pt-6" aria-labelledby="make-it-yours">
         <h2 id="make-it-yours" className="text-ink">{copy.loop.yoursTitle}</h2>
         <ul className="yours-list mt-2">

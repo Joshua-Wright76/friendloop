@@ -384,12 +384,12 @@ export async function eraseLoop(groupId: string): Promise<{ files: number }> {
 }
 
 /** Who a reply link belongs to, for the leave page. Null for a link that no longer works. */
-export async function leaveContext(token: string): Promise<{ groupId: string; groupName: string; isOwner: boolean } | null> {
+export async function leaveContext(token: string): Promise<{ groupId: string; groupName: string; group: typeof groups.$inferSelect; isOwner: boolean } | null> {
   const [row] = await db
-    .select({ groupId: groups.id, groupName: groups.name, access: memberships.access })
+    .select({ group: groups, groupId: groups.id, groupName: groups.name, access: memberships.access })
     .from(memberships)
     .innerJoin(groups, eq(groups.id, memberships.groupId))
     .where(and(eq(memberships.replyToken, token), isNull(memberships.revokedAt)))
     .limit(1);
-  return row ? { groupId: row.groupId, groupName: row.groupName, isOwner: row.access === "owner" } : null;
+  return row ? { groupId: row.groupId, groupName: row.groupName, group: row.group, isOwner: row.access === "owner" } : null;
 }

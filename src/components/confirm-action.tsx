@@ -55,7 +55,7 @@ export function ConfirmAction({
   className?: string;
   /** How serious this is: "danger" is for things that cannot simply be undone. */
   tone?: Tone;
-  triggerTone?: Tone;
+  triggerTone?: Tone | "link";
 }) {
   const [asking, setAsking] = useState(false);
   const [failed, setFailed] = useState(false);
@@ -101,7 +101,7 @@ export function ConfirmAction({
           type="button"
           aria-label={triggerLabel}
           onClick={() => setAsking(true)}
-          className={`btn ${shown === "danger" ? "btn-danger-quiet" : shown === "primary" ? "btn-primary" : "btn-quiet"} min-h-11 px-4 text-[14px]`}
+          className={shown === "link" ? "link px-2" : `btn ${shown === "danger" ? "btn-danger-quiet" : shown === "primary" ? "btn-primary" : "btn-quiet"} min-h-11 px-4 text-[14px]`}
         >
           {label}
         </button>

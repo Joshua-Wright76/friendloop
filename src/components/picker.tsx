@@ -1,5 +1,6 @@
 "use client";
 
+import { DialogClose } from "@/components/dialog-close";
 import { useEffect, useId, useRef, useState } from "react";
 import { copy, text } from "@/lib/copy";
 
@@ -230,7 +231,7 @@ export function Picker({ name, defaultValue, value: controlledValue, options, ar
               <div className="picker-sheet-heading">
                 <span className="picker-sheet-grip" aria-hidden="true" />
                 <span className="picker-sheet-title">{ariaLabel}</span>
-                <button type="button" className="picker-sheet-close" aria-label={copy.common.close} onClick={() => closePicker()}>{copy.common.close}</button>
+                <DialogClose onClick={() => closePicker()} />
               </div>
             ) : null}
             {searchable ? (

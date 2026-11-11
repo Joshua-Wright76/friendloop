@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useId } from "react";
+import { FieldLabel } from "@/components/field-label";
 import { copy, text } from "@/lib/copy";
 import { requestEmailChangeAction, type EmailChangeState } from "./actions";
 
@@ -22,7 +23,7 @@ export function ChangeEmail() {
 
   return (
     <form action={action} className="mt-3 flex flex-col gap-1.5" noValidate>
-      <label htmlFor={inputId} className="text-[14px] font-bold text-ink-soft">{copy.you.emailChangeLabel}</label>
+      <label htmlFor={inputId}><FieldLabel>{copy.you.emailChangeLabel}</FieldLabel></label>
       <input
         id={inputId}
         name="email"

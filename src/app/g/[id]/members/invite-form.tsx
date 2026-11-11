@@ -95,11 +95,11 @@ export function InviteForm({ groupId }: { groupId: string }) {
   }
 
   return (
-    <form onSubmit={submit} id="invite-people" className="mt-3 scroll-mt-4 border-t border-dashed border-line pt-3">
+    <form onSubmit={submit} id="invite-people" className="invite-section scroll-mt-4">
       <input type="hidden" name="groupId" value={groupId} />
       <label htmlFor={inputId} className="block text-[14px] font-bold text-ink-soft">{copy.members.inviteAriaLabel}</label>
       <p id={hintId} className="sr-only">{copy.members.inviteDescription}</p>
-      <div className="invite-line mt-1.5">
+      <div className="mt-1.5">
       <div className="field flex min-h-11 flex-wrap items-center gap-2 py-1" onClick={(event) => event.currentTarget.querySelector("input")?.focus()}>
         {emails.map((email) => (
           <span key={email} className="chip inline-flex max-w-full items-center gap-1 border bg-card py-0.5 pl-3 pr-1 text-[13px] font-bold text-ink">
@@ -135,15 +135,15 @@ export function InviteForm({ groupId }: { groupId: string }) {
         />
       </div>
       {error ? <p id={errorId} role="alert" className="m-0 order-1 basis-full text-[13px] font-bold text-danger">{error}</p> : null}
+      </div>
+      <InviteParticipation value={participation} onChange={setParticipation} disabled={pending} className="mt-1" />
       <button
         type="submit"
         // Leaving the field turns its address into a chip, which moves this button out
         // from under a finger mid-tap. Keeping focus put means the first tap sends.
         onMouseDown={(event) => event.preventDefault()}
         aria-disabled={pending ? true : undefined}
-        className="btn btn-quiet flex-none aria-disabled:cursor-not-allowed aria-disabled:opacity-45">{pending ? copy.common.loading : copy.members.sendInvitations}</button>
-      </div>
-      <InviteParticipation value={participation} onChange={setParticipation} disabled={pending} className="mt-1.5" />
+        className="btn btn-quiet mt-1 flex-none aria-disabled:cursor-not-allowed aria-disabled:opacity-45">{pending ? copy.common.loading : copy.members.sendInvitations}</button>
       <p role="status" className="mt-2 text-[13px] text-ink-soft empty:mt-0">{status}</p>
     </form>
   );

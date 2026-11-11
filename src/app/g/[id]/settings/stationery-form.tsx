@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { SaveChip, type SaveState } from "@/components/save-chip";
 import { LoopBanner } from "@/components/loop-theme";
 import { PaperFields, type StationeryLooks } from "@/components/paper-fields";
 import { draftOf, type MarksDraft } from "@/components/mark-pickers";
@@ -28,7 +29,6 @@ type Props = {
   marks: LoopMarks;
 };
 
-type SaveStatus = "idle" | "saving" | "saved" | "adjusted" | "error";
 type Choice = StationeryLooks & MarksDraft & { preset: string; accent: string };
 
 const CHOICE_KEYS = ["preset", "accent", "background", "paperPack", "tapePack", "mascot", "motto", "signOff", "sealStyle", "sealColor", "divider", "celebration"] as const;
@@ -53,7 +53,7 @@ export function StationeryForm({ groupId, loopName, preset: savedPreset, accent:
     mascot: initial.mascot,
   });
   const [marks, setMarks] = useState<MarksDraft>(() => draftOf(savedMarks));
-  const [status, setStatus] = useState<SaveStatus>("idle");
+  const [status, setStatus] = useState<SaveState>("idle");
   const [, startSaving] = useTransition();
   // What the server has, the newest choice, and whether a save is on its way.
   // A choice made during a save waits its turn and is never dropped.
@@ -65,7 +65,7 @@ export function StationeryForm({ groupId, loopName, preset: savedPreset, accent:
 
   useEffect(() => {
     if (status !== "saved" && status !== "adjusted") return;
-    const timer = setTimeout(() => setStatus("idle"), 2800);
+    const timer = setTimeout(() => setStatus("idle"), 2500);
     return () => clearTimeout(timer);
   }, [status]);
 
@@ -122,20 +122,7 @@ export function StationeryForm({ groupId, loopName, preset: savedPreset, accent:
     <>
     <section className="card mt-4 p-5" aria-labelledby="stationery-title">
       <h2 id="stationery-title" className="text-ink">{copy.stationery.title}</h2>
-      <p className="mt-1 text-[14px] leading-relaxed text-ink-soft">{copy.stationery.intro} {copy.stationery.autoSaveNote}</p>
-
-      {/* Floats above the page, so a tile never moves under the thumb when this speaks. */}
-      <p role="status" className={status === "idle" ? "sr-only" : `toast${status === "error" ? " toast--danger" : ""}`}>
-        {status === "saving" ? copy.stationery.statusSaving : null}
-        {status === "saved" ? copy.stationery.statusSaved : null}
-        {status === "adjusted" ? copy.stationery.statusAdjusted : null}
-        {status === "error" ? (
-          <>
-            {copy.stationery.statusError}{" "}
-            <button type="button" className="underline underline-offset-4" onClick={retry}>{copy.stationery.statusRetry}</button>
-          </>
-        ) : null}
-      </p>
+      <p className="mt-1 text-[14px] leading-relaxed text-ink-soft">{copy.stationery.intro}</p>
 
       <form
         action={stationeryAction}
@@ -150,6 +137,19 @@ export function StationeryForm({ groupId, loopName, preset: savedPreset, accent:
         <input type="hidden" name="accent" value={hex ?? ""} />
 
         <PaperFields
+          status={(
+            // Beside the preview, never over the options, so the tile just chosen stays in view.
+            <SaveChip
+              state={status}
+              idle={copy.stationery.savesLine}
+              saving={copy.stationery.statusSaving}
+              saved={copy.stationery.statusSaved}
+              adjusted={copy.stationery.statusAdjusted}
+              error={copy.stationery.statusError}
+              retryLabel={copy.stationery.statusRetry}
+              onRetry={retry}
+            />
+          )}
           preset={preset}
           onPreset={(next) => { setPreset(next); commit({ preset: next }); }}
           accent={accent}
@@ -184,7 +184,6 @@ type PictureStatus = "idle" | "saving" | "saved" | "removed" | "error";
 function HeaderPicture({ groupId, initial }: { groupId: string; initial: string | null }) {
   const router = useRouter();
   const input = useRef<HTMLInputElement>(null);
-  const change = useRef<HTMLButtonElement>(null);
   const [url, setUrl] = useState(initial);
   const [status, setStatus] = useState<PictureStatus>("idle");
   const [message, setMessage] = useState("");
@@ -203,7 +202,7 @@ function HeaderPicture({ groupId, initial }: { groupId: string; initial: string 
         return;
       }
       // Remove leaves with the picture; Replace/Upload is the control that stays.
-      if (done === "removed") change.current?.focus();
+      if (done === "removed") input.current?.focus();
       setUrl(body.url ?? null);
       setStatus(done);
       router.refresh();
@@ -234,17 +233,20 @@ function HeaderPicture({ groupId, initial }: { groupId: string; initial: string 
       <p className="mt-1 text-[14px] leading-relaxed text-ink-soft">{copy.stationery.headerHint} {copy.settings.headerSavesItself}</p>
       <LoopBanner url={url} className="mt-3" />
       <div className="mt-3 flex flex-wrap gap-2">
-        <button
-          ref={change}
-          type="button"
-          className="btn btn-quiet h-11 min-h-11 text-[14px] aria-disabled:cursor-not-allowed aria-disabled:opacity-45"
-          aria-disabled={status === "saving" ? true : undefined}
-          onClick={() => {
-            if (status !== "saving") input.current?.click();
-          }}
-        >
+        <label className="file-pick btn btn-quiet h-11 min-h-11 text-[14px]" aria-disabled={status === "saving" ? true : undefined}>
           {url ? copy.stationery.headerReplace : copy.stationery.headerUpload}
-        </button>
+          <input
+            ref={input}
+            type="file"
+            className="sr-only"
+            accept={PHOTO_ACCEPT}
+            aria-label={copy.stationery.headerInput}
+            onClick={(event) => {
+              if (status === "saving") event.preventDefault();
+            }}
+            onChange={(event) => void choose(event.target.files?.[0])}
+          />
+        </label>
         {url ? (
           <button
             type="button"
@@ -258,14 +260,6 @@ function HeaderPicture({ groupId, initial }: { groupId: string; initial: string 
           </button>
         ) : null}
       </div>
-      <input
-        ref={input}
-        type="file"
-        hidden
-        accept={PHOTO_ACCEPT}
-        aria-label={copy.stationery.headerInput}
-        onChange={(event) => void choose(event.target.files?.[0])}
-      />
       <p aria-live="polite" className={`mt-1.5 text-[13px] ${status === "error" ? "text-danger" : "text-ink-muted"}`}>
         {status === "saving"
           ? copy.stationery.headerSaving

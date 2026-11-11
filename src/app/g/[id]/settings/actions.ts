@@ -15,15 +15,17 @@ async function requireAccess(groupId: string, required: Access) {
   return viewer;
 }
 
-export async function settingsAction(formData: FormData) {
+type DetailsProblem = "name" | "timezone";
+
+/** The details form's checks and write, shared by the redirecting and the as-you-go actions. */
+async function saveDetailsFrom(formData: FormData): Promise<{ groupId: string; problem: DetailsProblem | null }> {
   const groupId = String(formData.get("groupId") ?? "");
   await requireAccess(groupId, "admin");
 
   const name = String(formData.get("name") ?? "").trim();
   const timezone = String(formData.get("timezone") ?? "").trim();
-  if (name.length < 2 || !isValidTimezone(timezone)) {
-    redirect(`/g/${groupId}/settings?error=1`);
-  }
+  if (name.length < 2) return { groupId, problem: "name" };
+  if (!isValidTimezone(timezone)) return { groupId, problem: "timezone" };
 
   await updateLoopSettings(groupId, {
     name,
@@ -38,7 +40,20 @@ export async function settingsAction(formData: FormData) {
   }, await getNow());
 
   revalidatePath(`/g/${groupId}`, "layout");
+  return { groupId, problem: null };
+}
+
+/** The form's own post, for a page without script: saves and comes back with a notice. */
+export async function settingsAction(formData: FormData) {
+  const { groupId, problem } = await saveDetailsFrom(formData);
+  if (problem) redirect(`/g/${groupId}/settings?error=1`);
   redirect(`/g/${groupId}/settings?saved=1`);
+}
+
+/** The same save as the details change: the page stays put and says how it went. */
+export async function saveDetails(formData: FormData): Promise<{ ok: true } | { ok: false; problem: DetailsProblem }> {
+  const { problem } = await saveDetailsFrom(formData);
+  return problem ? { ok: false, problem } : { ok: true };
 }
 
 /** New URLs for every delivered round; the ones already handed out 404. */
@@ -66,10 +81,10 @@ export async function deleteAction(formData: FormData) {
 
   const confirmation = String(formData.get("confirm") ?? "").trim();
   const expected = String(formData.get("name") ?? "").trim();
-  if (confirmation !== expected) redirect(`/g/${groupId}/settings?error=confirm`);
+  if (confirmation !== expected) redirect(`/g/${groupId}/settings?error=confirm${formData.get("then") === "delete-account" ? "&then=delete-account" : ""}`);
 
   await deleteLoop(groupId);
-  redirect("/you?deleted=1");
+  redirect(formData.get("then") === "delete-account" ? "/you/delete" : "/you?deleted=1");
 }
 
 /** The paper, colour and marks, saved as they're chosen. The page stays put and says how it went. */

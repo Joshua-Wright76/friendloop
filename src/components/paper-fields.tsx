@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { Avatar } from "@/components/avatar";
 import { BackgroundPicker, MascotPicker, PaperPackPicker, TapePackPicker } from "@/components/stationery-pickers";
 import { Tape } from "@/components/stationery";
@@ -36,6 +36,14 @@ type Props = {
   /** The owner's marks on every round: words, seal, divider and celebration. */
   marks: MarksDraft;
   onMarks: OnMarks;
+  /** The new-loop wizard shows fewer groups up front: colors, background and mascot. */
+  variant?: "settings" | "wizard";
+  /** Something that belongs with the extras (the wizard's header picture). */
+  extra?: ReactNode;
+  /** A line at the top of "More touches", once it is open. */
+  moreNote?: string;
+  /** A status line kept beside the preview (the settings page says "Saved" here). */
+  status?: ReactNode;
 };
 
 /** The preview's round: fixed, so it never claims anything about a real one. */
@@ -108,7 +116,19 @@ function LookGroup({ title, value, startOpen = false, children }: { title: strin
     if (!startOpen && group.current && window.matchMedia("(max-width: 639px)").matches) group.current.open = false;
   }, [startOpen]);
   return (
-    <details ref={group} className="look-group" open>
+    <details
+      ref={group}
+      className="look-group"
+      open
+      onToggle={(event) => {
+        // On a phone one group is open at a time, so the step stays about a screen long.
+        const opened = event.currentTarget;
+        if (!opened.open || !window.matchMedia("(max-width: 639px)").matches) return;
+        (opened.closest("form") ?? document).querySelectorAll<HTMLDetailsElement>("details.look-group[open]").forEach((other) => {
+          if (other !== opened) other.open = false;
+        });
+      }}
+    >
       <summary className="look-group__summary">
         <span className="look-group__title">{title}</span>
         <span className="look-group__value">{value}</span>
@@ -119,7 +139,8 @@ function LookGroup({ title, value, startOpen = false, children }: { title: strin
   );
 }
 
-export function PaperFields({ preset, onPreset, accent, onAccent, onAccentCommit, looks, onLooks, loopName, marks, onMarks }: Props) {
+export function PaperFields({ preset, onPreset, accent, onAccent, onAccentCommit, looks, onLooks, loopName, marks, onMarks, variant = "settings", extra, moreNote, status }: Props) {
+  const [customOpen, setCustomOpen] = useState(accent !== "");
   const pickerTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hex = normalizeHex(accent);
   const accentInvalid = accent.trim() !== "" && !hex;
@@ -135,6 +156,7 @@ export function PaperFields({ preset, onPreset, accent, onAccent, onAccentCommit
           <PreviewCard scheme="light" label={copy.stationery.previewLight} tokens={theme.light} looks={looks} marks={marks} loopName={loopName} />
           <PreviewCard scheme="dark" label={copy.stationery.previewDark} tokens={theme.dark} looks={looks} marks={marks} loopName={loopName} />
         </div>
+        {status}
       </div>
 
       <LookGroup title={copy.stationery.paperLegend} value={presetName} startOpen>
@@ -165,11 +187,29 @@ export function PaperFields({ preset, onPreset, accent, onAccent, onAccentCommit
               </label>
             );
           })}
+          {/* The sixth tile, so the grid stays two by three. It opens the picker below. */}
+          <button
+            type="button"
+            className="custom-tile"
+            aria-expanded={customOpen}
+            aria-controls="custom-color-panel"
+            data-set={accent !== "" || undefined}
+            onClick={() => setCustomOpen((open) => !open)}
+          >
+            <span className="custom-tile__swatch" style={{ background: hex ?? undefined }} aria-hidden="true" />
+            <span className="min-w-0 flex-1">
+              <span className="custom-tile__name">{copy.stationery.accentLegend}</span>
+              <span className="custom-tile__value">{hex ?? copy.stationery.customValueNone}</span>
+            </span>
+            <svg viewBox="0 0 20 20" aria-hidden="true" className="look-group__chevron custom-tile__chevron"><path d="m5.5 8 4.5 4.5L14.5 8" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" /></svg>
+          </button>
         </div>
       </fieldset>
 
-      <fieldset className="m-0 mt-4 min-w-0 border-0 p-0">
-        <legend className="mb-1 text-[13px] font-medium text-ink-soft">{copy.stationery.accentLegend}</legend>
+      {customOpen ? (
+      <div id="custom-color-panel" className="custom-color mt-3">
+      <fieldset className="m-0 min-w-0 border-0 p-0">
+        <legend className="sr-only">{copy.stationery.accentLegend}</legend>
         <p className="mb-2 text-[13px] leading-snug text-ink-muted">{copy.stationery.accentHint}</p>
         <div className="flex flex-wrap items-center gap-2">
           <input
@@ -215,19 +255,41 @@ export function PaperFields({ preset, onPreset, accent, onAccent, onAccentCommit
                 : ""}
         </p>
       </fieldset>
+      </div>
+      ) : null}
 
       </LookGroup>
+      {variant === "wizard" ? null : (
+        <>
       <LookGroup title={copy.stationery.backgroundLegend} value={named(copy.stationery.backgrounds, looks.background)}>
       <BackgroundPicker value={looks.background} onChange={(background) => onLooks({ background })} theme={theme} />
       </LookGroup>
       <LookGroup title={copy.stationery.packLegend} value={(copy.stationery.packs as Record<string, { name: string }>)[looks.paperPack]?.name ?? looks.paperPack}>
       <PaperPackPicker value={looks.paperPack} onChange={(paperPack) => onLooks({ paperPack })} />
       </LookGroup>
-      <LookGroup title={copy.stationery.tapeLegend} value={named(copy.stationery.tapes, looks.tapePack)}>
-      <TapePackPicker value={looks.tapePack} onChange={(tapePack) => onLooks({ tapePack })} />
-      </LookGroup>
+        </>
+      )}
       <LookGroup title={copy.stationery.mascotLegend} value={named(copy.stickers, looks.mascot)}>
       <MascotPicker value={looks.mascot} onChange={(mascot) => onLooks({ mascot })} loopName={loopName} />
+      </LookGroup>
+      <details className="look-more">
+        <summary className="look-more__summary">
+          <span>{copy.stationery.moreTouches}</span>
+          <svg viewBox="0 0 20 20" aria-hidden="true" className="look-group__chevron"><path d="m5.5 8 4.5 4.5L14.5 8" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" /></svg>
+        </summary>
+        {moreNote ? <p className="mt-2 text-[13px] leading-snug text-ink-muted">{moreNote}</p> : null}
+        {variant === "wizard" ? (
+          <>
+      <LookGroup title={copy.stationery.backgroundLegend} value={named(copy.stationery.backgrounds, looks.background)}>
+      <BackgroundPicker value={looks.background} onChange={(background) => onLooks({ background })} theme={theme} />
+      </LookGroup>
+      <LookGroup title={copy.stationery.packLegend} value={(copy.stationery.packs as Record<string, { name: string }>)[looks.paperPack]?.name ?? looks.paperPack}>
+      <PaperPackPicker value={looks.paperPack} onChange={(paperPack) => onLooks({ paperPack })} />
+      </LookGroup>
+          </>
+        ) : null}
+      <LookGroup title={copy.stationery.tapeLegend} value={named(copy.stationery.tapes, looks.tapePack)}>
+      <TapePackPicker value={looks.tapePack} onChange={(tapePack) => onLooks({ tapePack })} />
       </LookGroup>
       <LookGroup title={copy.stationery.wordsLegend} value={[marks.motto.trim() ? copy.stationery.mottoLabel : "", marks.signOff.trim() ? copy.stationery.signOffLabel : ""].filter(Boolean).join(" · ") || copy.stationery.wordsNone}>
       <WordsFields marks={marks} onMarks={onMarks} />
@@ -241,6 +303,8 @@ export function PaperFields({ preset, onPreset, accent, onAccent, onAccentCommit
       <LookGroup title={copy.stationery.celebrationLegend} value={named(copy.stationery.celebrations, marks.celebration || "none")}>
       <CelebrationPicker value={marks.celebration} onChange={(celebration) => onMarks({ celebration })} mascot={looks.mascot} />
       </LookGroup>
+        {extra}
+      </details>
     </>
   );
 }

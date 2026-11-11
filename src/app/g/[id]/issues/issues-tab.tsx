@@ -1,19 +1,21 @@
 "use client";
 
 import { SafeForm } from "@/components/safe-form";
+import { ConfirmAction } from "@/components/confirm-action";
 import Link from "next/link";
 import Form from "next/form";
 import { LoopNav } from "@/components/loop-nav";
 import { AutoPicker } from "@/components/auto-picker";
 import { CopyLink } from "@/components/copy-link";
 import { NoticeFocus } from "@/components/notice-focus";
-import { formatDate, listNames } from "@/lib/format";
+import { atMoment, formatDate, listNames } from "@/lib/format";
 import { copy, text } from "@/lib/copy";
 import { issueTitle } from "@/lib/issue-name";
 import { coverOf } from "@/lib/looks";
 import { ZineCover } from "@/components/round-cover";
 import { RoundNameFields } from "./round-name-fields";
 import { renameIssueAction } from "./actions";
+import { sendNowAction } from "../actions";
 import { useLoopData } from "../loop-data";
 import { SubmitButton } from "@/components/submit-button";
 import { DisplayDigits } from "@/components/display-digits";
@@ -25,7 +27,7 @@ export default function IssuesTab({
   notices: { sent?: string; next?: string; nothingToSend?: string; named?: string };
   filter: { memberId: string; roundIds: string[] } | null;
 }) {
-  const { group, membership, rounds: allRounds, openIssue, people, openProgress, openWaiting } = useLoopData();
+  const { group, membership, rounds: allRounds, openIssue, openMoment, people, openProgress, openWaiting, nextMoment } = useLoopData();
   // A paused loop holds its round, but nobody can answer it.
   const open = group.pausedAt ? null : openIssue;
   const display = (person: { name: string | null; email: string }) => person.name ?? person.email.split("@")[0];
@@ -84,7 +86,7 @@ export default function IssuesTab({
       {notices.named === "cover" ? <NoticeFocus>{copy.rounds.coverSaved}</NoticeFocus> : null}
       {notices.named === "0" ? <NoticeFocus>{copy.rounds.nameCleared}</NoticeFocus> : null}
 
-      {rounds.length > 0 ? <ul className="mt-4 flex flex-col gap-3">
+      {rounds.length > 0 ? <ul className="rounds-grid mt-4 flex flex-col gap-3">
         {rounds.map((round) => {
           // A covered round is a little zine beside its card's words; a plain one looks as it always has.
           const cover = coverOf(round);
@@ -99,7 +101,10 @@ export default function IssuesTab({
             <p className="mt-1 text-[14px] text-ink-soft numeric">
               {round.answers === 1 ? copy.rounds.answer : text(copy.rounds.answers, { count: round.answers })}
               {round.status !== "open" ? ` · ${formatDate(round.deliveredAt ?? round.deliversAt, group.timezone)}` : null}
-              {round.status === "open" && !group.pausedAt ? ` · ${text(copy.rounds.goesOut, { date: formatDate(round.deliversAt, group.timezone) })}` : null}
+              {round.status === "open" && !group.pausedAt
+                ? ` · ${text(copy.rounds.goesOut, { date: openMoment && openIssue?.id === round.id ? atMoment(openMoment.primary) : formatDate(round.deliversAt, group.timezone) })}`
+                : null}
+              {round.status === "open" && !group.pausedAt && openMoment?.loop && openIssue?.id === round.id ? <span className="text-ink-muted"> ({openMoment.loop})</span> : null}
             </p>
             {round.status === "open" ? (
               <div className="mt-2 text-[14px] leading-relaxed text-ink-soft">
@@ -108,6 +113,26 @@ export default function IssuesTab({
               </div>
             ) : null}
 
+            {/* Sending early lives with the round it sends. It needs at least one answer in it. */}
+            {manages && round.status === "open" && !group.pausedAt && openIssue?.id === round.id && openProgress.length > 0 ? (
+              <ConfirmAction
+                className="mt-2"
+                action={sendNowAction}
+                fields={{ groupId: id }}
+                label={copy.loop.sendNow}
+                triggerLabel={copy.loop.sendNow}
+                tone="primary"
+                triggerTone="quiet"
+                question={text(copy.loop.sendNowQuestion, { number: round.number })}
+                body={text(openProgress.length === 1 ? copy.loop.sendNowBodyOne : copy.loop.sendNowBody, {
+                  count: openProgress.length,
+                  next: round.number + 1,
+                  when: atMoment(nextMoment.primary),
+                })}
+                confirmLabel={copy.loop.sendNowConfirm}
+                cancelLabel={copy.a11yLabels.confirmCancel}
+              />
+            ) : null}
             <div className="mt-1 flex flex-wrap items-center gap-x-5">
               {round.status !== "open" ? (
                 <Link
@@ -157,12 +182,12 @@ export default function IssuesTab({
             </>
           );
           return cover ? (
-            <li key={round.id} className="card round-card--covered p-4 sm:p-5">
+            <li key={round.id} data-open={round.status === "open" ? "" : undefined} className="card round-card--covered p-4 sm:p-5">
               <ZineCover cover={cover} name={round.name ?? ""} number={text(copy.rounds.cover.zine, { number: round.number })} />
               <div className="min-w-0">{body}</div>
             </li>
           ) : (
-            <li key={round.id} className="card p-4 sm:p-5">{body}</li>
+            <li key={round.id} data-open={round.status === "open" ? "" : undefined} className="card p-4 sm:p-5">{body}</li>
           );
         })}
       </ul> : null}

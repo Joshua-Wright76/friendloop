@@ -87,7 +87,7 @@ export function QuestionPackPicker({
                       { pack: pack.name },
                     )}
                     onClick={() => onTogglePack(status.addable, !status.allPicked)}
-                    className="btn btn-quiet min-h-11 flex-none px-3 text-[13px]"
+                    className="link link--quiet pack-addall"
                   >
                     {status.allPicked ? copy.questions.packRemoveAll : copy.questions.packAddAll}
                   </button>
