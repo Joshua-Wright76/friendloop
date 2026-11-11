@@ -39,6 +39,5 @@ test("the checks only pass their own lists", () => {
     assert.equal(check(""), false);
     assert.equal(check(null), false);
   }
-  assert.equal(isMascotKey("ghost"), false, "a charm isn't automatically a mascot");
-  assert.equal(isCharmKey("ghost"), true);
+  for (const key of CHARM_KEYS) assert.equal(isMascotKey(key), true, `${key} can be a charm or the loop's mascot`);
 });

@@ -116,6 +116,70 @@ export const PRESET_PAPERS: Record<string, PresetPaper> = {
       tape: "#8e6ec2",
     },
   },
+  ocean: {
+    accent: "#16747c",
+    shadowTint: "35 110 120",
+    light: {
+      page: "#edf7f6", check: "rgb(65 155 160 / 0.14)", card: "#fbfffe", line: "#d2e7e5",
+      lineStrong: "#adcfcb", controlLine: "#507b7b", field: "#f4fbfa", rule: "#d0e6e8",
+      margin: "#8fc6c4", ink: "#203b3d", inkSoft: "#405e60", inkMuted: "#455f61",
+      tape: "#9ed5d1",
+    },
+    dark: {
+      page: "#142324", check: "rgb(105 205 200 / 0.07)", card: "#203233", line: "#32494a",
+      lineStrong: "#466464", controlLine: "#8fb5b3", field: "#1a2b2c", rule: "rgb(145 205 210 / 0.15)",
+      margin: "rgb(105 205 200 / 0.42)", ink: "#e8f6f3", inkSoft: "#bed8d5", inkMuted: "#91afad",
+      tape: "#5a9e9c",
+    },
+  },
+  peach: {
+    accent: "#b54a32",
+    shadowTint: "165 75 45",
+    light: {
+      page: "#fff1e8", check: "rgb(230 130 100 / 0.14)", card: "#fffaf6", line: "#f2dcd0",
+      lineStrong: "#e2bfb0", controlLine: "#946452", field: "#fff7f1", rule: "#f0ded5",
+      margin: "#eaaa95", ink: "#432d25", inkSoft: "#6b4d42", inkMuted: "#705447",
+      tape: "#f3b49d",
+    },
+    dark: {
+      page: "#281b17", check: "rgb(255 155 125 / 0.065)", card: "#35251f", line: "#51382f",
+      lineStrong: "#6e4b3f", controlLine: "#c09a89", field: "#2e211c", rule: "rgb(235 180 155 / 0.14)",
+      margin: "rgb(255 155 125 / 0.42)", ink: "#fbede5", inkSoft: "#dfc4b8", inkMuted: "#bca093",
+      tape: "#c78068",
+    },
+  },
+  buttercup: {
+    accent: "#8a5b00",
+    shadowTint: "150 115 25",
+    light: {
+      page: "#fff9df", check: "rgb(220 175 45 / 0.16)", card: "#fffef7", line: "#eee2b9",
+      lineStrong: "#ddca86", controlLine: "#887437", field: "#fffcf0", rule: "#ede4c4",
+      margin: "#e6bd5d", ink: "#403814", inkSoft: "#665a2f", inkMuted: "#72653b",
+      tape: "#f1d879",
+    },
+    dark: {
+      page: "#252012", check: "rgb(245 210 95 / 0.07)", card: "#332c19", line: "#4d4225",
+      lineStrong: "#685832", controlLine: "#c2ac69", field: "#2c2515", rule: "rgb(235 210 140 / 0.14)",
+      margin: "rgb(245 210 95 / 0.42)", ink: "#faf3d9", inkSoft: "#e0d2a6", inkMuted: "#b8aa7d",
+      tape: "#c4a34e",
+    },
+  },
+  cocoa: {
+    accent: "#865038",
+    shadowTint: "110 75 50",
+    light: {
+      page: "#f7f0e7", check: "rgb(150 105 75 / 0.12)", card: "#fffaf3", line: "#e7d9c9",
+      lineStrong: "#cdbaa5", controlLine: "#80664f", field: "#faf4ec", rule: "#e5d8ca",
+      margin: "#c99e7d", ink: "#3d3026", inkSoft: "#615043", inkMuted: "#655143",
+      tape: "#d6b292",
+    },
+    dark: {
+      page: "#211a16", check: "rgb(210 165 125 / 0.06)", card: "#2e241e", line: "#47372d",
+      lineStrong: "#5e493b", controlLine: "#b39982", field: "#282019", rule: "rgb(220 185 150 / 0.13)",
+      margin: "rgb(210 165 125 / 0.4)", ink: "#f3e9df", inkSoft: "#d7c4b4", inkMuted: "#b39e8d",
+      tape: "#a77c5c",
+    },
+  },
 };
 
 /** Every key an owner can choose, Gingham first. */

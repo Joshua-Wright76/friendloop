@@ -65,7 +65,7 @@ stylesheet with a fallback. A loop that chose nothing gets no CSS and is plain G
 - **Page background:** gingham or a tile pattern, in the colour scheme's own `--check`. A
   pattern prints exactly as strong as gingham's stripe crossings, so the contrast the
   accent was derived against still holds.
-- **Colors:** the five curated schemes plus the accent.
+- **Colors:** nine curated schemes plus a custom accent.
 - **Paper pack:** one texture each for answers, polls, playlists and notes, marked with
   `data-paper`. Hairlines use `--texture-line`, and ruled answers rule the words themselves
   (`--answer-lines`, spaced by `1lh`) so the text always sits on the line.

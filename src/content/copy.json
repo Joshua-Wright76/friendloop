@@ -1706,6 +1706,22 @@
       "lilac": {
         "name": "Lilac Linen",
         "description": "Soft purple on linen-white."
+      },
+      "ocean": {
+        "name": "Ocean Air",
+        "description": "Sea-glass blues with a deep teal accent."
+      },
+      "peach": {
+        "name": "Peach Sorbet",
+        "description": "Warm peach paper and a spoonful of coral."
+      },
+      "buttercup": {
+        "name": "Buttercup Post",
+        "description": "Sunny yellow with a golden-brown accent."
+      },
+      "cocoa": {
+        "name": "Cocoa & Cream",
+        "description": "Toasty neutrals, like a well-loved letter."
       }
     },
     "accentLegend": "Accent color",
@@ -1754,7 +1770,13 @@
       "hearts": "Hearts",
       "daisies": "Daisies",
       "stars": "Stars",
-      "confetti": "Confetti"
+      "confetti": "Confetti",
+      "checkerboard": "Checkerboard",
+      "crosshatch": "Crosshatch",
+      "bows": "Little bows",
+      "cherries": "Cherry pairs",
+      "moons": "Moons & stars",
+      "rainbows": "Rainbows"
     },
     "packLegend": "Paper pack",
     "packHint": "A set of papers for answers, polls, playlists, and notes.",
@@ -1782,6 +1804,22 @@
       "watercolor": {
         "name": "Watercolor pad",
         "description": "Toothy paper with a wash of your color."
+      },
+      "parchment": {
+        "name": "Old parchment",
+        "description": "Warm, softly aged sheets with tiny flecks."
+      },
+      "linen": {
+        "name": "Linen letter",
+        "description": "A fine woven texture on every surface."
+      },
+      "sticky": {
+        "name": "Sticky notes",
+        "description": "A different pastel note for each kind of card."
+      },
+      "postcard": {
+        "name": "Postcard",
+        "description": "Fibrous paper with a stamp and postmark."
       }
     },
     "tapeLegend": "Washi tape",
@@ -1792,7 +1830,12 @@
       "seaside": "Seaside",
       "candy": "Candy shop",
       "starlight": "Starlight",
-      "kraft": "Parcel"
+      "kraft": "Parcel",
+      "fruit": "Fruit stand",
+      "woodland": "Woodland",
+      "retro": "Retro kitchen",
+      "doodle": "Doodle book",
+      "denim": "Denim stitch"
     },
     "mascotLegend": "Mascot",
     "mascotHint": "A little character on this loop's pages and emails, in place of the cherries.",

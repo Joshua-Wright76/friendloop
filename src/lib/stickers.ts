@@ -7,8 +7,9 @@
 export const DEFAULT_MASCOT = "cherries";
 
 export const MASCOT_KEYS: readonly string[] = [
-  DEFAULT_MASCOT, "strawberry", "lemon", "frog", "snail", "bee",
-  "duck", "cat", "mushroom", "daisy", "star", "teacup",
+  DEFAULT_MASCOT, "strawberry", "lemon", "peach", "frog", "snail", "bee",
+  "duck", "cat", "ghost", "mushroom", "daisy", "tulip", "sprout",
+  "star", "moon", "cloud", "rainbow", "heart", "teacup",
 ];
 
 export const CHARM_KEYS: readonly string[] = [

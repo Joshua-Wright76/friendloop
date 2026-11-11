@@ -58,6 +58,14 @@ const heart = (x: number, y: number) =>
   `<path transform='translate(${x} ${y})' d='M0 7C-7 2-9-1-9-4a4.7 4.7 0 0 1 9-2 4.7 4.7 0 0 1 9 2c0 3-2 6-9 11z'/>`;
 const sparkle = (x: number, y: number, r: number) =>
   `<path d='M${x} ${y - r}Q${x + r * 0.16} ${y - r * 0.16} ${x + r} ${y}Q${x + r * 0.16} ${y + r * 0.16} ${x} ${y + r}Q${x - r * 0.16} ${y + r * 0.16} ${x - r} ${y}Q${x - r * 0.16} ${y - r * 0.16} ${x} ${y - r}z'/>`;
+const bow = (x: number, y: number) =>
+  `<g transform='translate(${x} ${y})'><path d='M0 0C-10-11-17-7-13 3c2 5 8 4 13-3C6 7 12 8 14 3c4-10-3-14-14-3zM0 0l-5 13 6-3 4 4 1-14'/><circle r='3.2'/></g>`;
+const cherryPair = (x: number, y: number) =>
+  `<g transform='translate(${x} ${y})'><path d='M0-6C-2-15 4-18 10-19M0-6C5-12 10-10 13-5M7-18c6-4 11-1 13 3-6 3-10 1-13-3z'/><circle cx='-2' cy='3' r='7'/><circle cx='13' cy='4' r='7'/></g>`;
+const crescent = (x: number, y: number) =>
+  `<path transform='translate(${x} ${y})' d='M3-13A14 14 0 1 0 15 9 12 12 0 0 1 3-13z'/>`;
+const rainbow = (x: number, y: number) =>
+  `<g transform='translate(${x} ${y})'><path d='M-12 8a12 12 0 0 1 24 0M-8 8a8 8 0 0 1 16 0M-4 8a4 4 0 0 1 8 0'/></g>`;
 
 const PATTERNS: Record<string, Pattern> = {
   dots: { width: 40, height: 40, paint: "fill", art: "<circle cx='10' cy='10' r='5.5'/><circle cx='30' cy='30' r='5.5'/>" },
@@ -73,6 +81,22 @@ const PATTERNS: Record<string, Pattern> = {
     paint: "fill",
     art: "<rect x='10' y='12' width='14' height='5' rx='2.5' transform='rotate(24 17 14)'/><circle cx='52' cy='14' r='3.5'/><rect x='62' y='32' width='14' height='5' rx='2.5' transform='rotate(-38 69 34)'/><rect x='30' y='44' width='14' height='5' rx='2.5' transform='rotate(70 37 46)'/><circle cx='12' cy='56' r='3'/><rect x='52' y='66' width='14' height='5' rx='2.5' transform='rotate(14 59 68)'/><circle cx='30' cy='74' r='2.5'/>",
   },
+  checkerboard: {
+    width: 48,
+    height: 48,
+    paint: "fill",
+    art: "<rect width='24' height='24'/><rect x='24' y='24' width='24' height='24'/>",
+  },
+  crosshatch: {
+    width: 32,
+    height: 32,
+    paint: "stroke",
+    art: "<path stroke-width='1.6' d='M-8 8L8-8M0 32L32 0M24 40L40 24M-8 24L8 40M0 0L32 32M24-8L40 8'/>",
+  },
+  bows: { width: 84, height: 84, paint: "stroke", art: `${bow(21, 20)}${bow(63, 62)}` },
+  cherries: { width: 84, height: 84, paint: "stroke", art: `${cherryPair(20, 26)}${cherryPair(62, 68)}` },
+  moons: { width: 84, height: 84, paint: "fill", art: `${crescent(14, 20)}${sparkle(62, 54, 8)}<circle cx='60' cy='14' r='2.5'/><circle cx='18' cy='65' r='2'/>` },
+  rainbows: { width: 76, height: 68, paint: "stroke", art: `${rainbow(20, 18)}${rainbow(58, 52)}` },
 };
 
 export const BACKGROUND_KEYS: readonly string[] = [DEFAULT_BACKGROUND, ...Object.keys(PATTERNS)];
@@ -164,6 +188,9 @@ const kraft = flat("rgb(150 110 60 / .08)");
 const airmail = "repeating-linear-gradient(-45deg,#d9485f 0 9px,transparent 9px 18px,#3f6fc4 18px 27px,transparent 27px 36px) 0 0/100% 6px no-repeat,";
 const perforation = `repeating-linear-gradient(90deg,${DOT} 0 6px,transparent 6px 12px) 0 12px/100% 1.5px no-repeat,`;
 const wash = (x: string, y: string) => `radial-gradient(80% 60% at ${x} ${y},var(--accent-soft),transparent 72%),`;
+const parchmentShade = "radial-gradient(ellipse at center,transparent 50%,rgb(150 105 55 / .09) 100%),";
+const fineWeave = `repeating-linear-gradient(0deg,${THREAD} 0 1px,transparent 1px 4px),repeating-linear-gradient(90deg,${THREAD} 0 1px,transparent 1px 4px),`;
+const postage = `${svgUrl(150, 96, "<g fill='none' stroke='rgb(120,100,80)' opacity='.24'><rect x='91' y='10' width='45' height='52' stroke-width='1.5' stroke-dasharray='3 2'/><circle cx='113' cy='34' r='13'/><path d='M102 34h22M113 23v22M29 29h62M25 36h66M31 43h57'/><circle cx='83' cy='35' r='22'/></g>")} 100% 0/150px 96px no-repeat,`;
 
 const NO_MARGIN = "transparent";
 
@@ -190,6 +217,34 @@ export const PAPER_PACKS: Record<string, PaperPack> = {
     poll: `${grain}${wash("100%", "0%")}`,
     music: `${grain}${wash("50%", "100%")}`,
     note: `${grain}${wash("0%", "100%")}`,
+    margin: NO_MARGIN,
+  },
+  parchment: {
+    answer: `${parchmentShade}${speckle}${kraft}`,
+    poll: `${parchmentShade}${fibres}${kraft}`,
+    music: `${parchmentShade}${grain}${kraft}`,
+    note: `${parchmentShade}${fibres}${speckle}${kraft}`,
+    margin: NO_MARGIN,
+  },
+  linen: {
+    answer: `${fineWeave}${flat("rgb(170 145 110 / .035)")}`,
+    poll: `${fineWeave}${flat("rgb(170 145 110 / .035)")}`,
+    music: `${fineWeave}${flat("rgb(170 145 110 / .035)")}`,
+    note: `${fineWeave}${flat("rgb(170 145 110 / .035)")}`,
+    margin: NO_MARGIN,
+  },
+  sticky: {
+    answer: flat("rgb(255 221 87 / .22)"),
+    poll: flat("rgb(246 166 186 / .18)"),
+    music: flat("rgb(143 198 232 / .2)"),
+    note: flat("rgb(145 220 180 / .2)"),
+    margin: NO_MARGIN,
+  },
+  postcard: {
+    answer: `${postage}${fibres}`,
+    poll: `${postage}${dotGrid}`,
+    music: `${postage}${weave}`,
+    note: `${postage}${fibres}`,
     margin: NO_MARGIN,
   },
 };
@@ -232,6 +287,12 @@ const tinyFlower = (fill: string) => `<g fill='${fill}'>${rotated(5, (angle) => 
 const tinyStar = (fill: string) => `<g fill='${fill}'>${sparkle(7, 8, 5)}${sparkle(16, 16, 3)}</g>`;
 const tinyWave = (stroke: string) => `<path fill='none' stroke='${stroke}' stroke-width='1.8' d='M0 8q5.500-6 11 0t11 0M0 18q5.500-6 11 0t11 0'/>`;
 const tinyHeart = (fill: string) => `<g fill='${fill}' transform='translate(11 11) scale(.62)'><path d='M0 7C-7 2-9-1-9-4a4.7 4.7 0 0 1 9-2 4.7 4.7 0 0 1 9 2c0 3-2 6-9 11z'/></g>`;
+const tinyLeaf = (fill: string) => `<path fill='${fill}' d='M11 3C4 4 3 12 10 17c7-1 10-8 7-14-2 0-4 0-6 0zM5 19 17 6' stroke='${fill}' stroke-width='1.2'/>`;
+const tinyCherry = (fill: string) => `<g fill='${fill}'><circle cx='7' cy='15' r='4.5'/><circle cx='16' cy='16' r='4.5'/></g><path d='M7 11Q7 4 13 3M7 11q5-8 10-4M11 4q5-4 9 0-5 3-9 0z' fill='none' stroke='${fill}' stroke-width='1.4'/>`;
+const tinyCitrus = (stroke: string) => `<g fill='none' stroke='${stroke}' stroke-width='1.3'><circle cx='11' cy='11' r='8'/><circle cx='11' cy='11' r='5.5'/><path d='M11 5.5v11M5.5 11h11M7.1 7.1l7.8 7.8M14.9 7.1l-7.8 7.8'/></g>`;
+const tinyMushroom = (fill: string) => `<g fill='${fill}'><path d='M3 11a8 8 0 0 1 16 0zM8 11h6l1 8H7z'/></g>`;
+const tinyRainbow = (stroke: string) => `<path fill='none' stroke='${stroke}' stroke-width='1.7' d='M2 17a9 9 0 0 1 18 0M5 17a6 6 0 0 1 12 0M8 17a3 3 0 0 1 6 0'/>`;
+const tinyBow = (fill: string) => `<g fill='${fill}' transform='translate(11 9) scale(.65)'><path d='M0 0C-10-11-17-7-13 3c2 5 8 4 13-3C6 7 12 8 14 3c4-10-3-14-14-3zM0 0l-5 13 6-3 4 4 1-14'/><circle r='3.2'/></g>`;
 
 export const TAPE_PACKS: Record<string, Record<TapeTone, string> | null> = {
   // The stylesheet's own, so a loop that never chose keeps exactly what it had.
@@ -265,6 +326,36 @@ export const TAPE_PACKS: Record<string, Record<TapeTone, string> | null> = {
     stripe: candy("#c9483f", "#f8efe2"),
     mint: ticks("rgb(120 90 60 / .18)", "#efe2c8"),
     check: checked("rgb(90 70 50 / .22)", "#e4d3b8"),
+  },
+  fruit: {
+    dots: motif(tinyCherry("#ffffff"), "#ed7280"),
+    stripe: candy("#f2b84b", "#fff1c9"),
+    mint: motif(tinyCitrus("#ffffff"), "#8fc98f"),
+    check: checked("rgb(237 114 128 / .25)", "#fff1e8"),
+  },
+  woodland: {
+    dots: motif(tinyLeaf("#ffffff"), "#6f9671"),
+    stripe: candy("#8b6548", "#eadcc4"),
+    mint: motif(tinyMushroom("#fff4df"), "#bd6e52"),
+    check: checked("rgb(75 105 70 / .25)", "#e4ecd8"),
+  },
+  retro: {
+    dots: motif(tinyFlower("#fff0c2"), "#d97941"),
+    stripe: candy("#d5aa3c", "#f7e8ae"),
+    mint: motif(tinyStar("#fff4d2"), "#7e9a72"),
+    check: checked("rgb(140 75 50 / .24)", "#efd1a6"),
+  },
+  doodle: {
+    dots: motif(tinyHeart("#6b5044"), "#fff0cf"),
+    stripe: candy("#f1a1ad", "#fff7e8"),
+    mint: motif(tinyRainbow("#547a87"), "#dceef0"),
+    check: motif(tinyBow("#7562a0"), "#eee5f6"),
+  },
+  denim: {
+    dots: ticks("rgb(255 255 255 / .48)", "#5c7fa8"),
+    stripe: candy("#d7e5ef", "#7294b8"),
+    mint: dotted("rgb(255 255 255 / .75)", "#91b4ca"),
+    check: checked("rgb(255 255 255 / .22)", "#365a82"),
   },
 };
 
