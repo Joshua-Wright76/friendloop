@@ -43,8 +43,15 @@ test("C2 · moving a turn-taker changes the order coming rounds ask them, not th
   // The list holds still while the last move saves and the page catches up with it.
   await expect(queueList(page).locator("[data-locked]")).toHaveCount(0);
   await refreshed;
+  // A second tap folds Up and Down away again, so the keyboard starts from a settled list.
+  const q2Grip = page.getByRole("button", { name: copyText(copy.reorder.gripLabel, { item: "Q2" }) });
+  await q2Grip.click();
+  await expect(q2Grip).toHaveAttribute("aria-expanded", "false");
   const grip = page.getByRole("button", { name: copyText(copy.reorder.gripLabel, { item: "Q4" }) });
   await grip.focus();
+  // Focus glides the page to clear the grip of the bottom bar. Picked up mid-glide, the
+  // rows dnd-kit has just measured keep moving and the carried row drifts on its own.
+  await settledScroll(page);
   await page.keyboard.press("Space");
   await spoken("Picked up Q4, at 3 of 4.");
   await page.keyboard.press("ArrowUp");
@@ -121,3 +128,18 @@ test("C2 · dragging a card by its grip moves the whole card, by mouse and by to
   await touch("touchEnd", top.y + 8);
   await expect.poll(() => queue(loop.groupId)).toEqual(["Q4", "Q3", "Q1", "Q2"]);
 });
+
+/** Resolves once the page has held its scroll position for a few frames. */
+async function settledScroll(page: Page) {
+  await page.evaluate(() => new Promise<void>((resolve) => {
+    let last = scrollY;
+    let still = 0;
+    const tick = () => {
+      still = scrollY === last ? still + 1 : 0;
+      last = scrollY;
+      if (still >= 6) resolve();
+      else requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  }));
+}

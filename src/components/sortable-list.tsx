@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import {
   DndContext,
   KeyboardSensor,
+  MeasuringStrategy,
   PointerSensor,
   closestCenter,
   useSensor,
@@ -60,9 +61,11 @@ export function SortableList<T extends { id: string }>({ items: fresh, label, na
   // A drag ends with the pointer lifted on the grip, which the browser also calls a click:
   // that one shouldn't open Up and Down.
   const dragging = useRef(false);
-  // dnd-kit reports the row over its own place the moment it is picked up: saying so
-  // would talk over "Picked up", so that first report stays quiet.
-  const justPickedUp = useRef(false);
+  // Where the carried row was last said to be. dnd-kit reports the row over its own place
+  // the moment it is picked up, and again whenever it re-measures the list (a refresh, a
+  // scroll, WebKit settling the lifted card): only a new place is worth saying, or the
+  // repeats talk over "Picked up".
+  const spokenOver = useRef<string | number | null>(null);
 
   const sensors = useSensors(
     // A few pixels of travel before it counts as a drag, so a tap still reaches the grip.
@@ -120,6 +123,9 @@ export function SortableList<T extends { id: string }>({ items: fresh, label, na
         sensors={sensors}
         collisionDetection={closestCenter}
         modifiers={[alongTheList]}
+        // Picking a row up folds away Up and Down if another row had them open, which moves
+        // the rows under the drag: measured once, the next arrow key would aim at where they were.
+        measuring={{ droppable: { strategy: MeasuringStrategy.Always } }}
         onDragStart={() => { dragging.current = true; setStepping(null); }}
         onDragEnd={({ active, over }: DragEndEvent) => {
           setTimeout(() => { dragging.current = false; }, 0);
@@ -130,13 +136,13 @@ export function SortableList<T extends { id: string }>({ items: fresh, label, na
           screenReaderInstructions: { draggable: copy.reorder.instructions },
           announcements: {
             onDragStart: ({ active }) => {
-              justPickedUp.current = true;
+              spokenOver.current = active.id;
               return text(copy.reorder.pickedUp, { item: named(active.id), position: place(active.id), total: items.length });
             },
             onDragOver: ({ active, over }) => {
-              const echo = justPickedUp.current && over?.id === active.id;
-              justPickedUp.current = false;
-              return over && !echo ? text(copy.reorder.over, { item: named(active.id), position: place(over.id), total: items.length }) : undefined;
+              if (!over || over.id === spokenOver.current) return undefined;
+              spokenOver.current = over.id;
+              return text(copy.reorder.over, { item: named(active.id), position: place(over.id), total: items.length });
             },
             // The move itself is announced once it has saved.
             onDragEnd: () => undefined,
