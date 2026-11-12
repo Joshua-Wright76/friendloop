@@ -338,7 +338,10 @@ test("a database failure is not mistaken for a refusal", async () => {
 test("a reply link removes its person from that loop only, with everything they wrote there", async () => {
   const world = await seedWorld();
 
-  assert.deepEqual(await leaveContext(world.alice.token), { groupId: world.loop.groupId, groupName: "Friday Loop", isOwner: false });
+  // The leave page wears the loop's own look, so the context carries the loop's row too.
+  const context = await leaveContext(world.alice.token);
+  assert.deepEqual(context && { groupId: context.groupId, groupName: context.groupName, isOwner: context.isOwner }, { groupId: world.loop.groupId, groupName: "Friday Loop", isOwner: false });
+  assert.equal(context?.group.id, world.loop.groupId);
   assert.deepEqual(await leaveLoop(world.alice.token), { ok: true, groupName: "Friday Loop" });
 
   assert.equal((await rows("select id from memberships where id = $1", [world.alice.id])).length, 0);
