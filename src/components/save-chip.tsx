@@ -7,9 +7,11 @@ export type SaveState = "idle" | "saving" | "saved" | "adjusted" | "error";
  * "✓ Saved" chip that fades after a moment, or the error with a way to retry. The element
  * stays mounted (a live region that appears with its text is often not announced).
  */
-export function SaveChip({ state, idle, saving, saved, adjusted, error, retryLabel, onRetry, className = "" }: {
+export function SaveChip({ state, idle, idleShort, saving, saved, adjusted, error, retryLabel, onRetry, className = "" }: {
   state: SaveState;
   idle: string;
+  /** A shorter idle line for the compact preview strip on a phone; the strip swaps them with CSS. */
+  idleShort?: string;
   saving: string;
   saved: string;
   adjusted?: string;
@@ -21,7 +23,12 @@ export function SaveChip({ state, idle, saving, saved, adjusted, error, retryLab
   const done = state === "saved" || state === "adjusted";
   return (
     <p role="status" aria-live="polite" className={`look-status${state === "error" ? " look-status--danger" : ""}${done ? " look-status--saved" : ""}${state === "idle" ? " look-status--idle" : ""} ${className}`.trim()}>
-      {state === "idle" ? idle : null}
+      {state === "idle" ? (
+        <>
+          <span className="look-status__idle-long">{idle}</span>
+          <span className="look-status__idle-short">{idleShort ?? idle}</span>
+        </>
+      ) : null}
       {state === "saving" ? saving : null}
       {done ? (
         <>

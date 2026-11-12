@@ -1,7 +1,7 @@
 import { test, expect, type Page } from "../support/test";
 import AxeBuilder from "@axe-core/playwright";
 import { resetDatabase, rows } from "../support/db";
-import { DELIVERY_DAY, openPart, runSweep, signIn, unfoldLooks, uniqueEmail } from "../support/harness";
+import { DELIVERY_DAY, openPart, runSweep, signIn, unfoldLooks, uniqueEmail, unfoldLook } from "../support/harness";
 import { cssVar, gotoScheme, seedWorld } from "../support/identity";
 import { copy, copyPattern, text } from "@/lib/copy";
 
@@ -38,27 +38,38 @@ test("N8 · the owner sets a motto, sign-off, seal, divider and celebration, and
   await unfoldLooks(page);
 
   // Nothing chosen is stored as nothing.
+  await unfoldLook(page, copy.stationery.sealLegend);
   await expect(page.getByRole("radio", { name: choice(S.seals.none.name) })).toBeChecked();
+  await unfoldLook(page, copy.stationery.dividerLegend);
   await expect(page.getByRole("radio", { name: choice(S.dividers.stitches) })).toBeChecked();
+  await unfoldLook(page, copy.stationery.celebrationLegend);
   await expect(page.getByRole("radio", { name: choice(S.celebrations.none) })).toBeChecked();
   expect(await marks(loop.groupId)).toEqual({ motto: null, sign_off: null, seal_style: null, seal_color: null, divider: null, celebration: null });
 
   // Words save when the field is left, and the preview shows them as they're typed.
+  await unfoldLook(page, copy.stationery.wordsLegend);
   await page.getByLabel(S.mottoLabel).fill("est. 2019 · still <terrible> at replying");
   await expect(page.getByTestId("preview-motto").first()).toHaveText("est. 2019 · still <terrible> at replying");
+  await unfoldLook(page, copy.stationery.wordsLegend);
   await page.getByLabel(S.mottoLabel).blur();
   await expect.poll(async () => (await marks(loop.groupId)).motto).toBe("est. 2019 · still <terrible> at replying");
+  await unfoldLook(page, copy.stationery.wordsLegend);
   await page.getByLabel(S.signOffLabel).fill("  xo,\n the   Friday crew ");
+  await unfoldLook(page, copy.stationery.wordsLegend);
   await page.getByLabel(S.signOffLabel).press("Enter");
   await expect.poll(async () => (await marks(loop.groupId)).sign_off).toBe("xo, the Friday crew");
 
   // Each choice saves as it's made.
+  await unfoldLook(page, copy.stationery.sealLegend);
   await page.getByRole("radio", { name: choice(S.seals.wax.name) }).check();
   await expect.poll(async () => (await marks(loop.groupId)).seal_style).toBe("wax");
+  await unfoldLook(page, copy.stationery.sealLegend);
   await page.getByRole("radio", { name: copyPattern(S.waxes.moss, { start: true, end: true }) }).check();
   await expect.poll(async () => (await marks(loop.groupId)).seal_color).toBe("moss");
+  await unfoldLook(page, copy.stationery.dividerLegend);
   await page.getByRole("radio", { name: choice(S.dividers.ricrac) }).check();
   await expect.poll(async () => (await marks(loop.groupId)).divider).toBe("ricrac");
+  await unfoldLook(page, copy.stationery.celebrationLegend);
   await page.getByRole("radio", { name: choice(S.celebrations.hop) }).check();
   await expect.poll(() => marks(loop.groupId)).toEqual({
     motto: "est. 2019 · still <terrible> at replying",
@@ -164,12 +175,17 @@ test("N8 · the wizard offers the marks, previews them, and creates the loop wit
   await expect(page.getByRole("heading", { name: copy.newLoop.wizard.look.title })).toBeVisible();
   await unfoldLooks(page);
 
+  await unfoldLook(page, copy.stationery.wordsLegend);
   await page.getByLabel(S.mottoLabel).fill("still terrible at replying");
+  await unfoldLook(page, copy.stationery.wordsLegend);
   await page.getByLabel(S.signOffLabel).fill("xo, everyone");
   await expect(page.getByTestId("preview-sign-off").first()).toHaveText("xo, everyone");
+  await unfoldLook(page, copy.stationery.sealLegend);
   await page.getByRole("radio", { name: choice(S.seals.postmark.name) }).check();
   await expect(page.getByTestId("stationery-preview-light").locator(".postmark-mark")).toBeVisible();
+  await unfoldLook(page, copy.stationery.dividerLegend);
   await page.getByRole("radio", { name: choice(S.dividers.vine) }).check();
+  await unfoldLook(page, copy.stationery.celebrationLegend);
   await page.getByRole("radio", { name: choice(S.celebrations.petals) }).check();
 
   for (let index = 0; index < 3; index += 1) await page.getByRole("button", { name: NEXT }).click();

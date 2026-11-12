@@ -2,6 +2,7 @@ import { test, expect } from "../support/test";
 import { resetDatabase, rows } from "../support/db";
 import { addMember, seedLoop } from "../support/seed";
 import { openPart, signIn } from "../support/harness";
+import { openPerson } from "../support/people";
 import { copy, text, copyPattern } from "@/lib/copy";
 
 test.beforeEach(async () => {
@@ -22,12 +23,13 @@ test("N3 · the owner hands the loop to an admin, names them in the confirmation
   await page.goto(`/g/${loop.groupId}/members`);
 
   // Anyone who has joined can inherit, admin or not; someone who never answered or signed in cannot.
+  for (const who of ["heir", "Alice", "pending"]) await openPerson(page, who);
   await expect(page.getByRole("button", { name: copyPattern(copy.members.transferAction) })).toHaveCount(2);
   await expect(page.getByRole("button", { name: text(copy.members.transferAction, { name: "heir" }) })).toBeVisible();
   await expect(page.getByRole("button", { name: text(copy.members.transferAction, { name: "Alice" }) })).toBeVisible();
   await expect(page.getByText(/Make someone an admin first/)).toHaveCount(0);
   // And the role menu no longer offers "Owner" as just another role.
-  await page.locator(".card").filter({ hasText: "alice@friendloop.test" }).getByRole("button", { name: /Role for/ }).click();
+  await (await openPerson(page, "Alice")).getByRole("button", { name: /Role for/ }).click();
   await expect(page.getByRole("option", { name: copy.common.roles.owner, exact: true })).toHaveCount(0);
   await page.keyboard.press("Escape");
 
@@ -70,6 +72,7 @@ test("N3 · the owner hands the loop to an admin, names them in the confirmation
   await openPart(heirPage, copy.settings.groupDanger);
   await expect(heirPage.getByRole("button", { name: copy.settings.delete })).toBeVisible();
   await heirPage.goto(`/g/${loop.groupId}/members`);
+  await openPerson(heirPage, "Sam");
   await heirPage.getByRole("button", { name: text(copy.members.transferAction, { name: "Sam" }) }).click();
   await heirPage.getByRole("button", { name: text(copy.members.transferConfirm, { name: "Sam" }) }).click();
   await expect(heirPage).toHaveURL(/transferred=1/);
@@ -82,6 +85,7 @@ test("N3 · a handover that is no longer valid says so and changes nothing", asy
   const heir = await addMember(loop, { email: "heir@friendloop.test", access: "admin" });
   await signIn(page, "owner@friendloop.test");
   await page.goto(`/g/${loop.groupId}/members`);
+  await openPerson(page, "heir");
   await page.getByRole("button", { name: text(copy.members.transferAction, { name: "heir" }) }).click();
 
   // While the question is open, the heir is removed from the loop in another tab.
@@ -98,6 +102,7 @@ test("N3 · the owner hands the loop straight to a member who reads, with no adm
   await signIn(page, "owner@friendloop.test");
   await page.goto(`/g/${loop.groupId}/members`);
 
+  await openPerson(page, "Rae");
   await page.getByRole("button", { name: text(copy.members.transferAction, { name: "Rae" }) }).click();
   await expect(page.getByRole("group", { name: copyPattern(copy.members.transferTitle, { values: { name: "Rae" } }) })).toContainText("Rae becomes the owner and you become an admin.");
   await page.getByRole("button", { name: text(copy.members.transferConfirm, { name: "Rae" }) }).click();

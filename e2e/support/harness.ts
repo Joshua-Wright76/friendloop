@@ -141,10 +141,43 @@ export async function showAttachments(scope: Page | Locator): Promise<void> {
   if (await toggle.isVisible()) await toggle.click();
 }
 
-/** On a phone the stationery groups start folded to one line each: open them all, as someone choosing would. */
+/**
+ * Open what the stationery hides: the rarer touches wait behind "More touches", and a wide screen
+ * then shows every group. On a phone only one group is open at a time, so there ask for the one
+ * you need with `unfoldLook`.
+ */
 export async function unfoldLooks(page: Page): Promise<void> {
+  const more = page.locator("details.look-more").first();
+  if ((await more.count()) > 0) {
+    await expect(async () => {
+      if ((await more.getAttribute("open")) === null) await more.locator(":scope > summary").click();
+      await expect(more).toHaveAttribute("open", "", { timeout: 1000 });
+    }).toPass();
+  }
+  if ((page.viewportSize()?.width ?? 0) < 640) return;
   const folded = page.locator("details.look-group:not([open]) > summary");
   while ((await folded.count()) > 0) await folded.first().click();
+}
+
+/** Open one stationery group by its title ("Tape", "Seal or postmark"…), and "More touches" if it sits there. */
+export async function unfoldLook(page: Page, legend: string): Promise<void> {
+  const exact = new RegExp(`^${legend.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`);
+  const title = page.locator("details.look-group > summary .look-group__title").filter({ hasText: exact });
+  if ((await title.count()) === 0) await unfoldLooks(page);
+  const details = title.locator("xpath=ancestor::details[contains(@class,'look-group')][1]");
+  await expect(async () => {
+    if ((await details.getAttribute("open")) === null) await title.click();
+    await expect(details).toHaveAttribute("open", "", { timeout: 1000 });
+  }).toPass();
+}
+
+/** The accent's hex field, behind the "Custom color" tile until that is opened. */
+export async function accentField(page: Page): Promise<Locator> {
+  await unfoldLook(page, copy.stationery.paperLegend);
+  const field = page.getByLabel(copy.stationery.accentInput);
+  if ((await field.count()) === 0) await page.locator("button.custom-tile").click();
+  await expect(field).toBeVisible();
+  return field;
 }
 
 /** Choose an option in a picker inside `scope`, for when the page holds more than one with that name. */
@@ -173,11 +206,18 @@ export type CardItem = {
 
 /** The Questions page's one add card. */
 export function addCard(page: Page): Locator {
-  return page.getByRole("region", { name: copy.questions.add.title });
+  return page.locator("#add-item");
+}
+
+/** On a phone the add card stays folded until its button is tapped; a wide screen shows it. */
+export async function openAddCard(page: Page): Promise<void> {
+  const toggle = page.getByRole("button", { name: copy.questions.add.open });
+  if ((await toggle.count()) > 0 && (await toggle.isVisible()) && (await toggle.getAttribute("aria-expanded")) === "false") await toggle.click();
 }
 
 /** Fill the item fields in `scope` (the add card, or an open row's editor). */
 export async function fillItem(page: Page, scope: Locator, item: CardItem): Promise<void> {
+  if (await scope.evaluate((element) => element.id === "add-item")) await openAddCard(page);
   if (item.format) await pickIn(scope, page, copy.questions.item.formatLabel, item.format);
   if (item.frequency) await pickIn(scope, page, copy.questions.item.frequencyLabel, item.frequency);
   if (item.dateKind) await pickIn(scope, page, copy.questions.item.dateKindLabel, item.dateKind);
@@ -210,9 +250,9 @@ export async function addWithCard(page: Page, item: CardItem): Promise<void> {
 
 /** Open a row's editor in place (the first row with that label, in This round or Up next). */
 export async function openItem(page: Page, label: string, nth = 0): Promise<Locator> {
-  // A row's button is named by what it shows, after "Edit": its words, then its tags.
-  const name = copyPattern(`${copy.questions.item.editPrefix} ${label}`).source;
-  const toggle = page.getByRole("button", { name: new RegExp(`^${name}(\\s|$)`) }).nth(nth);
+  // A row's button is named by what it shows, after "Edit": its number if it has one, its words, then its tags (which follow without a space).
+  const name = `${copyPattern(copy.questions.item.editPrefix).source} \\d*${copyPattern(label).source}`;
+  const toggle = page.getByRole("button", { name: new RegExp(`^${name}`) }).nth(nth);
   if ((await toggle.getAttribute("aria-expanded")) !== "true") await toggle.click();
   await expect(toggle).toHaveAttribute("aria-expanded", "true");
   return toggle.locator("xpath=ancestor::li[1]");
@@ -222,16 +262,24 @@ export async function openItem(page: Page, label: string, nth = 0): Promise<Loca
 export async function unfoldIn(scope: Locator, summaryText: string | RegExp): Promise<void> {
   const summary = scope.locator("summary").filter({ hasText: summaryText }).first();
   const details = summary.locator("xpath=ancestor::details[1]");
-  if ((await details.getAttribute("open")) === null) await summary.click();
-  await expect(details).toHaveAttribute("open", "");
+  // A fold can also close itself just after hydration (Your loops folds its account parts on a
+  // phone), so keep checking until it is open and stays open.
+  await expect(async () => {
+    if ((await details.getAttribute("open")) === null) await summary.click();
+    await expect(details).toHaveAttribute("open", "", { timeout: 1_000 });
+  }).toPass();
 }
 
 /** Open the folded details with this summary text, unless it is already open. */
 export async function unfold(page: Page, summaryText: string | RegExp): Promise<void> {
   const summary = page.locator("summary").filter({ hasText: summaryText }).first();
   const details = summary.locator("xpath=ancestor::details[1]");
-  if ((await details.getAttribute("open")) === null) await summary.click();
-  await expect(details).toHaveAttribute("open", "");
+  // A fold can also close itself just after hydration (Your loops folds its account parts on a
+  // phone), so keep checking until it is open and stays open.
+  await expect(async () => {
+    if ((await details.getAttribute("open")) === null) await summary.click();
+    await expect(details).toHaveAttribute("open", "", { timeout: 1_000 });
+  }).toPass();
 }
 
 /** Press Send now on the overview and say yes to the question it asks first. */

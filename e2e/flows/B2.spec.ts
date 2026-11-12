@@ -42,7 +42,7 @@ test("B2 · defaults and a quick idea become the ordered question pool", async (
   const preview = page.getByRole("dialog", { name: copy.newLoop.wizard.note.previewTitle });
   await expect(preview.getByText("Book Club")).toBeVisible();
   await expect(preview.getByText(copy.newLoop.wizard.questions.ideas[0].question)).toBeVisible();
-  await preview.getByRole("button", { name: copy.newLoop.wizard.note.closePreview }).click();
+  await preview.getByRole("button", { name: copy.common.close }).click();
   await page.getByRole("button", { name: copy.newLoop.wizard.create }).click();
   await expect(page).toHaveURL(/\/g\/[0-9a-f-]+/);
 

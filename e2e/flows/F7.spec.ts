@@ -2,6 +2,7 @@ import { test, expect } from "../support/test";
 import { resetDatabase, rows } from "../support/db";
 import { seedLoop } from "../support/seed";
 import { signIn } from "../support/harness";
+import { openPerson } from "../support/people";
 import { copy, copyPattern, text } from "@/lib/copy";
 
 test.beforeEach(async () => {
@@ -14,12 +15,12 @@ test("F7 · fixing a typo in someone's address invites the right one and retires
   await signIn(page, "owner@friendloop.test");
 
   await page.goto(`/g/${loop.groupId}/members`);
-  const card = page.locator(".card").filter({ hasText: bob.email });
+  const card = await openPerson(page, "Bob");
   await card.getByRole("button", { name: copyPattern(copy.members.changeEmail.ariaLabel, { start: true }) }).click();
   await card.getByLabel(copy.you.emailChangeLabel).fill("robert@friendloop.test");
   await card.getByRole("button", { name: copyPattern(copy.members.changeEmail.save, { start: true, end: true }) }).click();
   await expect(page.getByText(text(copy.members.changeEmail.doneNote, { email: "robert@friendloop.test" }))).toBeVisible();
-  await expect(page.locator(".card").filter({ hasText: "robert@friendloop.test" })).toBeVisible();
+  await expect(card.getByText("robert@friendloop.test", { exact: true })).toBeVisible();
 
   const invites = await rows<{ count: number }>(`select count(*)::int as count from outbox where kind = 'invite' and "to" = 'robert@friendloop.test'`);
   expect(invites[0].count).toBe(1);

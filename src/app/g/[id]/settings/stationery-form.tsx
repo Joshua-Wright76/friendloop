@@ -142,6 +142,7 @@ export function StationeryForm({ groupId, loopName, preset: savedPreset, accent:
             <SaveChip
               state={status}
               idle={copy.stationery.savesLine}
+              idleShort={copy.stationery.savesLineShort}
               saving={copy.stationery.statusSaving}
               saved={copy.stationery.statusSaved}
               adjusted={copy.stationery.statusAdjusted}

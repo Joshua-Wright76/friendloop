@@ -28,8 +28,8 @@ test("M2 · with commenting off every comment surface disappears and writes are 
   await signIn(page, "owner@friendloop.test");
   await page.goto(`/g/${loop.groupId}/settings`);
   await page.getByLabel(copy.settings.comments).uncheck();
-  await page.getByRole("button", { name: copy.settings.save }).click();
-  await expect(page.getByText(copy.settings.savedNotice)).toBeVisible();
+  // Details save as you go.
+  await expect(page.getByText(copy.stationery.statusSaved)).toBeVisible();
 
   // Off: nothing to read, nothing to write, for anyone.
   await page.goto(`/i/${issue.issueId}?m=${alice.token}`);
@@ -49,8 +49,8 @@ test("M2 · with commenting off every comment surface disappears and writes are 
   // Back on: everything that was written is still there.
   await page.goto(`/g/${loop.groupId}/settings`);
   await page.getByLabel(copy.settings.comments).check();
-  await page.getByRole("button", { name: copy.settings.save }).click();
-  await expect(page.getByText(copy.settings.savedNotice)).toBeVisible();
+  // Details save as you go.
+  await expect(page.getByText(copy.stationery.statusSaved)).toBeVisible();
 
   await page.goto(`/i/${issue.issueId}?m=${alice.token}`);
   await expect(page.getByText("Already said.")).toBeVisible();

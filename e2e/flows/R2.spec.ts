@@ -4,7 +4,7 @@ import { resetDatabase } from "../support/db";
 import { pickOption, signIn, unfold } from "../support/harness";
 
 /** The reading controls live in the issue bar, folded under who and in what order. */
-const openReading = (page: import("@playwright/test").Page) => unfold(page, /by (question|person)$/i);
+const openReading = (page: import("@playwright/test").Page) => unfold(page, copy.issue.reading.menuButton);
 import { seedReading } from "../support/reading";
 import { copy, text, copyPattern } from "@/lib/copy";
 
@@ -96,7 +96,8 @@ test("R2 · inside a round, one person's answers can be isolated and the round c
   await expect(controls.getByRole("link", { name: copyPattern(copy.issue.reading.byPerson) })).toHaveAttribute("aria-current", "true");
   const people = page.locator("section[aria-label] > h2");
   // The avatar's initial rides in the text but is hidden from assistive tech.
-  await expect(people).toHaveText([/^A?Alice$/, /^B?Bob$/]);
+  // Alice is reading, so her own card says "You", with her name for assistive tech.
+  await expect(people).toHaveText([new RegExp(`^A?${copy.issue.you} \\(Alice\\)$`), /^B?Bob$/]);
   const aliceCard = page.getByRole("region", { name: "Alice" });
   await expect(aliceCard.getByRole("heading", { level: 3 })).toHaveText([
     copy.questionPacks[0].questions[0],

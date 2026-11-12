@@ -817,6 +817,7 @@
       "doneNote": "New link sent to {email}. The old link no longer works."
     },
     "manageLabel": "{name}: role, address and more",
+    "manageHint": "role, address and more",
     "invited": "Link sent"
   },
   "questions": {
@@ -1919,6 +1920,7 @@
     "title": "Stationery",
     "intro": "Pick what your loop is written on.",
     "savesLine": "Saves as you tap. Everyone sees it on their next visit.",
+    "savesLineShort": "Saves as you tap.",
     "customValueNone": "Not set",
     "moreTouches": "More touches",
     "paperLegend": "Colors",
@@ -2163,7 +2165,7 @@
     "emptyFiltered": "Nothing matches that. Try fewer words, or a different person.",
     "round": "Round {number}",
     "deliveredOn": "Went out {date}",
-    "openPhoto": "Open photo from {author}: {about}",
+    "openPhoto": "Open photo: {author} {about}",
     "photoAlt": "Photo from {author}",
     "voiceFrom": "Voice note from {author}, {duration}",
     "videoFrom": "Video from {author}, {duration}",

@@ -2,6 +2,7 @@ import { test, expect } from "../support/test";
 import { latestOutbox, resetDatabase, rows } from "../support/db";
 import { seedLoop } from "../support/seed";
 import { signIn } from "../support/harness";
+import { openInvite } from "../support/people";
 import { copy, text, copyPattern } from "@/lib/copy";
 
 test.beforeEach(async () => {
@@ -17,6 +18,7 @@ test("B10 · the owner copies the loop's link, and a friend joins with just thei
   if (browserName === "chromium") await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
 
   await page.goto(`/g/${loop.groupId}/members`);
+  await openInvite(page);
   const field = page.getByRole("textbox", { name: copy.members.inviteLink.fieldLabel });
   const link = await field.inputValue();
   expect(link).toMatch(/\/join\/[A-Za-z0-9_-]{20,}$/);
@@ -66,6 +68,7 @@ test("B10 · someone already signed in joins in one tap", async ({ page, browser
   const loop = await seedLoop({ members: [] });
   await signIn(page, "owner@friendloop.test");
   await page.goto(`/g/${loop.groupId}/members`);
+  await openInvite(page);
   const path = new URL(await page.getByRole("textbox", { name: copy.members.inviteLink.fieldLabel }).inputValue()).pathname;
 
   const otherContext = await browser.newContext();
@@ -83,6 +86,7 @@ test("B10 · resetting the link turns the old one off, and a removed person can'
   const loop = await seedLoop({ members: [{ email: "gone@friendloop.test", name: "Gone" }] });
   await signIn(page, "owner@friendloop.test");
   await page.goto(`/g/${loop.groupId}/members`);
+  await openInvite(page);
   const field = page.getByRole("textbox", { name: copy.members.inviteLink.fieldLabel });
   const oldPath = new URL(await field.inputValue()).pathname;
 

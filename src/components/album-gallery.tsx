@@ -61,10 +61,12 @@ export function AlbumGallery({ groups }: { groups: GalleryGroup[] }) {
                       <img src={item.url} alt="" loading="lazy" />
                     </span>
                     <span className="album-card__who">
-                      <Avatar name={item.author} photoUrl={item.authorPhotoUrl} frame={item.authorFrame} className="album-avatar" />
+                      <Avatar name={item.author} photoUrl={item.authorPhotoUrl} frame={item.authorFrame} className="album-avatar" cssInitial />
                       <span className="min-w-0 wrap-any">{item.author}</span>
                       <NameCharm charm={item.authorCharm} />
                     </span>
+                    {/* The space keeps the author's name a word of its own in the button's accessible name, which reads the content without one. */}
+                    {" "}
                     {item.caption || item.body ? (
                       <span className="album-card__caption">{item.caption || item.body}</span>
                     ) : null}

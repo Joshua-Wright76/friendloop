@@ -3,7 +3,8 @@ import { FeedbackButton } from "@/components/feedback-button";
 import { ThemeSwitch } from "@/components/theme-switch";
 import { copy } from "@/lib/copy";
 
-const dot = <span aria-hidden="true" className="site-chrome-dot">·</span>;
+// A painted dot (see .site-chrome-dot), not a "·" glyph: axe cannot measure contrast on one-character text, and a dot says nothing a screen reader needs.
+const dot = <span aria-hidden="true" className="site-chrome-dot" />;
 
 /**
  * The one footer every page ends with: a quiet line of text links (the brand,

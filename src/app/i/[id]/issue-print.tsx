@@ -177,7 +177,7 @@ export function IssuePrint({
           ) : null}
         </main>
 
-        <footer className="print-footer">{text(copy.print.footer, { brand: copy.common.brand })}</footer>
+        <footer className="print-footer" aria-label={text(copy.print.footer, { brand: copy.common.brand })}>{text(copy.print.footer, { brand: copy.common.brand })}</footer>
       </div>
     </div>
   );

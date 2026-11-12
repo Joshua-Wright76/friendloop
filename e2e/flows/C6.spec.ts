@@ -1,7 +1,7 @@
 import { test, expect } from "../support/test";
 import { resetDatabase, rows } from "../support/db";
 import { seedLoop } from "../support/seed";
-import { addCard, signIn, unfoldIn } from "../support/harness";
+import { addCard, openAddCard, signIn, unfoldIn } from "../support/harness";
 import { QUESTION_PACKS } from "@/lib/question-packs";
 import { copy, text as copyText, copyPattern } from "@/lib/copy";
 
@@ -25,6 +25,7 @@ test("C6 · questions can be picked across packs and added to the pool", async (
   const loop = await seedLoop();
   await signIn(page, "owner@friendloop.test");
   await page.goto(`/g/${loop.groupId}/questions`);
+  await openAddCard(page);
   await unfoldIn(addCard(page), copy.questions.add.packsSummary);
 
   // Every pack starts as one row, with its counts.
@@ -60,6 +61,7 @@ test("C6 · a whole pack adds at once and questions already in the pool are skip
   const loop = await seedLoop();
   await signIn(page, "owner@friendloop.test");
   await page.goto(`/g/${loop.groupId}/questions`);
+  await openAddCard(page);
   await unfoldIn(addCard(page), copy.questions.add.packsSummary);
 
   await page.getByRole("button", { name: copyText(copy.questions.packAddAllLabel, { pack: copy.questionPacks[1].name }) }).click();

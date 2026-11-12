@@ -300,6 +300,16 @@ function CommentComposer({
   const [dismissedAt, setDismissedAt] = useState<number | null>(null);
   const area = useRef<HTMLTextAreaElement>(null);
   const files = useRef<HTMLInputElement>(null);
+  // Put the caret in the box without yanking the page: a bare focus() centres the box, which can
+  // park the answer's reaction row under the sticky bar. "Nearest" only moves the page when the
+  // box is out of sight, and then by the least it can (honouring the page's scroll padding), and
+  // the focus itself scrolls nothing.
+  const focusArea = () => {
+    const box = area.current;
+    if (!box) return;
+    box.scrollIntoView({ block: "nearest" });
+    box.focus({ preventScroll: true });
+  };
   const listId = useId();
   const errorId = `${listId}-error`;
   // Where the caret goes after a name is dropped in, applied once the new text is on screen.
@@ -317,12 +327,12 @@ function CommentComposer({
   const active = open ? Math.min(highlight, options.length - 1) : 0;
 
   useEffect(() => {
-    if (quote) area.current?.focus();
+    if (quote) focusArea();
   }, [quote]);
 
   // A thread opened on purpose is opened to write in.
   useEffect(() => {
-    if (focusOnMount) area.current?.focus();
+    if (focusOnMount) focusArea();
   }, [focusOnMount]);
 
   const choose = (person: Mentionable) => {
@@ -333,7 +343,7 @@ function CommentComposer({
     setPicks((current) => [...current, { id: person.id, label: person.name }]);
     setHighlight(0);
     pendingCaret.current = next.caret;
-    area.current?.focus();
+    focusArea();
   };
 
   const submit = () => {
@@ -343,7 +353,7 @@ function CommentComposer({
     if (!body && !photo) {
       setError(copy.issue.writeFirst);
       setErrorField("body");
-      area.current?.focus();
+      focusArea();
       return;
     }
     setPosted("");
@@ -424,7 +434,7 @@ function CommentComposer({
       {quote ? (
         <div className="mb-2 flex items-center justify-between gap-3 rounded-lg border border-line bg-accent-soft px-3 py-2 text-[13px] text-ink-soft">
           <span>{text(copy.issue.replyingTo, { author: quote.author })}</span>
-          <button type="button" onClick={() => { onClearQuote(); area.current?.focus(); }} className="link cursor-pointer">
+          <button type="button" onClick={() => { onClearQuote(); focusArea(); }} className="link cursor-pointer">
             {copy.issue.replyingToCancel}
           </button>
         </div>
@@ -487,7 +497,7 @@ function CommentComposer({
       {photo ? (
         <div className="mt-2 flex items-center justify-between gap-3 rounded-lg border border-line px-3 py-2 text-[13px] text-ink-soft">
           <span className="min-w-0 wrap-any">{text(copy.issue.photoChosen, { name: photo.name })}</span>
-          <button type="button" onClick={() => { setPhoto(null); setPosted(copy.a11yStatus.photoRemoved); area.current?.focus(); }} className="link flex-none cursor-pointer">
+          <button type="button" onClick={() => { setPhoto(null); setPosted(copy.a11yStatus.photoRemoved); focusArea(); }} className="link flex-none cursor-pointer">
             {copy.issue.removePhoto}
           </button>
         </div>

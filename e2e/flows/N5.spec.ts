@@ -1,6 +1,7 @@
 import { test, expect } from "../support/test";
 import { resetDatabase, rows } from "../support/db";
 import { signIn, unfold } from "../support/harness";
+import { openPerson } from "../support/people";
 import { chooseFile, seedWorld } from "../support/identity";
 import { seedLoop, seedOpenIssue } from "../support/seed";
 import { TINY_PNG } from "../support/comments";
@@ -77,9 +78,9 @@ test("N5 · a signed-in member sets their own photo on the people page, and nobo
   await signIn(page, "owner@friendloop.test");
   await page.goto(`/g/${loop.groupId}/members`);
 
-  // One control, on the viewer's own card.
+  // One control, in the viewer's own row once it is opened; other people's rows have none.
+  const mine = await openPerson(page, "Sam");
   await expect(page.locator('input[type="file"]')).toHaveCount(1);
-  const mine = page.locator(".card").filter({ hasText: "owner@friendloop.test" });
   await chooseFile(page, "Choose a photo of yourself", { name: "me.png", mimeType: "image/png", buffer: TINY_PNG }, mine);
   await expect(mine.getByText(copy.identity.profile.saved)).toBeVisible();
   const url = await photoOf("owner@friendloop.test", loop.groupId);

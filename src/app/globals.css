@@ -389,7 +389,8 @@ html[data-theme="dark"] .tape { opacity: .6; }
 .site-chrome { display: flex; justify-content: center; width: 100%; padding: 12px 16px calc(20px + env(safe-area-inset-bottom)); }
 /* One quiet line of text links on the same paper backdrop everywhere, so small type keeps its contrast over the gingham. */
 .site-chrome-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; max-width: 100%; padding: 0 6px; border: 1px solid var(--line); border-radius: 22px; background: color-mix(in srgb, var(--card) 92%, transparent); color: var(--ink-muted); font-size: 13px; }
-.site-chrome-dot { user-select: none; }
+/* A painted dot, not a "·" glyph: axe cannot measure contrast on one-character text, and a dot says nothing a screen reader needs. */
+.site-chrome-dot { width: 3px; height: 3px; flex: none; border-radius: 50%; background: currentColor; user-select: none; }
 .site-chrome-link, .theme-switch, .feedback-button {
   display: inline-flex;
   align-items: center;
@@ -460,6 +461,7 @@ html { scroll-padding-block-end: 16px; }
   .loop-head__page h1 { font-size: 30px !important; }
 }
 .avatar { display: inline-grid; place-items: center; width: 38px; height: 38px; flex: none; overflow: hidden; border-radius: 50%; background: var(--accent-soft); color: var(--accent-ink); font-size: 15px; font-weight: 800; }
+.avatar[data-initial]::after { content: attr(data-initial); }
 .avatar > img { display: block; width: 100%; height: 100%; object-fit: cover; }
 .loop-banner { display: block; width: 100%; aspect-ratio: 16 / 4; object-fit: cover; border: 1px solid var(--line); border-radius: 6px; background: var(--accent-soft); box-shadow: var(--shadow); }
 .swatch { display: block; width: 100%; padding: 10px; border: 1.5px solid var(--line-strong); border-radius: 6px; text-align: left; cursor: pointer; }
@@ -664,6 +666,8 @@ html:has(.wizard-navigation) { scroll-padding-block-end: min(calc(96px + env(saf
 .album-card:hover { border-color: var(--line-strong); }
 .album-card__who { display: flex; align-items: center; gap: 6px; color: var(--ink-soft); font-size: 13.5px; font-weight: 700; line-height: 1.3; }
 .album-card__caption { display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 2; color: var(--ink); font-size: 14px; line-height: 1.4; }
+/* In a figure (a voice or video note's own words) the caption reads in full: the words are the answer, and clipped words would hide more every time the reader's text spacing grows. */
+figure .album-card__caption { display: block; overflow: visible; -webkit-line-clamp: unset; }
 .album-grid > li > figure { height: 100%; }
 .album-tile { display: block; width: 100%; aspect-ratio: 4 / 5; flex: none; padding: 0; overflow: hidden; border: 1px solid var(--line-strong); border-radius: 6px; background: var(--accent-soft); cursor: pointer; box-shadow: var(--shadow); }
 .album-tile > img { display: block; width: 100%; height: 100%; object-fit: cover; }
@@ -791,7 +795,8 @@ html:has(.wizard-navigation) { scroll-padding-block-end: min(calc(96px + env(saf
 .voice-note__play { display: grid; width: 44px; height: 44px; flex: none; place-items: center; padding: 0; border: 0; border-radius: 50%; background: var(--accent); color: var(--on-accent); box-shadow: 0 2px 0 var(--accent-deep); cursor: pointer; }
 .voice-note__play:active { transform: translateY(1px); box-shadow: 0 1px 0 var(--accent-deep); }
 .voice-note__body { min-width: 0; flex: 1; }
-.voice-note__title { display: block; color: var(--ink-soft); font-size: 13px; font-weight: 800; line-height: 1.1; }
+/* A solid plate that sits over the seek bar's top edge: axe can then read the title's contrast, and the plate's colours are a theme-tested pair. */
+.voice-note__title { position: relative; z-index: 1; display: inline-block; margin-left: -6px; padding: 1px 6px; border-radius: 6px; background: var(--accent-soft); color: var(--accent-ink); font-size: 13px; font-weight: 800; line-height: 1.3; }
 .voice-note__time { flex: none; color: var(--ink-soft); font-size: 13px; font-weight: 700; }
 .voice-note__track { display: block; width: 100%; height: 44px; margin: -10px 0 -10px; background: transparent; cursor: pointer; appearance: none; -webkit-appearance: none; }
 .voice-note__track::-webkit-slider-runnable-track { height: 5px; border-radius: 999px; background: linear-gradient(90deg, var(--accent) var(--voice-fill, 0%), var(--line-strong) var(--voice-fill, 0%)); }
@@ -1087,7 +1092,9 @@ html:has(.issue-bar) { scroll-padding-block-start: 80px; }
 .filter-fold > summary::-webkit-details-marker { display: none; }
 .subhead { margin: 0; color: var(--ink); font-family: var(--font-body) !important; font-size: 15px !important; font-weight: 800 !important; line-height: 1.3 !important; letter-spacing: 0 !important; }
 .poll-line { margin: 2px 0 0; color: var(--ink-soft); font-size: 13.5px; line-height: 1.35; }
-html:has(.print-sheet) .site-chrome { --card: #fff; --line-strong: #d9d6d2; --ink-soft: #55504c; --accent-soft: #f2f0ee; --accent-ink: #9e2440; }
+/* The idle line has a long form for reading width and a short one for the phone's preview strip. */
+.look-status__idle-short { display: none; }
+html:has(.print-sheet) .site-chrome { --card: #fff; --line-strong: #d9d6d2; --ink: #3a332f; --ink-soft: #55504c; --accent-soft: #f2f0ee; --accent-ink: #9e2440; }
 
 /* A bad music link at Send: a clear choice, where the thumb already is. */
 .guard { flex-basis: 100%; display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px; }
@@ -1690,10 +1697,12 @@ html[data-theme="dark"] .sticker-picker::backdrop { background: rgb(6 3 5 / .68)
 @media (min-width: 400px) and (max-width: 479px) { .mascot-tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 /* On a phone the small light and dark preview stays in view while choosing: a compact strip above the controls. */
 @media (max-width: 639px) {
+  /* Focus (and any scroll-into-view) keeps its distance below the strip, so a focused control is never covered by it. */
+  html:has(.look-preview) { scroll-padding-block-start: 170px; }
   .look-preview { position: sticky; z-index: 20; top: 0; margin: 0 -8px 10px; padding: 6px 8px; border-bottom: 1px solid var(--line-strong); background: var(--card); }
   .look-preview > p:not(.look-status) { display: none; }
-  /* The status line sits directly under the previews, one fixed height, so "Saves as you tap." and "Saved" swap without the strip moving. */
-  .look-preview > .look-status { margin: 4px 0 0; height: 24px; min-height: 24px; font-size: 12.5px; line-height: 1; }
+  /* The status line sits directly under the previews, one fixed height, so "Saves as you tap." and "Saved" swap without the strip moving. One ellipsised line (as the preview's own answer text is): the full sentence returns at reading size. Raised over the cards' tape inside the strip, so what is behind its words is never ambiguous. */
+  .look-preview > .look-status { position: relative; z-index: 5; margin: 4px 0 0; height: 24px; min-height: 24px; overflow: hidden; font-size: 12.5px; line-height: 1; white-space: nowrap; text-overflow: ellipsis; }
   .look-preview > .look-status--saved { padding-block: 0; }
   .look-preview > .look-status--danger { height: auto; min-height: 24px; }
   .look-preview .grid { gap: 6px; }
@@ -1702,7 +1711,10 @@ html[data-theme="dark"] .sticker-picker::backdrop { background: rgb(6 3 5 / .68)
   .look-preview .card { margin-top: 0; padding: 8px; padding-top: 10px; }
   .look-preview .divided, .look-preview .btn, .look-preview .preview-sign-off { display: none; }
   /* The strip still shows what an answer looks like: the round label, a name row and one line of answer. */
-  .look-preview .answer-text { display: block; margin-top: 2px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 12.5px; }
+  /* The strip stays a fixed, short height: the sample answer's words (which text spacing would clip) are the full preview's job. */
+  .look-preview .answer-text { display: none; }
+  .look-status__idle-long { display: none; }
+  .look-status__idle-short { display: inline; }
   .look-preview .card .mt-2 { margin-top: 4px; }
   .look-preview .card .avatar { width: 20px !important; height: 20px !important; font-size: 11px !important; }
   .look-preview .preview-heading { font-size: 16px !important; }
@@ -1878,11 +1890,12 @@ button.ppl-summary:focus-visible { outline-offset: -3px; }
 .subtabs { display: flex; flex-wrap: wrap; gap: 2px; border-radius: 24px; }
 .subtab { flex: 1 1 22%; min-width: max-content; padding-inline: 8px; }
 
-/* The footer line fits one row on a phone: tighter links, and the brand link drops out first. */
+/* The footer line wraps onto centred lines on a phone: tighter links, and the brand link drops out first. */
 @media (max-width: 480px) {
   .site-chrome { padding-inline: 8px; }
-  .site-chrome-row { flex-wrap: nowrap; padding: 0 2px; }
-  .site-chrome-link, .theme-switch, .feedback-button { padding: 0 5px; font-size: 12.5px; white-space: nowrap; }
+  .site-chrome-row { flex-wrap: wrap; row-gap: 0; padding: 0 2px; }
+  .site-chrome-dot { margin-inline: 2px; }
+  .site-chrome-link, .theme-switch, .feedback-button { padding: 0 5px; font-size: 12.5px; }
   .site-chrome-row > .site-chrome-link:first-child, .site-chrome-row > .site-chrome-link:first-child + .site-chrome-dot { display: none; }
 }
 

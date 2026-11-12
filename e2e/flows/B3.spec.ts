@@ -2,6 +2,7 @@ import { test, expect } from "../support/test";
 import { resetDatabase, rows } from "../support/db";
 import { seedLoop } from "../support/seed";
 import { signIn } from "../support/harness";
+import { openInvite } from "../support/people";
 import { copy, text } from "@/lib/copy";
 
 test.beforeEach(async () => {
@@ -13,6 +14,7 @@ test("B3 · inviting three people sends three emails with their own links", asyn
   await signIn(page, "owner@friendloop.test");
 
   await page.goto(`/g/${loop.groupId}/members`);
+  await openInvite(page);
   const emailInput = page.getByLabel(copy.members.inviteAriaLabel);
   await emailInput.fill("ana@friendloop.test, ben@friendloop.test; cleo@friendloop.test owner@friendloop.test ana@friendloop.test");
   await emailInput.press("Enter");

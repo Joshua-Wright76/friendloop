@@ -2,7 +2,8 @@ import { test, expect } from "../support/test";
 import { resetDatabase, rows } from "../support/db";
 import { addMember, seedLoop, seedOpenIssue } from "../support/seed";
 import { AFTER_FIRST_SLOT, freezeClock, signIn, waitForSheet } from "../support/harness";
-import { copy, copyPattern } from "@/lib/copy";
+import { openPerson, personRow } from "../support/people";
+import { copy, copyPattern, text as copyText } from "@/lib/copy";
 
 test.beforeEach(async () => {
   await resetDatabase();
@@ -34,19 +35,21 @@ test("B6 · a link nobody opened for months still opens the sheet and takes an a
   expect(membership.accepted_at, "the first answer counts as having joined").not.toBeNull();
 });
 
-test("B6 · the people page shows no invitation state: a quiet note for a contributor, nothing for a reader", async ({ page }) => {
+test("B6 · the people page shows no invitation state beyond a quiet note on each unopened link", async ({ page }) => {
   const loop = await seedLoop();
   await addMember(loop, { email: "quiet@friendloop.test", name: "Quiet", invitedDaysAgo: 60, accepted: false });
   await addMember(loop, { email: "rae@friendloop.test", name: "Rae", participation: "reader", invitedDaysAgo: 60, accepted: false });
   await signIn(page, "owner@friendloop.test");
   await page.goto(`/g/${loop.groupId}/members`);
 
-  const quiet = page.locator(".member-list > li").filter({ hasText: "quiet@friendloop.test" });
-  await expect(quiet.getByText(copy.members.invitePending)).toBeVisible();
-  const reader = page.locator(".member-list > li").filter({ hasText: "rae@friendloop.test" });
-  await expect(reader.getByText(copy.members.invitePending)).toHaveCount(0);
+  const quiet = personRow(page, "Quiet");
+  await expect(quiet.getByText(copyText(copy.members.invitePending, { name: "Quiet" }))).toBeVisible();
+  const reader = personRow(page, "Rae");
+  // The owner sees the same quiet line for a reader; the link is theirs to open whenever they like.
+  await expect(reader.getByText(copyText(copy.members.invitePending, { name: "Rae" }))).toBeVisible();
   await expect(page.getByText(/expired|not opened/i)).toHaveCount(0);
   // The same link can always be sent again.
+  await openPerson(page, "Rae");
   await expect(reader.getByRole("button", { name: copyPattern(copy.a11yLabels.resendInvite, { start: true }) })).toBeVisible();
 });
 

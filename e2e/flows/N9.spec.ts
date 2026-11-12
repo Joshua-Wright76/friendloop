@@ -5,6 +5,7 @@ import { copy, copyPattern, text } from "@/lib/copy";
 import { STATUS_LINE_MAX } from "@/lib/looks";
 import { DELIVERY_DAY, runSweep, signIn, waitForSheet } from "../support/harness";
 import { gotoScheme, seedWorld } from "../support/identity";
+import { openPerson } from "../support/people";
 
 test.use({ reducedMotion: "reduce" });
 
@@ -74,10 +75,8 @@ test("N9 · a contributor signs, writes a line and sticks a sticker while answer
   await sheet.getByRole("button", { name: copy.stickers.frog }).click();
   await expect(page.getByText(text(copy.reply.sticker.stuck, { sticker: copy.stickers.frog }))).toBeVisible();
   await expect.poll(async () => (await rows<{ sticker: string | null }>("select sticker from replies where membership_id = $1 and issue_id = $2 and body <> ''", [alice.id, open.issueId]))[0]?.sticker).toBe("frog");
-  // A card with nothing in it says so instead of opening the sheet.
-  // aria-disabled, so it stays in the tab order and can say why.
-  await page.getByRole("button", { name: text(copy.a11yLabels.forQuestionNumber, { label: copy.reply.sticker.addLabel, n: 2 }) }).click({ force: true });
-  await expect(page.getByText(copy.reply.sticker.needsAnswer)).toBeVisible();
+  // A card with nothing in it offers no sticker at all, until it has an answer.
+  await expect(page.getByRole("button", { name: text(copy.a11yLabels.forQuestionNumber, { label: copy.reply.sticker.addLabel, n: 2 }) })).toHaveCount(0);
   await expect(sheet).toBeHidden();
 
   // The signature, drawn on the pad beside the charm and frame.
@@ -152,6 +151,7 @@ test("N9 · a signed-in member signs on the people page and can take it away aga
   await signIn(page, "owner@friendloop.test");
   await page.goto(`/g/${loop.groupId}/members`);
   expect((await signatureOf(owner.id)).kind).toBeNull();
+  await openPerson(page, "Sam");
   await page.getByText(copy.identity.look.open).click();
   await drawSignature(page);
   // Clear starts over; nothing is saved until it's used.

@@ -275,7 +275,7 @@ export default function SettingsTab({ notices }: { notices: { saved?: string; er
         <SafeForm action={pauseHereAction} className="mt-3">
           <input type="hidden" name="groupId" value={id} />
           <input type="hidden" name="paused" value={group.pausedAt ? "0" : "1"} />
-          <SubmitButton className="btn btn-quiet">
+          <SubmitButton className="btn btn-quiet" aria-label={group.pausedAt ? undefined : copy.settings.pauseTitle}>
             {group.pausedAt ? copy.settings.resume : copy.settings.pause}
           </SubmitButton>
         </SafeForm>

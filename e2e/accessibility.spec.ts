@@ -8,6 +8,7 @@ import { addMember, seedDeliveredIssue, seedLoop, seedOpenIssue } from "./suppor
 import { seedPoll, seedPollVote } from "./support/polls";
 import { pickIn, signIn, triggerName, inOrder } from "./support/harness";
 import { seedAlbum } from "./support/album";
+import { openPerson } from "./support/people";
 import { copy, text as copyText, copyPattern } from "@/lib/copy";
 
 const TAGS = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"];
@@ -161,6 +162,7 @@ test("WCAG AA · loop creation pickers and member-role focus in dark mode", asyn
 
   // Updating a member role must preserve the trigger node and keyboard focus.
   await page.goto(`/g/${loop.groupId}/members`);
+  await openPerson(page, "Alice");
   const roleTrigger = page.getByRole("button", { name: triggerName(copy.members.roleAriaLabel) }).first();
   await roleTrigger.click();
   await page.getByRole("option", { name: copy.common.roles.admin }).first().click();
@@ -181,6 +183,7 @@ test("WCAG AA · stationery, handover, round names and profile photos", async ({
     if ((await page.locator("html").getAttribute("data-theme")) !== theme) {
       await page.getByRole("button", { name: theme === "light" ? copyPattern(copy.common.theme.switchToLight) : copyPattern(copy.common.theme.switchToDark) }).click();
     }
+    await openPerson(page, "heir");
     await page.getByRole("button", { name: copyText(copy.members.transferAction, { name: "heir" }) }).click();
     await expect(page.getByRole("group", { name: /Hand .* to heir/ })).toBeVisible();
     await audit(page, `members with the handover question open (${theme})`, false);
@@ -207,6 +210,7 @@ test("WCAG AA · a picker keeps focus across a save that disables it", async ({ 
   });
 
   await page.goto(`/g/${loop.groupId}/members`);
+  await openPerson(page, "Alice");
   const roleTrigger = page.getByRole("button", { name: triggerName(copy.members.roleAriaLabel) }).first();
   await roleTrigger.click();
   await page.getByRole("option", { name: copy.common.roles.admin }).first().click();

@@ -3,7 +3,7 @@ import { resetDatabase, rows } from "../support/db";
 import { seedLoop } from "../support/seed";
 import { addWithCard, runSweep, signIn } from "../support/harness";
 import { makePng } from "../support/audio";
-import { copy, text as copyText } from "@/lib/copy";
+import { copy, copyPattern, text as copyText } from "@/lib/copy";
 
 test.beforeEach(async () => {
   await resetDatabase();
@@ -53,7 +53,7 @@ test("K4 · a photo wall takes several photos, captions optional", async ({ page
   await expect(page.locator("figcaption").first()).toHaveText(/^Alice[^,]*$/);
 
   // Tapping a photo opens it full size, with the others a step away and a download.
-  const first = page.getByRole("button", { name: /Open photo from .*: The wall/ });
+  const first = page.getByRole("button", { name: copyPattern(copy.album.openPhoto, { values: { about: /The wall/ } }) });
   await first.click();
   const viewer = page.getByRole("dialog", { name: copy.album.viewer.label });
   await expect(viewer).toBeVisible();

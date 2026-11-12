@@ -21,6 +21,8 @@ test("a single tap on Send invitations sends what was typed", async ({ page }) =
   await signIn(page, "owner@friendloop.test");
   await page.goto(`/g/${loop.groupId}/members`);
 
+  // On a phone the invitation form is folded behind one button.
+  await page.getByRole("button", { name: copy.members.inviteButton }).tap();
   await page.getByLabel(copy.members.inviteAriaLabel).fill("fan@friendloop.test");
   await page.getByRole("button", { name: copy.members.sendInvitations }).tap();
 

@@ -1,7 +1,8 @@
 import { test, expect } from "../support/test";
 import { resetDatabase, rows } from "../support/db";
 import { addMember, seedLoop } from "../support/seed";
-import { signIn } from "../support/harness";
+import { openAddCard, signIn } from "../support/harness";
+import { openInvite, openPerson } from "../support/people";
 import { copy, copyPattern } from "@/lib/copy";
 
 test.beforeEach(async () => {
@@ -14,7 +15,7 @@ test("G3 · an admin manages people and settings, while downloading and deleting
   await signIn(page, "owner@friendloop.test");
 
   await page.goto(`/g/${loop.groupId}/members`);
-  const card = page.locator(".card").filter({ hasText: "admin@friendloop.test" });
+  const card = await openPerson(page, "admin");
   await card.getByRole("button", { name: /Role for/ }).click();
   await card.getByRole("option", { name: copy.common.roles.admin, exact: true }).click();
   await expect(card.getByRole("button", { name: /Role for.*Admin/ })).toBeVisible();
@@ -29,18 +30,21 @@ test("G3 · an admin manages people and settings, while downloading and deleting
   await signIn(page, "admin@friendloop.test");
 
   await page.goto(`/g/${loop.groupId}/members`);
+  await openInvite(page);
   await expect(page.getByLabel(copy.members.inviteAriaLabel)).toBeVisible();
 
   await page.goto(`/g/${loop.groupId}/questions`);
+  await openAddCard(page);
   await expect(page.getByLabel(copyPattern(copy.questions.item.textLabel, { start: true }))).toBeVisible();
 
   // Settings are theirs to change too, and the nav says where.
   await expect(page.getByRole("navigation", { name: copy.common.navigation.ariaLabel }).getByRole("link", { name: copy.common.navigation.settings })).toBeVisible();
   await page.goto(`/g/${loop.groupId}/settings`);
   await expect(page.getByText(copy.settings.adminNote)).toBeVisible();
+  // Details save as you go: leaving the field saves it.
   await page.locator('input[name="name"]').fill("Admin's Loop");
-  await page.getByRole("button", { name: copy.settings.save }).click();
-  await expect(page.getByText(copy.settings.savedNotice)).toBeVisible();
+  await page.locator('input[name="name"]').blur();
+  await expect(page.getByText(copy.stationery.statusSaved)).toBeVisible();
   const [group] = await rows<{ name: string }>("select name from groups where id = $1", [loop.groupId]);
   expect(group.name).toBe("Admin's Loop");
 
@@ -88,7 +92,7 @@ test("G3 · a promotion reaches the other person's live session", async ({ brows
     await expect(memberPage.getByLabel(copy.members.inviteAriaLabel)).toHaveCount(0);
 
     await ownerPage.goto(`/g/${loop.groupId}/members`);
-    const card = ownerPage.locator(".card").filter({ hasText: "promoted@friendloop.test" });
+    const card = await openPerson(ownerPage, "promoted");
     await card.getByRole("button", { name: /Role for/ }).click();
     await card.getByRole("option", { name: copy.common.roles.admin, exact: true }).click();
     await expect(card.getByRole("button", { name: /Role for.*Admin/ })).toBeVisible();
@@ -100,6 +104,7 @@ test("G3 · a promotion reaches the other person's live session", async ({ brows
 
     // Same browser session, same cookies, no sign-in in between.
     await memberPage.goto(`/g/${loop.groupId}/members`);
+    await openInvite(memberPage);
     await expect(memberPage.getByLabel(copy.members.inviteAriaLabel)).toBeVisible();
   } finally {
     await ownerContext.close();

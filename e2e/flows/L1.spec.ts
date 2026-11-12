@@ -1,6 +1,7 @@
 import { test, expect } from "../support/test";
 import { resetDatabase, rows } from "../support/db";
 import { seedLoop } from "../support/seed";
+import { openPlan } from "../support/questions";
 import { addCard, fillItem, openItem, runSweep, signIn } from "../support/harness";
 import { AFTER_FIRST_SLOT } from "../support/clock";
 import { copy, text as copyText, copyPattern } from "@/lib/copy";
@@ -13,6 +14,7 @@ test("L1 · the owner adds a poll that lives in the queue like any question", as
   const loop = await seedLoop();
   await signIn(page, "owner@friendloop.test");
   await page.goto(`/g/${loop.groupId}/questions`);
+  await openPlan(page);
   const card = addCard(page);
 
   // Two options that read the same are one option: the page says so plainly.
@@ -37,6 +39,7 @@ test("L1 · the owner adds a poll that lives in the queue like any question", as
   expect({ ...poll }).toEqual({ text: "Where should we camp?", poll_options: ["The lake", "The mountains", "The coast"], poll_multiple: true, kind: "poll" });
 
   // It sits at the end of the queue, labelled, with its options listed.
+  await openPlan(page);
   const queue = page.getByRole("list", { name: copy.questions.upNext.turnsLabel });
   const item = queue.locator(":scope > li").last();
   await expect(item).toContainText("Where should we camp?");
@@ -58,6 +61,7 @@ test("L1 · the owner adds a poll that lives in the queue like any question", as
 
   // And it stops like one.
   await page.reload();
+  await openPlan(page);
   const row = await openItem(page, "Where should we camp?", 1);
   await row.getByRole("button", { name: copyText(copy.questions.item.stopLabel, { item: "Where should we camp?" }) }).click();
   await row.getByRole("button", { name: copy.questions.item.stopConfirm }).click();

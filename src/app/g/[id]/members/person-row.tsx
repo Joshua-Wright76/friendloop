@@ -102,13 +102,14 @@ export function PersonRow({
           className="ppl-summary"
           aria-expanded={open}
           aria-controls={panelId}
-          aria-label={isYou ? undefined : text(copy.members.manageLabel, { name })}
           onClick={() => {
             setOpen(!open);
             setOpened(true);
           }}
         >
           {summary}
+          {/* The row's own words stay in the accessible name (a name that skipped them would not match what is visible), with the panel's promise after them. */}
+          {isYou ? null : <span className="sr-only">{` — ${copy.members.manageHint}`}</span>}
         </button>
       ) : (
         <div className="ppl-summary ppl-summary--static">{summary}</div>

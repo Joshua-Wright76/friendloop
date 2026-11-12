@@ -31,8 +31,8 @@ test("D14 · the owner previews the open round with everyone's answers so far", 
   await expect(note).toContainText(copy.issue.preview.note);
   // Read-only: nobody reacts to a draft.
   const buttons = page.locator("article.answer-card", { hasText: "A goose chased Dev." }).getByRole("button");
-  await expect(buttons.first()).toBeVisible();
-  for (const button of await buttons.all()) await expect(button).toBeDisabled();
+  await expect(page.locator("article.answer-card", { hasText: "A goose chased Dev." })).toBeVisible();
+  await expect(buttons).toHaveCount(0);
   await note.getByRole("link", { name: copy.issue.preview.back }).click();
   await expect(page).toHaveURL(new RegExp(`/g/${loop.groupId}$`));
 

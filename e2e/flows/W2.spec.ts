@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { test, expect } from "../support/test";
-import { copy, text } from "@/lib/copy";
+import { copy, copyPattern, text } from "@/lib/copy";
 import { resetDatabase, rows } from "../support/db";
 import { seedLoop } from "../support/seed";
 import { addWithCard, runSweep, signIn } from "../support/harness";
@@ -55,5 +55,5 @@ test("W2 · a photo wall takes up to two videos among its photos, and the delive
   await expect(page.locator("video").first()).toHaveAttribute("poster", media[0].url);
   await expect(page.getByText(/The ferry/)).toBeVisible();
   // Clips don't open in the photo viewer: there is nothing to open.
-  await expect(page.getByRole("button", { name: /Open photo from/ })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: copyPattern(copy.album.openPhoto, { start: true }) })).toHaveCount(0);
 });

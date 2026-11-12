@@ -2,6 +2,7 @@ import { test, expect } from "../support/test";
 import { resetDatabase, rows } from "../support/db";
 import { seedLoop } from "../support/seed";
 import { signIn } from "../support/harness";
+import { openInvite } from "../support/people";
 import { LIMITS } from "../../src/lib/rate-limit-policy";
 import { copy, copyPattern } from "@/lib/copy";
 
@@ -19,6 +20,7 @@ test("B8 · past the day's invitations, the form says so and nothing else is sen
   );
 
   await page.goto(`/g/${loop.groupId}/members`);
+  await openInvite(page);
   await page.getByLabel(copy.members.inviteAriaLabel).first().fill("one-too-many@friendloop.test");
   await page.getByRole("button", { name: copy.members.sendInvitations }).click();
   await expect(page.getByText(copyPattern(copy.members.inviteLimited))).toBeVisible();

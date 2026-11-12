@@ -1,7 +1,7 @@
 import { test, expect } from "../support/test";
 import { resetDatabase, rows } from "../support/db";
 import { addMember, seedDeliveredIssue, seedLoop } from "../support/seed";
-import { DELIVERY_DAY, signIn } from "../support/harness";
+import { DELIVERY_DAY, signIn, unfold } from "../support/harness";
 import { copy } from "@/lib/copy";
 
 test.beforeEach(async () => {
@@ -27,6 +27,7 @@ test("V2 · a signed-in person deletes their account, and every round stops show
   await expect(reader.getByText("Wren went sailing")).toBeVisible();
 
   await signIn(page, "wren@friendloop.test");
+  await unfold(page, copy.you.dataTitle);
   await page.getByRole("link", { name: copy.you.deleteAccount }).click();
   await expect(page).toHaveURL(/\/you\/delete$/);
   await expect(page.getByRole("heading", { level: 1, name: copy.account.metadataTitle })).toBeVisible();
@@ -64,8 +65,8 @@ test("V2 · an owner with people in their loop must hand it on or delete it firs
 
   await expect(page.getByRole("heading", { name: copy.account.blockedTitle })).toBeVisible();
   await expect(page.getByText("Friday Loop")).toBeVisible();
-  await expect(page.getByRole("link", { name: copy.account.handOn })).toHaveAttribute("href", `/g/${loop.groupId}/members`);
-  await expect(page.getByRole("link", { name: copy.account.deleteLoop })).toHaveAttribute("href", `/g/${loop.groupId}/settings`);
+  await expect(page.getByRole("link", { name: copy.account.handOn })).toHaveAttribute("href", `/g/${loop.groupId}/members?then=delete-account`);
+  await expect(page.getByRole("link", { name: copy.account.deleteLoop })).toHaveAttribute("href", `/g/${loop.groupId}/settings?then=delete-account#delete-loop`);
   await expect(page.getByRole("button", { name: copy.account.submit })).toHaveCount(0);
 
   expect(await rows("select id from users where email = 'owner@friendloop.test'")).toHaveLength(1);
