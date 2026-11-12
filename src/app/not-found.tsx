@@ -26,10 +26,13 @@ export default function NotFound() {
 }
 
 function HomeLink({ signedIn = false }: { signedIn?: boolean }) {
-  return (
-    <Link href={signedIn ? "/you" : "/"} className="btn btn-primary mt-5 inline-flex">
-      {signedIn ? copy.common.notFound.yourLoops : copy.common.notFound.home}
-    </Link>
+  return signedIn ? (
+    <Link href="/you" className="btn btn-primary mt-5 inline-flex">{copy.common.notFound.yourLoops}</Link>
+  ) : (
+    <div className="mt-5 flex flex-wrap gap-3">
+      <Link href="/signin" className="btn btn-primary">{copy.deadLink.signIn}</Link>
+      <Link href="/" className="btn btn-quiet">{copy.common.notFound.home}</Link>
+    </div>
   );
 }
 

@@ -1,9 +1,9 @@
 "use server";
 
-import { eq } from "drizzle-orm";
+import { and, eq, isNotNull, isNull } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { db } from "@/db";
-import { issues } from "@/db/schema";
+import { comments, issues } from "@/db/schema";
 import { membershipForViewer } from "@/lib/issue-view";
 import { currentUser } from "@/lib/auth";
 import { copy, text } from "@/lib/copy";
@@ -52,6 +52,60 @@ export async function toggleReaction(input: {
   if (!result.ok) {
     return { ok: false, error: result.reason === "limit" ? copy.issue.errors.reactLimit : copy.issue.errors.reactRefused };
   }
+
+  revalidatePath(`/i/${input.issueId}`);
+  return { ok: true };
+}
+
+/** Take down a comment of your own. Someone else's, or one on another issue, matches nothing. */
+export async function deleteComment(input: {
+  issueId: string;
+  commentId: string;
+  viewerToken: string | null;
+}): Promise<ActionResult> {
+  const membership = await viewerFor(input.issueId, input.viewerToken);
+  if (!membership) return { ok: false, error: copy.issue.errors.commentMembersOnly };
+
+  const removed = await db
+    .update(comments)
+    .set({ deletedAt: new Date() })
+    .where(
+      and(
+        eq(comments.id, input.commentId),
+        eq(comments.issueId, input.issueId),
+        eq(comments.membershipId, membership.id),
+        isNull(comments.deletedAt),
+      ),
+    )
+    .returning({ id: comments.id });
+  if (removed.length === 0) return { ok: false, error: copy.issue.errors.invalidRequest };
+
+  revalidatePath(`/i/${input.issueId}`);
+  return { ok: true };
+}
+
+/** Bring back a comment of your own that was just taken down (the "Undo" beside "Comment deleted"). */
+export async function restoreComment(input: {
+  issueId: string;
+  commentId: string;
+  viewerToken: string | null;
+}): Promise<ActionResult> {
+  const membership = await viewerFor(input.issueId, input.viewerToken);
+  if (!membership) return { ok: false, error: copy.issue.errors.commentMembersOnly };
+
+  const restored = await db
+    .update(comments)
+    .set({ deletedAt: null })
+    .where(
+      and(
+        eq(comments.id, input.commentId),
+        eq(comments.issueId, input.issueId),
+        eq(comments.membershipId, membership.id),
+        isNotNull(comments.deletedAt),
+      ),
+    )
+    .returning({ id: comments.id });
+  if (restored.length === 0) return { ok: false, error: copy.issue.errors.invalidRequest };
 
   revalidatePath(`/i/${input.issueId}`);
   return { ok: true };

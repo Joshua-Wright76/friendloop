@@ -1,5 +1,6 @@
 "use client";
 
+import { DialogClose } from "@/components/dialog-close";
 import { wrapTab } from "./focus-wrap";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { copy, text } from "@/lib/copy";
@@ -109,7 +110,7 @@ export function PhotoLightbox({
             <p className="m-0 text-[13px] font-bold text-ink-soft numeric" aria-live="polite">
               {text(copy.album.viewer.position, { current: (current ?? 0) + 1, total: photos.length })}
             </p>
-            <button type="button" className="btn btn-quiet" onClick={close}>{copy.album.viewer.close}</button>
+            <DialogClose onClick={close} />
           </div>
           {/* eslint-disable-next-line @next/next/no-img-element -- Uploaded photos live on local URLs in development and Blob in production. */}
           <img src={photo.url} alt={text(copy.album.photoAlt, { author: photo.author })} className="album-viewer-photo" />

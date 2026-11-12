@@ -1,10 +1,10 @@
-import Link from "next/link";
 import type { Metadata } from "next";
 import { resolveToken } from "@/lib/reply";
 import { copy } from "@/lib/copy";
 import { SuggestForm } from "./suggest-form";
-import { LoopTheme } from "@/components/loop-theme";
-import { Cherries, Tape } from "@/components/stationery";
+import { LoopPageHeader, LoopTheme } from "@/components/loop-theme";
+import { Brand, Tape } from "@/components/stationery";
+import { DeadLinkPage } from "@/components/dead-link";
 
 // One indexed query behind this page; a blocking route is faster than a skeleton.
 export const instant = false;
@@ -19,17 +19,12 @@ export const metadata: Metadata = {
 function Closed({ title, body }: { title: string; body: string }) {
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-[560px] flex-col justify-center px-4 py-10">
-      <div className="card p-6">
-        <h1 className="text-[22px] font-semibold leading-tight tracking-[-0.02em] text-ink">
-          {title}
-        </h1>
+      <div className="mb-8 self-start"><Brand /></div>
+      <div className="card p-6 pt-8">
+        <Tape tone="stripe" position="center" />
+        <h1 className="text-[24px] font-semibold leading-tight tracking-[-0.022em] text-ink">{title}</h1>
         <p className="mt-2 text-[15px] leading-relaxed text-ink-soft">{body}</p>
       </div>
-      <p className="mt-6 text-center text-[13px] text-ink-muted">
-        <Link href="/" className="underline decoration-line-strong underline-offset-4">
-          {copy.common.brand}
-        </Link>
-      </p>
     </main>
   );
 }
@@ -39,7 +34,7 @@ export default async function SuggestPage({ params }: { params: Promise<{ token:
   const context = await resolveToken(token);
 
   if (context.state === "invalid") {
-    return <Closed title={copy.reply.invalidTitle} body={copy.reply.invalidBody} />;
+    return <DeadLinkPage title={copy.reply.invalidTitle} body={copy.reply.invalidBody} next={copy.reply.invalidNext} />;
   }
 
   if (context.state === "reader") {
@@ -52,10 +47,7 @@ export default async function SuggestPage({ params }: { params: Promise<{ token:
     <main className="mx-auto flex min-h-dvh w-full max-w-[560px] flex-col justify-center px-4 py-10">
       {/* Written on the loop's own stationery, like the reply sheet it came from. */}
       <LoopTheme group={context.group} />
-      <p className="mb-4 flex items-center gap-2 font-display text-[23px] font-bold text-ink">
-        <Cherries className="h-7 w-7 flex-none" />
-        <span className="wrap-any">{context.group.name}</span>
-      </p>
+      <LoopPageHeader name={context.group.name} imageUrl={context.group.headerImageUrl} />
       <div className="card p-6 pt-8">
         <Tape tone="dots" position="left" />
         <h1 className="text-ink">
@@ -64,11 +56,6 @@ export default async function SuggestPage({ params }: { params: Promise<{ token:
         <p className="mt-2 text-[15px] leading-relaxed text-ink-soft">{copy.suggest.description}</p>
         <SuggestForm token={token} displayName={displayName} />
       </div>
-      <p className="mt-6 text-center text-[13px] text-ink-muted">
-        <Link href={`/r/${token}`} className="underline decoration-line-strong underline-offset-4">
-          {copy.suggest.backToSheet}
-        </Link>
-      </p>
     </main>
   );
 }

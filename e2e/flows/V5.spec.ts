@@ -1,7 +1,7 @@
 import { test, expect } from "../support/test";
 import { latestOutbox, linkFrom, resetDatabase, rows } from "../support/db";
 import { seedLoop } from "../support/seed";
-import { signIn } from "../support/harness";
+import { signIn, unfold } from "../support/harness";
 import { copy, text } from "@/lib/copy";
 
 test.beforeEach(async () => {
@@ -13,6 +13,7 @@ test("V5 · moving an account to a new address, confirmed from that inbox", asyn
   await signIn(page, "owner@friendloop.test");
 
   await page.goto("/you");
+  await unfold(page, copy.you.emailChangeTitle);
   await page.getByLabel(copy.you.emailChangeLabel).fill("new-owner@friendloop.test");
   await page.getByRole("button", { name: copy.you.emailChangeSubmit }).click();
   await expect(page.getByText("Check new-owner@friendloop.test for the link.")).toBeVisible();

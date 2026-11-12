@@ -13,7 +13,7 @@ export type UnsubscribeContext =
       membershipId: string;
       muted: boolean;
       groupName: string;
-      group: Pick<typeof groups.$inferSelect, "themePreset" | "themeAccent" | "themeBackground" | "themePaperPack" | "themeTapePack" | "themeMascot">;
+      group: Pick<typeof groups.$inferSelect, "themePreset" | "themeAccent" | "themeBackground" | "themePaperPack" | "themeTapePack" | "themeMascot" | "headerImageUrl">;
     };
 
 /**
@@ -34,6 +34,7 @@ export async function resolveUnsubscribe(token: string): Promise<UnsubscribeCont
       themePaperPack: groups.themePaperPack,
       themeTapePack: groups.themeTapePack,
       themeMascot: groups.themeMascot,
+      headerImageUrl: groups.headerImageUrl,
     })
     .from(memberships)
     .innerJoin(groups, eq(groups.id, memberships.groupId))
@@ -52,6 +53,7 @@ export async function resolveUnsubscribe(token: string): Promise<UnsubscribeCont
       themePaperPack: row.themePaperPack,
       themeTapePack: row.themeTapePack,
       themeMascot: row.themeMascot,
+      headerImageUrl: row.headerImageUrl,
     },
   };
 }

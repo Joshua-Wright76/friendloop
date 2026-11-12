@@ -3,10 +3,11 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { CHECK_EMAIL_COOKIE, confirmSignInCode, type JoinResult, LINK_HOURS, normalizeEmail, requestMagicLink } from "@/lib/auth";
-import { joinDestination } from "@/lib/invite-link";
+import { JOIN_CHECK_COOKIE, joinDestination } from "@/lib/invite-link";
 import { copy } from "@/lib/copy";
 import { requestIp } from "@/lib/rate-limit";
 import { secureCookies } from "@/lib/e2e";
+import { plainDestination, rememberStart, START_CHECK_COOKIE } from "./start";
 
 export type SignInState = { error?: string };
 
@@ -23,9 +24,30 @@ export async function requestLink(
   const outcome = await requestMagicLink(email, { ip: await requestIp() });
   if (outcome === "busy") return { error: copy.signIn.tooMany };
   await rememberCheckEmail(email);
+  await rememberStart(formData.get("start") === "1");
+  (await cookies()).delete({ name: JOIN_CHECK_COOKIE, path: "/signin" });
   // Same destination whether or not the address has ever been seen, and whether
   // or not this address has had too many links lately.
   redirect("/signin/check-email");
+}
+
+export type ResendState = { error?: string; sentTo?: string };
+
+/**
+ * "Send it again" on the check-inbox page: the address (and invite link) this
+ * browser already gave, read back from its own cookies, so nothing is retyped.
+ * It goes through the same request function, so the same rate limits apply.
+ */
+export async function resendLink(): Promise<ResendState> {
+  const jar = await cookies();
+  const email = jar.get(CHECK_EMAIL_COOKIE)?.value?.slice(0, 254) ?? "";
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { error: copy.signIn.invalidEmail };
+  const joinToken = jar.get(JOIN_CHECK_COOKIE)?.value;
+
+  const outcome = await requestMagicLink(email, { ip: await requestIp(), joinToken: joinToken || undefined });
+  if (outcome === "busy") return { error: copy.signIn.tooMany };
+  await rememberCheckEmail(email);
+  return { sentTo: email };
 }
 
 export type CodeState = { error?: string };
@@ -44,8 +66,9 @@ export async function enterCode(_previous: CodeState, formData: FormData): Promi
   });
 
   if (result.ok === true) {
+    const destination = await signedInDestination(result.join, result.user.id);
     await forgetCheckEmail();
-    redirect(signedInDestination(result.join));
+    redirect(destination);
   }
   if (result.ok === "name") redirect(`/signin/confirm?token=${encodeURIComponent(result.token)}`);
   const errors = { busy: copy.checkEmail.codeBusy, locked: copy.checkEmail.codeLocked, wrong: copy.checkEmail.codeWrong };
@@ -54,7 +77,21 @@ export async function enterCode(_previous: CodeState, formData: FormData): Promi
 
 /** Once someone is in, the address they asked for needn't sit in a cookie for days (a shared computer). */
 export async function forgetCheckEmail(): Promise<void> {
-  (await cookies()).delete({ name: CHECK_EMAIL_COOKIE, path: "/signin" });
+  const jar = await cookies();
+  jar.delete({ name: CHECK_EMAIL_COOKIE, path: "/signin" });
+  jar.delete({ name: JOIN_CHECK_COOKIE, path: "/signin" });
+  jar.delete({ name: START_CHECK_COOKIE, path: "/signin" });
+}
+
+/** Remembers the invite link someone asked to join through, so the next page can name the loop. */
+export async function rememberJoinToken(token: string): Promise<void> {
+  (await cookies()).set(JOIN_CHECK_COOKIE, token.slice(0, 64), {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: secureCookies(),
+    path: "/signin",
+    maxAge: LINK_HOURS * 60 * 60,
+  });
 }
 
 /**
@@ -74,6 +111,6 @@ export async function rememberCheckEmail(email: string): Promise<void> {
 }
 
 /** Your loops, or, for someone who came from an invite link, the loop they joined. */
-function signedInDestination(join: JoinResult | undefined): string {
-  return join ? joinDestination(join.joinToken, join.outcome) : "/you";
+async function signedInDestination(join: JoinResult | undefined, userId: string): Promise<string> {
+  return join ? joinDestination(join.joinToken, join.outcome) : plainDestination(userId);
 }

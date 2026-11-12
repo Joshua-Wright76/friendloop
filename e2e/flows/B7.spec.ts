@@ -1,6 +1,6 @@
 import { test, expect } from "../support/test";
 import { resetDatabase, rows } from "../support/db";
-import { signIn, uniqueEmail, unfoldLooks } from "../support/harness";
+import { accentField, signIn, uniqueEmail, unfoldLooks, unfoldLook } from "../support/harness";
 import { TINY_PNG } from "../support/comments";
 import { PAPER, chooseFile, cssVar, gotoScheme } from "../support/identity";
 import { copy, copyPattern } from "@/lib/copy";
@@ -33,11 +33,13 @@ test("B7 · the wizard sets the paper, accent and header picture, and they survi
   await toLookStep(page, "Meadow Mornings");
 
   // The same choices as the settings, starting from the original.
+  await unfoldLook(page, copy.stationery.paperLegend);
   await expect(page.getByRole("radio", { name: copyPattern(copy.stationery.presets.gingham.name) })).toBeChecked();
+  await unfoldLook(page, copy.stationery.paperLegend);
   await page.getByRole("radio", { name: copyPattern(copy.stationery.presets.meadow.name) }).check();
   await expect(page.getByTestId("stationery-preview-light")).toBeVisible();
   await expect(page.getByTestId("stationery-preview-dark")).toBeVisible();
-  await page.getByLabel(copy.stationery.accentInput).fill("#2a6b3c");
+  await (await accentField(page)).fill("#2a6b3c");
 
   await chooseFile(page, "Choose a header picture", { name: "banner.png", mimeType: "image/png", buffer: TINY_PNG });
   await expect(page.locator("img.loop-banner")).toBeVisible();
@@ -46,8 +48,10 @@ test("B7 · the wizard sets the paper, accent and header picture, and they survi
   // Moving on and coming back costs nothing.
   await page.getByRole("button", { name: NEXT }).click();
   await page.getByRole("button", { name: "Go to the previous setup step" }).click();
+  await unfoldLooks(page);
+  await unfoldLook(page, copy.stationery.paperLegend);
   await expect(page.getByRole("radio", { name: copyPattern(copy.stationery.presets.meadow.name) })).toBeChecked();
-  await expect(page.getByLabel(copy.stationery.accentInput)).toHaveValue("#2a6b3c");
+  await expect(await accentField(page)).toHaveValue("#2a6b3c");
   await expect(page.locator("img.loop-banner")).toBeVisible();
 
   await createFromLookStep(page);
@@ -72,10 +76,10 @@ test("B7 · skipping the step changes nothing, and a bad accent or an oversize p
   await toLookStep(page, "Plain Loop");
 
   // A made-up accent holds the step; the words say what to do.
-  await page.getByLabel(copy.stationery.accentInput).fill("yellow-ish");
+  await (await accentField(page)).fill("yellow-ish");
   await page.getByRole("button", { name: NEXT }).click();
   await expect(page.getByText(copy.stationery.accentInvalid)).toBeVisible();
-  await expect(page.getByLabel(copy.stationery.accentInput)).toBeFocused();
+  await expect(await accentField(page)).toBeFocused();
   await expect(page.getByRole("heading", { name: copy.newLoop.wizard.look.title })).toBeVisible();
   await page.getByRole("button", { name: copy.stationery.accentReset }).click();
 
@@ -101,9 +105,13 @@ test("B7 · the wizard also offers the page, paper pack, tape pack and mascot, s
   await signIn(page, uniqueEmail("owner"));
   await toLookStep(page, "Dressed Up");
 
+  await unfoldLook(page, copy.stationery.backgroundLegend);
   await page.getByRole("radio", { name: copyPattern(copy.stationery.backgrounds.daisies, { start: true }) }).check();
+  await unfoldLook(page, copy.stationery.packLegend);
   await page.getByRole("radio", { name: copyPattern(copy.stationery.packs.watercolor.name, { start: true }) }).check();
+  await unfoldLook(page, copy.stationery.tapeLegend);
   await page.getByRole("radio", { name: copyPattern(copy.stationery.tapes.candy, { start: true }) }).check();
+  await unfoldLook(page, copy.stationery.mascotLegend);
   await page.getByRole("radio", { name: /^Snail/ }).check();
 
   // Tried on straight away, before the loop exists: the page behind, and the sheet itself.
@@ -112,17 +120,21 @@ test("B7 · the wizard also offers the page, paper pack, tape pack and mascot, s
   expect(await backgroundOf(".wizard-sheet")).toContain("data:image/svg+xml");
   expect(await cssVar(page, "--mascot-image")).toContain("/stickers/snail.svg");
   // School notebook rules the words rather than the card, and still changes the sheet.
+  await unfoldLook(page, copy.stationery.packLegend);
   await page.getByRole("radio", { name: copyPattern(copy.stationery.packs.schoolbook.name, { start: true }) }).check();
   expect(await backgroundOf(".wizard-sheet")).toContain("radial-gradient");
   // Plain cream takes it all off again.
+  await unfoldLook(page, copy.stationery.packLegend);
   await page.getByRole("radio", { name: copyPattern(copy.stationery.packs.cream.name, { start: true }) }).check();
   expect(await backgroundOf(".wizard-sheet")).toBe("none");
+  await unfoldLook(page, copy.stationery.packLegend);
   await page.getByRole("radio", { name: copyPattern(copy.stationery.packs.watercolor.name, { start: true }) }).check();
 
   // Moving on and coming back costs nothing.
   await page.getByRole("button", { name: NEXT }).click();
   await page.getByRole("button", { name: "Go to the previous setup step" }).click();
   await unfoldLooks(page);
+  await unfoldLook(page, copy.stationery.tapeLegend);
   await expect(page.getByRole("radio", { name: copyPattern(copy.stationery.tapes.candy, { start: true }) })).toBeChecked();
 
   await createFromLookStep(page);

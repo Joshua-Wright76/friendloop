@@ -7,7 +7,7 @@ import { FieldLabel } from "@/components/field-label";
 
 const initial: SignInState = {};
 
-export function SignInForm() {
+export function SignInForm({ start = false }: { start?: boolean }) {
   const [state, action, pending] = useActionState(requestLink, initial);
   // Controlled, so a failed submit does not wipe what was typed (React resets uncontrolled fields).
   const [email, setEmail] = useState("");
@@ -31,6 +31,7 @@ export function SignInForm() {
       }}
       className="flex flex-col gap-4"
     >
+      {start ? <input type="hidden" name="start" value="1" /> : null}
       <label className="flex flex-col gap-1.5">
         <FieldLabel required>{copy.signIn.emailLabel}</FieldLabel>
         <input

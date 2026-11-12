@@ -11,7 +11,7 @@ test("V1 · privacy and terms are a click from the landing page, the sign-in pag
   await page.goto("/");
   // The code is public, and the landing page says where.
   await expect(page.getByRole("link", { name: copy.home.source.link })).toHaveAttribute("href", "https://github.com/Joshua-Wright76/friendloop");
-  const footer = page.getByRole("navigation", { name: copy.legal.footerLabel });
+  const footer = page.getByRole("contentinfo");
   await footer.getByRole("link", { name: copy.legal.privacyLink }).click();
   await expect(page).toHaveURL(/\/privacy$/);
   await expect(page.getByRole("heading", { level: 1, name: copy.legal.privacy.title })).toBeVisible();
@@ -21,12 +21,12 @@ test("V1 · privacy and terms are a click from the landing page, the sign-in pag
   }
   await expect(page.getByRole("heading", { name: copy.legal.privacy.sections[4].heading })).toBeVisible();
 
-  await page.getByRole("navigation", { name: copy.legal.footerLabel }).getByRole("link", { name: copy.legal.termsLink }).click();
+  await page.getByRole("contentinfo").getByRole("link", { name: copy.legal.termsLink }).click();
   await expect(page).toHaveURL(/\/terms$/);
   await expect(page.getByRole("heading", { level: 1, name: copy.legal.terms.title })).toBeVisible();
 
   await page.goto("/signin");
-  await page.getByRole("navigation", { name: copy.legal.footerLabel }).getByRole("link", { name: copy.legal.privacyLink }).click();
+  await page.getByRole("contentinfo").getByRole("link", { name: copy.legal.privacyLink }).click();
   await expect(page).toHaveURL(/\/privacy$/);
 
   // Every email carries both links under its footer.

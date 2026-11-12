@@ -2,6 +2,7 @@ import { test, expect } from "../support/test";
 import { resetDatabase, rows } from "../support/db";
 import { seedDeliveredIssue, seedLoop } from "../support/seed";
 import { signIn } from "../support/harness";
+import { openPerson } from "../support/people";
 import { copy, copyPattern } from "@/lib/copy";
 
 test.beforeEach(async () => {
@@ -18,7 +19,7 @@ test("F3 · removing someone revokes their link but keeps what they wrote", asyn
   await signIn(page, "owner@friendloop.test");
 
   await page.goto(`/g/${loop.groupId}/members`);
-  const bobCard = page.locator(".card").filter({ hasText: "bob@friendloop.test" });
+  const bobCard = await openPerson(page, "Bob");
   await bobCard.getByRole("button", { name: copyPattern(copy.a11yLabels.removeMember, { start: true }) }).click();
   await bobCard.getByRole("button", { name: copyPattern(copy.a11yLabels.removeMemberConfirm, { start: true }) }).click(); // removing asks first
   await expect(page.getByText(copy.members.removedNotice)).toBeVisible();

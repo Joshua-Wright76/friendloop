@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { DialogClose } from "@/components/dialog-close";
 import { copy } from "@/lib/copy";
 import { micHelp, type MicHelp, type MicHelpScreen } from "@/lib/mic-help";
 
@@ -50,11 +51,15 @@ export function MicHelpButton({ onRetry }: { onRetry: () => void }) {
         ref={dialog}
         className="wizard-dialog mic-help"
         aria-labelledby="mic-help-title"
+        onClick={(event) => {
+          if (event.target === event.currentTarget) dialog.current?.close();
+        }}
         onClose={() => setHelp(null)}
       >
         {help ? (
           <div>
-            <h2 id="mic-help-title" className="text-ink">{copy.micHelp.title}</h2>
+            <DialogClose onClick={() => dialog.current?.close()} />
+            <h2 id="mic-help-title" className="pr-11 text-ink">{copy.micHelp.title}</h2>
             <p className="mt-1.5 text-[14px] leading-relaxed text-ink-soft">{help.intro}</p>
 
             <div className="mic-help__stage">

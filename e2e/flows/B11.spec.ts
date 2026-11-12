@@ -1,6 +1,6 @@
 import { test, expect } from "../support/test";
 import { resetDatabase, rows } from "../support/db";
-import { signIn, uniqueEmail } from "../support/harness";
+import { signIn, uniqueEmail, unfoldLooks, unfoldLook } from "../support/harness";
 import { TINY_PNG } from "../support/comments";
 import { chooseFile } from "../support/identity";
 import { copy, copyPattern } from "@/lib/copy";
@@ -19,6 +19,8 @@ test("B11 · an interrupted setup picks up where it left off, and is gone once t
   await page.getByLabel(copy.newLoop.nameLabel).fill("Kitchen Table");
   await page.getByRole("button", { name: copy.newLoop.cadences[1].label }).click();
   await page.getByRole("button", { name: NEXT }).click();
+  await unfoldLooks(page);
+  await unfoldLook(page, copy.stationery.paperLegend);
   await page.getByRole("radio", { name: copyPattern(copy.stationery.presets.meadow.name) }).check();
   await chooseFile(page, "Choose a header picture", { name: "banner.png", mimeType: "image/png", buffer: TINY_PNG });
   await expect(page.getByText(copy.newLoop.wizard.look.pictureChosen)).toBeVisible();
@@ -39,6 +41,8 @@ test("B11 · an interrupted setup picks up where it left off, and is gone once t
   await page.getByRole("button", { name: "Go to the previous setup step" }).click();
   await expect(page.getByRole("button", { name: copy.newLoop.wizard.questions.ideas[0].question })).toHaveAttribute("aria-pressed", "true");
   await page.getByRole("button", { name: "Go to the previous setup step" }).click();
+  await unfoldLooks(page);
+  await unfoldLook(page, copy.stationery.paperLegend);
   await expect(page.getByRole("radio", { name: copyPattern(copy.stationery.presets.meadow.name) })).toBeChecked();
   await expect(page.locator("img.loop-banner")).toBeVisible();
   await page.getByRole("button", { name: "Go to the previous setup step" }).click();

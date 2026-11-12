@@ -1,7 +1,7 @@
 import { test, expect, type Page } from "../support/test";
 import AxeBuilder from "@axe-core/playwright";
 import { resetDatabase, rows } from "../support/db";
-import { DELIVERY_DAY, openPart, runSweep, signIn, unfoldLooks } from "../support/harness";
+import { DELIVERY_DAY, openPart, runSweep, signIn, unfoldLooks, unfoldLook } from "../support/harness";
 import { cssVar, gotoScheme, seedWorld } from "../support/identity";
 import { copy, copyPattern } from "@/lib/copy";
 
@@ -34,18 +34,28 @@ test("N6 · the owner picks a page, paper pack, tape pack and mascot separately,
   await unfoldLooks(page);
 
   // The originals are chosen, and stored as nothing.
-  for (const name of [copyPattern(copy.stationery.backgrounds.gingham, { start: true, end: true }), copyPattern(copy.stationery.packs.cream.name, { start: true }), copyPattern(copy.stationery.tapes.picnic, { start: true, end: true }), /^Cherries$/]) {
+  for (const [legend, name] of [
+    [copy.stationery.backgroundLegend, copyPattern(copy.stationery.backgrounds.gingham, { start: true, end: true })],
+    [copy.stationery.packLegend, copyPattern(copy.stationery.packs.cream.name, { start: true })],
+    [copy.stationery.tapeLegend, copyPattern(copy.stationery.tapes.picnic, { start: true, end: true })],
+    [copy.stationery.mascotLegend, /^Cherries$/],
+  ] as const) {
+    await unfoldLook(page, legend);
     await expect(page.getByRole("radio", { name })).toBeChecked();
   }
   await expect.poll(() => choices(loop.groupId)).toEqual({ theme_background: null, theme_paper_pack: null, theme_tape_pack: null, theme_mascot: null });
 
   // Each saves by itself and leaves the others alone: tape is not part of the paper.
+  await unfoldLook(page, copy.stationery.backgroundLegend);
   await page.getByRole("radio", { name: copyPattern(copy.stationery.backgrounds.hearts, { start: true }) }).check();
   await expect.poll(() => choices(loop.groupId)).toEqual({ theme_background: "hearts", theme_paper_pack: null, theme_tape_pack: null, theme_mascot: null });
+  await unfoldLook(page, copy.stationery.packLegend);
   await page.getByRole("radio", { name: copyPattern(copy.stationery.packs.airmail.name, { start: true }) }).check();
   await expect.poll(() => choices(loop.groupId)).toEqual({ theme_background: "hearts", theme_paper_pack: "airmail", theme_tape_pack: null, theme_mascot: null });
+  await unfoldLook(page, copy.stationery.tapeLegend);
   await page.getByRole("radio", { name: copyPattern(copy.stationery.tapes.seaside, { start: true }) }).check();
   await expect.poll(() => choices(loop.groupId)).toEqual({ theme_background: "hearts", theme_paper_pack: "airmail", theme_tape_pack: "seaside", theme_mascot: null });
+  await unfoldLook(page, copy.stationery.mascotLegend);
   await page.getByRole("radio", { name: /^Frog/ }).check();
   await expect.poll(() => choices(loop.groupId)).toEqual({ theme_background: "hearts", theme_paper_pack: "airmail", theme_tape_pack: "seaside", theme_mascot: "frog" });
   await expect(page.getByTestId("mascot-preview").locator('img[src="/stickers/frog.svg"]')).toHaveCount(2);
@@ -97,14 +107,19 @@ test("N6 · back to the originals stores nothing and adds no CSS, so the loop re
   await page.goto(`/g/${loop.groupId}/settings`);
   await openPart(page, copy.settings.groupPaper);
   await unfoldLooks(page);
+  await unfoldLook(page, copy.stationery.backgroundLegend);
   await expect(page.getByRole("radio", { name: copyPattern(copy.stationery.backgrounds.stars, { start: true }) })).toBeChecked();
 
+  await unfoldLook(page, copy.stationery.backgroundLegend);
   await page.getByRole("radio", { name: copyPattern(copy.stationery.backgrounds.gingham, { start: true, end: true }) }).check();
   await expect.poll(async () => (await choices(loop.groupId)).theme_background).toBeNull();
+  await unfoldLook(page, copy.stationery.packLegend);
   await page.getByRole("radio", { name: copyPattern(copy.stationery.packs.cream.name, { start: true }) }).check();
   await expect.poll(async () => (await choices(loop.groupId)).theme_paper_pack).toBeNull();
+  await unfoldLook(page, copy.stationery.tapeLegend);
   await page.getByRole("radio", { name: copyPattern(copy.stationery.tapes.picnic, { start: true, end: true }) }).check();
   await expect.poll(async () => (await choices(loop.groupId)).theme_tape_pack).toBeNull();
+  await unfoldLook(page, copy.stationery.mascotLegend);
   await page.getByRole("radio", { name: /^Cherries$/ }).check();
   await expect.poll(async () => (await choices(loop.groupId)).theme_mascot).toBeNull();
 

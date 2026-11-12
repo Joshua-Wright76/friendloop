@@ -1,4 +1,5 @@
 import { videoUploadMode } from "@/lib/video-storage";
+import { DeadLinkAction } from "@/components/dead-link";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { formatMoment } from "@/lib/format";
@@ -25,7 +26,7 @@ export const metadata: Metadata = {
 
 type Person = { token: string; name: string; photoUrl: string | null; charm: string | null; frame: string | null; signature: number[][] | null };
 
-function Closed({ title, body, next, person, leaveHref, children }: { title: string; body: string; next?: string; person?: Person; leaveHref?: string; children?: React.ReactNode }) {
+function Closed({ title, body, next, person, leaveHref, action, children }: { title: string; body: string; next?: string; person?: Person; leaveHref?: string; action?: React.ReactNode; children?: React.ReactNode }) {
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-[560px] flex-col justify-center px-4 py-10">
       <div className="mb-8 self-start"><Brand /></div>
@@ -36,6 +37,7 @@ function Closed({ title, body, next, person, leaveHref, children }: { title: str
         </h1>
         <p className="mt-2 text-[15px] leading-relaxed text-ink-soft">{body}</p>
         {next ? <p className="mt-3 text-[15px] font-bold leading-relaxed text-ink">{next}</p> : null}
+        {action}
         {person ? (
           // Someone following their invitation may land before any round is open (or
           // as a reader). Their photo is still theirs to set, so it is offered here.
@@ -71,6 +73,7 @@ export default async function ReplyPage({ params }: { params: Promise<{ token: s
         title={copy.reply.invalidTitle}
         body={copy.reply.invalidBody}
         next={copy.reply.invalidNext}
+        action={<DeadLinkAction />}
       />
     );
   }

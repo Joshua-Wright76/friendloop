@@ -1,8 +1,9 @@
 import { test, expect } from "../support/test";
 import { resetDatabase, rows } from "../support/db";
 import { seedLoop, seedReplies } from "../support/seed";
+import { openPlan } from "../support/questions";
 import { AFTER_FIRST_SLOT, DAY, pickOption, runSweep, sendNow, signIn } from "../support/harness";
-import { copy } from "@/lib/copy";
+import { copy, text as copyText } from "@/lib/copy";
 
 const QUESTIONS = ["Q1", "Q2", "Q3", "Q4", "Q5"];
 
@@ -30,6 +31,7 @@ test("C5 · a question count rotates scheduled rounds and wraps", async ({ page 
   await signIn(page, "owner@friendloop.test");
 
   await page.goto(`/g/${loop.groupId}/questions`);
+  await openPlan(page);
   // Choosing a count in Up next saves it.
   await pickOption(page, copy.questions.upNext.countLabel, "2");
   await expect(page.getByText(copy.questions.done.count)).toBeVisible();
@@ -60,6 +62,7 @@ test("C5 · saving an unchanged count keeps the queue", async ({ page }) => {
   await signIn(page, "owner@friendloop.test");
 
   await page.goto(`/g/${loop.groupId}/questions`);
+  await openPlan(page);
   // Choosing the count it already has still saves, and must leave the queue alone.
   await pickOption(page, copy.questions.upNext.countLabel, "2");
   await expect(page.getByText(copy.questions.done.count)).toBeVisible();
@@ -76,9 +79,9 @@ test("C5 · send now uses the same rotation", async ({ page }) => {
   await seedReplies({ issueId: first.id, membershipId: loop.members[1].id, answers: [{ text: "Q1", body: "Answer" }] });
 
   await signIn(page, "owner@friendloop.test");
-  await page.goto(`/g/${loop.groupId}`);
+  await page.goto(`/g/${loop.groupId}/issues`);
   await sendNow(page);
-  await expect(page.getByText(/Round 2 is open for answers/)).toBeVisible();
+  await expect(page.getByText(copyText(copy.rounds.sentNotice, { number: "1", next: "2" }))).toBeVisible();
 
   expect(await questionsForRound(loop.groupId, 2)).toEqual(["Q3", "Q4"]);
   expect(await queue(loop.groupId)).toEqual(["Q5", "Q1", "Q2", "Q3", "Q4"]);

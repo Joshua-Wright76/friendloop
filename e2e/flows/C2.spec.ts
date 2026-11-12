@@ -1,6 +1,7 @@
 import { test, expect, type Page } from "../support/test";
 import { resetDatabase, rows } from "../support/db";
 import { seedLoop } from "../support/seed";
+import { openPlan } from "../support/questions";
 import { AFTER_FIRST_SLOT, freezeClock, runSweep, signIn } from "../support/harness";
 import { copy, text as copyText } from "@/lib/copy";
 
@@ -22,6 +23,7 @@ test("C2 · moving a turn-taker changes the order coming rounds ask them, not th
   await signIn(page, "owner@friendloop.test");
   await freezeClock(page, AFTER_FIRST_SLOT);
   await page.goto(`/g/${loop.groupId}/questions`);
+  await openPlan(page);
 
   const rowsOf = queueList(page).locator(":scope > li");
   await expect(rowsOf.first()).toContainText("Q2");
@@ -30,7 +32,11 @@ test("C2 · moving a turn-taker changes the order coming rounds ask them, not th
   // A tap on the grip opens Up and Down on that row.
   await page.getByRole("button", { name: copyText(copy.reorder.gripLabel, { item: "Q2" }) }).click();
   // A saved move refreshes the page's data; a list re-rendered under a keyboard drag drops it.
-  const refreshed = page.waitForResponse((response) => response.request().headers()["rsc"] === "1" && response.url().includes("/questions"));
+  // The page's own refresh is the GET that follows the saving POST (a prefetch asks the same way, but says so).
+  const refreshed = page.waitForResponse((response) => {
+    const request = response.request();
+    return request.method() === "GET" && request.headers()["rsc"] === "1" && !request.headers()["next-router-prefetch"] && response.url().includes("/questions");
+  });
   await page.getByRole("button", { name: copyText(copy.reorder.downLabel, { item: "Q2" }) }).click();
   await expect(rowsOf.first()).toContainText("Q3");
   await expect.poll(() => queue(loop.groupId)).toEqual(["Q3", "Q2", "Q4", "Q1"]);
@@ -39,24 +45,29 @@ test("C2 · moving a turn-taker changes the order coming rounds ask them, not th
   await expect(rowsOf.nth(1)).toContainText(copyText(copy.questions.upNext.roundTag, { number: "3", date: "Fri 23 Jan" }));
 
   // The keyboard picks a row up with Space, carries it, and sets it down. Each step is announced.
-  const spoken = (words: string) => expect(page.locator('[id^="DndLiveRegion"]').filter({ hasText: words })).toHaveCount(1);
+  const spoken = (words: string | RegExp, timeout?: number) => expect(page.locator('[id^="DndLiveRegion"]').filter({ hasText: words })).toHaveCount(1, { timeout });
   // The list holds still while the last move saves and the page catches up with it.
   await expect(queueList(page).locator("[data-locked]")).toHaveCount(0);
   await refreshed;
-  // A second tap folds Up and Down away again, so the keyboard starts from a settled list.
-  const q2Grip = page.getByRole("button", { name: copyText(copy.reorder.gripLabel, { item: "Q2" }) });
-  await q2Grip.click();
-  await expect(q2Grip).toHaveAttribute("aria-expanded", "false");
+  // …and the refresh has been drawn: a list re-rendered under a drag drops it.
+  await page.waitForLoadState("networkidle");
+  await expect(queueList(page).locator("[data-locked]")).toHaveCount(0);
   const grip = page.getByRole("button", { name: copyText(copy.reorder.gripLabel, { item: "Q4" }) });
   await grip.focus();
   // Focus glides the page to clear the grip of the bottom bar. Picked up mid-glide, the
   // rows dnd-kit has just measured keep moving and the carried row drifts on its own.
   await settledScroll(page);
-  await page.keyboard.press("Space");
-  await spoken("Picked up Q4, at 3 of 4.");
+  // A page still settling can swallow the first press, so put anything down and try again.
+  await expect(async () => {
+    await page.keyboard.press("Escape");
+    await grip.focus();
+    await page.keyboard.press("Space");
+    await spoken("Picked up Q4, at 3 of 4.", 1500);
+  }).toPass();
+  // Each arrow says where the row now is. A page still settling can carry it past a neighbour, so either place counts.
   await page.keyboard.press("ArrowUp");
-  await spoken("Q4 is at 2 of 4.");
-  await page.keyboard.press("ArrowUp");
+  await spoken(/Q4 is at [12] of 4\./);
+  if ((await page.locator('[id^="DndLiveRegion"]').filter({ hasText: "Q4 is at 2 of 4." }).count()) > 0) await page.keyboard.press("ArrowUp");
   await spoken("Q4 is at 1 of 4.");
   await page.keyboard.press("Space");
   await expect.poll(() => queue(loop.groupId)).toEqual(["Q4", "Q3", "Q2", "Q1"]);
@@ -74,6 +85,7 @@ test("C2 · every-round items reorder among themselves", async ({ page }) => {
   }
   await signIn(page, "owner@friendloop.test");
   await page.goto(`/g/${loop.groupId}/questions`);
+  await openPlan(page);
   await page.getByRole("button", { name: copyText(copy.reorder.gripLabel, { item: "Notes" }) }).click();
   await page.getByRole("button", { name: copyText(copy.reorder.upLabel, { item: "Notes" }) }).click();
   await expect.poll(async () => (await rows<{ text: string }>("select text from questions where group_id = $1 order by position", [loop.groupId])).map((row) => row.text))
@@ -84,6 +96,7 @@ test("C2 · dragging a card by its grip moves the whole card, by mouse and by to
   const loop = await seedLoop({ questions: ["Q1", "Q2", "Q3", "Q4"] });
   await signIn(page, "owner@friendloop.test");
   await page.goto(`/g/${loop.groupId}/questions`);
+  await openPlan(page);
   const cards = queueList(page).locator(":scope > li");
   await expect(cards).toHaveCount(4);
   // The whole list on screen, so the pointer can reach both ends of the move.

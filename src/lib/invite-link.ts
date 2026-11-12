@@ -33,6 +33,13 @@ export async function resetInviteLink(groupId: string, at: Date): Promise<string
   return token;
 }
 
+/**
+ * Which invite link this browser just asked to join through. The check-inbox page
+ * reads it to say which loop is waiting, looking the loop up from the token on the
+ * server: the loop's name never goes in a URL.
+ */
+export const JOIN_CHECK_COOKIE = "fl_signin_join";
+
 export type InviteLoop = {
   groupId: string;
   groupName: string;

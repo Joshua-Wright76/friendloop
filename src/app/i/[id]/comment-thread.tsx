@@ -15,6 +15,10 @@ import { PHOTO_TARGET, prepareImage } from "@/components/prepare-image";
 import { Avatar, NameCharm } from "@/components/avatar";
 import { copy, text } from "@/lib/copy";
 import { readUploadResponse } from "@/lib/upload-response";
+import { deleteComment, restoreComment } from "./actions";
+
+/** Threads up to this long stay open in full. */
+const OPEN_COMMENTS = 3;
 
 type Quote = { id: string; author: string };
 
@@ -33,6 +37,10 @@ type ThreadProps = {
   empty?: string;
   /** Put the cursor in the composer as the thread opens. */
   focusComposer?: boolean;
+  /** Keeps the box to write in shut until a comment is answered; "Comment" opens it from outside. */
+  composerHidden?: boolean;
+  /** Margin notes under an answer: no card chrome, smaller, a thin rule on the left. */
+  notes?: boolean;
 };
 
 /** A run of comments and, for members, the box to add another. */
@@ -47,18 +55,53 @@ export function CommentThread({
   placeholder,
   empty,
   focusComposer = false,
+  composerHidden = false,
+  notes = false,
 }: ThreadProps) {
   const [quote, setQuote] = useState<Quote | null>(null);
+  const [all, setAll] = useState(false);
+  // Comments taken down during this page view, kept (with their place) so "Undo" has something to bring back.
+  const [gone, setGone] = useState<Array<{ comment: IssueComment; index: number }>>([]);
+  const router = useRouter();
+  const present = new Set(comments.map((comment) => comment.id));
+  const goneIds = new Set(gone.map((entry) => entry.comment.id));
+  const shownComments = [...comments];
+  for (const entry of [...gone].sort((a, b) => a.index - b.index)) {
+    if (!present.has(entry.comment.id)) shownComments.splice(Math.min(entry.index, shownComments.length), 0, entry.comment);
+  }
+  // A short thread is read in full; a long one opens on its latest few.
+  const live = shownComments.filter((comment) => !goneIds.has(comment.id)).length;
+  const folded = !all && live > OPEN_COMMENTS;
+  const visible = folded ? shownComments.slice(-OPEN_COMMENTS) : shownComments;
 
   return (
-    <div>
-      {comments.length > 0 ? (
-        <div className="divide-y divide-line border-t border-line">
-          {comments.map((comment) => (
+    <div className={notes ? "margin-notes" : undefined}>
+      {shownComments.length > 0 ? (
+        <div className={notes ? "margin-notes__list" : "divide-y divide-line border-t border-line"}>
+          {folded ? (
+            <div className="comment-fold">
+              <button type="button" className="link cursor-pointer" onClick={() => setAll(true)}>
+                {text(copy.issue.showAllComments, { count: live })}
+              </button>
+            </div>
+          ) : null}
+          {visible.map((comment) => (
             <CommentItem
               key={comment.id}
               comment={comment}
+              notes={notes}
+              issueId={issueId}
+              viewerToken={viewerToken}
               onReply={canInteract ? () => setQuote({ id: comment.id, author: comment.author }) : null}
+              deleted={goneIds.has(comment.id)}
+              onDeleted={() => {
+                setGone((now) => [...now, { comment, index: shownComments.findIndex((other) => other.id === comment.id) }]);
+                router.refresh();
+              }}
+              onRestored={() => {
+                setGone((now) => now.filter((entry) => entry.comment.id !== comment.id));
+                router.refresh();
+              }}
             />
           ))}
         </div>
@@ -66,7 +109,7 @@ export function CommentThread({
         <p className="mt-2 text-[14px] text-ink-muted">{empty}</p>
       ) : null}
 
-      {canInteract ? (
+      {canInteract && (!composerHidden || quote) ? (
         <CommentComposer
           issueId={issueId}
           viewerToken={viewerToken}
@@ -83,11 +126,74 @@ export function CommentThread({
   );
 }
 
-function CommentItem({ comment, onReply }: { comment: IssueComment; onReply: (() => void) | null }) {
+function CommentItem({
+  comment,
+  notes,
+  issueId,
+  viewerToken,
+  onReply,
+  deleted,
+  onDeleted,
+  onRestored,
+}: {
+  comment: IssueComment;
+  notes: boolean;
+  issueId: string;
+  viewerToken: string | null;
+  onReply: (() => void) | null;
+  deleted: boolean;
+  onDeleted: () => void;
+  onRestored: () => void;
+}) {
+  const [pending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+  const undo = useRef<HTMLButtonElement>(null);
+
+  // The Delete button is gone once it is pressed; the keyboard lands on Undo instead.
+  useEffect(() => {
+    if (deleted) undo.current?.focus();
+  }, [deleted]);
+
+  const run = (task: () => Promise<{ ok: boolean; error?: string }>, done: () => void) => {
+    if (pending) return;
+    setError(null);
+    startTransition(async () => {
+      try {
+        const result = await task();
+        if (!result.ok) setError(result.error ?? copy.issue.errors.invalidRequest);
+        else done();
+      } catch {
+        setError(copy.issue.postError);
+      }
+    });
+  };
+
+  if (deleted) {
+    return (
+      <div className={notes ? "py-1" : "px-1 py-1 sm:px-4"} role="status">
+        <p className="m-0 flex flex-wrap items-center gap-x-1 text-[13px] text-ink-muted">
+          <span>{copy.issue.commentDeleted}</span>
+          <span aria-hidden="true">·</span>
+          <button
+            ref={undo}
+            type="button"
+            aria-disabled={pending ? true : undefined}
+            aria-label={copy.issue.commentUndoLabel}
+            onClick={() => run(() => restoreComment({ issueId, commentId: comment.id, viewerToken }), onRestored)}
+            className="link link--quiet cursor-pointer px-2 text-[13px]"
+          >
+            {copy.issue.commentUndo}
+          </button>
+        </p>
+        {error ? <p role="alert" className="m-0 text-[13px] text-danger">{error}</p> : null}
+      </div>
+    );
+  }
+
   return (
-    <div className="px-1 py-3 sm:px-4">
+    <div className={notes ? "margin-note" : "px-1 py-3 sm:px-4"}>
       <div className="flex items-center gap-2">
-        <Avatar name={comment.author} photoUrl={comment.authorPhotoUrl} frame={comment.authorFrame} className="!h-6 !w-6 !text-[11px]" />
+        <Avatar name={comment.author} photoUrl={comment.authorPhotoUrl} frame={comment.authorFrame} className="avatar-flush [--aw:24px] !h-6 !w-6 !text-[11px]" />
         <p className="m-0 text-[13px] font-medium text-ink-soft">{comment.author}</p>
         <NameCharm charm={comment.authorCharm} />
       </div>
@@ -126,16 +232,30 @@ function CommentItem({ comment, onReply }: { comment: IssueComment; onReply: (()
           className="mt-2 w-full max-w-[420px] rounded-lg border border-line object-cover"
         />
       ) : null}
-      {onReply ? (
-        <button
-          type="button"
-          onClick={onReply}
-          aria-label={text(copy.issue.commentReplyLabel, { author: comment.author })}
-          className="link cursor-pointer"
-        >
-          {copy.issue.commentReply}
-        </button>
-      ) : null}
+      <div className="flex flex-wrap items-center gap-x-4">
+        {onReply ? (
+          <button
+            type="button"
+            onClick={onReply}
+            aria-label={text(copy.issue.commentReplyLabel, { author: comment.author })}
+            className="link min-w-11 cursor-pointer justify-center px-2"
+          >
+            {copy.issue.commentReply}
+          </button>
+        ) : null}
+        {comment.isYou && onReply ? (
+          <button
+            type="button"
+            aria-disabled={pending ? true : undefined}
+            aria-label={copy.issue.commentDeleteLabel}
+            onClick={() => run(() => deleteComment({ issueId, commentId: comment.id, viewerToken }), onDeleted)}
+            className="link link--quiet min-w-11 cursor-pointer justify-center px-2"
+          >
+            {copy.issue.commentDelete}
+          </button>
+        ) : null}
+        {error ? <span role="alert" className="text-[13px] text-danger">{error}</span> : null}
+      </div>
     </div>
   );
 }
@@ -180,6 +300,16 @@ function CommentComposer({
   const [dismissedAt, setDismissedAt] = useState<number | null>(null);
   const area = useRef<HTMLTextAreaElement>(null);
   const files = useRef<HTMLInputElement>(null);
+  // Put the caret in the box without yanking the page: a bare focus() centres the box, which can
+  // park the answer's reaction row under the sticky bar. "Nearest" only moves the page when the
+  // box is out of sight, and then by the least it can (honouring the page's scroll padding), and
+  // the focus itself scrolls nothing.
+  const focusArea = () => {
+    const box = area.current;
+    if (!box) return;
+    box.scrollIntoView({ block: "nearest" });
+    box.focus({ preventScroll: true });
+  };
   const listId = useId();
   const errorId = `${listId}-error`;
   // Where the caret goes after a name is dropped in, applied once the new text is on screen.
@@ -197,12 +327,12 @@ function CommentComposer({
   const active = open ? Math.min(highlight, options.length - 1) : 0;
 
   useEffect(() => {
-    if (quote) area.current?.focus();
+    if (quote) focusArea();
   }, [quote]);
 
   // A thread opened on purpose is opened to write in.
   useEffect(() => {
-    if (focusOnMount) area.current?.focus();
+    if (focusOnMount) focusArea();
   }, [focusOnMount]);
 
   const choose = (person: Mentionable) => {
@@ -213,7 +343,7 @@ function CommentComposer({
     setPicks((current) => [...current, { id: person.id, label: person.name }]);
     setHighlight(0);
     pendingCaret.current = next.caret;
-    area.current?.focus();
+    focusArea();
   };
 
   const submit = () => {
@@ -223,7 +353,7 @@ function CommentComposer({
     if (!body && !photo) {
       setError(copy.issue.writeFirst);
       setErrorField("body");
-      area.current?.focus();
+      focusArea();
       return;
     }
     setPosted("");
@@ -304,7 +434,7 @@ function CommentComposer({
       {quote ? (
         <div className="mb-2 flex items-center justify-between gap-3 rounded-lg border border-line bg-accent-soft px-3 py-2 text-[13px] text-ink-soft">
           <span>{text(copy.issue.replyingTo, { author: quote.author })}</span>
-          <button type="button" onClick={() => { onClearQuote(); area.current?.focus(); }} className="link cursor-pointer">
+          <button type="button" onClick={() => { onClearQuote(); focusArea(); }} className="link cursor-pointer">
             {copy.issue.replyingToCancel}
           </button>
         </div>
@@ -367,7 +497,7 @@ function CommentComposer({
       {photo ? (
         <div className="mt-2 flex items-center justify-between gap-3 rounded-lg border border-line px-3 py-2 text-[13px] text-ink-soft">
           <span className="min-w-0 wrap-any">{text(copy.issue.photoChosen, { name: photo.name })}</span>
-          <button type="button" onClick={() => { setPhoto(null); setPosted(copy.a11yStatus.photoRemoved); area.current?.focus(); }} className="link flex-none cursor-pointer">
+          <button type="button" onClick={() => { setPhoto(null); setPosted(copy.a11yStatus.photoRemoved); focusArea(); }} className="link flex-none cursor-pointer">
             {copy.issue.removePhoto}
           </button>
         </div>

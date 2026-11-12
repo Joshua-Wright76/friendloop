@@ -3,6 +3,7 @@ import AxeBuilder from "@axe-core/playwright";
 import { resetDatabase, rows } from "../support/db";
 import { DELIVERY_DAY, runSweep, signIn } from "../support/harness";
 import { seedWorld } from "../support/identity";
+import { openPerson } from "../support/people";
 import { copy } from "@/lib/copy";
 
 test.use({ reducedMotion: "reduce" });
@@ -61,6 +62,7 @@ test("N7 · a signed-in member sets theirs on the people page, for this loop onl
   await signIn(page, "owner@friendloop.test");
   await page.goto(`/g/${loop.groupId}/members`);
 
+  await openPerson(page, "Sam");
   await page.getByText(copy.identity.look.open).click();
   const look = page.getByTestId("member-look");
   await look.getByRole("radio", { name: "Moon" }).check();
@@ -74,6 +76,7 @@ test("N7 · a signed-in member sets theirs on the people page, for this loop onl
   await expect(page.locator('.avatar[data-frame="stamp"]').first()).toBeVisible();
 
   // The look is yours alone: nobody else's row offers one.
+  await openPerson(page, "Sam");
   await expect(page.getByText(copy.identity.look.open)).toHaveCount(1);
   await page.getByText(copy.identity.look.open).click();
   await expect(page.getByRole("radio", { name: "Moon" })).toBeChecked();

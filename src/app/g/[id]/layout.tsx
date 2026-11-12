@@ -19,7 +19,7 @@ import { inviteLinkToken } from "@/lib/invite-link";
 import { ownAnswerHref } from "@/lib/answer-link";
 import LoopLoading from "./loading";
 import { LoopTheme } from "@/components/loop-theme";
-import { formatMoment, timezonePlace } from "@/lib/format";
+import { formatMoment, momentsOf } from "@/lib/format";
 import { LoopDataProvider, type LoopData } from "./loop-data";
 import { TimezoneSync } from "@/app/you/timezone-sync";
 import { KeepSignedIn } from "@/components/keep-signed-in";
@@ -44,15 +44,15 @@ export default function GroupLayout(props: Props) {
   );
 }
 
-/** A moment on the reader's own clock, and on the loop's when the two differ. */
-function momentsOf(instant: Date, loopTimezone: string, viewerTimezone: string | null | undefined) {
-  // An unlabelled time is a promise that it's the reader's own. If we don't know theirs, name the place.
-  if (!viewerTimezone) return { primary: `${formatMoment(instant, loopTimezone)} ${timezonePlace(loopTimezone)} time`, loop: null };
-  if (viewerTimezone === loopTimezone) return { primary: formatMoment(instant, loopTimezone), loop: null };
-  return {
-    primary: `${formatMoment(instant, viewerTimezone)} your time`,
-    loop: `${formatMoment(instant, loopTimezone)} in ${timezonePlace(loopTimezone)}`,
+function sameDay(a: Date, b: Date, timezone: string): boolean {
+  const day = (date: Date) => {
+    try {
+      return new Intl.DateTimeFormat("en-CA", { timeZone: timezone }).format(date);
+    } catch {
+      return new Intl.DateTimeFormat("en-CA", { timeZone: "UTC" }).format(date);
+    }
   };
+  return day(a) === day(b);
 }
 
 async function LoadedGroupLayout({ children, params }: Props) {
@@ -182,6 +182,8 @@ async function LoadedGroupLayout({ children, params }: Props) {
       : null,
     nextMoment: momentsOf(next, group.timezone, user.timezone),
     lastNudge: lastNudgeRow?.at ? formatMoment(lastNudgeRow.at, user.timezone || group.timezone) : null,
+    // Same calendar day in the viewer's zone as now: the Nudge button rests until tomorrow.
+    lastNudgeToday: lastNudgeRow?.at ? sameDay(lastNudgeRow.at, at, user.timezone || group.timezone) : false,
     openMoment: openIssue ? momentsOf(openIssue.deliversAt, group.timezone, user.timezone) : null,
     weekdayLabel: weekdayName(group.promptWeekday),
     roundsAnsweredBy: Object.fromEntries(answeredIn),

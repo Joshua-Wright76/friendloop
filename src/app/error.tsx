@@ -43,8 +43,8 @@ export default function ErrorPage({
           <button type="button" onClick={() => retry()} className="btn btn-primary">
             {copy.common.errorPage.retry}
           </button>
-          <Link href="/" className="btn btn-quiet">
-            {copy.common.errorPage.home}
+          <Link href="/you" className="btn btn-quiet">
+            {copy.common.errorPage.yourLoops}
           </Link>
         </div>
       </div>

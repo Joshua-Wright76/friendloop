@@ -4,6 +4,7 @@ import { seedLoop, seedOpenIssue } from "../support/seed";
 import { APP, DELIVERY_DAY, HOUR, runSweep, signIn } from "../support/harness";
 import { postResendEvent } from "../support/webhooks";
 import { copy, copyPattern } from "@/lib/copy";
+import { openPerson, personRow } from "../support/people";
 
 test.beforeEach(async () => {
   await resetDatabase();
@@ -68,6 +69,9 @@ test("U2 · a hard bounce suppresses the address, links to the outbox row, and s
 
   await signIn(page, "owner@friendloop.test");
   await page.goto(`/g/${loop.groupId}/members`);
-  await expect(page.getByText(copy.members.bouncing, { exact: true })).toBeVisible();
-  await expect(page.getByText(copyPattern(copy.members.bouncingHint))).toBeVisible();
+  // The row says so on its quiet line; opening it shows what to do.
+  await expect(personRow(page, "Bob").getByText(copy.members.bouncing)).toBeVisible();
+  const bob = await openPerson(page, "Bob");
+  await expect(bob.getByText(copy.members.bouncing, { exact: true })).toBeVisible();
+  await expect(bob.getByText(copyPattern(copy.members.bouncingHint))).toBeVisible();
 });

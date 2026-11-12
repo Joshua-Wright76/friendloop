@@ -6,7 +6,7 @@ import { getNow } from "@/lib/clock";
 import { copy, text } from "@/lib/copy";
 import { joinDestination, joinWithInvite, loopForInvite } from "@/lib/invite-link";
 import { requestIp } from "@/lib/rate-limit";
-import { rememberCheckEmail } from "../../signin/actions";
+import { rememberCheckEmail, rememberJoinToken } from "../../signin/actions";
 
 export type JoinState = { error?: string };
 
@@ -27,6 +27,7 @@ export async function requestJoin(_previous: JoinState, formData: FormData): Pro
   const outcome = await requestMagicLink(email, { ip: await requestIp(), joinToken: token });
   if (outcome === "busy") return { error: copy.signIn.tooMany };
   await rememberCheckEmail(email);
+  await rememberJoinToken(token);
   redirect("/signin/check-email");
 }
 

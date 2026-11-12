@@ -116,6 +116,7 @@ export function StatusLineField({
       <label id={`${id}-label`} htmlFor={`${id}-field`} className="block pr-20 text-[14px] font-extrabold text-ink">
         {copy.reply.statusLine.label} <span className="font-bold text-ink-muted">· {copy.reply.statusLine.optional}</span>
       </label>
+      <p id={`${id}-helper`} className="m-0 mt-0.5 text-[13.5px] leading-snug text-ink-soft">{copy.reply.statusLine.helper}</p>
       <input
         ref={field}
         id={`${id}-field`}
@@ -128,7 +129,7 @@ export function StatusLineField({
         enterKeyHint="done"
         autoComplete="off"
         placeholder={copy.reply.statusLine.placeholder}
-        aria-describedby={`${id}-count`}
+        aria-describedby={`${id}-helper ${id}-count`}
         aria-invalid={status === "error" ? true : undefined}
         className="field mt-1.5 h-11 py-0"
         onKeyDown={(event) => {

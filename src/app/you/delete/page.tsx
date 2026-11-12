@@ -64,14 +64,14 @@ export default async function DeleteAccountPage({ searchParams }: {
                   <p className="text-[13px] text-ink-muted">
                     {loop.others === 1 ? copy.account.blockedPerson : text(copy.account.blockedPeople, { count: loop.others })}
                   </p>
-                  <p className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[14px]">
-                    <Link href={`/g/${loop.groupId}/members`} className="font-bold text-ink underline decoration-line-strong underline-offset-4">
+                  <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                    <Link href={`/g/${loop.groupId}/members?then=delete-account`} className="btn btn-quiet h-11 min-h-11 px-3 text-[14px]">
                       {copy.account.handOn}
                     </Link>
-                    <Link href={`/g/${loop.groupId}/settings`} className="font-bold text-ink underline decoration-line-strong underline-offset-4">
+                    <Link href={`/g/${loop.groupId}/settings?then=delete-account#delete-loop`} className="btn btn-quiet h-11 min-h-11 px-3 text-[14px]">
                       {copy.account.deleteLoop}
                     </Link>
-                  </p>
+                  </div>
                 </li>
               ))}
             </ul>

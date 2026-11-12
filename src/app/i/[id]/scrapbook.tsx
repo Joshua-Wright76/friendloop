@@ -3,7 +3,6 @@
 import { createContext, useCallback, useContext, useEffect, useId, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties, type KeyboardEvent, type PointerEvent as ReactPointerEvent, type ReactNode, type RefObject } from "react";
 import { createPortal } from "react-dom";
 import { moveScrapStickerAction, peelScrapStickerAction, stickScrapSticker } from "./actions";
-import { StickerSheet } from "@/components/sticker-sheet";
 import { copy, text } from "@/lib/copy";
 import { SCRAPBOOK_PER_ROUND, freeSpot, nudgePlacement, placementAt, type StickerPlacement } from "@/lib/looks";
 import type { ScrapSticker } from "@/lib/issue-view";
@@ -163,52 +162,6 @@ export function ScrapbookProvider({
   );
 }
 
-/** "Stick a sticker" in an answer's row of reactions: opens the sheet, then sticks the pick in a free spot. */
-export function StickButton({ replyId, whose, reserved }: { replyId: string; whose: string; reserved: StickerPlacement[] }) {
-  const book = useScrapbook();
-  const [open, setOpen] = useState(false);
-  const stick = useRef<HTMLButtonElement>(null);
-  if (!book?.canStick) return null;
-  return (
-    <>
-      <button
-        ref={stick}
-        type="button"
-        id={`stick-${replyId}`}
-        aria-haspopup="dialog"
-        aria-label={text(words.stickOn, { whose })}
-        className="reaction-chip reaction-chip--add scrap-stick hover:bg-field"
-        onClick={() => {
-          if (book.left <= 0) return book.spent(replyId);
-          setOpen(true);
-        }}
-      >
-        {/* A sticker with its corner peeling up. */}
-        <svg viewBox="0 0 24 24" aria-hidden="true" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M20.5 12.5V5.5a2 2 0 0 0-2-2h-13a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2h7" />
-          <path d="M12.5 20.5c0-4.4 3.6-8 8-8l-8 8Z" />
-          <path d="M8 9.5h.01M14 9.5h.01" strokeWidth="2.6" />
-        </svg>
-      </button>
-      {open ? (
-        <StickerSheet
-          current={null}
-          opener={stick}
-          withNone={false}
-          title={words.sheetTitle}
-          note={words.sheetNote}
-          extra={book.leftLine(book.left)}
-          onClose={() => setOpen(false)}
-          onPick={(key) => {
-            setOpen(false);
-            if (key) book.stick(replyId, key, reserved);
-          }}
-        />
-      ) : null}
-    </>
-  );
-}
-
 /** What just happened to this answer's stickers, shown where it happened (the page's live region says it too). */
 export function ScrapNote({ replyId }: { replyId: string }) {
   const note = useScrapbook()?.note(replyId) ?? null;
@@ -283,7 +236,7 @@ function ScrapStickerButton({ replyId, sticker, layer }: { replyId: string; stic
   const peel = () => {
     setMenu(false);
     book.peel(replyId, sticker.id);
-    document.getElementById(`stick-${replyId}`)?.focus();
+    document.getElementById(`react-${replyId}`)?.focus();
   };
 
   function down(event: ReactPointerEvent<HTMLButtonElement>) {

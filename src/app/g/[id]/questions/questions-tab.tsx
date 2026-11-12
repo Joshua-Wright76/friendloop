@@ -11,22 +11,23 @@ import { SafeForm } from "@/components/safe-form";
 import { SortableList } from "@/components/sortable-list";
 import { SubmitButton } from "@/components/submit-button";
 import { copy, text } from "@/lib/copy";
-import { formatMoment } from "@/lib/format";
+import { atMoment, formatDate, formatMoment } from "@/lib/format";
 import { QUESTION_PACKS, newQuestionTexts } from "@/lib/question-packs";
 import type { AskFrequency } from "@/lib/asks";
-import { useLoopData, type PageItem, type RoundItem } from "../loop-data";
+import { useLoopData, type PageItem, type QuestionsPage } from "../loop-data";
 import {
   acceptSuggestionAction,
   addFromPacksAction,
   addItemAction,
   askAgainAction,
+  askThisRoundAction,
   declineSuggestionAction,
-  removeFromRoundAction,
   reorderListAction,
   reorderRoundAction,
   rotationAction,
 } from "./actions";
-import { ItemEditor, ItemLabel, ItemRow, itemTags } from "./item-row";
+import { AskNowButton, ItemEditor, ItemLabel, ItemRow, RemovePanel, itemTags } from "./item-row";
+import { ScrollToDone } from "./scroll-to-done";
 import { ItemFields } from "./item-fields";
 
 const COUNT_OPTIONS = [
@@ -34,65 +35,14 @@ const COUNT_OPTIONS = [
   { value: "", label: copy.questions.upNext.countAll },
 ];
 
-type Notices = { done?: string; problem?: string; fromPacks?: string; suggestion?: string };
+type Notices = { done?: string; problem?: string; fromPacks?: string; suggestion?: string; undo?: string; q?: string };
 
-/**
- * The Questions page (docs/questions-unify-design.md): the round, not the setup.
- * "This round asks" leads, edited directly; "Up next" follows with the queue, the
- * every-round items and the dates; then one card adds any kind of item.
- */
-export default function QuestionsTab({ notices }: { notices: Notices }) {
-  const { group, membership, questionsPage: page, suggestions } = useLoopData();
-  const manages = membership.access !== "member";
-  // "Add to this round" in the round's card asks the add card for this round, and takes you there.
-  const [addNow, setAddNow] = useState(0);
-  const [thisRound, setThisRound] = useState(false);
-  const suggestionsRef = useRef<HTMLDetailsElement>(null);
-  // The overview links here with #suggestions: open the list it points at.
-  useEffect(() => {
-    if (window.location.hash === "#suggestions" && suggestionsRef.current) {
-      suggestionsRef.current.open = true;
-      suggestionsRef.current.scrollIntoView({ block: "start" });
-    }
-  }, []);
+/** Where a confirmation shows: beside what changed, or at the top when nothing on the page is that. */
+type Where = "round-row" | "up-row" | "stopped-row" | "round" | "count" | "top";
+type Inline = { where: Where; qid: string | null; message: string; undo: string | null };
 
-  const everything = [...page.queue, ...page.everyRound, ...page.dated];
-  const inThisRound = new Set(page.thisRound.flatMap((row) => (row.questionId ? [row.questionId] : [])));
-
-  return (
-    <main className="loop-page mx-auto w-full max-w-[680px] px-4 pb-16 pt-5 sm:px-6 lg:max-w-[1040px]">
-      <LoopNav id={group.id} name={group.name} access={membership.access} active="Questions">
-        <h1>{copy.questions.title}</h1>
-        <p>{manages ? copy.questions.description : copy.questions.memberDescription}</p>
-      </LoopNav>
-
-      <PageNotices notices={notices} />
-      {group.pausedAt ? (
-        <p className="notice mt-4 border bg-card px-4 py-3 text-[14px] font-bold leading-relaxed text-ink">
-          {page.round ? copy.questions.pausedNote : copy.questions.pausedNoRound}
-        </p>
-      ) : null}
-
-      <div className="questions-grid">
-        <div className="questions-grid__main">
-          <ThisRound everything={everything} manages={manages} onAdd={() => { setThisRound(true); setAddNow((count) => count + 1); }} />
-          <UpNext manages={manages} inThisRound={inThisRound} />
-        </div>
-        {manages ? (
-          <div className="questions-grid__side">
-            <AddCard request={addNow} thisRound={thisRound} onThisRound={setThisRound} packsOpen={notices.fromPacks !== undefined} />
-            {suggestions.length > 0 ? <Suggestions refObject={suggestionsRef} open={Boolean(notices.suggestion)} /> : null}
-            {page.stopped.length > 0 ? <Stopped items={page.stopped} /> : null}
-          </div>
-        ) : null}
-      </div>
-    </main>
-  );
-}
-
-function PageNotices({ notices }: { notices: Notices }) {
+function noticeMessage(notices: Notices): string | null {
   const done = notices.done && notices.done in copy.questions.done ? copy.questions.done[notices.done as keyof typeof copy.questions.done] : null;
-  const problem = notices.problem && notices.problem in copy.questions.errors ? copy.questions.errors[notices.problem as keyof typeof copy.questions.errors] : null;
   const packs = notices.fromPacks === undefined
     ? null
     : notices.fromPacks === "0"
@@ -107,23 +57,185 @@ function PageNotices({ notices }: { notices: Notices }) {
       : notices.suggestion === "gone"
         ? copy.questions.suggestionGoneNotice
         : null;
-  const message = done ?? packs ?? suggestion;
+  return done ?? packs ?? suggestion;
+}
+
+/** The place a change happened, found from what the URL says and what the page now holds. */
+function placeNotice(notices: Notices, page: QuestionsPage, everything: PageItem[]): Inline | null {
+  const message = noticeMessage(notices);
+  if (!message) return null;
+  const qid = notices.q ?? null;
+  const undo = notices.done?.startsWith("removed") ? notices.undo ?? null : null;
+  const inRound = qid !== null && page.thisRound.some((row) => row.questionId === qid);
+  // "everything" here is what the page lists outside the round: a row to point at only if it's in it.
+  const inUp = qid !== null && everything.some((item) => item.id === qid);
+  const inStopped = qid !== null && page.stopped.some((item) => item.id === qid);
+  let where: Where = "top";
+  switch (notices.done) {
+    case "addedNow":
+    case "alreadyAsked":
+    case "stoppedStays":
+      where = inRound ? "round-row" : "top";
+      break;
+    case "added":
+    case "again":
+      where = inUp ? "up-row" : inRound ? "round-row" : "top";
+      break;
+    case "saved":
+      where = inRound ? "round-row" : inUp ? "up-row" : "top";
+      break;
+    case "stopped":
+      where = inStopped ? "stopped-row" : "top";
+      break;
+    case "stays":
+      where = inRound ? "round-row" : "round";
+      break;
+    case "removed":
+    case "removedTurn":
+      where = page.round ? "round" : "top";
+      break;
+    case "count":
+      where = page.queue.length > 0 ? "count" : "top";
+      break;
+  }
+  return { where, qid, message, undo };
+}
+
+/** A confirmation set right where the change happened. */
+function Confirmation({ inline, spacing = "mx-3 mb-3 mt-0" }: { inline: Inline; spacing?: string }) {
+  const { group } = useLoopData();
+  return (
+    <NoticeFocus key={inline.message} spacing={spacing}>
+      <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
+        <span>{inline.message}</span>
+        {inline.undo ? (
+          <SafeForm action={askThisRoundAction} className="inline-flex">
+            <input type="hidden" name="groupId" value={group.id} />
+            <input type="hidden" name="questionId" value={inline.undo} />
+            <SubmitButton className="btn btn-quiet min-h-11 px-4 text-[14px]">{copy.questions.thisRound.undo}</SubmitButton>
+          </SafeForm>
+        ) : null}
+      </span>
+    </NoticeFocus>
+  );
+}
+
+/** The element the page scrolls to for a confirmation. */
+function targetFor(inline: Inline | null): string | null {
+  if (!inline || inline.where === "top") return null;
+  switch (inline.where) {
+    case "round-row": return `round-q-${inline.qid}`;
+    case "up-row": return `q-${inline.qid}`;
+    case "stopped-row": return `stopped-q-${inline.qid}`;
+    case "round": return "this-round";
+    case "count": return "count-line";
+  }
+}
+
+/**
+ * The Questions page: the round, not the setup. Every question shows once. "This round" leads,
+ * edited and put in order directly; "Not in this round" holds the rest, each a tap from joining it;
+ * "Plan future rounds" folds the usual order and the turn-taking count away; Stopped sits last.
+ * One card adds any kind of question.
+ */
+export default function QuestionsTab({ notices }: { notices: Notices }) {
+  const { group, membership, questionsPage: page, suggestions } = useLoopData();
+  const manages = membership.access !== "member";
+  // Opening the add form asks it to scroll into view and take focus.
+  const [addNow, setAddNow] = useState(0);
+  // The owner is looking at this round, so "add it to this round too" starts ticked.
+  const [thisRound, setThisRound] = useState(Boolean(page.round));
+  // On a phone the add form stays folded until asked for; a problem with it brings it back open.
+  const [addOpen, setAddOpen] = useState(
+    notices.fromPacks !== undefined || (notices.problem !== undefined && notices.problem !== "count" && notices.problem !== "gone"),
+  );
+  const suggestionsRef = useRef<HTMLDetailsElement>(null);
+  // The overview links here with #suggestions: open the list it points at.
+  useEffect(() => {
+    if (window.location.hash === "#suggestions" && suggestionsRef.current) {
+      suggestionsRef.current.open = true;
+      suggestionsRef.current.scrollIntoView({ block: "start" });
+    }
+  }, []);
+
+  const everything = [...page.queue, ...page.everyRound, ...page.dated];
+  const inThisRound = new Set(page.thisRound.flatMap((row) => (row.questionId ? [row.questionId] : [])));
+  const outside = everything.filter((item) => !inThisRound.has(item.id));
+  const inline = manages ? placeNotice(notices, page, outside) : null;
+  // Anything the page can't point at shows at the top, as before.
+  const topMessage = inline === null || inline.where === "top" ? noticeMessage(notices) : null;
+
+  return (
+    <main className="loop-page mx-auto w-full max-w-[680px] px-4 pb-16 pt-5 sm:px-6 lg:max-w-[1040px]">
+      <LoopNav id={group.id} name={group.name} access={membership.access} active="Questions">
+        <h1>{copy.questions.title}</h1>
+        <p>{manages ? copy.questions.description : copy.questions.memberDescription}</p>
+      </LoopNav>
+
+      <PageNotices notices={notices} message={topMessage} />
+      <ScrollToDone target={targetFor(inline)} />
+      {group.pausedAt ? (
+        <p className="notice mt-4 border bg-card px-4 py-3 text-[14px] font-bold leading-relaxed text-ink">
+          {page.round ? copy.questions.pausedNote : copy.questions.pausedNoRound}
+        </p>
+      ) : null}
+
+      <div className="questions-grid">
+        <div className="questions-grid__main">
+          {page.round || !manages ? <ThisRound everything={everything} manages={manages} inline={inline} /> : null}
+          {manages ? (
+            <>
+              {page.round ? <NotInRound items={outside} inline={inline} /> : <YourQuestions items={outside} inline={inline} />}
+              <Plan inThisRound={inThisRound} inline={inline} />
+              {page.stopped.length > 0 ? <Stopped items={page.stopped} inline={inline} /> : null}
+            </>
+          ) : null}
+        </div>
+        {manages ? (
+          <div className="questions-grid__side">
+            <AddCard
+              request={addNow}
+              open={addOpen}
+              onToggle={() => {
+                if (!addOpen) setAddNow((count) => count + 1);
+                setAddOpen(!addOpen);
+              }}
+              thisRound={thisRound}
+              onThisRound={setThisRound}
+              packsOpen={notices.fromPacks !== undefined}
+            >
+              {suggestions.length > 0 ? <Suggestions refObject={suggestionsRef} open={Boolean(notices.suggestion)} /> : null}
+            </AddCard>
+          </div>
+        ) : null}
+      </div>
+    </main>
+  );
+}
+
+function PageNotices({ notices, message }: { notices: Notices; message: string | null }) {
+  const problem = notices.problem && notices.problem in copy.questions.errors ? copy.questions.errors[notices.problem as keyof typeof copy.questions.errors] : null;
   return (
     <>
-      {message ? <NoticeFocus key={message}>{message}</NoticeFocus> : null}
+      {message ? <Confirmation inline={{ where: "top", qid: null, message, undo: null }} spacing="mt-4" /> : null}
       {problem ? <NoticeFocus key={problem} tone="danger">{problem}</NoticeFocus> : null}
     </>
   );
 }
 
+/** "Next asked: Round 13, Fri 20 Nov": when it will next come up, and nothing else. */
 function roundTag(round: { number: number; deliversAt: Date } | null, timezone: string): string {
-  // The same moment format as "This round asks", so one round never reads as two different times.
-  return round ? text(copy.questions.upNext.roundTag, { number: round.number, date: formatMoment(round.deliversAt, timezone) }) : copy.questions.upNext.later;
+  return round ? text(copy.questions.upNext.roundTag, { number: round.number, date: formatDate(round.deliversAt, timezone) }) : copy.questions.upNext.later;
 }
 
-function frequencyTag(row: RoundItem): string | null {
-  if (row.occurrenceLabel) return row.occurrenceLabel;
-  return row.frequency ? copy.questions.item.frequencies[row.frequency] : null;
+/** One quiet line for a question that isn't in the round: when it comes back. */
+function backTag(item: PageItem, openNumber: number | null): string {
+  if (item.frequency === "on_date") {
+    return item.nextLabel ? text(copy.questions.notInRound.onDate, { date: item.nextLabel }) : copy.questions.notInRound.passed;
+  }
+  if (item.firstRound) return text(copy.questions.notInRound.backInRound, { number: item.firstRound.number });
+  if (item.frequency === "every_round" && openNumber !== null) return text(copy.questions.notInRound.backInRound, { number: openNumber + 1 });
+  return copy.questions.notInRound.backLater;
 }
 
 function writtenNote(writers: string[]): string {
@@ -133,42 +245,59 @@ function writtenNote(writers: string[]): string {
 }
 
 /** The open round's items, in its order: reordered, removed and added to directly. */
-function ThisRound({ everything, manages, onAdd }: { everything: PageItem[]; manages: boolean; onAdd: () => void }) {
-  const { group, user, questionsPage: page } = useLoopData();
+function ThisRound({ everything, manages, inline }: { everything: PageItem[]; manages: boolean; inline: Inline | null }) {
+  const { group, user, questionsPage: page, openMoment } = useLoopData();
   const [editing, setEditing] = useState<string | null>(null);
+  const [removing, setRemoving] = useState<string | null>(null);
   const round = page.round;
-  const when = round ? formatMoment(round.deliversAt, user.timezone || group.timezone) : "";
+  // One short form in the header; the overview's full wording (the viewer's time, the loop's in brackets) opens beneath it.
+  // The same day everywhere: the overview's own phrase for the viewer's time, never a second date.
+  const when = !round ? "" : openMoment ? atMoment(openMoment.primary) : formatDate(round.deliversAt, user.timezone || group.timezone);
+  const fullWhen = !round
+    ? ""
+    : openMoment
+      ? `${atMoment(openMoment.primary)}${openMoment.loop ? ` (${openMoment.loop})` : ""}`
+      : atMoment(formatMoment(round.deliversAt, user.timezone || group.timezone));
 
   return (
-    <section className="card mt-4 p-4 sm:p-5" aria-labelledby="this-round-title">
+    <section id="this-round" className="card mt-4 p-4 sm:p-5" aria-labelledby="this-round-title">
       <div className="section-head">
         <h2 id="this-round-title" className="text-ink">{copy.questions.thisRound.title}</h2>
         {round ? (
-          <p className="m-0 text-[13.5px] font-bold text-ink-soft numeric">
-            {round.name
-              ? text(copy.questions.thisRound.metaNamed, { name: round.name, when })
-              : text(copy.questions.thisRound.meta, { number: round.number, when })}
-          </p>
+          <div className="min-w-0">
+            <p className="m-0 text-[13.5px] font-bold text-ink-soft numeric">
+              {round.name
+                ? text(copy.questions.thisRound.metaNamed, { name: round.name, when })
+                : text(copy.questions.thisRound.meta, { number: round.number, when })}
+            </p>
+            <details className="when-more">
+              <summary className="link link--quiet inline-flex min-h-11 cursor-pointer items-center text-[13px]">{copy.questions.thisRound.whenMore}</summary>
+              <p className="m-0 pb-1 text-[13.5px] leading-relaxed text-ink-soft numeric">{text(copy.loop.closes, { deadline: fullWhen })}</p>
+            </details>
+          </div>
         ) : null}
       </div>
 
+      {inline?.where === "round" ? <Confirmation inline={inline} spacing="mt-3" /> : null}
+
       {!round ? (
-        <p className="mt-3 text-[14px] leading-relaxed text-ink-muted">{copy.questions.thisRound.none}</p>
+        <p className="mt-3 text-[14px] leading-relaxed text-ink-muted">{copy.questions.thisRound.noneMember}</p>
       ) : page.thisRound.length === 0 ? (
         <p className="mt-3 text-[14px] leading-relaxed text-ink-muted">{copy.questions.thisRound.empty}</p>
       ) : (
-        <div className="mt-3">
+        <div id="this-round-list" className="mt-3">
           <SortableList
             items={page.thisRound}
             label={copy.questions.thisRound.listLabel}
             nameOf={(row) => row.text}
             disabled={!manages}
             rowClassName="list-row"
+            stepsInRow
             move={(id, index) => reorderRoundAction(group.id, id, index)}
           >
-            {(row, index) => {
+            {(row, index, steps) => {
               const item = row.questionId ? everything.find((candidate) => candidate.id === row.questionId) : undefined;
-              const tags = itemTags(row, [frequencyTag(row)]);
+              const tags = itemTags(row);
               const content = (
                 <>
                   <span className="question-number numeric" aria-hidden="true">{index + 1}</span>
@@ -179,7 +308,7 @@ function ThisRound({ everything, manages, onAdd }: { everything: PageItem[]; man
                 </>
               );
               return (
-                <>
+                <div id={row.questionId ? `round-q-${row.questionId}` : undefined}>
                   <div className="row-line">
                     {manages && item ? (
                       <button
@@ -197,54 +326,151 @@ function ThisRound({ everything, manages, onAdd }: { everything: PageItem[]; man
                     {!manages ? null : row.writers.length > 0 ? (
                       <p className="row-reason">{writtenNote(row.writers)}</p>
                     ) : (
-                      <SafeForm action={removeFromRoundAction} className="flex-none">
-                        <input type="hidden" name="groupId" value={group.id} />
-                        <input type="hidden" name="snapshotId" value={row.id} />
-                        <input type="hidden" name="turn" value={row.frequency === "rotating" && group.questionsPerRound !== null ? "1" : "0"} />
-                        <SubmitButton aria-label={text(copy.questions.thisRound.removeLabel, { item: row.text })} title={copy.questions.thisRound.remove} className="row-icon row-icon--danger">
-                          <IconTrash />
-                        </SubmitButton>
-                      </SafeForm>
+                      <button
+                        type="button"
+                        className="row-icon row-icon--danger"
+                        aria-expanded={removing === row.id}
+                        aria-controls={`remove-${row.id}`}
+                        aria-label={text(copy.questions.thisRound.menu.openLabel, { item: row.text })}
+                        title={copy.questions.thisRound.menu.open}
+                        onClick={() => { setRemoving((current) => (current === row.id ? null : row.id)); }}
+                      >
+                        <IconTrash />
+                      </button>
                     )}
                   </div>
-                  {item && editing === row.id ? <ItemEditor item={item} groupId={group.id} inThisRound /> : null}
-                </>
+                  {removing === row.id ? (
+                    <div id={`remove-${row.id}`}>
+                      <RemovePanel
+                        groupId={group.id}
+                        questionId={row.questionId}
+                        snapshotId={row.id}
+                        label={row.text}
+                        turn={row.frequency === "rotating" && group.questionsPerRound !== null}
+                        canSkip
+                        onClose={() => setRemoving(null)}
+                      />
+                    </div>
+                  ) : null}
+                  {item && editing === row.id ? <ItemEditor item={item} groupId={group.id} inThisRound hideStop={row.writers.length === 0} steps={steps} /> : null}
+                  {manages && !item ? <div className="item-editor">{steps}</div> : null}
+                  {inline?.where === "round-row" && row.questionId === inline.qid && removing !== row.id ? <Confirmation inline={inline} /> : null}
+                </div>
               );
             }}
           </SortableList>
         </div>
       )}
 
-      {manages && round ? (
-        <button type="button" onClick={onAdd} className="btn btn-quiet mt-3 min-h-11 px-4 text-[14px]">
-          <span aria-hidden="true" className="mr-1.5">+</span>{copy.questions.thisRound.add}
-        </button>
-      ) : null}
     </section>
   );
 }
 
-/** What comes after this round: the queue, the every-round items, and the dates. */
-function UpNext({ manages, inThisRound }: { manages: boolean; inThisRound: Set<string> }) {
+/** A row that isn't in the round: when it comes back, and a tap to add it. */
+function OutsideRows({ items, inline, tagOf, label, canAdd }: { items: PageItem[]; inline: Inline | null; tagOf: (item: PageItem) => string | null; label: string; canAdd: boolean }) {
+  const { group } = useLoopData();
+  return (
+    <ul className="plain-list mt-3" aria-label={label}>
+      {items.map((item) => (
+        <li key={item.id} className="list-row list-row--still">
+          <ItemRow
+            item={item}
+            groupId={group.id}
+            tag={tagOf(item)}
+            inThisRound={false}
+            manages
+            poll={item.format === "poll" && item.pollOptions?.length ? <span className="poll-line block">{item.pollOptions.join(", ")}</span> : null}
+            anchorId={`q-${item.id}`}
+            action={canAdd && item.frequency !== "on_date" ? <AskNowButton item={item} groupId={group.id} /> : undefined}
+            notice={inline?.where === "up-row" && inline.qid === item.id ? <Confirmation inline={inline} /> : null}
+          />
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/** Questions that exist but aren't asked in the open round, each with when it comes back. */
+function NotInRound({ items, inline }: { items: PageItem[]; inline: Inline | null }) {
+  const { questionsPage: page } = useLoopData();
+  if (items.length === 0) return null;
+  const openNumber = page.round?.number ?? null;
+  return (
+    <section className="card mt-4 p-4 sm:p-5" aria-labelledby="not-in-round-title">
+      <h2 id="not-in-round-title" className="text-ink">{copy.questions.notInRound.title}</h2>
+      <OutsideRows canAdd items={items} inline={inline} label={copy.questions.notInRound.label} tagOf={(item) => backTag(item, openNumber)} />
+    </section>
+  );
+}
+
+/** With no round open there is nothing to be in or out of: one list of what the loop asks. */
+function YourQuestions({ items, inline }: { items: PageItem[]; inline: Inline | null }) {
+  const { group } = useLoopData();
+  if (items.length === 0) return null;
+  return (
+    <section className="card mt-4 p-4 sm:p-5" aria-labelledby="your-questions-title">
+      <h2 id="your-questions-title" className="text-ink">{copy.questions.upNext.title}</h2>
+      <p className="mt-1 text-[14px] leading-relaxed text-ink-muted">{copy.questions.thisRound.none}</p>
+      <OutsideRows
+        canAdd={false}
+        items={items}
+        inline={inline}
+        label={copy.questions.upNext.title}
+        tagOf={(item) => (item.frequency === "on_date" ? backTag(item, null) : item.frequency === "rotating" ? roundTag(item.firstRound, group.timezone) : null)}
+      />
+    </section>
+  );
+}
+
+/** The usual order and how many turn-taking questions a round asks: folded away, for planning ahead. */
+function Plan({ inThisRound, inline }: { inThisRound: Set<string>; inline: Inline | null }) {
   const { group, questionsPage: page } = useLoopData();
   const count = group.questionsPerRound;
+  // A change made in here keeps it open, so the confirmation is seen where it happened.
+  const showing = inline?.where === "count";
   const pollLine = (item: PageItem) => item.format === "poll" && item.pollOptions?.length
     ? <span className="poll-line block">{item.pollOptions.join(", ")}</span>
     : null;
 
-  return (
-    <section className="card mt-4 p-4 sm:p-5" aria-labelledby="up-next-title">
-      <h2 id="up-next-title" className="text-ink">{copy.questions.upNext.title}</h2>
+  const next = page.plan[0];
+  const labels = new Map([...page.queue, ...page.everyRound, ...page.dated].map((item) => [item.id, item.label]));
+  const nextIds = next ? [...page.everyRound.map((item) => item.id), ...next.turns, ...next.dated.map((item) => item.id)] : [];
+  const nextTitles = nextIds.flatMap((id) => (labels.has(id) ? [labels.get(id)!] : []));
+  const shown = nextTitles.slice(0, 3).join(", ");
+  const more = nextTitles.length - 3;
+  const nextLine = nextTitles.length === 0
+    ? copy.questions.plan.nextNone
+    : nextTitles.length === 1
+      ? copy.questions.plan.nextOne
+      : text(copy.questions.plan.nextMany, { count: nextTitles.length });
 
-      <h3 className="subhead list-head">{copy.questions.upNext.turnsTitle}</h3>
-      {page.queue.length > 0 && manages ? (
-        <SafeForm action={rotationAction} className="count-line">
+  return (
+    <details className="card mt-4 p-4 sm:p-5" open={showing || undefined}>
+      <summary className="up-summary">
+        <h2 id="plan-title" className="text-ink">{copy.questions.plan.summary}</h2>
+        <svg viewBox="0 0 20 20" aria-hidden="true" className="item-chevron">
+          <path d="M5 7.5 10 12.5 15 7.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </summary>
+
+      <p className="mt-3 text-[14px] leading-relaxed text-ink-soft">{copy.questions.plan.intro}</p>
+      <p className="mt-2 text-[14px] font-bold leading-relaxed text-ink">{nextLine}</p>
+      {nextTitles.length > 0 ? (
+        <p className="mt-0.5 text-[13.5px] leading-relaxed text-ink-muted">
+          {more > 0 ? text(copy.questions.plan.andMore, { titles: shown, count: more }) : text(copy.questions.plan.nextTitles, { titles: shown })}
+        </p>
+      ) : null}
+
+      <h3 className="group-label">{copy.questions.upNext.turnsTitle}</h3>
+      {page.queue.length > 0 ? (
+        <SafeForm id="count-line" action={rotationAction} className="count-line">
           <input type="hidden" name="groupId" value={group.id} />
           <span>{copy.questions.upNext.countBefore}</span>
           <AutoPicker name="questionsPerRound" defaultValue={count?.toString() ?? ""} options={COUNT_OPTIONS} ariaLabel={copy.questions.upNext.countLabel} />
-          <span>{copy.questions.upNext.countAfter}</span>
+          {copy.questions.upNext.countAfter ? <span>{copy.questions.upNext.countAfter}</span> : null}
         </SafeForm>
       ) : null}
+      {inline?.where === "count" ? <Confirmation inline={inline} spacing="mt-2" /> : null}
       {page.queue.length > 0 ? (
         <>
           <p className="mt-1 text-[13.5px] leading-relaxed text-ink-muted">{count === null ? copy.questions.upNext.turnsAllHelp : copy.questions.upNext.turnsHelp}</p>
@@ -253,12 +479,11 @@ function UpNext({ manages, inThisRound }: { manages: boolean; inThisRound: Set<s
               items={page.queue}
               label={copy.questions.upNext.turnsLabel}
               nameOf={(item) => item.label}
-              disabled={!manages}
               rowClassName="list-row"
               move={(id, index) => reorderListAction(group.id, "rotating", id, index)}
             >
               {(item, index) => (
-                <ItemRow item={item} groupId={group.id} number={index + 1} tag={roundTag(item.firstRound, group.timezone)} inThisRound={inThisRound.has(item.id)} manages={manages} poll={pollLine(item)} />
+                <ItemRow item={item} groupId={group.id} number={index + 1} tag={roundTag(item.firstRound, group.timezone)} inThisRound={inThisRound.has(item.id)} manages poll={pollLine(item)} anchorId={`plan-q-${item.id}`} />
               )}
             </SortableList>
           </div>
@@ -267,7 +492,7 @@ function UpNext({ manages, inThisRound }: { manages: boolean; inThisRound: Set<s
         <p className="mt-1 text-[14px] leading-relaxed text-ink-muted">{copy.questions.upNext.turnsEmpty}</p>
       )}
 
-      <h3 className="subhead list-head">{copy.questions.upNext.everyRoundTitle}</h3>
+      <h3 className="group-label">{copy.questions.upNext.everyRoundTitle}</h3>
       {page.everyRound.length > 0 ? (
         <>
           <p className="mt-1 text-[13.5px] leading-relaxed text-ink-muted">{copy.questions.upNext.everyRoundHelp}</p>
@@ -276,11 +501,10 @@ function UpNext({ manages, inThisRound }: { manages: boolean; inThisRound: Set<s
               items={page.everyRound}
               label={copy.questions.upNext.everyRoundLabel}
               nameOf={(item) => item.label}
-              disabled={!manages}
               rowClassName="list-row"
               move={(id, index) => reorderListAction(group.id, "every_round", id, index)}
             >
-              {(item) => <ItemRow item={item} groupId={group.id} inThisRound={inThisRound.has(item.id)} manages={manages} poll={pollLine(item)} />}
+              {(item) => <ItemRow item={item} groupId={group.id} inThisRound={inThisRound.has(item.id)} manages poll={pollLine(item)} anchorId={`plan-q-${item.id}`} />}
             </SortableList>
           </div>
         </>
@@ -288,41 +512,38 @@ function UpNext({ manages, inThisRound }: { manages: boolean; inThisRound: Set<s
         <p className="mt-1 text-[14px] leading-relaxed text-ink-muted">{copy.questions.upNext.everyRoundEmpty}</p>
       )}
 
-      {manages ? (
+      <h3 className="group-label">{copy.questions.upNext.datedTitle}</h3>
+      {page.dated.length > 0 ? (
         <>
-          <h3 className="subhead list-head">{copy.questions.upNext.datedTitle}</h3>
-          {page.dated.length > 0 ? (
-            <>
-              <p className="mt-1 text-[13.5px] leading-relaxed text-ink-muted">{copy.questions.upNext.datedHelp}</p>
-              <ul className="plain-list mt-2" aria-label={copy.questions.upNext.datedLabel}>
-                {page.dated.map((item) => (
-                  <li key={item.id} className="list-row list-row--still">
-                    <ItemRow
-                      item={item}
-                      groupId={group.id}
-                      tag={[
-                        item.nextLabel ?? copy.questions.upNext.passed,
-                        item.dateKind === "birthday" ? copy.questions.upNext.yearly : null,
-                        item.firstRound ? text(copy.questions.upNext.roundShort, { number: item.firstRound.number }) : null,
-                      ].filter(Boolean).join(" · ")}
-                      inThisRound={inThisRound.has(item.id)}
-                      manages
-                    />
-                  </li>
-                ))}
-              </ul>
-            </>
-          ) : (
-            <p className="mt-1 text-[14px] leading-relaxed text-ink-muted">{copy.questions.upNext.datedEmpty}</p>
-          )}
+          <p className="mt-1 text-[13.5px] leading-relaxed text-ink-muted">{copy.questions.upNext.datedHelp}</p>
+          <ul className="plain-list mt-2" aria-label={copy.questions.upNext.datedLabel}>
+            {page.dated.map((item) => (
+              <li key={item.id} className="list-row list-row--still">
+                <ItemRow
+                  item={item}
+                  groupId={group.id}
+                  tag={[
+                    item.nextLabel ?? copy.questions.upNext.passed,
+                    item.dateKind === "birthday" ? copy.questions.upNext.yearly : null,
+                    item.firstRound ? text(copy.questions.upNext.askedIn, { number: item.firstRound.number }) : null,
+                  ].filter(Boolean).join(" · ")}
+                  inThisRound={inThisRound.has(item.id)}
+                  manages
+                  anchorId={`plan-q-${item.id}`}
+                />
+              </li>
+            ))}
+          </ul>
         </>
-      ) : null}
-    </section>
+      ) : (
+        <p className="mt-1 text-[14px] leading-relaxed text-ink-muted">{copy.questions.upNext.datedEmpty}</p>
+      )}
+    </details>
   );
 }
 
 /** One card for any kind of item, with the question packs folded beneath. */
-function AddCard({ request, thisRound, onThisRound, packsOpen }: { request: number; thisRound: boolean; onThisRound: (value: boolean) => void; packsOpen: boolean }) {
+function AddCard({ request, open, onToggle, thisRound, onThisRound, packsOpen, children }: { children?: React.ReactNode; request: number; open: boolean; onToggle: () => void; thisRound: boolean; onThisRound: (value: boolean) => void; packsOpen: boolean }) {
   const { group, questionsPage: page } = useLoopData();
   const form = useRef<HTMLFormElement>(null);
   const [frequency, setFrequency] = useState<AskFrequency>(page.queue.length > 0 || group.questionsPerRound !== null ? "rotating" : "every_round");
@@ -338,7 +559,12 @@ function AddCard({ request, thisRound, onThisRound, packsOpen }: { request: numb
   }, [request]);
 
   return (
-    <section id="add-item" className="card mt-4 p-4 sm:p-5" aria-labelledby="add-item-title">
+    <div className="add-wrap">
+    {/* A phone opens the form from here, right under the header; a desktop keeps it in view beside the list. */}
+    <button type="button" className="btn btn-primary add-toggle items-center justify-center" aria-expanded={open} aria-controls="add-item" onClick={onToggle}>
+      <span aria-hidden="true" className="mr-1.5">+</span>{copy.questions.add.open}
+    </button>
+    <section id="add-item" className={`card mt-4 p-4 sm:p-5${open ? "" : " add-closed"}`} aria-labelledby="add-item-title">
       <h2 id="add-item-title" className="text-ink">{copy.questions.add.title}</h2>
       <SafeForm ref={form} action={addItemAction} className="mt-3 flex flex-col gap-3">
         <input type="hidden" name="groupId" value={group.id} />
@@ -389,6 +615,8 @@ function AddCard({ request, thisRound, onThisRound, packsOpen }: { request: numb
         </SafeForm>
       </details>
     </section>
+    {children}
+    </div>
   );
 }
 
@@ -436,10 +664,10 @@ function Suggestions({ refObject, open }: { refObject: React.RefObject<HTMLDetai
 }
 
 /** What the loop stopped asking, folded away, each ready to ask again. */
-function Stopped({ items }: { items: PageItem[] }) {
+function Stopped({ items, inline }: { items: PageItem[]; inline: Inline | null }) {
   const { group } = useLoopData();
   return (
-    <details className="card plain-details mt-4 px-4 py-1.5">
+    <details className="card plain-details after-2 mt-4 px-4 py-1.5" open={inline?.where === "stopped-row" || undefined}>
       <summary className="pool-summary min-h-11 cursor-pointer">
         <span className="text-[15px] font-extrabold text-ink numeric">{text(copy.questions.item.stoppedTitle, { count: items.length })}</span>
         <svg viewBox="0 0 20 20" aria-hidden="true" className="item-chevron">
@@ -448,12 +676,12 @@ function Stopped({ items }: { items: PageItem[] }) {
       </summary>
       <ul className="plain-list mb-3 mt-2" aria-label={copy.questions.item.stoppedLabel}>
         {items.map((item) => (
-          <li key={item.id} className="list-row list-row--still">
+          <li key={item.id} id={`stopped-q-${item.id}`} className="list-row list-row--still">
             <div className="row-line">
               <div className="item-row">
                 <span className="item-main">
                   <ItemLabel emoji={item.emoji} label={item.label} />
-                  <span className="item-meta">{itemTags(item, [copy.questions.item.frequencies[item.frequency]])}</span>
+                  <span className="item-meta">{itemTags(item)}</span>
                 </span>
               </div>
               <SafeForm action={askAgainAction} className="flex-none">
@@ -464,6 +692,7 @@ function Stopped({ items }: { items: PageItem[] }) {
                 </SubmitButton>
               </SafeForm>
             </div>
+            {inline?.where === "stopped-row" && inline.qid === item.id ? <Confirmation inline={inline} /> : null}
           </li>
         ))}
       </ul>

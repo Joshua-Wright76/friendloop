@@ -169,19 +169,24 @@ test("N10 · members stick, move and peel stickers in a delivered round's margin
   await page.goto(`/i/${delivered.issueId}?m=${bob.token}`);
 
   const whose = text(copy.issue.whoseAnswerNumbered, { author: "Alice", number: 1 });
-  const stick = page.getByRole("button", { name: text(words.stickOn, { whose }) });
-  const sheet = page.getByRole("dialog", { name: words.sheetTitle });
-  await stick.click();
+  // Stickers live in the reaction sheet, on its Stickers tab.
+  const addLabel = text(copy.issue.reactMoreTo, { whose });
+  const stick = page.getByRole("button", { name: addLabel });
+  const sheet = page.getByRole("dialog", { name: addLabel });
+  const openStickers = async () => {
+    await stick.click();
+    await sheet.getByRole("tab", { name: copy.emojiPicker.tabStickers }).click();
+  };
+  await openStickers();
   await expect(sheet).toBeVisible();
   await expect(sheet).toContainText(text(words.left, { count: SCRAPBOOK_PER_ROUND }));
-  await expect(sheet.getByRole("button", { name: copy.reply.sticker.none })).toHaveCount(0);
-  await expectAccessible(page, "scrapbook sheet", ".sticker-picker");
+  await expectAccessible(page, "scrapbook sheet", ".emoji-picker");
   await page.keyboard.press("Escape");
   await expect(sheet).toBeHidden();
   await expect(stick).toBeFocused();
 
   for (const [index, key] of (["frog", "heart", "star"] as const).entries()) {
-    await stick.click();
+    await openStickers();
     await sheet.getByRole("button", { name: copy.stickers[key] }).click();
     const left = SCRAPBOOK_PER_ROUND - index - 1;
     const leftLine = left === 1 ? words.leftOne : left > 1 ? text(words.left, { count: left }) : text(words.spent, { limit: SCRAPBOOK_PER_ROUND });
@@ -189,8 +194,9 @@ test("N10 · members stick, move and peel stickers in a delivered round's margin
     await expect(page.getByRole("button", { name: text(words.labelYours, { sticker: copy.stickers[key] }) })).toBeVisible();
   }
   await expect.poll(async () => (await stickersOf(bob.id)).length).toBe(SCRAPBOOK_PER_ROUND);
-  // A fourth: no sheet, just why.
-  await stick.click();
+  // A fourth: the sheet closes and says why.
+  await openStickers();
+  await sheet.getByRole("button", { name: copy.stickers.frog }).click();
   await expect(sheet).toBeHidden();
   await expect(said(page, text(words.spent, { limit: SCRAPBOOK_PER_ROUND }))).toBeVisible();
   // Screen readers hear it from one live region, outside the round.

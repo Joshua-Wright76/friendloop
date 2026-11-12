@@ -49,18 +49,28 @@ export function AlbumGallery({ groups }: { groups: GalleryGroup[] }) {
             {group.items.map((item) => (
               <li key={item.key} className={item.kind === "voice" ? "album-voice" : undefined}>
                 {item.kind === "photo" ? (
-                  <figure className="card m-0 p-3">
-                    <button
-                      type="button"
-                      className="album-tile"
-                      aria-label={text(copy.album.openPhoto, { author: item.author, about: aboutOf(item) })}
-                      onClick={(event) => open(item.key, event.currentTarget)}
-                    >
+                  // The whole card is the button: photo, who and caption. The question and the way back to the round are in the viewer.
+                  <button
+                    type="button"
+                    className="album-card card"
+                    aria-label={text(copy.album.openPhoto, { author: item.author, about: aboutOf(item) })}
+                    onClick={(event) => open(item.key, event.currentTarget)}
+                  >
+                    <span className="album-tile">
                       {/* eslint-disable-next-line @next/next/no-img-element -- Uploaded photos live on local URLs in development and Blob in production. */}
                       <img src={item.url} alt="" loading="lazy" />
-                    </button>
-                    <Credit item={item} />
-                  </figure>
+                    </span>
+                    <span className="album-card__who">
+                      <Avatar name={item.author} photoUrl={item.authorPhotoUrl} frame={item.authorFrame} className="album-avatar" cssInitial />
+                      <span className="min-w-0 wrap-any">{item.author}</span>
+                      <NameCharm charm={item.authorCharm} />
+                    </span>
+                    {/* The space keeps the author's name a word of its own in the button's accessible name, which reads the content without one. */}
+                    {" "}
+                    {item.caption || item.body ? (
+                      <span className="album-card__caption">{item.caption || item.body}</span>
+                    ) : null}
+                  </button>
                 ) : item.kind === "video" ? (
                   <figure className="card m-0 p-3">
                     <VideoClip
@@ -73,7 +83,7 @@ export function AlbumGallery({ groups }: { groups: GalleryGroup[] }) {
                         duration: formatAudioDuration(item.durationMs ?? 0),
                       })}
                     />
-                    <Credit item={item} />
+                    <Credit item={item} link />
                   </figure>
                 ) : (
                   <figure className="card m-0 p-3">
@@ -86,7 +96,7 @@ export function AlbumGallery({ groups }: { groups: GalleryGroup[] }) {
                       })}
                       playLabel={text(copy.voiceNote.play, { author: item.author })}
                     />
-                    <Credit item={item} />
+                    <Credit item={item} link />
                   </figure>
                 )}
               </li>
@@ -108,21 +118,21 @@ export function AlbumGallery({ groups }: { groups: GalleryGroup[] }) {
   );
 }
 
-function Credit({ item }: { item: AlbumItem }) {
+/** Who, and the caption if there is one; videos and voice notes cannot open the viewer, so the way back to the round sits here, small. */
+function Credit({ item, link = false }: { item: AlbumItem; link?: boolean }) {
   return (
-    <figcaption className="mt-1.5">
-      <span className="flex items-center gap-1.5 text-[13px] font-bold text-ink-soft">
+    <figcaption className="mt-2 flex flex-col gap-0.5">
+      <span className="album-card__who">
         <Avatar name={item.author} photoUrl={item.authorPhotoUrl} frame={item.authorFrame} className="album-avatar" />
-        {item.author}
+        <span className="min-w-0 wrap-any">{item.author}</span>
         <NameCharm charm={item.authorCharm} />
       </span>
-      {item.caption || item.body ? (
-        <span className="mt-0.5 line-clamp-2 block text-[13px] leading-snug text-ink">{item.caption || item.body}</span>
+      {item.caption || item.body ? <span className="album-card__caption">{item.caption || item.body}</span> : null}
+      {link ? (
+        <Link href={item.issueHref} onClick={rememberAlbum} className="link link--quiet text-[13px]! font-semibold!" aria-label={text(copy.album.viewInIssueNamed, { what: [item.author, item.caption || item.body || item.context].filter(Boolean).join(", ") })}>
+          {copy.album.viewInIssue}
+        </Link>
       ) : null}
-      <span className="line-clamp-1 block text-[13px] leading-snug text-ink-muted">{item.context}</span>
-      <Link href={item.issueHref} onClick={rememberAlbum} className="link link--quiet text-[13px]!" aria-label={text(copy.album.viewInIssueNamed, { what: [item.author, item.caption || item.body || item.context].filter(Boolean).join(", ") })}>
-        {copy.album.viewInIssue}
-      </Link>
     </figcaption>
   );
 }

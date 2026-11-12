@@ -8,7 +8,7 @@ import { RoundCoverBand } from "@/components/round-cover";
 import { Motto, RoundMark, SignOff } from "@/components/round-marks";
 import { RollCall, SignedCard } from "@/components/member-marks";
 import { MutedNotice } from "@/components/muted-notice";
-import { formatDate } from "@/lib/format";
+import { atMoment, formatDate, momentsOf } from "@/lib/format";
 import { IssueBody } from "./issue-body";
 import { Cherries } from "@/components/stationery";
 import { DocumentTitle } from "@/components/document-title";
@@ -40,6 +40,8 @@ export default async function IssuePage({
 }) {
   const { id } = await params;
   const { m, print, by, sort } = await searchParams;
+  // A mistyped or cut-off link is simply a page that isn't here, never a database error.
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) notFound();
 
   // Who is reading decides what loads, and that needs only the issue's loop.
   const [user, groupId] = await Promise.all([currentUser(), issueGroupId(id)]);
@@ -116,6 +118,8 @@ export default async function IssuePage({
       })}
     </>
   );
+  // The deadline reads the way it does on the reply sheet and the overview: the reader's clock first, the loop's beside it.
+  const deadline = momentsOf(view.issue.deliversAt, view.group.timezone, user?.timezone);
   const next = delivered && marks.signOff ? await nextRoundFor(view.group.id) : null;
   // What people added themselves: a line each and a signature, for reading by person.
   const marked: Record<string, { line?: string; signature?: number[][] }> = {};
@@ -161,8 +165,16 @@ export default async function IssuePage({
         </div>
       </header>
 
+      {delivered ? (
+        <p className="mb-0 mt-6 font-display text-[24px] font-bold leading-tight text-ink-soft wrap-any">{text(copy.issue.letterOpening, { loop: view.group.name })}</p>
+      ) : null}
+
       {preview ? (
         <p role="note" className="card m-0 mt-4 px-4 py-3 text-[14px] leading-relaxed text-ink-soft">
+          <span className="block font-bold text-ink numeric">
+            {text(copy.loop.closes, { deadline: atMoment(deadline.primary) })}
+            {deadline.loop ? <span className="font-medium text-ink-muted"> ({deadline.loop})</span> : null}
+          </span>
           {copy.issue.preview.note}{" "}
           <Link href={`/g/${groupId}`} className="link">{copy.issue.preview.back}</Link>
         </p>
@@ -201,9 +213,10 @@ export default async function IssuePage({
         reading={people.length > 1 ? (
           <ReadingControls base={`/i/${id}`} token={m ?? null} people={people} reading={effective} focus={arranged.focus} />
         ) : undefined}
-        readingLabel={text(copy.issue.reading.menuLabel, {
-          who: arranged.focus?.name ?? copy.issue.reading.everyoneLower,
-          order: effective.sort === "member" ? copy.issue.reading.byPersonLower : copy.issue.reading.byQuestionLower,
+        // Short: with everyone shown, only the order; with one person, their name and the order.
+        readingLabel={text(copy.issue.reading.current, {
+          order: effective.sort === "member" ? copy.issue.reading.byPerson : copy.issue.reading.byQuestion,
+          who: arranged.focus ? arranged.focus.name : copy.issue.reading.everyoneLower,
         })}
         readingNote={arranged.focus ? (
           <p role="status" className="card m-0 flex flex-wrap items-center gap-x-3 px-4 py-1 text-[14px] text-ink-soft">
@@ -212,6 +225,10 @@ export default async function IssuePage({
           </p>
         ) : undefined}
       />
+
+      {delivered && !marks.signOff ? (
+        <p className="m-0 mt-6 text-center font-display text-[22px] font-bold leading-tight text-ink-soft">{copy.issue.letterClosing}</p>
+      ) : null}
 
       <footer className="card mt-6 flex flex-wrap items-center justify-center gap-x-6 gap-y-0 px-4 py-2">
         {editHref ? (

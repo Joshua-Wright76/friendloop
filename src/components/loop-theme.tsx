@@ -1,3 +1,4 @@
+import { Cherries } from "@/components/stationery";
 import { stationeryCss, stationeryOf, type StationeryColumns } from "@/lib/stationery";
 
 /**
@@ -23,4 +24,21 @@ export function LoopBanner({ url, className = "" }: { url: string | null; classN
   if (!url) return null;
   // eslint-disable-next-line @next/next/no-img-element -- Uploaded pictures live on local URLs in development and Blob in production.
   return <img src={url} alt="" className={`loop-banner ${className}`.trim()} />;
+}
+
+/**
+ * The one header for a loop's standalone pages (join, leave, unsubscribe, suggest):
+ * the loop's mascot and name in the display type, as on the reply sheet's top bar,
+ * then its banner picture if it has one. The Friendloop brand lives in the footer.
+ */
+export function LoopPageHeader({ name, imageUrl }: { name: string; imageUrl: string | null }) {
+  return (
+    <header className="mb-6">
+      <p className="flex items-center gap-2 font-display text-[23px] font-bold text-ink">
+        <Cherries className="h-7 w-7 flex-none" />
+        <span className="wrap-any">{name}</span>
+      </p>
+      <LoopBanner url={imageUrl} className="mt-3" />
+    </header>
+  );
 }

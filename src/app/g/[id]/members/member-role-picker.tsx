@@ -21,8 +21,8 @@ const ACCESS_OPTIONS: PickerOption[] = [
   { value: "admin", label: copy.common.roles.admin },
 ];
 const PARTICIPATION_OPTIONS: PickerOption[] = [
-  { value: "contributor", label: copy.members.participation.contributor },
-  { value: "reader", label: copy.members.participation.reader },
+  { value: "contributor", label: copy.members.participation.short.contributor },
+  { value: "reader", label: copy.members.participation.short.reader },
 ];
 
 export function MemberRolePicker({ groupId, membershipId, memberName, current, participation: initialParticipation }: Props) {
@@ -61,34 +61,39 @@ export function MemberRolePicker({ groupId, membershipId, memberName, current, p
     });
   }
 
+  const helpId = `role-help-${membershipId}`;
   return (
-    <div className="member-role-form">
-      <div className="member-role-picker">
-        <span className="member-role-label">{copy.members.accessLabel}</span>
+    <div className="ppl-fields">
+      <div className="ppl-field">
+        <span className="ppl-label">{copy.members.accessLabel}</span>
         <Picker
           name="access"
           defaultValue={access}
           value={access}
           options={ACCESS_OPTIONS}
           ariaLabel={text(copy.members.roleAriaLabel, { name: memberName })}
+          describedBy={helpId}
           onValueChange={(next) => save("access", next)}
           disabled={pending}
         />
       </div>
-      <div className="member-role-picker">
-        <span className="member-role-label">{copy.members.participationLabel}</span>
+      <div className="ppl-field">
+        <span className="ppl-label">{copy.members.participationLabel}</span>
         <Picker
           name="participation"
           defaultValue={participation}
           value={participation}
           options={PARTICIPATION_OPTIONS}
           ariaLabel={text(copy.members.participation.ariaLabel, { name: memberName })}
+          describedBy={helpId}
           onValueChange={(next) => save("participation", next)}
           disabled={pending}
         />
       </div>
+      {/* What the choices mean, once, under both selects. */}
+      <p id={helpId} className="ppl-help">{copy.members.rolesHint} {copy.members.participation.help}</p>
       {/* Both regions stay mounted so a change of text is announced; a node that appears with its text often is not. */}
-      <div className="member-role-status leading-snug">
+      <div className="ppl-status leading-snug">
         <span role="status" aria-live="polite" className={pending || (message && !failed) ? "text-[13px] text-ink-muted" : undefined}>
           {pending ? (saving === "access" ? copy.members.roleSaving : copy.members.participation.saving) : failed ? "" : message}
         </span>

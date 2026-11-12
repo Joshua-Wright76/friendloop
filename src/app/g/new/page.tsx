@@ -19,7 +19,7 @@ export default async function NewLoopPage() {
   if (!user) redirect("/signin");
 
   return (
-    <main className="mx-auto w-full max-w-[680px] px-4 pb-6 pt-4 sm:px-6">
+    <main className="mx-auto w-full max-w-[680px] px-4 pb-6 pt-4 sm:px-6 lg:max-w-[960px]">
       <div className="wizard-sheet">
         <header className="stitched mb-3 flex items-center justify-between gap-3 border-b pb-2">
           <Brand href={null} />

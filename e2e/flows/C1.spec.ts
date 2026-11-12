@@ -4,7 +4,8 @@ import { memberships } from "@/db/schema";
 import { newToken } from "@/lib/tokens";
 import { latestOutbox, resetDatabase, rows } from "../support/db";
 import { seedLoop } from "../support/seed";
-import { AFTER_FIRST_SLOT, addWithCard, freezeClock, runSweep, signIn } from "../support/harness";
+import { openPlan } from "../support/questions";
+import { AFTER_FIRST_SLOT, addCard, addWithCard, freezeClock, runSweep, signIn } from "../support/harness";
 import { copy, text as copyText, copyPattern } from "@/lib/copy";
 
 test.beforeEach(async () => {
@@ -35,8 +36,10 @@ test("C1 · one add card adds any kind of item, and each lands where its frequen
   await expect(thisRound(page).locator(":scope > li")).toHaveCount(2);
 
   // A question that takes turns waits at the back of Up next.
-  await addWithCard(page, { text: "What did you learn this week?" });
+  // (The add card asks for this round by default, so this one says it is for later.)
+  await addWithCard(page, { text: "What did you learn this week?", thisRound: false });
   await expect(page.getByText(copy.questions.done.added)).toBeVisible();
+  await openPlan(page);
   await expect(turns(page).locator(":scope > li").last()).toContainText("What did you learn this week?");
   await expect(thisRound(page)).not.toContainText("What did you learn this week?");
 
@@ -48,12 +51,15 @@ test("C1 · one add card adds any kind of item, and each lands where its frequen
   // An every-round photo wall joins this round at once, with its emoji and description.
   await addWithCard(page, { text: "The fridge wall", format: copy.questions.item.formats.photo_wall, frequency: copy.questions.item.frequencies.every_round, emoji: "🧲", description: "Whatever's on yours" });
   await expect(thisRound(page)).toContainText("The fridge wall");
+  await openPlan(page);
   await expect(page.getByRole("list", { name: copy.questions.upNext.everyRoundLabel })).toContainText(copy.questions.item.formats.photo_wall);
 
   // A birthday in this round's days joins it too, titled with the person's name.
   await addWithCard(page, { frequency: copy.questions.item.frequencies.on_date, dateKind: copy.questions.item.dateKinds.birthday, person: "Alice", date: "1990-01-06" });
   await expect(thisRound(page).locator(":scope > li").last()).toContainText(copyText(copy.events.birthdayRow, { name: "Alice" }));
-  await expect(page.getByRole("list", { name: copy.questions.upNext.datedLabel })).toContainText("Tue, Jan 6");
+  await openPlan(page);
+  await expect(page.getByRole("list", { name: copy.questions.upNext.datedLabel })).toContainText(copyText(copy.events.birthdayRow, { name: "Alice" }));
+  await expect(page.getByRole("list", { name: copy.questions.upNext.datedLabel })).toContainText(copy.questions.upNext.inThisRound);
 
   const stored = await rows<{ text: string; format: string; frequency: string; emoji: string | null; description: string | null }>(
     "select text, format, frequency, emoji, description from questions where group_id = $1 order by text", [loop.groupId]);
@@ -77,7 +83,7 @@ test("C1 · a refused item says what to fix", async ({ page }) => {
   await signIn(page, "owner@friendloop.test");
   await freezeClock(page, AFTER_FIRST_SLOT);
   await page.goto(`/g/${loop.groupId}/questions`);
-  const card = page.getByRole("region", { name: copy.questions.add.title });
+  const card = addCard(page);
   const { fillItem } = await import("../support/harness");
   await fillItem(page, card, { text: "Last week's party", frequency: copy.questions.item.frequencies.on_date, date: "2025-12-20" });
   await card.getByRole("button", { name: copy.questions.add.submit, exact: true }).click();

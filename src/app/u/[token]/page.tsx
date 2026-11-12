@@ -1,6 +1,7 @@
-import Link from "next/link";
 import type { Metadata } from "next";
-import { LoopTheme } from "@/components/loop-theme";
+import { LoopPageHeader, LoopTheme } from "@/components/loop-theme";
+import { Tape } from "@/components/stationery";
+import { DeadLinkPage } from "@/components/dead-link";
 import { copy, text } from "@/lib/copy";
 import { resolveUnsubscribe } from "@/lib/unsubscribe";
 
@@ -18,44 +19,40 @@ export const metadata: Metadata = {
  * Where "Stop emails from this loop" lands. Mail scanners open every link, so
  * this page only ever asks: the mute (and the unmute) is a button that POSTs.
  */
-export default async function UnsubscribePage({ params }: { params: Promise<{ token: string }> }) {
+export default async function UnsubscribePage({ params, searchParams }: { params: Promise<{ token: string }>; searchParams: Promise<{ back?: string | string[] }> }) {
   const { token } = await params;
+  const { back } = await searchParams;
   const context = await resolveUnsubscribe(token);
   const labels = copy.unsubscribe;
 
+  if (context.state === "invalid") {
+    return <DeadLinkPage title={labels.invalidTitle} body={labels.invalidBody} />;
+  }
+
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-[560px] flex-col justify-center px-4 py-10">
-      {context.state === "ok" ? (
-        <LoopTheme group={context.group} />
-      ) : null}
-      <div className="card p-6">
-        {context.state === "invalid" ? (
-          <>
-            <h1 className="text-[22px] font-semibold leading-tight tracking-[-0.02em] text-ink">{labels.invalidTitle}</h1>
-            <p className="mt-2 text-[15px] leading-relaxed text-ink-soft">{labels.invalidBody}</p>
-          </>
-        ) : (
-          <>
-            <h1 className="text-[22px] font-semibold leading-tight tracking-[-0.02em] text-ink">
-              {text(context.muted ? labels.mutedTitle : labels.title, { groupName: context.groupName })}
-            </h1>
-            <p className="mt-2 text-[15px] leading-relaxed text-ink-soft">
-              {context.muted ? labels.mutedBody : labels.body}
-            </p>
-            <form method="post" action={`/api/unsubscribe/${token}`} className="mt-5">
-              <input type="hidden" name="action" value={context.muted ? "unmute" : "mute"} />
-              <button type="submit" className="btn btn-primary">
-                {context.muted ? labels.unmute : labels.confirm}
-              </button>
-            </form>
-          </>
-        )}
+      <LoopTheme group={context.group} />
+      <LoopPageHeader name={context.groupName} imageUrl={context.group.headerImageUrl} />
+      <div className="card p-6 pt-8">
+        <Tape tone="dots" position="left" />
+        {context.muted === false && back === "on" ? (
+          <p role="status" className="mb-4 rounded-lg border border-line bg-accent-soft px-3 py-2 text-[15px] font-bold leading-snug text-accent-ink">
+            {text(labels.backOn, { groupName: context.groupName })}
+          </p>
+        ) : null}
+        <h1 className="wrap-any text-[24px] font-semibold leading-tight tracking-[-0.022em] text-ink">
+          {text(context.muted ? labels.mutedTitle : labels.title, { groupName: context.groupName })}
+        </h1>
+        <p className="mt-2 text-[15px] leading-relaxed text-ink-soft">
+          {context.muted ? labels.mutedBody : labels.body}
+        </p>
+        <form method="post" action={`/api/unsubscribe/${token}`} className="mt-5">
+          <input type="hidden" name="action" value={context.muted ? "unmute" : "mute"} />
+          <button type="submit" className="btn btn-primary">
+            {context.muted ? labels.unmute : labels.confirm}
+          </button>
+        </form>
       </div>
-      <p className="mt-6 text-center text-[13px] text-ink-muted">
-        <Link href="/" className="underline decoration-line-strong underline-offset-4">
-          {copy.common.brand}
-        </Link>
-      </p>
     </main>
   );
 }

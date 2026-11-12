@@ -1,6 +1,7 @@
 import { test, expect } from "../support/test";
 import { resetDatabase, rows } from "../support/db";
 import { seedLoop } from "../support/seed";
+import { openPlan } from "../support/questions";
 import { AFTER_FIRST_SLOT, freezeClock, runSweep, signIn, inOrder } from "../support/harness";
 import { copy, text as copyText, copyPattern } from "@/lib/copy";
 
@@ -25,19 +26,21 @@ test("C7 · Up next shows which round asks each turn-taker, then every-round ite
   await signIn(page, "owner@friendloop.test");
   await freezeClock(page, AFTER_FIRST_SLOT);
   await page.goto(`/g/${loop.groupId}/questions`);
+  await openPlan(page);
 
   const queue = page.getByRole("list", { name: copy.questions.upNext.turnsLabel }).locator(":scope > li");
   await expect(queue).toHaveText([
-    /Q3.*Round 2 · Fri 16 Jan/,
+    inOrder("Q3", /.*/, copyText(copy.questions.upNext.roundTag, { number: 2, date: "Fri 16 Jan" })),
     inOrder("Q4", /.*/, copyText(copy.questions.upNext.roundTag, { number: 2, date: "Fri 16 Jan" })),
     inOrder("Q5", /.*/, copyText(copy.questions.upNext.roundTag, { number: 3, date: "Fri 23 Jan" })),
-    inOrder("Q1", /.*/, copyText(copy.questions.upNext.roundTag, { number: 3, date: "Fri 23 Jan" })),
-    inOrder("Q2", /.*/, copyText(copy.questions.upNext.roundTag, { number: 4, date: "Fri 30 Jan" })),
+    // Q1 and Q2 are in the open round, which says so instead of naming a later one.
+    inOrder("Q1", /.*/, copy.questions.upNext.inThisRound),
+    inOrder("Q2", /.*/, copy.questions.upNext.inThisRound),
   ]);
   await expect(page.getByRole("button", { name: `${copy.questions.upNext.countLabel}: 2` })).toBeVisible();
   const everyRound = page.getByRole("list", { name: copy.questions.upNext.everyRoundLabel }).locator(":scope > li");
   await expect(everyRound).toHaveText([inOrder("Fridge wall", /.*/, copy.questions.item.formats.photo_wall), inOrder("Committee notes", /.*/, copy.questions.item.adminOnlyTag)]);
-  await expect(page.getByRole("list", { name: copy.questions.upNext.datedLabel })).toContainText(inOrder(copyText(copy.events.birthdayRow, { name: "Alice" }), /.*/, `Tue, Jan 20 · ${copy.questions.upNext.yearly} · ${copyText(copy.questions.upNext.roundShort, { number: 3 })}`));
+  await expect(page.getByRole("list", { name: copy.questions.upNext.datedLabel })).toContainText(inOrder(copyText(copy.events.birthdayRow, { name: "Alice" }), /.*/, `Tue, Jan 20 · ${copy.questions.upNext.yearly} · ${copyText(copy.questions.upNext.askedIn, { number: 3 })}`));
 
   // A member reads what they could be asked, and changes nothing.
   await page.context().clearCookies();

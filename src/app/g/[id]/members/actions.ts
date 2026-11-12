@@ -150,7 +150,9 @@ export async function transferAction(formData: FormData) {
 
   const moved = await transferOwnership(groupId, viewer.membership.id, membershipId);
   revalidatePath(`/g/${groupId}`, "layout");
-  redirect(`/g/${groupId}/members?${moved ? "transferred=1" : "transferError=1"}`);
+  // Handing it over was the errand when the owner came from "Delete my account": go back to it.
+  if (moved && formData.get("then") === "delete-account") redirect("/you/delete");
+  redirect(`/g/${groupId}/members?${moved ? "transferred=1" : "transferError=1"}${formData.get("then") === "delete-account" ? "&then=delete-account" : ""}`);
 }
 
 /** Fix the address of someone who has no account yet. */

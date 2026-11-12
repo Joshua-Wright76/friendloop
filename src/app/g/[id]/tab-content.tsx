@@ -31,16 +31,16 @@ export function LoopTabContent(props: Props) {
       return <OverviewTab welcome={welcome} nudged={nudged} />;
     }
     case "members":
-      return <MembersTab notices={read("limited", "addressChanged", "invited", "resent", "removed", "transferred", "transferError", "linkReset")} />;
+      return <MembersTab notices={read("limited", "addressChanged", "invited", "resent", "removed", "transferred", "transferError", "linkReset", "then")} />;
     case "questions":
       // Each return from a form is a fresh page: forms empty, editors closed.
-      return <QuestionsTab key={params.get("n") ?? ""} notices={read("done", "problem", "fromPacks", "suggestion")} />;
+      return <QuestionsTab key={params.get("n") ?? ""} notices={read("done", "problem", "fromPacks", "suggestion", "undo", "q")} />;
     case "issues": {
       const member = parseMemberFilter(params.get("member"));
       const filter = member ? { memberId: member, roundIds: roundsAnsweredBy[member] ?? [] } : null;
       return <IssuesTab notices={read("sent", "next", "nothingToSend", "named")} filter={filter} />;
     }
     case "settings":
-      return <SettingsTab notices={read("saved", "error", "shares", "stationery")} />;
+      return <SettingsTab notices={read("saved", "error", "shares", "stationery", "then")} />;
   }
 }

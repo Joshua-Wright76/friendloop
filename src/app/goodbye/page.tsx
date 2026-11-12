@@ -1,7 +1,6 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { Brand, Tape } from "@/components/stationery";
-import { LegalLinks } from "@/components/legal-page";
 import { copy } from "@/lib/copy";
 
 export const metadata: Metadata = {
@@ -20,9 +19,9 @@ export default function GoodbyePage() {
         <Tape tone="mint" position="left" />
         <h1 className="text-ink">{copy.goodbye.title}</h1>
         <p className="mt-2 text-[15px] leading-relaxed text-ink-soft">{copy.goodbye.body}</p>
+        <p className="mt-3 text-[15px] leading-relaxed text-ink">{copy.goodbye.closing}</p>
         <Link href="/" className="btn btn-primary mt-5 inline-flex">{copy.goodbye.home}</Link>
       </div>
-      <LegalLinks className="mt-6" />
     </main>
   );
 }

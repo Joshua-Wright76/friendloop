@@ -1,6 +1,7 @@
 import { test, expect } from "../support/test";
 import { resetDatabase, rows } from "../support/db";
 import { seedLoop } from "../support/seed";
+import { inPlan, openPlan } from "../support/questions";
 import { AFTER_FIRST_SLOT, DELIVERY_DAY, E2E_NOW, freezeClock, openItem, runSweep, signIn } from "../support/harness";
 import { copy, text, copyPattern, text as copyText } from "@/lib/copy";
 
@@ -26,13 +27,15 @@ test("O4 · a round keeps the event section it was given, whatever happens to th
   await signIn(page, "owner@friendloop.test");
   await freezeClock(page, E2E_NOW);
   await page.goto(`/g/${loop.groupId}/questions`);
+  await openPlan(page);
   // The row in Up next is live; the card in this round keeps its title.
-  await expect(page.getByRole("list", { name: copy.questions.upNext.datedLabel })).toContainText(text(copy.events.birthdayRow, { name: "Alicia" }));
+  await inPlan(page, () => expect(page.getByRole("list", { name: copy.questions.upNext.datedLabel })).toContainText(text(copy.events.birthdayRow, { name: "Alicia" }), { timeout: 2000 }));
   const item = await openItem(page, copyText(copy.events.birthdayRow, { name: "Alicia" }));
   await item.getByLabel(copyPattern(copy.questions.item.dateLabel, { start: true })).fill("1990-05-05");
   await item.getByLabel(copy.questions.item.emojiLabel).fill("🎈");
   await item.getByRole("button", { name: copy.questions.item.save }).click();
-  await expect(page.getByText(copy.settings.savedNotice)).toBeVisible();
+  await expect(page.getByText(copy.questions.done.saved)).toBeVisible();
+  await openPlan(page);
   const again = await openItem(page, copyText(copy.events.birthdayRow, { name: "Alicia" }));
   await again.getByRole("button", { name: text(copy.questions.item.stopLabel, { item: copyText(copy.events.birthdayRow, { name: "Alicia" }) }) }).click();
   await again.getByRole("button", { name: copy.questions.item.stopConfirm }).click(); // stopping asks first

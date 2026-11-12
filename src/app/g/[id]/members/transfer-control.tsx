@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { copy, text } from "@/lib/copy";
 import { transferAction } from "./actions";
 
-type Props = { groupId: string; groupName: string; membershipId: string; name: string };
+type Props = { groupId: string; groupName: string; membershipId: string; name: string; then?: string };
 
 function Confirm({ name }: { name: string }) {
   const pending = useSafeFormPending();
@@ -27,7 +27,7 @@ function Confirm({ name }: { name: string }) {
  * Hand the loop to this admin. Two steps on purpose: the first button only opens
  * the question, and the question names the person and says what you give up.
  */
-export function TransferControl({ groupId, groupName, membershipId, name }: Props) {
+export function TransferControl({ groupId, groupName, membershipId, name, then }: Props) {
   const [asking, setAsking] = useState(false);
   const title = useRef<HTMLParagraphElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
@@ -53,7 +53,7 @@ export function TransferControl({ groupId, groupName, membershipId, name }: Prop
         ref={trigger}
         type="button"
         onClick={() => setAsking(true)}
-        className="btn btn-quiet min-h-11 px-4 text-[13px]"
+        className="btn btn-quiet ppl-action"
       >
         {text(copy.members.transferAction, { name })}
       </button>
@@ -68,11 +68,12 @@ export function TransferControl({ groupId, groupName, membershipId, name }: Prop
       onKeyDown={(event) => {
         if (event.key === "Escape") cancel();
       }}
-      className="notice mt-1 w-full border bg-accent-soft px-4 py-3"
+      className="notice ppl-wide border bg-accent-soft px-4 py-3"
     >
       <input type="hidden" name="groupId" value={groupId} />
       <input type="hidden" name="membershipId" value={membershipId} />
       <input type="hidden" name="confirm" value="yes" />
+      {then ? <input type="hidden" name="then" value={then} /> : null}
       <p id={`transfer-${membershipId}`} ref={title} tabIndex={-1} className="text-[15px] font-bold text-ink outline-none">
         {text(copy.members.transferTitle, { groupName, name })}
       </p>

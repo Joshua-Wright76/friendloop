@@ -43,5 +43,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ tok
   const ok = await setMutedByToken(token, action === "mute");
   if (!ok) return NextResponse.redirect(unsubscribeUrl(token), 303);
   const back = safeBackPath(form.get("back"));
-  return NextResponse.redirect(back ? url(back) : unsubscribeUrl(token), 303);
+  if (back) return NextResponse.redirect(url(back), 303);
+  // Turning emails back on is confirmed on the page, in words.
+  return NextResponse.redirect(action === "unmute" ? `${unsubscribeUrl(token)}?back=on` : unsubscribeUrl(token), 303);
 }

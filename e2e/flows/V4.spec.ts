@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 import { test, expect, type Download, type Page } from "../support/test";
 import { resetDatabase } from "../support/db";
 import { seedDeliveredIssue, seedLoop } from "../support/seed";
-import { DELIVERY_DAY, openPart, signIn } from "../support/harness";
+import { DELIVERY_DAY, signIn, unfold } from "../support/harness";
 import { copy, text as copyText } from "@/lib/copy";
 
 test.beforeEach(async () => {
@@ -26,6 +26,7 @@ test("V4 · a person downloads their own words, and the owner downloads the whol
   });
   await signIn(page, "owner@friendloop.test");
 
+  await unfold(page, copy.you.dataTitle);
   const mine = await downloaded(page, () => page.getByRole("link", { name: copy.you.download }).click());
   expect(mine.file.suggestedFilename()).toMatch(/^friendloop-my-data-\d{4}-\d{2}-\d{2}\.json$/);
   const personal = JSON.stringify(mine.json);
@@ -33,7 +34,6 @@ test("V4 · a person downloads their own words, and the owner downloads the whol
   expect(personal).not.toContain("Alice's answer");
 
   await page.goto(`/g/${loop.groupId}/settings`);
-  await openPart(page, copy.settings.groupKeep);
   const archive = await downloaded(page, () => page.getByRole("link", { name: copy.settings.archive }).click());
   expect(archive.file.suggestedFilename()).toMatch(/^friendloop-friday-loop-\d{4}-\d{2}-\d{2}\.json$/);
   const whole = JSON.stringify(archive.json);

@@ -1,5 +1,6 @@
 "use client";
 
+import { DialogClose } from "@/components/dialog-close";
 import { useEffect, useId, useRef, useState, type RefObject } from "react";
 import { wrapTab } from "./focus-wrap";
 import { copy, text } from "@/lib/copy";
@@ -75,7 +76,7 @@ export function StickerSheet({
         <span className="sticker-picker__grab" aria-hidden="true" />
         <div className="sticker-picker__head">
           <h2 id={titleId} className="sticker-picker__title">{title}</h2>
-          <button type="button" className="link link--quiet min-h-11 min-w-11 cursor-pointer justify-center px-2 text-[14px] font-bold" onClick={onClose}>{copy.common.close}</button>
+          <DialogClose onClick={onClose} />
         </div>
         <p id={noteId} className="sticker-picker__note">{note}{extra ? <strong className="sticker-picker__extra">{extra}</strong> : null}</p>
         <div className="sticker-picker__grid">
@@ -107,7 +108,7 @@ export function StickerSheet({
 /**
  * "＋ Sticker" under one answer on the reply sheet: opens the sheet, sticks the pick on
  * straight away (with a little pop) and saves it with the answer. It waits until the
- * card has an answer, and says so if tapped before.
+ * card has an answer; until then it isn't shown at all.
  */
 export function StickerControl({
   token,
@@ -157,6 +158,8 @@ export function StickerControl({
   }
 
   const blocked = disabled || !answered;
+  // Nothing to decorate yet: no button until the card has an answer (or already wears a sticker).
+  if (!answered && !sticker && !open) return null;
   return (
     <div className="sticker-control">
       {sticker ? (
@@ -170,6 +173,7 @@ export function StickerControl({
         className="attach-btn sticker-btn aria-disabled:cursor-not-allowed aria-disabled:opacity-45"
         aria-haspopup="dialog"
         aria-disabled={blocked ? true : undefined}
+        title={copy.reply.sticker.hint}
         aria-label={forQuestion(sticker ? copy.reply.sticker.change : copy.reply.sticker.addLabel)}
         onClick={() => {
           if (disabled) return;

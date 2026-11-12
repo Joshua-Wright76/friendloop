@@ -11,6 +11,7 @@ export function Avatar({
   frame,
   className = "",
   eager = false,
+  cssInitial = false,
 }: {
   name: string;
   photoUrl?: string | null;
@@ -18,11 +19,13 @@ export function Avatar({
   className?: string;
   /** Load now rather than on scroll: a printed page has no scrolling to wait for. */
   eager?: boolean;
+  /** Draw the initial with CSS, so it is not text inside a button whose name must contain its visible words. */
+  cssInitial?: boolean;
 }) {
   return (
-    <span className={`avatar ${className}`.trim()} data-frame={isFrameKey(frame) ? frame : undefined} aria-hidden="true">
+    <span className={`avatar ${className}`.trim()} data-frame={isFrameKey(frame) ? frame : undefined} data-initial={cssInitial && !photoUrl ? name.charAt(0) : undefined} aria-hidden="true">
       {/* eslint-disable-next-line @next/next/no-img-element -- Uploaded photos live on local URLs in development and Blob in production. */}
-      {photoUrl ? <img src={photoUrl} alt="" loading={eager ? "eager" : "lazy"} /> : name.charAt(0)}
+      {photoUrl ? <img src={photoUrl} alt="" loading={eager ? "eager" : "lazy"} /> : cssInitial ? null : name.charAt(0)}
     </span>
   );
 }

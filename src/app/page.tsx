@@ -1,13 +1,13 @@
 import { Suspense } from "react";
 import Link from "next/link";
+import { Avatar } from "@/components/avatar";
 import { Brand, Cherries, Tape } from "@/components/stationery";
 import { currentUser } from "@/lib/auth";
-import { LegalLinks } from "@/components/legal-page";
 import { copy } from "@/lib/copy";
 
 const SOURCE_URL = "https://github.com/Joshua-Wright76/friendloop";
 
-const HEADER_LINK = "text-[14px] font-bold text-ink-soft underline decoration-dashed underline-offset-4 hover:text-ink";
+const HEADER_LINK = "-my-2 inline-flex min-h-11 items-center text-[14px] font-bold text-ink-soft underline decoration-dashed underline-offset-4 hover:text-ink";
 
 /** A hand-drawn heart, in place of a "<3" that Gaegu draws as an angle bracket. */
 function HeartDoodle() {
@@ -37,7 +37,32 @@ async function AccountLink() {
 /** Someone already signed in goes straight to the wizard rather than through a sign-in redirect. */
 async function StartLink() {
   const user = await currentUser();
-  return <Link href={user ? "/g/new" : "/signin"} className="btn btn-primary">{copy.home.startLoop}</Link>;
+  return <Link href={user ? "/g/new" : "/signin?start=1"} className="btn btn-primary">{copy.home.startLoop}</Link>;
+}
+
+/** A small picture of a round, built from the same paper, tape and type as the real one. Not interactive. */
+function SampleRound() {
+  const sample = copy.home.sample;
+  return (
+    <div className="home-sample">
+      <p className="sr-only">{sample.description}</p>
+      <div className="home-round" aria-hidden="true">
+        <Tape tone="stripe" position="right" />
+        <p className="home-round__number">{sample.round}</p>
+        <p className="home-round__question">{sample.question}</p>
+        {sample.answers.map((answer) => (
+          <div key={answer.name} className="home-round__answer">
+            <div className="home-round__by">
+              <Avatar name={answer.name} className="home-round__avatar" />
+              <span>{answer.name}</span>
+            </div>
+            <p>{answer.text}</p>
+            {answer.reaction ? <span className="home-round__reaction">{answer.reaction}</span> : null}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 export default function Home() {
@@ -45,7 +70,7 @@ export default function Home() {
   const lastWord = accentWords.pop();
 
   return (
-    <main className="mx-auto flex min-h-svh w-full max-w-[880px] flex-col px-5 py-5 sm:min-h-dvh sm:px-8 sm:py-8">
+    <main className="mx-auto flex min-h-svh w-full max-w-[880px] flex-col lg:max-w-[1080px] px-5 py-5 sm:min-h-dvh sm:px-8 sm:py-8">
       <header className="flex items-center justify-between gap-4">
         <Brand />
         <div className="flex items-center gap-4">
@@ -64,20 +89,32 @@ export default function Home() {
         <section className="card home-card ride-in w-full">
           <Tape tone="dots" position="left" />
           <Cherries className="home-doodle" />
-          <h1 className="home-title font-bold text-ink">
-            {copy.home.titleStart}{" "}
-            <em>
-              <span aria-hidden="true">
-                {accentWords.join(" ")}{" "}
-                {/* The heart never wraps onto a line of its own. */}
-                <span className="whitespace-nowrap">{lastWord}{" "}<HeartDoodle /></span>
-              </span>
-              <span className="sr-only">{copy.home.titleAccentSpoken}</span>
-            </em>
-          </h1>
-          <p className="mt-6 max-w-[52ch] text-[17px] leading-relaxed text-ink-soft">
-            {copy.home.description}
-          </p>
+          <div className="home-hero">
+            <div className="home-hero__text">
+            <h1 className="home-title font-bold text-ink">
+              {copy.home.titleStart}{" "}
+              <em>
+                <span aria-hidden="true">
+                  {accentWords.join(" ")}{" "}
+                  {/* The heart never wraps onto a line of its own. */}
+                  <span className="whitespace-nowrap">{lastWord}{" "}<HeartDoodle /></span>
+                </span>
+                <span className="sr-only">{copy.home.titleAccentSpoken}</span>
+              </em>
+            </h1>
+            <p className="mt-6 max-w-[52ch] text-[17px] leading-relaxed text-ink-soft">
+              {copy.home.description}
+            </p>
+
+            <div className="mt-6 flex flex-wrap items-center gap-x-5 gap-y-3">
+              <Suspense fallback={<Link href="/signin?start=1" className="btn btn-primary">{copy.home.startLoop}</Link>}>
+                <StartLink />
+              </Suspense>
+              <p className="m-0 text-[14px] font-bold leading-snug text-ink-soft">{copy.home.noAccount}</p>
+            </div>
+            </div>
+            <SampleRound />
+          </div>
 
           <h2 className="home-how-title mt-8 text-ink">{copy.home.howTitle}</h2>
           <ol className="home-steps mt-3">
@@ -92,20 +129,13 @@ export default function Home() {
             ))}
           </ol>
 
-          <div className="mt-8 flex flex-wrap items-center gap-x-5 gap-y-3">
-            <Suspense fallback={<Link href="/signin" className="btn btn-primary">{copy.home.startLoop}</Link>}>
-              <StartLink />
-            </Suspense>
-            <p className="m-0 text-[14px] font-bold leading-snug text-ink-soft">{copy.home.noAccount}</p>
-          </div>
         </section>
       </div>
 
       <footer className="pb-2">
-        <LegalLinks />
         <p className="m-0 mt-3 text-center text-[13px] text-ink-muted">
           {copy.home.source.text}{" "}
-          <a href={SOURCE_URL} className="underline decoration-line-strong underline-offset-4 hover:text-ink">
+          <a href={SOURCE_URL} className="inline-flex min-h-11 items-center underline decoration-line-strong underline-offset-4 hover:text-ink">
             {copy.home.source.link}
           </a>
         </p>

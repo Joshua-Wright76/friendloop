@@ -1,8 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Nunito } from "next/font/google";
 import localFont from "next/font/local";
-import { FeedbackButton } from "@/components/feedback-button";
-import { ThemeSwitch } from "@/components/theme-switch";
+import { SiteFooter } from "@/components/site-footer";
 import { copy } from "@/lib/copy";
 import { THEME_COLORS } from "@/lib/theme";
 import { appUrl } from "@/lib/urls";
@@ -86,11 +85,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       <body className="min-h-full">
         <a href="#main-content" className="skip-link">{copy.common.skipToContent}</a>
         <div id="main-content" tabIndex={-1}>{children}</div>
-        {/* Floating pills on a wide screen; on a phone, a plain row after the page (globals.css). */}
-        <div className="site-chrome">
-          <FeedbackButton />
-          <ThemeSwitch />
-        </div>
+        <SiteFooter />
       </body>
     </html>
   );

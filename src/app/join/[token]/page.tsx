@@ -4,8 +4,7 @@ import type { Metadata } from "next";
 import { currentUser } from "@/lib/auth";
 import { loopForInvite, placeIn } from "@/lib/invite-link";
 import { Brand, Tape } from "@/components/stationery";
-import { LoopBanner, LoopTheme } from "@/components/loop-theme";
-import { LegalLinks } from "@/components/legal-page";
+import { LoopPageHeader, LoopTheme } from "@/components/loop-theme";
 import { SafeForm } from "@/components/safe-form";
 import { SubmitButton } from "@/components/submit-button";
 import { copy, text } from "@/lib/copy";
@@ -46,9 +45,7 @@ export default async function JoinPage({ params }: Props) {
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-[440px] flex-col justify-center px-4 py-10">
       {loop ? <LoopTheme group={loop.group} /> : null}
-      <div className="mb-8 self-start"><Brand /></div>
-
-      {loop ? <LoopBanner url={loop.group.headerImageUrl} className="mb-4" /> : null}
+      {loop ? <LoopPageHeader name={loop.groupName} imageUrl={loop.group.headerImageUrl} /> : <div className="mb-8 self-start"><Brand /></div>}
 
       <div className="card p-6 pt-8">
         <Tape tone="dots" position="center" />
@@ -58,6 +55,10 @@ export default async function JoinPage({ params }: Props) {
               {text(copy.join.problems[problem].title, values)}
             </h1>
             <p className="mt-2 text-[15px] leading-relaxed text-ink-soft">{text(copy.join.problems[problem].body, values)}</p>
+            <div className="mt-5 flex flex-wrap gap-3">
+              <Link href="/signin" className="btn btn-primary">{copy.deadLink.signIn}</Link>
+              <Link href="/" className="btn btn-quiet">{copy.share.goneHome}</Link>
+            </div>
           </>
         ) : (
           <>
@@ -99,8 +100,6 @@ export default async function JoinPage({ params }: Props) {
           </>
         )}
       </div>
-
-      <LegalLinks className="mt-6" />
     </main>
   );
 }

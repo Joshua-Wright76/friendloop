@@ -16,6 +16,7 @@ import { Brand, Cherries, Tape } from "@/components/stationery";
 import { NoticeFocus } from "@/components/notice-focus";
 import { copy, text } from "@/lib/copy";
 import { signOutAction } from "./actions";
+import { AccountFold } from "./account-fold";
 import { ChangeEmail } from "./change-email";
 import { TimezoneSync } from "./timezone-sync";
 import { KeepSignedIn } from "@/components/keep-signed-in";
@@ -39,14 +40,14 @@ export default async function YouPage({ searchParams }: {
   const [loops, at] = await Promise.all([loopCards(user.id), getNow()]);
 
   return (
-    <main className="mx-auto w-full max-w-[720px] px-4 pb-16 pt-6 sm:px-6">
+    <main className="mx-auto w-full max-w-[720px] px-4 pb-16 lg:max-w-[1120px] pt-6 sm:px-6">
       <TimezoneSync stored={user.timezone} />
       <KeepSignedIn />
       <div className="loop-head">
         <header className="loop-head__row">
-          <Brand href={null} />
+          <Brand href="/you" />
           <SafeForm action={signOutAction}>
-            <SubmitButton className="btn btn-quiet h-11 min-h-11 px-4 text-[13px]">{copy.common.signOut}</SubmitButton>
+            <SubmitButton className="link link--quiet cursor-pointer px-2 text-[14px]">{copy.common.signOut}</SubmitButton>
           </SafeForm>
         </header>
         <div className="loop-head__page flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
@@ -54,15 +55,23 @@ export default async function YouPage({ searchParams }: {
             <h1>{copy.you.title}</h1>
             <p className="[overflow-wrap:anywhere]">{text(copy.you.signedInAs, { email: user.email })}</p>
           </div>
-          <Link href="/g/new" className="btn btn-primary">{copy.you.newLoop}</Link>
+<span className={loops.length === 1 ? "lg:hidden" : undefined}>
+          <Link href="/g/new" className={`btn ${loops.length > 0 ? "btn-quiet" : "btn-primary"} gap-1.5`}>
+            <svg viewBox="0 0 20 20" aria-hidden="true" className="h-4 w-4"><path d="M10 4v12M4 10h12" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" /></svg>
+            {copy.you.newLoop}
+          </Link>
+          </span>
         </div>
       </div>
 
       {deleted ? (
         <NoticeFocus spacing="mt-5">{copy.you.deletedNotice}</NoticeFocus>
       ) : null}
+      {/* Wide screens: the loops take the left, account settings sit in a column beside them. */}
+      <div className="mt-6 grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_360px] lg:gap-8">
+      <div className="min-w-0">
       {loops.length === 0 ? (
-        <div className="card mt-8 p-6 pt-8">
+        <div className="card p-6 pt-8">
           <Tape tone="mint" />
           <h2 className="text-ink">{copy.you.emptyTitle}</h2>
           <p className="mt-2 text-[15px] leading-relaxed text-ink-soft">
@@ -70,7 +79,7 @@ export default async function YouPage({ searchParams }: {
           </p>
         </div>
       ) : (
-        <ul className="loop-cards mt-6 grid gap-5">
+        <ul className="loop-cards grid gap-5">
           {loops.map((loop, index) => (
             <li key={loop.id} className="flex">
             {/* The loop's name is the card's link, stretched over the whole card, so the
@@ -89,39 +98,54 @@ export default async function YouPage({ searchParams }: {
                   {copy.common.roles[loop.access]}
                 </span>
               </span>
-              <span className="mt-auto flex flex-wrap items-center justify-between gap-x-3 gap-y-2 pt-4 text-[14px] font-extrabold text-ink-soft">
+              <span className="mt-auto flex flex-wrap items-center gap-x-3 gap-y-2 pt-4 text-[14px] font-extrabold text-ink-soft">
                 {loop.answerHref && loop.issueNumber != null ? (
                   <Link href={loop.answerHref} prefetch={false} className={`btn ${loop.answeredByYou ? "btn-quiet" : "btn-primary"} loop-card__action`}>
                     {loop.answeredByYou ? copy.loop.editAnswers : text(copy.loop.answerRound, { number: loop.issueNumber })}
                   </Link>
                 ) : null}
-                <span aria-hidden="true" className="ml-auto flex items-center gap-1">
+                <Link href={`/g/${loop.id}`} className={`btn ${loop.answerHref && loop.issueNumber != null && !loop.answeredByYou ? "btn-quiet" : "btn-primary"} loop-card__action`}>
                   {copy.you.openLoop} <svg viewBox="0 0 20 20" aria-hidden="true" className="h-4 w-4"><path d="M4 10h11M11 6l4 4-4 4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
-                </span>
+                </Link>
               </span>
             </div>
             </li>
           ))}
+          {/* A lone loop leaves a hole on a wide screen: an open invitation fills it. */}
+          {loops.length === 1 ? (
+            <li className="hidden lg:flex">
+              <Link href="/g/new" className="start-another">
+                <svg viewBox="0 0 20 20" aria-hidden="true" className="h-6 w-6"><path d="M10 4v12M4 10h12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>
+                <span className="font-display text-[24px] font-bold leading-tight text-ink">{copy.you.startAnother}</span>
+                <span className="text-[14px] text-ink-soft">{copy.you.startAnotherBody}</span>
+              </Link>
+            </li>
+          ) : null}
         </ul>
       )}
 
-      <section aria-labelledby="your-address" className="card mt-8 p-5">
-        <h2 id="your-address" className="text-[22px] text-ink">{copy.you.emailChangeTitle}</h2>
+      </div>
+
+      {/* One paper card for the account: email and data are two parts of it. On a phone each part folds. */}
+      <aside aria-labelledby="your-account" className="card account-card lg:self-start">
+      <h2 id="your-account" className="account-card__title">{copy.you.accountLabel}</h2>
+      <AccountFold id="your-address" title={copy.you.emailChangeTitle}>
         <p className="mt-1 text-[14px] leading-relaxed text-ink-soft">{copy.you.emailChangeBody}</p>
         <ChangeEmail />
-      </section>
+      </AccountFold>
 
-      <section aria-labelledby="your-data" className="card mt-8 p-5">
-        <h2 id="your-data" className="text-[22px] text-ink">{copy.you.dataTitle}</h2>
+      <AccountFold id="your-data" title={copy.you.dataTitle}>
         <p className="mt-1 text-[14px] leading-relaxed text-ink-soft">{copy.you.dataBody}</p>
-        <div className="mt-4 flex flex-wrap justify-between gap-3">
+        <div className="mt-4 flex flex-col items-start gap-1">
           <a href="/you/export" download className="btn btn-quiet">{copy.you.download}</a>
-          <Link href="/you/delete" className="btn btn-danger-quiet sm:ml-auto">{copy.you.deleteAccount}</Link>
+          <Link href="/you/delete" className="link link--danger">{copy.you.deleteAccount}</Link>
         </div>
-        <p className="mt-4 text-[13px] text-ink-muted">
+        <p className="mt-2 text-[13px] text-ink-muted">
           <Link href="/privacy" className="link link--quiet">{copy.you.privacyLink}</Link>
         </p>
-      </section>
+      </AccountFold>
+      </aside>
+      </div>
     </main>
   );
 }

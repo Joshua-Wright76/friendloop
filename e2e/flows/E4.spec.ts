@@ -3,12 +3,20 @@ import { resetDatabase, rows } from "../support/db";
 import { seedDeliveredIssue, seedLoop } from "../support/seed";
 import { signIn } from "../support/harness";
 import { copy, text, copyPattern } from "@/lib/copy";
+import type { Page } from "../support/test";
 
 test.beforeEach(async () => {
   await resetDatabase();
 });
 
 // The button changes as soon as it's pressed, so wait for the write behind it.
+/** React from the picker the add button opens: only reactions people have used show as chips. */
+async function reactWith(page: Page, emoji: string) {
+  const whose = text(copy.issue.reactMoreTo, { whose: text(copy.issue.whoseAnswer, { author: "Alice" }) });
+  await page.getByRole("button", { name: whose }).first().click();
+  await page.getByRole("dialog", { name: whose }).locator(`button[data-emoji="${emoji}"]`).first().click();
+}
+
 async function reactionCount(): Promise<number> {
   const [row] = await rows<{ count: number }>("select count(*)::int as count from reactions");
   return row.count;
@@ -23,8 +31,8 @@ test("E4 · reacting toggles on and off", async ({ page }) => {
   const bob = loop.members.find((member) => member.email.startsWith("bob"))!;
 
   await page.goto(`/i/${issue.issueId}?m=${bob.token}`);
+  await reactWith(page, "❤️");
   const heart = page.getByRole("button", { name: copyPattern(copy.issue.reactAriaLabel, { values: { emoji: "❤️" } }) }).first();
-  await heart.click();
   await expect(heart).toHaveAttribute("aria-pressed", "true");
 
   await expect.poll(reactionCount).toBe(1);
@@ -50,11 +58,11 @@ test("E4 · a reaction reaches the person whose answer it is", async ({ browser 
     await signIn(bobPage, "bob@friendloop.test");
 
     await alicePage.goto(`/i/${issue.issueId}`);
-    const aliceHeart = alicePage.getByRole("button", { name: copyPattern(copy.issue.reactAriaLabel, { values: { emoji: "❤️" } }) }).first();
-    await expect(aliceHeart).toHaveAttribute("aria-pressed", "false");
+    // Nobody has reacted yet, so there is no chip to press.
+    await expect(alicePage.getByRole("button", { name: copyPattern(copy.issue.reactAriaLabel, { values: { emoji: "❤️" } }) })).toHaveCount(0);
 
     await bobPage.goto(`/i/${issue.issueId}`);
-    await bobPage.getByRole("button", { name: copyPattern(copy.issue.reactAriaLabel, { values: { emoji: "❤️" } }) }).first().click();
+    await reactWith(bobPage, "❤️");
     await expect.poll(reactionCount).toBe(1);
 
     await alicePage.reload();

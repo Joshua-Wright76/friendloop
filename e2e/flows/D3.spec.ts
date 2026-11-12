@@ -17,7 +17,8 @@ test("D3 · send now sends the round as it stands and opens the next one", async
 
   await signIn(page, "owner@friendloop.test");
   await page.setExtraHTTPHeaders(clockHeaders(AFTER_FIRST_SLOT));
-  await page.goto(`/g/${loop.groupId}`);
+  // Sending early lives with the round on the Rounds page; the overview only leads with it once everyone has answered.
+  await page.goto(`/g/${loop.groupId}/issues`);
   await sendNow(page);
   await expect(page.getByText(copyPattern(copy.rounds.sentNotice, { values: { number: "1", next: "2" } }))).toBeVisible();
 

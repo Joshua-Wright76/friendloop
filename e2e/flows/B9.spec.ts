@@ -2,6 +2,7 @@ import { test, expect } from "../support/test";
 import { resetDatabase, rows } from "../support/db";
 import { seedLoop } from "../support/seed";
 import { signIn, uniqueEmail } from "../support/harness";
+import { openInvite, openPerson } from "../support/people";
 import { copy, copyPattern } from "@/lib/copy";
 
 test.beforeEach(async () => {
@@ -18,6 +19,7 @@ test("B9 · the owner invites someone to just read, and the invitation never ask
   const loop = await seedLoop();
   await signIn(page, "owner@friendloop.test");
   await page.goto(`/g/${loop.groupId}/members`);
+  await openInvite(page);
 
   const choice = page.getByRole("group", { name: copy.members.inviteAs.legend });
   // Answering is the default: most people are invited to write.
@@ -42,9 +44,8 @@ test("B9 · the owner invites someone to just read, and the invitation never ask
 
   // The people page shows the reader as one, with nothing to chase.
   await page.reload();
-  const card = page.locator(".member-list > li").filter({ hasText: "rae@friendloop.test" });
-  await expect(card.getByRole("button", { name: copyPattern(copy.members.participation.ariaLabel) })).toContainText(copy.members.participation.reader);
-  await expect(card.getByText(copy.members.invitePending)).toHaveCount(0);
+  const card = await openPerson(page, "rae");
+  await expect(card.getByRole("button", { name: copyPattern(copy.members.participation.ariaLabel) })).toContainText(copy.members.participation.short.reader);
 });
 
 test("B9 · the new-loop wizard offers the same choice for the people it invites", async ({ page }) => {

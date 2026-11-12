@@ -89,12 +89,12 @@ export default function GlobalError({
         `}</style>
         <div className="card">
           <h1>Something went wrong</h1>
-          <p>Check your connection, then try again. Anything already saved is safe.</p>
+          <p>Something went wrong on our side. Try again, and anything already saved is safe.</p>
           <div className="actions">
             <button type="button" onClick={() => retry()}>
               Try again
             </button>
-            <Link href="/">Back to Friendloop</Link>
+            <Link href="/signin">Sign in</Link>
           </div>
         </div>
       </body>

@@ -74,12 +74,14 @@ export function ItemFields({ item, defaultFrequency, onFrequencyChange }: {
             defaultValue={frequency}
             value={frequency}
             ariaLabel={copy.questions.item.frequencyLabel}
+            describedBy={`${id}-frequency`}
             onValueChange={(next) => {
               setFrequency(next as AskFrequency);
               onFrequencyChange?.(next as AskFrequency);
             }}
             options={FREQUENCIES.map((value) => ({ value, label: copy.questions.item.frequencies[value] }))}
           />
+          <p id={`${id}-frequency`} className="m-0 text-[13px] leading-snug text-ink-muted">{copy.questions.item.frequencyHints[frequency]}</p>
         </div>
       </div>
 

@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { atMoment, formatDate, formatHour, formatMoment, formatTimeInZone, listNames, timezonePlace } from "./format.ts";
+import { atMoment, formatDate, formatHour, formatMoment, formatTimeInZone, listNames, momentsOf, timezonePlace } from "./format.ts";
+import { copy, text } from "./copy.ts";
 
 const DELIVERY = new Date("2026-10-30T08:00:00Z");
 
@@ -48,4 +49,21 @@ test("a place, an hour and a list of names read the way a person says them", () 
 
 test("an unknown zone falls back to UTC for a moment too, instead of throwing", () => {
   assert.equal(formatMoment(new Date("2026-11-06T08:00:00Z"), "Not/AZone"), "Fri 6 Nov, 8:00 AM");
+});
+
+test("a deadline reads on the reader's clock first, the loop's in brackets, and names midnight", () => {
+  const goesOut = new Date("2026-11-06T08:00:00Z");
+  // A reader in Los Angeles: their own night before midnight, then the loop's morning.
+  const endOfThu = text(copy.loop.momentMidnight, { moment: "end of Thu 5 Nov" });
+  assert.deepEqual(momentsOf(goesOut, "Europe/Amsterdam", "America/Los_Angeles"), {
+    primary: text(copy.loop.momentYours, { moment: endOfThu }),
+    loop: text(copy.loop.momentElsewhere, { moment: "Fri 6 Nov, 9:00 AM", place: "Amsterdam" }),
+  });
+  // Same zone as the loop: one time, nothing in brackets.
+  assert.deepEqual(momentsOf(goesOut, "Europe/Amsterdam", "Europe/Amsterdam"), { primary: "Fri 6 Nov, 9:00 AM", loop: null });
+  // Unknown reader zone: the loop's time, with its place named.
+  assert.deepEqual(momentsOf(goesOut, "Europe/Amsterdam", null), {
+    primary: text(copy.loop.momentNamed, { moment: "Fri 6 Nov, 9:00 AM", place: "Amsterdam" }),
+    loop: null,
+  });
 });

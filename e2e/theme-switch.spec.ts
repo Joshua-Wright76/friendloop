@@ -10,10 +10,11 @@ test("theme switch responds to taps and persists across reloads", async ({ page 
   await page.goto("/");
   const root = page.locator("html");
   await expect(root).toHaveAttribute("data-theme", "light");
-  const trackTransitions = await page.locator(".theme-switch-track").evaluate((element) => getComputedStyle(element).transitionProperty);
-  expect(trackTransitions.split(",").map((property) => property.trim())).not.toContain("background");
-  await expect(page.locator(".theme-switch-sun")).toBeAttached();
-  await expect(page.locator(".theme-switch-moon")).toBeAttached();
+  // The switch is a plain footer link in words, naming the mode a tap leads to, with no animated background.
+  const switchTransitions = await page.locator(".theme-switch").evaluate((element) => getComputedStyle(element).transitionProperty);
+  expect(switchTransitions.split(",").map((property) => property.trim())).not.toContain("background");
+  await expect(page.locator(".theme-switch-label-light")).toHaveText(copy.common.theme.darkMode);
+  await expect(page.locator(".theme-switch-label-dark")).toHaveText(copy.common.theme.lightMode);
 
   await page.getByRole("button", { name: copyPattern(copy.common.theme.switchToDark) }).tap();
   await expect(root).toHaveAttribute("data-theme", "dark");
@@ -45,7 +46,7 @@ test("theme and stationery motion respects reduced motion", async ({ page }) => 
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto("/");
 
-  const durations = await page.locator(".theme-switch-sun").evaluate((element) => {
+  const durations = await page.locator(".theme-switch").evaluate((element) => {
     const styles = getComputedStyle(element);
     return {
       transition: styles.transitionDuration.split(",").map((duration) => Number.parseFloat(duration)),
