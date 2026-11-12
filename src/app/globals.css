@@ -71,8 +71,10 @@ html[data-theme="dark"] {
   --color-accent-ink: var(--accent-ink);
   --color-accent-soft: var(--accent-soft);
   --color-accent-line: var(--accent-line);
+  --color-on-accent: var(--on-accent);
   --color-danger: var(--danger);
   --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
   --font-sans: var(--font-body);
   --font-display: var(--font-display);
   --font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;

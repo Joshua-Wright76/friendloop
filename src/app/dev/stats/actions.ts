@@ -15,6 +15,7 @@ export async function setBlockedAction(formData: FormData): Promise<void> {
 
   revalidatePath("/dev/stats");
   const outcome = !result.found ? "notFound" : blocked ? "blocked" : "unblocked";
-  const params = new URLSearchParams({ outcome, email, count: String(result.paused) });
+  // Keep personal data out of the redirect URL, browser history, and access logs.
+  const params = new URLSearchParams({ outcome, count: String(result.paused) });
   redirect(`/dev/stats?${params}`);
 }

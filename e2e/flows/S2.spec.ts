@@ -10,7 +10,7 @@ test.beforeEach(async () => {
   await resetDatabase();
 });
 
-test("S2 · the stats stay locked without the key, count the loops, and can block an account", async ({ page, context }) => {
+test("S2 · operations stay locked, usage stays anonymous, and account controls work", async ({ page, context }) => {
   const locked = await page.goto("/dev/stats");
   expect(locked?.status()).toBe(404);
 
@@ -21,18 +21,21 @@ test("S2 · the stats stay locked without the key, count the loops, and can bloc
   await page.goto(`/dev/ui?key=${SECRET}`);
   await page.goto("/dev/stats");
   await expect(page.getByRole("heading", { name: copy.devStats.title })).toBeVisible();
-  const table = page.getByRole("region", { name: copy.devStats.loopsHeading });
-  await expect(table.getByText("Saturday Club")).toBeVisible();
-  await expect(table.getByText("owner@friendloop.test")).toBeVisible();
+  await expect(page.getByRole("heading", { name: copy.devStats.activityHeading })).toBeVisible();
+  await expect(page.getByText(copy.devStats.privacyTitle)).toBeVisible();
+  await expect(page.getByText("Saturday Club")).toHaveCount(0);
+  await expect(page.getByText("owner@friendloop.test")).toHaveCount(0);
 
+  await page.getByText(copy.devStats.blockHeading, { exact: true }).click();
   await page.getByLabel(copy.devStats.blockLabel).fill("owner@friendloop.test");
   await page.getByRole("button", { name: copy.devStats.block, exact: true }).click();
-  await expect(page.getByText("owner@friendloop.test is blocked.")).toBeVisible();
+  await expect(page.getByText(text(copy.devStats.blocked, { count: 1 }))).toBeVisible();
 
   const [{ blocked }] = await rows<{ blocked: boolean }>("select blocked_at is not null as blocked from users where email = 'owner@friendloop.test'");
   expect(blocked).toBe(true);
 
+  await page.getByText(copy.devStats.blockHeading, { exact: true }).click();
   await page.getByLabel(copy.devStats.blockLabel).fill("owner@friendloop.test");
   await page.getByRole("button", { name: copy.devStats.unblock }).click();
-  await expect(page.getByText(text(copy.devStats.unblocked, { email: "owner@friendloop.test" }))).toBeVisible();
+  await expect(page.getByText(copy.devStats.unblocked)).toBeVisible();
 });

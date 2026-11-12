@@ -17,7 +17,7 @@ import { consume } from "../../src/lib/rate-limit.ts";
 import { uploadRefused } from "../../src/lib/upload-limit.ts";
 import { readStats } from "../../src/lib/stats.ts";
 import { hashToken } from "../../src/lib/tokens.ts";
-import { linkFrom, rows, seedLoop, setEnv, setupDatabase } from "../support/app.ts";
+import { linkFrom, rows, seedDeliveredIssue, seedLoop, setEnv, setupDatabase } from "../support/app.ts";
 import { AFTER_FIRST_SLOT } from "../../e2e/support/clock.ts";
 import { clearRequest, setRequestHeaders } from "../stubs/request.mjs";
 import {
@@ -338,20 +338,37 @@ test("a feedback note is emailed when an address is set, without more than a few
   assert.equal(stored, LIMITS.feedbackNotify.max + 4);
 });
 
-test("the stats count real loops, leave the demo out, and list who is blocked", async () => {
+test("operations count real activity and return aggregates without identities", async () => {
   const loop = await seedLoop();
   await ownerUserId();
+  await seedDeliveredIssue(loop, {
+    deliveredAt: AFTER_FIRST_SLOT,
+    answers: [
+      { email: "owner@friendloop.test", body: "A private answer" },
+      { email: "alice@friendloop.test", body: "Another private answer" },
+    ],
+  });
   await rows("insert into groups (name, timezone, is_synthetic) values ('Demo', 'UTC', true)");
   await setAccountBlocked("owner@friendloop.test", true, AFTER_FIRST_SLOT);
 
-  const stats = await readStats();
-  assert.deepEqual(stats.loops.map((row) => row.id), [loop.groupId]);
-  assert.equal(stats.loops[0].paused, true);
-  assert.equal(stats.loops[0].owner, "owner@friendloop.test");
+  const stats = await readStats(7, AFTER_FIRST_SLOT);
   assert.equal(stats.activeLoops, 0);
   assert.equal(stats.pausedLoops, 1);
-  assert.deepEqual(stats.blocked, ["owner@friendloop.test"]);
+  assert.equal(stats.usage.activePeople, 2);
+  assert.equal(stats.usage.answers, 2);
+  assert.equal(stats.usage.rounds, 1);
+  assert.equal(stats.usage.loops, 1);
+  assert.equal(stats.usage.previousAnswers, 0);
+  assert.equal(stats.usage.daily.length, 7);
+  assert.equal(stats.usage.daily.at(-1)?.answers, 2);
+  assert.equal(stats.loopSizes.find((row) => row.key === "small")?.count, 1);
+  assert.equal(stats.members.contributors, 3);
   assert.equal(stats.budget, dailySendBudget());
+
+  const serialized = JSON.stringify(stats);
+  for (const privateValue of ["Saturday Club", "Friday Loop", "owner@friendloop.test", "alice@friendloop.test", "A private answer", loop.groupId]) {
+    assert.equal(serialized.includes(privateValue), false);
+  }
 });
 
 test("the owned-loop count follows ownership only", async () => {

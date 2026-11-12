@@ -156,8 +156,9 @@ browser history and in access logs, so rotate the secret when the group of peopl
 holding it changes; rotating locks everyone out immediately.
 
 Production never seeds the demo, even with the key: its tokens are in this public
-repository. There the key opens only the stats and the inboxes, and goes straight
-to `/dev/stats`.
+repository. There the key opens only the operations dashboard and the inboxes, and
+goes straight to `/dev/stats`. Usage is aggregate-only: no names, addresses, loop
+names, per-loop rows, or message content leave the stats queries.
 
 ## Backups
 
