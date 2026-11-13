@@ -212,7 +212,7 @@ answer, whatever its format, is one `replies` row (photo-wall photos are
 **The queue is the order.** Turn-taking items ordered by `position` are the
 queue. Opening a round, inside the transaction that locks the loop
 (`snapshotRound` in `src/lib/round-questions.ts`), takes the first N of them
-(`questions_per_round`: three for every loop the wizard makes and every loop
+(`questions_per_round`: five for every loop the wizard makes and every loop
 `0029` migrated; null, which the owner can still choose as "All", means all), moves them to the back (`position = max
 + 1`), then adds every every-round item in order, then each dated occurrence in the
 round's days (§17). There is no cursor: `groups.question_cursor` stays 0 and goes

@@ -31,7 +31,7 @@ Status: `todo` (not built) · `done` (built and covered).
 | ID | Flow | Acceptance criteria | Status |
 | --- | --- | --- | --- |
 | B1 | Create a loop | Owner picks name, cadence, timezone and hour; the loop is created with them as owner+contributor, and lands on the loop dashboard. | done |
-| B2 | Pick starting questions | Creation starts with a dozen questions already picked, mixed from the everyday packs; the owner keeps, swaps or adds to them, and needs at least one. The loop asks three a round, taking turns through the list, and the step and its preview say so. | done |
+| B2 | Pick starting questions | Creation starts with fifteen questions already picked, mixed from the everyday packs; the owner keeps, swaps or adds to them, and needs at least one. The loop asks five a round, taking turns through the list, and the step and its preview say so. | done |
 | B3 | Invite several members | Pasting three addresses creates three memberships with distinct reply tokens and three `invite` rows in the outbox; each email names the loop and contains that member's own link. | done |
 | B4 | Open an invite link | A contributor opening their invite link lands on the reply form for the current round with their name shown, without signing in. | done |
 | B5 | Resend an invitation | Resending re-sends the same link to someone who has not answered or signed in yet, does not rotate the token, and does not create a duplicate membership. | done |

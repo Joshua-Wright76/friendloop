@@ -40,7 +40,7 @@ test("B2 · the starter set and a quick idea become the ordered pool, asked a fe
   await signIn(page, uniqueEmail("owner"));
   await moveToDetails(page, "Book Club");
 
-  // A new loop starts with a dozen picked across packs (in library order under test), and says they take turns.
+  // A new loop starts with fifteen picked across packs (in library order under test), and says they take turns.
   const starter = starterQuestions(QUESTION_PACKS, null);
   await expect(page.getByText(copyText(copy.newLoop.wizard.questions.selected, { count: starter.length }))).toBeVisible();
   await expect(page.getByText(copyText(copy.newLoop.wizard.questions.rotation, { perRound: STARTER_PER_ROUND }))).toBeVisible();
@@ -137,6 +137,6 @@ test("B2 · a short list is asked whole every round", async ({ page }) => {
   await expect(page).toHaveURL(/\/g\/[0-9a-f-]+/);
 
   const [group] = await rows<{ questions_per_round: number | null }>("select questions_per_round from groups where name = $1", ["Small Table"]);
-  // The loop still takes turns: three a round, which for now is all it has.
+  // The loop still takes turns: five a round, which for now is all it has.
   expect(group.questions_per_round).toBe(STARTER_PER_ROUND);
 });
