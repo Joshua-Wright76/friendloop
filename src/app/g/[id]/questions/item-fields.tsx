@@ -10,7 +10,8 @@ import type { AnswerFormat, AskFrequency } from "@/lib/asks";
 import { useLoopData, type PageItem } from "../loop-data";
 
 const FORMATS = ["written", "poll", "photo_wall", "music"] as const satisfies readonly AnswerFormat[];
-const FREQUENCIES = ["rotating", "every_round", "on_date"] as const satisfies readonly AskFrequency[];
+/** A question takes turns or belongs to a date. (Old "every round" items were folded into the queue.) */
+const FREQUENCIES = ["rotating", "on_date"] as const satisfies readonly AskFrequency[];
 
 /**
  * Everything an item is, as form fields: its words, how it's answered, how often

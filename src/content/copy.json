@@ -783,8 +783,8 @@
   },
   "questions": {
     "title": "Questions",
-    "description": "What the open round asks, and what comes up after it.",
-    "memberDescription": "What the open round asks, and what comes up after it. Whoever runs the loop chooses them.",
+    "description": "Your loop's questions. Each round asks the next few, taking turns.",
+    "memberDescription": "This loop's questions. Each round asks the next few, taking turns. Whoever runs the loop chooses them.",
     "pausedNote": "This loop is paused. Changes here apply when it resumes.",
     "pausedNoRound": "This loop is paused, so no round is open. Changes here apply to the round that opens when it resumes.",
     "thisRound": {
@@ -803,7 +803,7 @@
     "upNext": {
       "title": "Up next",
       "countBefore": "Each round asks",
-      "countAfter": "of the questions that take turns.",
+      "countAfter": "of the questions below.",
       "countLabel": "Questions per round",
       "countAll": "All",
       "turnsTitle": "Takes turns",
@@ -811,10 +811,6 @@
       "turnsAllHelp": "Each round asks all of these, in this order.",
       "turnsEmpty": "Nothing takes turns yet. Add questions here, and rounds will work through them in order.",
       "turnsLabel": "Questions that take turns, in the order rounds ask them",
-      "everyRoundTitle": "Every round",
-      "everyRoundHelp": "Every round asks these, after the ones taking turns.",
-      "everyRoundEmpty": "Nothing is asked every round.",
-      "everyRoundLabel": "Asked every round, in order",
       "datedTitle": "On a date",
       "datedHelp": "An event or a birthday joins the round its day falls in.",
       "datedEmpty": "No events or birthdays yet.",
@@ -880,7 +876,7 @@
     "add": {
       "title": "Add something to ask",
       "thisRound": "Ask it this round too",
-      "thisRoundHint": "Every-round questions, and anything dated this round, are already in it.",
+      "thisRoundHint": "Anything dated this round is already in it.",
       "submit": "Add question",
       "packsSummary": "Ideas from question packs"
     },

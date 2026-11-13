@@ -10,7 +10,6 @@ import { replyHasContentCondition } from "./reply-query";
 import {
   addToOpenRound,
   insertPoolItem,
-  newQuestionFrequency,
   refreshOpenRound,
   removeFromOpenRound,
   sendToBackOf,
@@ -290,8 +289,7 @@ export async function askThisRound(groupId: string, questionId: string): Promise
 
 /**
  * Add library questions, skipping any the loop already asks. They're written
- * questions that take turns, or are asked every round in a loop with nothing
- * taking turns (and then join the open round, as any every-round item does).
+ * questions that take turns, so they wait at the back of the queue.
  */
 export async function addQuestionTexts(groupId: string, texts: string[], at: Date): Promise<number> {
   const existing = await db
@@ -299,11 +297,7 @@ export async function addQuestionTexts(groupId: string, texts: string[], at: Dat
     .from(questions)
     .where(and(eq(questions.groupId, groupId), isNull(questions.archivedAt)));
   const fresh = newQuestionTexts(texts, existing.map((row) => row.text));
-  const frequency = await newQuestionFrequency(groupId);
-  for (const text of fresh) {
-    const id = await insertPoolItem({ groupId, text, format: "written", frequency, at });
-    if (frequency === "every_round") await addToOpenRound(groupId, id);
-  }
+  for (const text of fresh) await insertPoolItem({ groupId, text, format: "written", frequency: "rotating", at });
   return fresh.length;
 }
 

@@ -38,7 +38,7 @@ test("C4 · the owner edits this round directly: remove, reorder, add, and rewor
   await page.getByRole("button", { name: copy.questions.thisRound.add }).click();
   await expect(page.getByLabel(copy.questions.add.thisRound)).toBeChecked();
   await expect(page.getByLabel(copyPattern(copy.questions.item.textLabel, { start: true }))).toBeFocused();
-  await addWithCard(page, { text: "The potluck corner", frequency: copy.questions.item.frequencies.every_round });
+  await addWithCard(page, { text: "The potluck corner" });
   // And one from Up next, asked now too.
   const q4 = await openItem(page, "Q4");
   await q4.getByRole("button", { name: copyText(copy.questions.upNext.askNowLabel, { item: "Q4" }) }).click();
@@ -66,7 +66,7 @@ test("C4 · the owner edits this round directly: remove, reorder, add, and rewor
   await again.getByRole("button", { name: copy.questions.item.save }).click();
   await expect(page.getByText(copy.questions.done.saved)).toBeVisible();
   expect(await asked()).toEqual(["Q1", "Q4", "The supper club"]);
-  const [pool] = await rows<{ text: string }>("select text from questions where frequency = 'every_round'");
+  const [pool] = await rows<{ text: string }>("select q.text from questions q join issue_questions iq on iq.question_id = q.id where iq.text = 'The supper club'");
   expect(pool.text).toBe("Bring a dish");
 });
 

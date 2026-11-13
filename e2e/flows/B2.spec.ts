@@ -137,5 +137,6 @@ test("B2 · a short list is asked whole every round", async ({ page }) => {
   await expect(page).toHaveURL(/\/g\/[0-9a-f-]+/);
 
   const [group] = await rows<{ questions_per_round: number | null }>("select questions_per_round from groups where name = $1", ["Small Table"]);
-  expect(group.questions_per_round).toBeNull();
+  // The loop still takes turns: three a round, which for now is all it has.
+  expect(group.questions_per_round).toBe(STARTER_PER_ROUND);
 });

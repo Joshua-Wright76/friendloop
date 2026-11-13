@@ -226,17 +226,15 @@ test("stop asking takes an unanswered item out of this round; ask again brings i
   assert.deepEqual(await roundTexts(loop.groupId), ["Q1", "Wall", "Q2"]);
 });
 
-test("library questions join as the loop's questions would, skipping any it already asks", async () => {
-  const loop = await seedLoop({ questions: [] });
+test("library questions take turns like any other, skipping any the loop already asks", async () => {
+  const loop = await seedLoop({ questions: ["Q1"] });
   await open(loop.groupId);
-  // Nothing takes turns and no count: they're asked every round, so this round too.
   assert.equal(await addQuestionTexts(loop.groupId, ["One?", " One? ", "Two?"], at), 2);
-  assert.deepEqual(await roundTexts(loop.groupId), ["One?", "Two?"]);
   assert.equal(await addQuestionTexts(loop.groupId, ["Two?"], at), 0);
-
-  await setQuestionsPerRound(loop.groupId, 2);
-  assert.equal(await addQuestionTexts(loop.groupId, ["Three?"], at), 1);
-  assert.deepEqual(await roundTexts(loop.groupId), ["One?", "Two?"], "a turn-taker waits");
+  // They wait at the back of the queue; the open round is left as it was.
+  assert.deepEqual(await roundTexts(loop.groupId), ["Q1"]);
+  const pool = await rows<{ text: string; frequency: string }>("select text, frequency from questions where group_id = $1 order by position", [loop.groupId]);
+  assert.deepEqual(pool.map((row) => [row.text, row.frequency]), [["Q1", "rotating"], ["One?", "rotating"], ["Two?", "rotating"]]);
 });
 
 test("the count of turn-takers per round is a whole number up to 20, or all, and leaves this round alone", async () => {

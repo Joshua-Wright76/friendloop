@@ -365,7 +365,7 @@ Status: `todo` (not built) · `done` (built and covered).
 | ID | Flow | Acceptance criteria | Status |
 | --- | --- | --- | --- |
 | B1 | Create a loop | Owner picks name, cadence, timezone and hour; the loop is created with them as owner+contributor, and lands on the loop dashboard. | done |
-| B2 | Pick starting questions | During creation the owner selects at least one question from the preset bank; those questions exist on the loop in the chosen order. | done |
+| B2 | Pick starting questions | Creation starts with a dozen questions already picked; the owner keeps, swaps or adds to them, and needs at least one. The loop asks three a round, taking turns through the list. | done |
 | B3 | Invite several members | Pasting three addresses creates three memberships with distinct reply tokens and three `invite` rows in the outbox; each email names the loop and contains that member's own link. | done |
 | B4 | Open an invite link | A contributor opening their invite link lands on the reply form for the current round with their name shown, without signing in. | done |
 | B5 | Resend an invitation | Resending re-sends the same link to someone who has not answered or signed in yet, does not rotate the token, and does not create a duplicate membership. | done |
@@ -376,7 +376,7 @@ Status: `todo` (not built) · `done` (built and covered).
 
 | ID | Flow | Acceptance criteria | Status |
 | --- | --- | --- | --- |
-| C1 | Add anything to ask | One add card adds a written question, poll, photo wall or music link, taking turns, every round or on a date; a turn-taker waits in Up next unless asked this round too, while an every-round item or a date in this round's days joins the open round at once. | done |
+| C1 | Add anything to ask | One add card adds a written question, poll, photo wall or music link, taking turns or on a date; a turn-taker waits in Up next unless asked this round too, while a date in this round's days joins the open round at once. | done |
 | C2 | Reorder the queue | Moving a turn-taker in Up next (drag, tap for Up and Down, or keyboard) changes the order coming rounds ask them; the open round keeps its own order. | done |
 | C3 | Stop asking | Stop asking takes an item out of Up next and, unless someone wrote there, the open round; Ask again brings it back, and past rounds still render its original text. | done |
 | C4 | Edit this round | The open round's items are edited directly: removed (a turn-taker goes first in line for the next round), reordered, added to, and reworded in place unless someone has written there. | done |
