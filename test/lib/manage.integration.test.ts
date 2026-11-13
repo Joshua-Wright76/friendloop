@@ -93,6 +93,32 @@ test("creating a loop writes the owner membership and the questions in order", a
   assert.deepEqual(questions.map((question) => question.text), ["First", "Second"]);
 });
 
+test("a loop created taking turns asks the top of its pool first, and the rest wait their turn", async () => {
+  const userId = await makeUser();
+  const groupId = await createLoop({
+    ownerUserId: userId,
+    ownerEmail: "owner@friendloop.test",
+    name: "Turns",
+    timezone: "UTC",
+    promptWeekday: 5,
+    promptHour: 9,
+    cadenceWeeks: 1,
+    questions: ["One", "Two", "Three", "Four", "Five"],
+    questionsPerRound: 2,
+    at: E2E_NOW,
+  });
+
+  const [group] = await rows<{ questions_per_round: number | null }>("select questions_per_round from groups where id = $1", [groupId]);
+  assert.equal(group.questions_per_round, 2);
+  const asked = await rows<{ text: string }>(
+    "select iq.text from issue_questions iq join issues i on i.id = iq.issue_id where i.group_id = $1 order by iq.position",
+    [groupId],
+  );
+  assert.deepEqual(asked.map((row) => row.text), ["One", "Two"]);
+  // The asked ones go to the back of the line, so the next round starts at "Three".
+  assert.deepEqual((await questionsOf(groupId)).map((question) => question.text), ["Three", "Four", "Five", "One", "Two"]);
+});
+
 test("creating a loop with no questions is allowed", async () => {
   const userId = await makeUser();
   const groupId = await createLoop({

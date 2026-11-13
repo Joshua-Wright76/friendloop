@@ -12,6 +12,7 @@ import { DEFAULT_PRESET, isPresetKey, normalizeHex } from "@/lib/theme";
 import { copy } from "@/lib/copy";
 import { isValidTimezone } from "@/lib/timezone";
 import { log } from "@/lib/log";
+import { starterQuestionsPerRound } from "@/lib/starter-questions";
 
 export type CreateState = { error?: string };
 
@@ -97,6 +98,8 @@ export async function createLoopAction(
     promptHour: Number.isFinite(promptHour) ? promptHour : 9,
     cadenceWeeks,
     questions: texts,
+    // Rounds take turns through the pool from the start, so round 2 isn't round 1 again.
+    questionsPerRound: starterQuestionsPerRound(texts.length),
     at,
     // Stored with the loop in the same insert, so the look can never half-apply.
     // Gingham with no accent is stored as nothing, exactly as the settings do.
