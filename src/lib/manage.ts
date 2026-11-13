@@ -36,6 +36,8 @@ export type CreateLoopInput = {
   promptHour: number;
   cadenceWeeks: number;
   questions: string[];
+  /** How many of `questions` each round asks, taking turns; left out or null asks them all. */
+  questionsPerRound?: number | null;
   at: Date;
   /** The stationery chosen in the wizard, already validated; null keeps the original Gingham. */
   themePreset?: string | null;
@@ -63,6 +65,7 @@ export async function createLoop(input: CreateLoopInput): Promise<string> {
       promptWeekday: input.promptWeekday,
       promptHour: input.promptHour,
       cadenceWeeks: input.cadenceWeeks,
+      questionsPerRound: input.questionsPerRound ?? null,
       themePreset: input.themePreset ?? null,
       themeAccent: input.themeAccent ?? null,
       themeBackground: input.themeBackground ?? null,

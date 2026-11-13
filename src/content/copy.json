@@ -348,7 +348,9 @@
       },
       "questions": {
         "title": "What should everyone answer?",
-        "description": "Pick as many as you like.",
+        "description": "We picked some to start you off. Keep them, swap them, or add your own.",
+        "rotation": "Each round asks {perRound} of these, taking turns, so every round brings new ones. You can change this later.",
+        "rotationAll": "Each round asks all of these. Pick more than {perRound} and they take turns instead.",
         "selected": "{count} selected",
         "addOwn": "Add your own question",
         "addOwnTitle": "Add a question",

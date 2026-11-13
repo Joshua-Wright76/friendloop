@@ -9,6 +9,7 @@ import { copy, text } from "@/lib/copy";
 import { formatHour } from "@/lib/format";
 import type { QuestionPack } from "@/lib/question-packs";
 import { QuestionPackPicker } from "@/components/question-pack-picker";
+import { STARTER_PER_ROUND, starterQuestionsPerRound } from "@/lib/starter-questions";
 import { InviteParticipation, type Participation } from "@/components/invite-participation";
 import { PaperFields, type StationeryLooks } from "@/components/paper-fields";
 import { EMPTY_MARKS, type MarksDraft } from "@/components/mark-pickers";
@@ -117,7 +118,7 @@ function AccessibleDialog({
   );
 }
 
-function freshDraft(packs: QuestionPack[]): LoopDraft {
+function freshDraft(starter: string[]): LoopDraft {
   return {
     step: 0,
     name: "",
@@ -125,7 +126,7 @@ function freshDraft(packs: QuestionPack[]): LoopDraft {
     weekday: "5",
     hour: "9",
     timezone: "",
-    picked: packs.flatMap((pack) => pack.questions).slice(0, 2),
+    picked: starter,
     customQuestions: [],
     pickedIdeas: [],
     emails: [],
@@ -151,13 +152,15 @@ function createdTheLoop(error: unknown): boolean {
   return (digest.split(";")[2] ?? "").startsWith("/g/");
 }
 
-export function NewLoopForm({ packs, userId }: { packs: QuestionPack[]; userId: string }) {
+/** `starter` is what a new loop begins with already picked, drawn on the server so it's the same on both sides of hydration. */
+export function NewLoopForm({ packs, starter, userId }: { packs: QuestionPack[]; starter: string[]; userId: string }) {
   // Starting over mounts a fresh wizard, so nothing chosen before can linger.
   const [round, setRound] = useState(0);
   return (
     <Wizard
       key={round}
       packs={packs}
+      starter={starter}
       userId={userId}
       onStartOver={() => {
         forgetDraft(userId);
@@ -167,8 +170,8 @@ export function NewLoopForm({ packs, userId }: { packs: QuestionPack[]; userId: 
   );
 }
 
-function Wizard({ packs, userId, onStartOver }: { packs: QuestionPack[]; userId: string; onStartOver: () => void }) {
-  const [fresh] = useState(() => freshDraft(packs));
+function Wizard({ packs, starter, userId, onStartOver }: { packs: QuestionPack[]; starter: string[]; userId: string; onStartOver: () => void }) {
+  const [fresh] = useState(() => freshDraft(starter));
   const created = useRef(false);
   const [state, action, pending] = useActionState(async (previous: CreateState, data: FormData): Promise<CreateState> => {
     // A dropped connection leaves the wizard as it is, everything chosen still in place.
@@ -689,6 +692,14 @@ function Wizard({ packs, userId, onStartOver }: { packs: QuestionPack[]; userId:
               <div>
                 <h1 ref={stepHeading} tabIndex={-1} id="wizard-step-heading" className="wizard-heading">{copy.newLoop.wizard.questions.title}</h1>
                 <p className="wizard-description">{copy.newLoop.wizard.questions.description}</p>
+                <p className="wizard-description">
+                  {text(
+                    starterQuestionsPerRound(questions.length) === null
+                      ? copy.newLoop.wizard.questions.rotationAll
+                      : copy.newLoop.wizard.questions.rotation,
+                    { perRound: STARTER_PER_ROUND },
+                  )}
+                </p>
               </div>
               <span className="chip border bg-card px-3 py-1.5 text-[13px] font-bold text-ink-soft numeric">
                 {text(copy.newLoop.wizard.questions.selected, { count: questions.length })}
@@ -995,7 +1006,7 @@ function Wizard({ packs, userId, onStartOver }: { packs: QuestionPack[]; userId:
           </p>
           <h4 className="mt-5 font-display text-[22px] font-bold text-ink">{copy.newLoop.wizard.note.previewQuestions}</h4>
           <ol className="mt-2 flex flex-col gap-2">
-            {questions.map((question, index) => (
+            {questions.slice(0, starterQuestionsPerRound(questions.length) ?? questions.length).map((question, index) => (
               <li key={`${index}:${question}`} className="wizard-newsletter-preview__question">
                 <span className="question-number">{index + 1}</span>
                 <span>{question}</span>
