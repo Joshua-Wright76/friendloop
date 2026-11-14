@@ -16,7 +16,7 @@ test("W2 · a photo wall takes up to two videos among its photos, and the delive
   const loop = await seedLoop();
   await signIn(page, "owner@friendloop.test");
   await page.goto(`/g/${loop.groupId}/questions`);
-  await addWithCard(page, { text: "The wall", format: "Photo wall", frequency: "Every round" });
+  await addWithCard(page, { text: "The wall", format: "Photo wall" });
   await runSweep(new Date("2026-01-02T08:00:00Z"));
 
   const alice = loop.members.find((member) => member.email.startsWith("alice"))!;
