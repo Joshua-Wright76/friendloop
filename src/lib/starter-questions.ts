@@ -1,13 +1,13 @@
 import type { QuestionPack } from "./question-packs.ts";
 
 /** How many questions a new loop starts with, already picked in the wizard. */
-export const STARTER_COUNT = 12;
+export const STARTER_COUNT = 15;
 
 /**
  * How many of them each round asks. A new loop takes turns through its pool from
- * the start, so round 2 asks something round 1 didn't, and twelve last four rounds.
+ * the start, so round 2 asks something round 1 didn't, and fifteen last three rounds.
  */
-export const STARTER_PER_ROUND = 3;
+export const STARTER_PER_ROUND = 5;
 
 /** The packs a starter set is drawn from: everyday questions that suit any group, any week. */
 export const STARTER_PACK_IDS = ["everyday", "tiny-joys", "friendship", "weekend", "food"];

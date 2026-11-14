@@ -67,19 +67,6 @@ test("C2 · moving a turn-taker changes the order coming rounds ask them, not th
   expect(asked.map((row) => row.text)).toEqual(["Q1"]);
 });
 
-test("C2 · every-round items reorder among themselves", async ({ page }) => {
-  const loop = await seedLoop({ questions: [] });
-  for (const [index, title] of ["Wall", "Music", "Notes"].entries()) {
-    await rows("insert into questions (group_id, text, frequency, format, active, position) values ($1, $2, 'every_round', 'written', true, $3)", [loop.groupId, title, index]);
-  }
-  await signIn(page, "owner@friendloop.test");
-  await page.goto(`/g/${loop.groupId}/questions`);
-  await page.getByRole("button", { name: copyText(copy.reorder.gripLabel, { item: "Notes" }) }).click();
-  await page.getByRole("button", { name: copyText(copy.reorder.upLabel, { item: "Notes" }) }).click();
-  await expect.poll(async () => (await rows<{ text: string }>("select text from questions where group_id = $1 order by position", [loop.groupId])).map((row) => row.text))
-    .toEqual(["Wall", "Notes", "Music"]);
-});
-
 test("C2 · dragging a card by its grip moves the whole card, by mouse and by touch", async ({ page, browserName }) => {
   const loop = await seedLoop({ questions: ["Q1", "Q2", "Q3", "Q4"] });
   await signIn(page, "owner@friendloop.test");

@@ -224,7 +224,7 @@ function ThisRound({ everything, manages, onAdd }: { everything: PageItem[]; man
   );
 }
 
-/** What comes after this round: the queue, the every-round items, and the dates. */
+/** What comes after this round: the queue and the dates. */
 function UpNext({ manages, inThisRound }: { manages: boolean; inThisRound: Set<string> }) {
   const { group, questionsPage: page } = useLoopData();
   const count = group.questionsPerRound;
@@ -267,27 +267,6 @@ function UpNext({ manages, inThisRound }: { manages: boolean; inThisRound: Set<s
         <p className="mt-1 text-[14px] leading-relaxed text-ink-muted">{copy.questions.upNext.turnsEmpty}</p>
       )}
 
-      <h3 className="subhead list-head">{copy.questions.upNext.everyRoundTitle}</h3>
-      {page.everyRound.length > 0 ? (
-        <>
-          <p className="mt-1 text-[13.5px] leading-relaxed text-ink-muted">{copy.questions.upNext.everyRoundHelp}</p>
-          <div className="mt-2">
-            <SortableList
-              items={page.everyRound}
-              label={copy.questions.upNext.everyRoundLabel}
-              nameOf={(item) => item.label}
-              disabled={!manages}
-              rowClassName="list-row"
-              move={(id, index) => reorderListAction(group.id, "every_round", id, index)}
-            >
-              {(item) => <ItemRow item={item} groupId={group.id} inThisRound={inThisRound.has(item.id)} manages={manages} poll={pollLine(item)} />}
-            </SortableList>
-          </div>
-        </>
-      ) : (
-        <p className="mt-1 text-[14px] leading-relaxed text-ink-muted">{copy.questions.upNext.everyRoundEmpty}</p>
-      )}
-
       {manages ? (
         <>
           <h3 className="subhead list-head">{copy.questions.upNext.datedTitle}</h3>
@@ -325,7 +304,7 @@ function UpNext({ manages, inThisRound }: { manages: boolean; inThisRound: Set<s
 function AddCard({ request, thisRound, onThisRound, packsOpen }: { request: number; thisRound: boolean; onThisRound: (value: boolean) => void; packsOpen: boolean }) {
   const { group, questionsPage: page } = useLoopData();
   const form = useRef<HTMLFormElement>(null);
-  const [frequency, setFrequency] = useState<AskFrequency>(page.queue.length > 0 || group.questionsPerRound !== null ? "rotating" : "every_round");
+  const [frequency, setFrequency] = useState<AskFrequency>("rotating");
   const [picked, setPicked] = useState<string[]>([]);
   const poolTexts = [...page.queue, ...page.everyRound].map((item) => item.text);
   // Picks the loop already asks (say, just added) never count or travel with the form.

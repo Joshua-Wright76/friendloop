@@ -45,10 +45,12 @@ test("C1 · one add card adds any kind of item, and each lands where its frequen
   await expect(page.getByText(copy.questions.done.addedNow)).toBeVisible();
   await expect(thisRound(page).locator(":scope > li").last()).toContainText("Tea or coffee?");
 
-  // An every-round photo wall joins this round at once, with its emoji and description.
-  await addWithCard(page, { text: "The fridge wall", format: copy.questions.item.formats.photo_wall, frequency: copy.questions.item.frequencies.every_round, emoji: "🧲", description: "Whatever's on yours" });
+  // A photo wall takes turns like any question; asked this round too, it joins with its emoji and description.
+  await addWithCard(page, { text: "The fridge wall", format: copy.questions.item.formats.photo_wall, emoji: "🧲", description: "Whatever's on yours", thisRound: true });
   await expect(thisRound(page)).toContainText("The fridge wall");
-  await expect(page.getByRole("list", { name: copy.questions.upNext.everyRoundLabel })).toContainText(copy.questions.item.formats.photo_wall);
+  await expect(turns(page)).toContainText(copy.questions.item.formats.photo_wall);
+  // There is one list: nothing is pinned to every round.
+  await expect(page.getByText(copy.questions.item.frequencies.every_round, { exact: true })).toHaveCount(0);
 
   // A birthday in this round's days joins it too, titled with the person's name.
   await addWithCard(page, { frequency: copy.questions.item.frequencies.on_date, dateKind: copy.questions.item.dateKinds.birthday, person: "Alice", date: "1990-01-06" });
@@ -60,7 +62,7 @@ test("C1 · one add card adds any kind of item, and each lands where its frequen
   expect(stored.map((row) => ({ ...row }))).toEqual([
     { text: "", format: "written", frequency: "on_date", emoji: null, description: null },
     { text: "Tea or coffee?", format: "poll", frequency: "rotating", emoji: null, description: null },
-    { text: "The fridge wall", format: "photo_wall", frequency: "every_round", emoji: "🧲", description: "Whatever's on yours" },
+    { text: "The fridge wall", format: "photo_wall", frequency: "rotating", emoji: "🧲", description: "Whatever's on yours" },
     { text: AHEAD, format: "written", frequency: "rotating", emoji: null, description: null },
     { text: "What did you learn this week?", format: "written", frequency: "rotating", emoji: null, description: null },
     { text: LAUGH, format: "written", frequency: "rotating", emoji: null, description: null },
@@ -90,12 +92,12 @@ test("C1 · every format reaches the round's sheet and issue; readers read but n
   const reader = await addReader(loop.groupId);
   await signIn(page, "owner@friendloop.test");
   await page.goto(`/g/${loop.groupId}/questions`);
-  await addWithCard(page, { text: "The potluck corner", frequency: copy.questions.item.frequencies.every_round });
+  await addWithCard(page, { text: "The potluck corner" });
 
   await runSweep(new Date("2026-01-02T08:00:00Z"));
   const alice = loop.members.find((member) => member.email.startsWith("alice"))!;
   await page.goto(`/r/${alice.token}`);
-  // One list: the every-round item follows the round's turn-takers.
+  // One list: the new item is at the back of the queue, so it follows the others.
   const cards = await page.getByRole("heading", { level: 2 }).allInnerTexts();
   expect(cards.indexOf("The potluck corner")).toBeGreaterThan(cards.indexOf(AHEAD));
   await page.getByRole("textbox", { name: "The potluck corner" }).fill("Never too many dips.");

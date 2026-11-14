@@ -18,8 +18,8 @@ test("C7 · Up next shows which round asks each turn-taker, then every-round ite
   });
   const alice = loop.members.find((member) => member.email.startsWith("alice"))!;
   await rows("update groups set questions_per_round = 2 where id = $1", [loop.groupId]);
-  await rows("insert into questions (group_id, text, frequency, format, active, position, emoji) values ($1, 'Fridge wall', 'every_round', 'photo_wall', false, 0, '🧲')", [loop.groupId]);
-  await rows("insert into questions (group_id, text, frequency, format, active, position, admin_only) values ($1, 'Committee notes', 'every_round', 'written', true, 1, true)", [loop.groupId]);
+  await rows("insert into questions (group_id, text, frequency, format, active, position, emoji) values ($1, 'Fridge wall', 'rotating', 'photo_wall', false, 6, '🧲')", [loop.groupId]);
+  await rows("insert into questions (group_id, text, frequency, format, active, position, admin_only) values ($1, 'Committee notes', 'rotating', 'written', true, 5, true)", [loop.groupId]);
   await rows("insert into questions (group_id, text, frequency, format, active, date_kind, month, day, about_membership_id) values ($1, '', 'on_date', 'written', false, 'birthday', 1, 20, $2)", [loop.groupId, alice.id]);
   await runSweep(AFTER_FIRST_SLOT); // round 1 asks Q1 and Q2
   await signIn(page, "owner@friendloop.test");
@@ -31,12 +31,12 @@ test("C7 · Up next shows which round asks each turn-taker, then every-round ite
     /Q3.*Round 2 · Fri 16 Jan/,
     inOrder("Q4", /.*/, copyText(copy.questions.upNext.roundTag, { number: 2, date: "Fri 16 Jan" })),
     inOrder("Q5", /.*/, copyText(copy.questions.upNext.roundTag, { number: 3, date: "Fri 23 Jan" })),
-    inOrder("Q1", /.*/, copyText(copy.questions.upNext.roundTag, { number: 3, date: "Fri 23 Jan" })),
-    inOrder("Q2", /.*/, copyText(copy.questions.upNext.roundTag, { number: 4, date: "Fri 30 Jan" })),
+    inOrder("Committee notes", /.*/, copy.questions.item.adminOnlyTag),
+    inOrder("Fridge wall", /.*/, copy.questions.item.formats.photo_wall),
+    inOrder("Q1", /.*/, copyText(copy.questions.upNext.roundTag, { number: 4, date: "Fri 30 Jan" })),
+    inOrder("Q2", /.*/, copyText(copy.questions.upNext.roundTag, { number: 5, date: "Fri 6 Feb" })),
   ]);
   await expect(page.getByRole("button", { name: `${copy.questions.upNext.countLabel}: 2` })).toBeVisible();
-  const everyRound = page.getByRole("list", { name: copy.questions.upNext.everyRoundLabel }).locator(":scope > li");
-  await expect(everyRound).toHaveText([inOrder("Fridge wall", /.*/, copy.questions.item.formats.photo_wall), inOrder("Committee notes", /.*/, copy.questions.item.adminOnlyTag)]);
   await expect(page.getByRole("list", { name: copy.questions.upNext.datedLabel })).toContainText(inOrder(copyText(copy.events.birthdayRow, { name: "Alice" }), /.*/, `Tue, Jan 20 · ${copy.questions.upNext.yearly} · ${copyText(copy.questions.upNext.roundShort, { number: 3 })}`));
 
   // A member reads what they could be asked, and changes nothing.

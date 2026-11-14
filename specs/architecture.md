@@ -202,16 +202,18 @@ is a Server Action, because mail scanners prefetch every URL in an email.
 
 Questions, sections and events are one list (`docs/questions-unify-design.md`).
 Every item is a `questions` row with an **answer format** (`written`, `poll`,
-`photo_wall`, `music`) and a **frequency**: `rotating` (takes turns),
-`every_round`, or `on_date` (a one-time date or a birthday, with
-`about_membership_id`). A round's items are `issue_questions` snapshots, and every
+`photo_wall`, `music`) and a **frequency**: `rotating` (takes turns) or
+`on_date` (a one-time date or a birthday, with `about_membership_id`). The
+`every_round` value is no longer offered: migration `0029` folded those items into
+the queue, and the code that still handles it goes with the contract release. A round's items are `issue_questions` snapshots, and every
 answer, whatever its format, is one `replies` row (photo-wall photos are
 `reply_media` rows under it). Stopped is `archived_at`.
 
 **The queue is the order.** Turn-taking items ordered by `position` are the
 queue. Opening a round, inside the transaction that locks the loop
 (`snapshotRound` in `src/lib/round-questions.ts`), takes the first N of them
-(`questions_per_round`; null means all), moves them to the back (`position = max
+(`questions_per_round`: five for every loop the wizard makes and every loop
+`0029` migrated; null, which the owner can still choose as "All", means all), moves them to the back (`position = max
 + 1`), then adds every every-round item in order, then each dated occurrence in the
 round's days (§17). There is no cursor: `groups.question_cursor` stays 0 and goes
 with the contract release. Scheduled rounds and "Send now" share the one path, so
@@ -232,8 +234,8 @@ own order, edited with the operations above (`addToOpenRound`, `removeSnapshot`,
 each queue row's round comes from `planRounds()` (`src/lib/round-plan.ts`), a pure
 projection: the next round in full, then later rounds until every turn-taker has
 had its turn, at most six. "Each round asks N" sets `questions_per_round` for the
-coming rounds only. One add card creates any item: an every-round item, or a date
-in the open round's days, joins the round at once; a turn-taker waits unless the
+coming rounds only. One add card creates any item: a date
+in the open round's days joins the round at once; a turn-taker waits unless the
 owner asks for it this round too. Stop asking sets `archived_at` and takes the item
 out of the open round unless someone wrote there (nothing takes its place); Ask
 again clears it. Format is fixed once anyone has answered the item. `skip_next` is

@@ -204,6 +204,13 @@
       "when": 1794254000000,
       "tag": "0028_more_looks",
       "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1794600000000,
+      "tag": "0029_rotate_by_default",
+      "breakpoints": true
     }
   ]
 }

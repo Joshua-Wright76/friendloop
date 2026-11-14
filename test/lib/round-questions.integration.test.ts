@@ -12,7 +12,6 @@ import { groups, issues } from "@/db/schema";
 import {
   addToOpenRound,
   insertPoolItem,
-  newQuestionFrequency,
   poolOrder,
   refreshOpenRound,
   removeFromOpenRound,
@@ -310,14 +309,4 @@ test("a new item goes to the back of its own list", async () => {
   })), { position: 0, active: false });
   const [poll] = await rows<{ kind: string; poll_options: string[] }>("select kind, poll_options from questions where text = 'Turn'");
   assert.deepEqual(poll, { kind: "poll", poll_options: ["a", "b"] });
-});
-
-test("a new question takes turns, unless the loop asks every question every round", async () => {
-  const loop = await seedLoop({ questions: [] });
-  assert.equal(await newQuestionFrequency(loop.groupId), "every_round", "an all-questions loop with nothing taking turns");
-  await insertPoolItem({ groupId: loop.groupId, text: "Turn", format: "written", frequency: "rotating", at: AFTER_FIRST_SLOT });
-  assert.equal(await newQuestionFrequency(loop.groupId), "rotating", "the loop still has turn-takers");
-  await setCount(loop.groupId, 3);
-  await rows("update questions set archived_at = now() where text = 'Turn'");
-  assert.equal(await newQuestionFrequency(loop.groupId), "rotating", "a count means turns");
 });

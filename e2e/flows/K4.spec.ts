@@ -14,7 +14,7 @@ test("K4 · a photo wall takes several photos, captions optional", async ({ page
 
   await signIn(page, "owner@friendloop.test");
   await page.goto(`/g/${loop.groupId}/questions`);
-  await addWithCard(page, { text: "The wall", format: copy.questions.item.formats.photo_wall, frequency: copy.questions.item.frequencies.every_round });
+  await addWithCard(page, { text: "The wall", format: copy.questions.item.formats.photo_wall });
   await runSweep(new Date("2026-01-02T08:00:00Z"));
 
   const alice = loop.members.find((member) => member.email.startsWith("alice"))!;

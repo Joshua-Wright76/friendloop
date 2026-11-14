@@ -13,7 +13,7 @@ test("K7 · owners-only items stay invisible to regular members", async ({ page 
 
   await signIn(page, "owner@friendloop.test");
   await page.goto(`/g/${loop.groupId}/questions`);
-  await addWithCard(page, { text: "Committee notes", frequency: copy.questions.item.frequencies.every_round, adminOnly: true });
+  await addWithCard(page, { text: "Committee notes", adminOnly: true });
   await runSweep(new Date("2026-01-02T08:00:00Z"));
   const [section] = await rows<{ id: string }>("select id from issue_questions where text = 'Committee notes' limit 1");
 

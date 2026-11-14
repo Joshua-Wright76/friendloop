@@ -59,7 +59,7 @@ Confirmed for v1:
   loop, and their link works, until they are removed.
 - Contributors reply through a tokenized link with no account. Management actions
   require a signed-in session.
-- One list of things to ask: written questions, polls, photo walls and music links, each asked in turns, every round, or on a date (an event or a birthday). Themed packs of starter questions sit beside the owner's own. The Questions page shows what the open round asks, edited directly, and what comes up next; turn-takers rotate a set number per round, in the order shown.
+- One list of things to ask: written questions, polls, photo walls and music links, each taking turns or asked on a date (an event or a birthday). Every loop rotates through its list automatically, five a round unless the owner picks another number. Themed packs of starter questions sit beside the owner's own. The Questions page shows what the open round asks, edited directly, and what comes up next; turn-takers rotate a set number per round, in the order shown.
 - One photo per reply.
 - Delivered rounds have comments and reactions, and a reaction can be any emoji, with no approval needed. Comments can be hung from a single answer, quote another comment, carry one photo, and @mention any member (readers included, who get an email). The owner can turn commenting off for the loop; nothing is deleted.
 - Polls are a kind of question: two to six options, single or multiple choice. Contributors tap to answer, and the tally appears only once the round is delivered.

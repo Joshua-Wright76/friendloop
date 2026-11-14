@@ -15,7 +15,7 @@ test("K6 · a delivered issue renders a music card that opens the provider", asy
 
   await signIn(page, "owner@friendloop.test");
   await page.goto(`/g/${loop.groupId}/questions`);
-  await addWithCard(page, { text: "Music picks", format: copy.questions.item.formats.music, frequency: copy.questions.item.frequencies.every_round });
+  await addWithCard(page, { text: "Music picks", format: copy.questions.item.formats.music });
   await runSweep(new Date("2026-01-02T08:00:00Z"));
 
   const alice = loop.members.find((member) => member.email.startsWith("alice"))!;

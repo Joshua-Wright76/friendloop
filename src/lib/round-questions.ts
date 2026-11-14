@@ -431,19 +431,3 @@ export async function insertPoolItem(item: NewItem): Promise<string> {
     .returning({ id: questions.id });
   return row.id;
 }
-
-/**
- * How often a new question is asked unless the owner says otherwise: it takes
- * turns if the loop has any turn-takers or asks a set number each round, and is
- * otherwise asked every round.
- */
-export async function newQuestionFrequency(groupId: string): Promise<AskFrequency> {
-  const [group] = await db.select({ questionsPerRound: groups.questionsPerRound }).from(groups).where(eq(groups.id, groupId)).limit(1);
-  if (group?.questionsPerRound !== null) return "rotating";
-  const [turnTaker] = await db
-    .select({ id: questions.id })
-    .from(questions)
-    .where(and(eq(questions.groupId, groupId), eq(questions.frequency, "rotating"), isNull(questions.archivedAt)))
-    .limit(1);
-  return turnTaker ? "rotating" : "every_round";
-}
