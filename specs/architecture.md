@@ -205,7 +205,8 @@ Every item is a `questions` row with an **answer format** (`written`, `poll`,
 `photo_wall`, `music`) and a **frequency**: `rotating` (takes turns) or
 `on_date` (a one-time date or a birthday, with `about_membership_id`). The
 `every_round` value is no longer offered: migration `0029` folded those items into
-the queue, and the code that still handles it goes with the contract release. A round's items are `issue_questions` snapshots, and every
+the queue; the code that still handles it goes in a later release (the auto-rotation
+contract). A round's items are `issue_questions` snapshots, and every
 answer, whatever its format, is one `replies` row (photo-wall photos are
 `reply_media` rows under it). Stopped is `archived_at`.
 
@@ -215,9 +216,8 @@ queue. Opening a round, inside the transaction that locks the loop
 (`questions_per_round`: five for every loop the wizard makes and every loop
 `0029` migrated; null, which the owner can still choose as "All", means all), moves them to the back (`position = max
 + 1`), then adds every every-round item in order, then each dated occurrence in the
-round's days (§17). There is no cursor: `groups.question_cursor` stays 0 and goes
-with the contract release. Scheduled rounds and "Send now" share the one path, so
-they cannot drift.
+round's days (§17). There is no cursor. Scheduled rounds and "Send now" share the
+one path, so they cannot drift.
 
 Once a round is open, edits are direct operations on it: add an item (a turn-taker
 goes to the back of the queue), remove one (refused once anyone has a row there;
@@ -238,38 +238,37 @@ coming rounds only. One add card creates any item: a date
 in the open round's days joins the round at once; a turn-taker waits unless the
 owner asks for it this round too. Stop asking sets `archived_at` and takes the item
 out of the open round unless someone wrote there (nothing takes its place); Ask
-again clears it. Format is fixed once anyone has answered the item. `skip_next` is
-no longer read or written. `active` keeps one meaning until the contract release:
-"code from before the switch may ask this as a question"; it is set for new written
-and poll items not on a date, and only ever narrowed by an edit, so a rollback never
-asks a photo wall.
+again clears it. Format is fixed once anyone has answered the item.
 
 **The switch (PR B, migration `0023`).** Sections, events, round sections,
 section answers and section photos were copied into the unified tables by one
 upsert function per legacy table that the migration and the mirror triggers
-share. A copy keeps its legacy UUID wherever the target table doesn't already
-hold it; where it does (seeded fixtures with hand-picked ids), the legacy row
-gets a fresh id and the row that held it is never touched. `unify_ids` records
+shared. A copy kept its legacy UUID wherever the target table didn't already
+hold it; where it did (seeded fixtures with hand-picked ids), the legacy row got a
+fresh id and the row that held it was never touched. `unify_ids` recorded
 every legacy → unified pairing, and every copy, mirror, delete and link between
-copies resolves through it. So a sheet loaded before the deploy still saves (the
-`sectionDraft`, `sectionMusic` and `/section-media` writes are aliases until the
-contract release, and resolve their ids through `unifiedIdOf`), and anchors,
-Album keys and comment targets stay put. Copied round
-items are `from_section`: they render as sections always did (§17, §18), and past
-rounds read as before (`test/golden/`). The migration takes `SHARE ROW EXCLUSIVE`
-locks on the legacy tables, so a legacy write from the release still serving
-waits a moment and is then mirrored; the triggers stay until the contract
-release, so a rollback keeps mirroring too (it just doesn't see what the new code
-wrote meanwhile). All reads and writes go to the unified tables only, except
-erasure, which also deletes the legacy birthday snapshot that names the person,
-and "is this file still used?", which also looks at `section_media` until it is
-dropped.
+copies resolved through it, so anchors, Album keys and comment targets stayed put.
+Copied round items are `from_section`: they render as sections always did (§17,
+§18), and past rounds read as before (`test/golden/`, seeded in the shape `0023`
+left them). The migration took `SHARE ROW EXCLUSIVE` locks on the legacy tables, so
+a legacy write from the release still serving waited and was then mirrored.
+
+**The contract (PR D, migration `0030`).** The mirror triggers and copy functions
+are gone, and `format` is required on `questions` and `issue_questions`. The code
+no longer names the legacy tables, `unify_ids`, `questions.active`/`skip_next`/
+`kind`, `issue_questions.kind`, either `question_cursor` or `replies.status`/
+`submitted_at`, nor the old sheet's `sectionDraft`/`sectionMusic`/`/section-media`
+writes. The release before it still did (Drizzle lists every column of a table it
+inserts into), so the tables and columns themselves are dropped one release
+later. Until then the `fill_format_from_kind` trigger fills a missing `format` from
+`kind` (that release creates a loop's first questions without one) and keeps
+`kind` in step with `format`, so a rollback still reads a poll as a poll.
 
 ## 14 · A poll is a question, and a pick is a reply
 
 Polls ride the same machinery as written questions rather than a parallel
-pipeline. A poll is an item of format `poll` (`kind` still says `poll` until the
-contract release), with `poll_multiple` and `poll_options` (a JSON array of two to
+pipeline. A poll is an item of format `poll`, with `poll_multiple` and
+`poll_options` (a JSON array of two to
 six strings); the round snapshot copies all three, so editing the pool never
 rewrites a round that is already out. The queue, stopping and `snapshotRound`
 treat a poll exactly like any other item.
@@ -516,8 +515,8 @@ reply-link leave, and the settings "Delete forever"). Each path runs one
 transaction that collects every stored file the doomed rows point at, deletes the
 rows (most of it is `on delete cascade` from `memberships`; the module adds what a
 foreign key cannot say — the email trail keyed by address, the name frozen into a
-suggestion credit or the legacy copy of a birthday section (the round's own
-birthday card cascades from `about_membership_id`, with every answer on it),
+suggestion credit (a round's birthday card cascades from `about_membership_id`,
+with every answer on it),
 stored copies of sent mail that name the
 person, the §21 abuse counters keyed by their address, account, or membership,
 spelled by `limitKey` in `src/lib/rate-limit-policy.ts`), and writes the file URLs to `media_deletions` in the same commit. Only
@@ -562,13 +561,10 @@ The sheet has one mode. The deadline line says that everything written goes out
 then, finished or not, and that clearing an answer leaves it out; "Done" waits for
 the last words to save and confirms it, but nothing needs pressing to count.
 
-`replies.status` and `submitted_at` are legacy: every
-save writes `submitted` so code from before this rule, still running for the few
-minutes between the migration and the release, counts the same rows, but nothing
-reads them. Migration `0021` flipped drafts in open rounds to `submitted` and set
-`never_sent` on drafts in rounds that had already gone out or been dropped, so they
-don't appear in those rounds now that drafts are answers. `never_sent` is the only
-thing that keeps them out; the status columns can be dropped in a later release.
+Migration `0021` set `never_sent` on drafts in rounds that had already gone out or
+been dropped, so they don't appear in those rounds now that drafts are answers.
+`never_sent` is the only thing that keeps them out; nothing reads `replies.status`
+or `submitted_at`, which are dropped after the contract (§13).
 
 Because a half-finished sentence is an answer, a round stays a surprise until it
 goes out: before delivery, the round's page shows a member only their own answers.
