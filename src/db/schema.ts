@@ -1,5 +1,4 @@
 import {
-  primaryKey,
   pgTable,
   date,
   uuid,

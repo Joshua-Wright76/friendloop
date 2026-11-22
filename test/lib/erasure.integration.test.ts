@@ -24,6 +24,9 @@ import { deleteLoop } from "../../src/lib/manage.ts";
 import { limitKey } from "../../src/lib/rate-limit-policy.ts";
 import { sweep } from "../../src/lib/sweep.ts";
 import { db } from "@/db";
+import * as schema from "@/db/schema";
+import { getTableName, is } from "drizzle-orm";
+import { PgTable } from "drizzle-orm/pg-core";
 import { addMember, rows, seedDeliveredIssue, seedLoop, setEnv, setupDatabase } from "../support/app.ts";
 import { E2E_NOW } from "../../e2e/support/clock.ts";
 import { clearRequest, setRequestHeaders } from "../stubs/request.mjs";
@@ -181,8 +184,11 @@ async function seedWorld() {
 type ForeignKey = { table: string; column: string; references: string };
 
 /** Every foreign key in the database, read from the catalog rather than a list. */
+/** The tables `src/db/schema.ts` defines. A table it has let go of may linger in the database until dropped. */
+const SCHEMA_TABLES = new Set<string>(Object.values(schema).filter((value) => is(value, PgTable)).map((table) => getTableName(table)));
+
 async function foreignKeys(): Promise<ForeignKey[]> {
-  return rows<ForeignKey>(
+  const keys = await rows<ForeignKey>(
     `select cl.relname as table, att.attname as column, ref.relname as references
        from pg_constraint con
        join pg_class cl on cl.oid = con.conrelid
@@ -192,6 +198,7 @@ async function foreignKeys(): Promise<ForeignKey[]> {
        join pg_attribute att on att.attrelid = cl.oid and att.attnum = k.attnum
       where con.contype = 'f' and ns.nspname = 'public'`,
   );
+  return keys.filter((key) => SCHEMA_TABLES.has(key.table));
 }
 
 /** Every column that can hold text, so a name or address frozen anywhere is found. */

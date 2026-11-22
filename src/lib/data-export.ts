@@ -1,4 +1,4 @@
-import { and, asc, eq, inArray, isNotNull, isNull, ne, or, type SQL } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull, ne, type SQL } from "drizzle-orm";
 import { db } from "@/db";
 import {
   comments,
