@@ -1,6 +1,6 @@
 # Questions, unified: design
 
-Status: PR A (expand and tolerate), PR B (copy and switch) and PR C (Questions page) built; D not started. PR B's choices that refine this design are recorded in its PR description and in `specs/architecture.md` §13.
+Status: PR A (expand and tolerate), PR B (copy and switch), PR C (Questions page) and PR D (contract, #78) built. D ships in two halves: `0030` drops the mirror triggers and copy functions and makes `format` NOT NULL, and the code stops naming the legacy tables and retired columns; the release then serving still named them (Drizzle lists every column on insert), so the tables, `unify_ids`, the retired columns and the `fill_format` trigger are dropped by a follow-up migration whose SQL is in #78. The auto-rotation contract (dropping `every_round` and the null "All" `questions_per_round`) is separate and still to do. PR B's choices that refine this design are recorded in its PR description and in `specs/architecture.md` §13.
 
 ## The idea
 
