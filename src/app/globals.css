@@ -915,6 +915,14 @@ html[data-theme="dark"] .snapshot img { filter: brightness(.78) saturate(.9); }
 .avatar[data-frame="stamp"]::before { inset: -16%; background: #fff; mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cpath d='M0 0h2.38a3.88 3.88 0 0 0 7.75 0h2.38h2.38a3.88 3.88 0 0 0 7.75 0h2.38h2.38a3.88 3.88 0 0 0 7.75 0h2.38h2.38a3.88 3.88 0 0 0 7.75 0h2.38h2.38a3.88 3.88 0 0 0 7.75 0h2.38h2.38a3.88 3.88 0 0 0 7.75 0h2.38h2.38a3.88 3.88 0 0 0 7.75 0h2.38h2.38a3.88 3.88 0 0 0 7.75 0h2.38v2.38a3.88 3.88 0 0 0 0 7.75v2.38v2.38a3.88 3.88 0 0 0 0 7.75v2.38v2.38a3.88 3.88 0 0 0 0 7.75v2.38v2.38a3.88 3.88 0 0 0 0 7.75v2.38v2.38a3.88 3.88 0 0 0 0 7.75v2.38v2.38a3.88 3.88 0 0 0 0 7.75v2.38v2.38a3.88 3.88 0 0 0 0 7.75v2.38v2.38a3.88 3.88 0 0 0 0 7.75v2.38h-2.38a3.88 3.88 0 0 0 -7.75 0h-2.38h-2.38a3.88 3.88 0 0 0 -7.75 0h-2.38h-2.38a3.88 3.88 0 0 0 -7.75 0h-2.38h-2.38a3.88 3.88 0 0 0 -7.75 0h-2.38h-2.38a3.88 3.88 0 0 0 -7.75 0h-2.38h-2.38a3.88 3.88 0 0 0 -7.75 0h-2.38h-2.38a3.88 3.88 0 0 0 -7.75 0h-2.38h-2.38a3.88 3.88 0 0 0 -7.75 0h-2.38v-2.38a3.88 3.88 0 0 0 0 -7.75v-2.38v-2.38a3.88 3.88 0 0 0 0 -7.75v-2.38v-2.38a3.88 3.88 0 0 0 0 -7.75v-2.38v-2.38a3.88 3.88 0 0 0 0 -7.75v-2.38v-2.38a3.88 3.88 0 0 0 0 -7.75v-2.38v-2.38a3.88 3.88 0 0 0 0 -7.75v-2.38v-2.38a3.88 3.88 0 0 0 0 -7.75v-2.38v-2.38a3.88 3.88 0 0 0 0 -7.75v-2.38z'/%3E%3C/svg%3E") center/100% 100% no-repeat; }
 .avatar[data-frame="polaroid"] { border-radius: 1px; filter: drop-shadow(0 1px 1.5px rgb(61 42 48 / .34)); transform: rotate(-4deg); }
 .avatar[data-frame="polaroid"]::before { inset: -9% -9% -24%; background: #fff; }
+/* A frame is drawn outside the photo, so it keeps that much room around it; otherwise it spills onto the name beside it.
+   In em, because every avatar size sets a font size that scales with it. */
+.avatar[data-frame] { --frame-out: .37em; margin: var(--frame-out); }
+.avatar[data-frame="stitched"] { --frame-out: .42em; }
+.avatar[data-frame="daisy"] { --frame-out: .62em; }
+.avatar[data-frame="rosette"] { --frame-out: .54em; }
+.avatar[data-frame="stamp"] { --frame-out: .41em; }
+.avatar[data-frame="polaroid"] { margin: .3em .3em .62em; }
 
 /* The picked mark every tile shares. */
 .pick-mark { position: absolute; top: 6px; right: 6px; z-index: 2; display: none; width: 22px; height: 22px; place-items: center; border-radius: 50%; background: var(--accent-ink); color: var(--card); }
@@ -1225,7 +1233,7 @@ html[data-theme="dark"] .album-viewer::before { opacity: .6; }
 html[data-theme="dark"] .toast { background: var(--card); color: var(--ink); box-shadow: 0 0 0 1.5px var(--accent-line), var(--shadow-lift); }
 /* In a small name chip a frame is clutter: the avatar stays a plain round. */
 .person-pill .avatar[data-frame]::before { display: none; }
-.person-pill .avatar[data-frame] { border-radius: 50%; filter: none; transform: none; }
+.person-pill .avatar[data-frame] { margin: 0; border-radius: 50%; filter: none; transform: none; }
 @media (min-width: 1024px) { #settings-details input[name="name"] { max-width: 560px; } }
 /* Settings' four parts on a phone: two by two, each label on one line, rather than four squeezed pills. */
 @media (max-width: 639px) {
