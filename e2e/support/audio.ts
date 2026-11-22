@@ -38,8 +38,7 @@ export async function seedAudioReply(input: {
     body: input.body ?? "",
     audioUrl,
     audioDurationMs: input.durationMs ?? 1_200,
-    status: "submitted",
-    submittedAt: new Date(),
+    updatedAt: new Date(),
   });
   return audioUrl;
 }

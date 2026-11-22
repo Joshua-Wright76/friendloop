@@ -35,8 +35,8 @@ test("Q2 · the print view is the web round as it is now, old late additions mar
     [world.issueId, laughQuestion, world.alice.id],
   );
   await rows(
-    `insert into replies (issue_id, issue_question_id, membership_id, body, status, submitted_at, added_after_delivery)
-     values ($1, $2, $3, 'Seeing everyone in June', 'submitted', now(), true)`,
+    `insert into replies (issue_id, issue_question_id, membership_id, body, added_after_delivery)
+     values ($1, $2, $3, 'Seeing everyone in June', true)`,
     [world.issueId, lookingQuestion, world.alice.id],
   );
 

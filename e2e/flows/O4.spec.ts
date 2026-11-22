@@ -1,6 +1,7 @@
 import { test, expect } from "../support/test";
 import { resetDatabase, rows } from "../support/db";
 import { seedLoop } from "../support/seed";
+import { seedDateItem } from "../support/sections";
 import { AFTER_FIRST_SLOT, DELIVERY_DAY, E2E_NOW, freezeClock, openItem, runSweep, signIn } from "../support/harness";
 import { copy, text, copyPattern, text as copyText } from "@/lib/copy";
 
@@ -12,7 +13,7 @@ test("O4 · a round keeps the event section it was given, whatever happens to th
   const loop = await seedLoop();
   const alice = loop.members.find((member) => member.email.startsWith("alice"))!;
   const bob = loop.members.find((member) => member.email.startsWith("bob"))!;
-  await rows("insert into events (group_id, kind, emoji, month, day, membership_id) values ($1, 'birthday', '🎂', 1, 6, $2)", [loop.groupId, alice.id]);
+  await seedDateItem(loop.groupId, { kind: "birthday", emoji: "🎂", month: 1, day: 6, membershipId: alice.id });
   await runSweep(AFTER_FIRST_SLOT);
 
   // Bob writes his message while the event still exists.

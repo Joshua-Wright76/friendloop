@@ -1,7 +1,8 @@
 import { test, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import { issueGroupId, loadIssue, nextRoundFor } from "../../src/lib/issue-view.ts";
-import { saveDraftFor, saveMusicFor, saveSectionMusicFor, saveSectionPhotoFor, saveSectionTextFor, saveWallPhotoFor } from "../../src/lib/reply.ts";
+import { saveDraftFor, saveMusicFor, savePhotoFor, saveWallPhotoFor } from "../../src/lib/reply.ts";
+import { storePhoto } from "../../src/lib/photo-storage.ts";
 import { resetDatabase, rows, seedDeliveredIssue, seedLoop, seedOpenIssue, setupDatabase } from "../support/app.ts";
 import type { SeededLoop } from "../../e2e/support/seed.ts";
 import { DELIVERY_DAY } from "../../e2e/support/clock.ts";
@@ -29,22 +30,23 @@ type Kind = "standard" | "photo_wall" | "music";
 const member = (loop: SeededLoop, prefix: string) => loop.members.find((candidate) => candidate.email.startsWith(prefix))!;
 
 /**
- * A delivered round holding a section, written the way the release before the
- * switch wrote it: to the legacy tables, copied by the mirror triggers.
+ * A delivered round holding a section from before the switch, as migration
+ * `0023` copied it: an every-round item, snapshotted with `from_section`.
  */
 async function deliveredSectionLoop(input: { kind: Kind; adminOnly?: boolean; title?: string; shareToken?: string }) {
   const loop = await seedLoop();
   const delivered = await seedDeliveredIssue(loop, { deliveredAt: DELIVERY_DAY, answers: [], shareToken: input.shareToken });
   const title = input.title ?? "The potluck corner";
+  const format = input.kind === "standard" ? "written" : input.kind;
   const [section] = await rows<{ id: string }>(
-    `insert into sections (group_id, kind, title, emoji, description, admin_only, position)
-     values ($1, $2, $3, '🍲', 'Bring a story about food.', $4, 0) returning id`,
-    [loop.groupId, input.kind, title, input.adminOnly ?? false],
+    `insert into questions (group_id, text, position, format, frequency, emoji, description, admin_only)
+     values ($1, $2, 1000, $3, 'every_round', '🍲', 'Bring a story about food.', $4) returning id`,
+    [loop.groupId, title, format, input.adminOnly ?? false],
   );
   const [snapshot] = await rows<{ id: string }>(
-    `insert into issue_sections (issue_id, section_id, kind, title, emoji, description, admin_only, position)
-     values ($1, $2, $3, $4, '🍲', 'Bring a story about food.', $5, 0) returning id`,
-    [delivered.issueId, section.id, input.kind, title, input.adminOnly ?? false],
+    `insert into issue_questions (issue_id, question_id, text, position, format, emoji, description, admin_only, from_section)
+     values ($1, $2, $3, 1000, $4, '🍲', 'Bring a story about food.', $5, true) returning id`,
+    [delivered.issueId, section.id, title, format, input.adminOnly ?? false],
   );
   return { loop, groupId: loop.groupId, ownerToken: loop.ownerToken, section: snapshot.id, ...delivered };
 }
@@ -72,12 +74,13 @@ test("a section from before reads as it always did, crediting the author and the
   const setup = await deliveredSectionLoop({ kind: "standard" });
   const alice = member(setup.loop, "alice");
   const [snapshot] = await rows<{ from_section: boolean }>("select from_section from issue_questions where id = $1", [setup.section]);
-  assert.equal(snapshot.from_section, true, "copied by the mirror trigger");
+  assert.equal(snapshot.from_section, true, "copied from a section");
 
-  // An old sheet's text and photo, landing on the copy.
+  // Text and a photo, landing on the copy.
   await writeWhileOpen(setup.issueId, async () => {
-    await saveSectionTextFor({ token: alice.token, issueSectionId: setup.section, body: "Banana bread." });
-    await saveSectionPhotoFor({ token: alice.token, issueSectionId: setup.section, bytes: new Uint8Array(makePng()), contentType: "image/png", caption: "", position: 0 });
+    await saveDraftFor({ token: alice.token, issueQuestionId: setup.section, body: "Banana bread." });
+    const photoUrl = await storePhoto(new Uint8Array(makePng()), { contentType: "image/png", extension: "png" });
+    await savePhotoFor({ token: alice.token, issueQuestionId: setup.section, photoUrl });
   });
 
   const view = await loadIssue({ issueId: setup.issueId, viewerMembershipId: alice.id });
@@ -99,8 +102,8 @@ test("former section answers take reactions and comments like any answer", async
   const alice = member(setup.loop, "alice");
   const bob = member(setup.loop, "bob");
   await writeWhileOpen(setup.issueId, async () => {
-    await saveSectionPhotoFor({ token: alice.token, issueSectionId: setup.section, bytes: new Uint8Array(makePng()), contentType: "image/png", caption: "The table", position: 0 });
-    await saveSectionPhotoFor({ token: alice.token, issueSectionId: setup.section, bytes: new Uint8Array(makePng()), contentType: "image/png", caption: "The leftovers", position: 1 });
+    await saveWallPhotoFor({ token: alice.token, issueQuestionId: setup.section, bytes: new Uint8Array(makePng()), contentType: "image/png", caption: "The table", position: 0 });
+    await saveWallPhotoFor({ token: alice.token, issueQuestionId: setup.section, bytes: new Uint8Array(makePng()), contentType: "image/png", caption: "The leftovers", position: 1 });
   });
   const [reply] = await rows<{ id: string }>("select id from replies where issue_question_id = $1", [setup.section]);
   await rows("insert into reactions (reply_id, membership_id, emoji) values ($1, $2, '🎉')", [reply.id, bob.id]);
@@ -125,7 +128,7 @@ test("music answers from before carry their card; other readers stay strangers",
   const alice = member(setup.loop, "alice");
 
   await writeWhileOpen(setup.issueId, async () => {
-    await saveSectionMusicFor({ token: alice.token, issueSectionId: setup.section, url: MUSIC, caption: "Road trip" });
+    await saveMusicFor({ token: alice.token, issueQuestionId: setup.section, url: MUSIC, caption: "Road trip" });
   });
 
   // The metadata cache is warm, so no provider is reached.

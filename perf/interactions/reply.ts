@@ -7,8 +7,6 @@ const sheetPath = (c: Ctx) => `/r/${bob(c).replyToken}`;
 /** Bob with nothing on the open round, as a person arriving from the email is. */
 async function clearBob(c: Ctx) {
   const { membershipId } = bob(c);
-  await c.world.query(`delete from section_media where section_reply_id in (select id from section_replies where membership_id = '${membershipId}')`);
-  await c.world.query(`delete from section_replies where membership_id = '${membershipId}' and issue_id = '${c.world.openIssueId}'`);
   await c.world.query(`delete from replies where membership_id = '${membershipId}' and issue_id = '${c.world.openIssueId}'`);
 }
 
@@ -112,7 +110,7 @@ export const replyInteractions: Interaction[] = [
     id: "reply.wall.photo",
     label: "Add a photo to the photo wall",
     surface: "reply", kind: "write", viewer: "anon",
-    flows: ["K4", "T1"], routes: ["/r/[token]", "/api/reply/[token]/section-media"],
+    flows: ["K4", "T1"], routes: ["/r/[token]", "/api/reply/[token]/media"],
     prepare: async (c) => {
       await freshSheet(c);
       await live(extras(c, "Photo wall").locator(`input[type="file"]`).first());
@@ -171,8 +169,8 @@ export const replyInteractions: Interaction[] = [
     prepare: async (c) => {
       const round = await c.world.throwawayRound();
       const one = round.members[0];
-      await c.world.query(`insert into replies (issue_id, issue_question_id, membership_id, body, status, submitted_at)
-        values ('${round.issueId}', '${round.issueQuestionIds[0]}', '${one.id}', 'First version.', 'submitted', now())`);
+      await c.world.query(`insert into replies (issue_id, issue_question_id, membership_id, body)
+        values ('${round.issueId}', '${round.issueQuestionIds[0]}', '${one.id}', 'First version.')`);
       await sheet(c, `/r/${one.replyToken}`);
       await firstAnswer(c).fill("Second version, with the good detail.");
     },

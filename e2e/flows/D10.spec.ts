@@ -50,8 +50,8 @@ test("D10 · nobody is nudged once everyone has answered", async ({ page }) => {
     await rows("update memberships set accepted_at = now() where id = $1", [member.id]);
   }
   await rows(
-    `insert into replies (issue_id, issue_question_id, membership_id, body, status, submitted_at)
-     select $1, iq.id, m.id, 'Answered.', 'submitted', now()
+    `insert into replies (issue_id, issue_question_id, membership_id, body)
+     select $1, iq.id, m.id, 'Answered.'
      from issue_questions iq cross join memberships m
      where iq.issue_id = $1 and m.group_id = $2 and m.participation = 'contributor'`,
     [issue.issueId, loop.groupId],

@@ -10,6 +10,7 @@ import { loadIssue } from "../../src/lib/issue-view.ts";
 import { AFTER_FIRST_SLOT, DELIVERY_DAY } from "../../e2e/support/clock.ts";
 import { clearRequest, setRequestHeaders } from "../stubs/request.mjs";
 import { copy } from "@/lib/copy";
+import { seedEveryRoundItem, seedSectionCard } from "../../e2e/support/sections.ts";
 
 /*
  * Sections are items asked every round (docs/questions-unify-design.md): a round
@@ -74,15 +75,6 @@ test("an open round asks its questions, then every section in order", async () =
     "The potluck corner:written",
     "Music picks:music",
   ]);
-});
-
-test("a section a release before the switch wrote still reaches the next round", async () => {
-  const loop = await seedLoop();
-  // Written to the legacy table: the mirror trigger copies it into the pool.
-  await rows("insert into sections (group_id, kind, title, position) values ($1, 'photo_wall', 'Old wall', 0)", [loop.groupId]);
-  await sweep({ at: AFTER_FIRST_SLOT });
-  const [snapshot] = await rows<{ format: string; from_section: boolean }>("select format, from_section from issue_questions where text = 'Old wall'");
-  assert.deepEqual(snapshot, { format: "photo_wall", from_section: false });
 });
 
 test("a written section's answer delivers the round, and the email carries it", async () => {
@@ -174,9 +166,8 @@ test("a section from before keeps its quiet placeholder; a new card nobody answe
   await sweep({ at: AFTER_FIRST_SLOT });
   const [issue] = await rows<{ id: string }>("select id from issues where group_id = $1 order by number asc limit 1", [loop.groupId]);
   // A section the release before the switch put in this round, copied in with its look.
-  const [section] = await rows<{ id: string }>("insert into sections (group_id, kind, title, position) values ($1, 'standard', 'Old corner', 1) returning id", [loop.groupId]);
-  await rows("insert into issue_sections (issue_id, section_id, kind, title, position) values ($1, $2, 'standard', 'Old corner', 1)", [issue.id, section.id]);
-  await seedReplies({ issueId: issue.id, membershipId: member(loop, "alice").id, answers: [{ text: "What made you laugh this week?", body: "The cat." }], submittedAt: AFTER_FIRST_SLOT });
+  await seedSectionCard(issue.id, { title: "Old corner", position: 1, questionId: await seedEveryRoundItem(loop.groupId, { title: "Old corner", position: 1 }) });
+  await seedReplies({ issueId: issue.id, membershipId: member(loop, "alice").id, answers: [{ text: "What made you laugh this week?", body: "The cat." }], answeredAt: AFTER_FIRST_SLOT });
 
   const delivered = await sweep({ at: AFTER_DELIVERY });
   assert.equal(delivered.delivered, 1);

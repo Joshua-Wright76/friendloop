@@ -47,7 +47,7 @@ async function loop(groupId: string, name: string, perRound: number | null, text
     );
     // Asking everything, the round that went out asked the same ones.
     for (const issueId of [sent, open.id]) {
-      if (issueId) await rows("insert into issue_questions (issue_id, question_id, text, position) values ($1, $2, $3, $4)", [issueId, question.id, text, position]);
+      if (issueId) await rows("insert into issue_questions (issue_id, question_id, text, position, format) values ($1, $2, $3, $4, 'written')", [issueId, question.id, text, position]);
     }
   }
   return { open: open.id, member: member.id };
@@ -65,12 +65,12 @@ test("0029 makes every loop take turns five at a time, tops it up, and refreshes
   const sent = await loop(SENT, "sent", null, ["Q1", "Q2", "Q3", "Q4", "Q5"], true);
   const [wall] = await rows<{ id: string }>(
     "insert into questions (group_id, text, position, frequency, format) values ($1, 'Wall', 0, 'every_round', 'photo_wall') returning id", [SENT]);
-  await rows("insert into issue_questions (issue_id, question_id, text, position) values ($1, $2, 'Wall', 5)", [sent.open, wall.id]);
+  await rows("insert into issue_questions (issue_id, question_id, text, position, format) values ($1, $2, 'Wall', 5, 'photo_wall')", [sent.open, wall.id]);
   const [birthday] = await rows<{ id: string }>(
-    "insert into questions (group_id, text, frequency, format, active, date_kind, month, day) values ($1, 'Party', 'on_date', 'written', false, 'once', 1, 6) returning id", [SENT]);
-  await rows("insert into issue_questions (issue_id, question_id, text, position, occurrence_date) values ($1, $2, 'Party', 6, '2026-01-06')", [sent.open, birthday.id]);
+    "insert into questions (group_id, text, frequency, format, date_kind, month, day) values ($1, 'Party', 'on_date', 'written', 'once', 1, 6) returning id", [SENT]);
+  await rows("insert into issue_questions (issue_id, question_id, text, position, format, occurrence_date) values ($1, $2, 'Party', 6, 'written', '2026-01-06')", [sent.open, birthday.id]);
   await rows(
-    "insert into replies (issue_id, issue_question_id, membership_id, body, status) select $1, id, $2, 'Mine.', 'submitted' from issue_questions where issue_id = $1 and text = 'Q5'",
+    "insert into replies (issue_id, issue_question_id, membership_id, body) select $1, id, $2, 'Mine.' from issue_questions where issue_id = $1 and text = 'Q5'",
     [sent.open, sent.member],
   );
   // Still on its first round, and one that already took turns two at a time with a fuller round open.

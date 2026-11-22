@@ -8,6 +8,7 @@ import { addMember, seedDeliveredIssue, seedLoop, seedOpenIssue } from "./suppor
 import { seedPoll, seedPollVote } from "./support/polls";
 import { pickIn, signIn, triggerName, inOrder } from "./support/harness";
 import { seedAlbum } from "./support/album";
+import { seedDateItem } from "./support/sections";
 import { copy, text as copyText, copyPattern } from "@/lib/copy";
 
 const TAGS = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"];
@@ -274,8 +275,8 @@ test("WCAG AA · events and birthdays: a date open for editing and the add card 
   test.setTimeout(120_000);
   const loop = await seedLoop();
   const alice = loop.members.find((member) => member.email.startsWith("alice"))!;
-  await rows("insert into events (group_id, kind, emoji, month, day, membership_id) values ($1, 'birthday', '🎂', 3, 14, $2)", [loop.groupId, alice.id]);
-  await rows("insert into events (group_id, kind, title, emoji, month, day, year) values ($1, 'once', 'The housewarming', '🏡', 6, 20, 2099)", [loop.groupId]);
+  await seedDateItem(loop.groupId, { kind: "birthday", emoji: "🎂", month: 3, day: 14, membershipId: alice.id });
+  await seedDateItem(loop.groupId, { kind: "once", title: "The housewarming", emoji: "🏡", month: 6, day: 20, year: 2099 });
   await signIn(page, "owner@friendloop.test");
 
   for (const theme of ["light", "dark"] as const) {

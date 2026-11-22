@@ -18,7 +18,7 @@ test("L3 · a delivered poll shows every pick by name beside a quiet tally, to m
   const alice = loop.members.find((member) => member.email.startsWith("alice"))!;
   const bob = loop.members.find((member) => member.email.startsWith("bob"))!;
   const [{ id: issueId }] = await rows<{ id: string }>("select id from issues limit 1");
-  const [{ id: pollId }] = await rows<{ id: string }>("select id from issue_questions where kind = 'poll'");
+  const [{ id: pollId }] = await rows<{ id: string }>("select id from issue_questions where format = 'poll'");
 
   for (const [member, choices] of [[alice, [0, 2]], [bob, [2]]] as const) {
     const vote = await request.post(`/api/reply/${member.token}`, {

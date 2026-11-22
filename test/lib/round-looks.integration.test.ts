@@ -93,7 +93,7 @@ test("a covered round's email opens with its cover; the archive lists it; a plai
   const loop = await seedLoop();
   const issue = await seedOpenIssue(loop, { openedAt: AFTER_FIRST_SLOT });
   const alice = loop.members.find((member) => member.email.startsWith("alice"))!;
-  await seedReplies({ issueId: issue.issueId, membershipId: alice.id, answers: [{ text: "What made you laugh this week?", body: "The cat." }], submittedAt: AFTER_FIRST_SLOT });
+  await seedReplies({ issueId: issue.issueId, membershipId: alice.id, answers: [{ text: "What made you laugh this week?", body: "The cat." }], answeredAt: AFTER_FIRST_SLOT });
   await renameIssue(loop.groupId, issue.issueId, "Camping weekend", { sticker: "mushroom", tint: "plum" });
 
   await sweep({ at: DELIVERY_DAY });
@@ -112,7 +112,7 @@ test("a covered round's email opens with its cover; the archive lists it; a plai
   const plain = await seedLoop();
   const open = await seedOpenIssue(plain, { openedAt: AFTER_FIRST_SLOT });
   const bob = plain.members.find((member) => member.email.startsWith("bob"))!;
-  await seedReplies({ issueId: open.issueId, membershipId: bob.id, answers: [{ text: "What made you laugh this week?", body: "A dog." }], submittedAt: AFTER_FIRST_SLOT });
+  await seedReplies({ issueId: open.issueId, membershipId: bob.id, answers: [{ text: "What made you laugh this week?", body: "A dog." }], answeredAt: AFTER_FIRST_SLOT });
   await sweep({ at: DELIVERY_DAY });
   const [mail] = await rows<{ html: string }>("select html from outbox where kind = 'delivery' and issue_id = $1 limit 1", [open.issueId]);
   for (const { tint } of Object.values(COVER_TINTS)) assert.doesNotMatch(mail.html, new RegExp(`bgcolor="${tint}"`));
@@ -159,7 +159,7 @@ test("stickers are refused on an open round, off the round, on what you can't re
   assert.deepEqual(await stick({ placement: { side: "middle", offset: 1, tilt: 0 } }), { ok: false, reason: "placement" });
 
   const open = await seedOpenIssue(loop, { openedAt: AFTER_FIRST_SLOT });
-  await seedReplies({ issueId: open.issueId, membershipId: alice.id, answers: [{ text: "What made you laugh this week?", body: "Not yet out." }], submittedAt: AFTER_FIRST_SLOT });
+  await seedReplies({ issueId: open.issueId, membershipId: alice.id, answers: [{ text: "What made you laugh this week?", body: "Not yet out." }], answeredAt: AFTER_FIRST_SLOT });
   const [openReply] = await rows<{ id: string }>("select id from replies where issue_id = $1", [open.issueId]);
   assert.deepEqual(await stick({ issueId: open.issueId, replyId: openReply.id }), { ok: false, reason: "round" }, "not before it goes out");
   assert.deepEqual(await stick({ replyId: openReply.id }), { ok: false, reason: "answer" }, "an answer from another round");

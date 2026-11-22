@@ -23,9 +23,9 @@ test("K7 · owners-only items stay invisible to regular members", async ({ page 
   await page.goto(`/r/${alice.token}`);
   await expect(page.getByText("Committee notes")).toHaveCount(0);
 
-  // The API refuses a member writing to a section it cannot even see.
+  // The API refuses a member writing to an item they cannot even see.
   const refused = await page.request.post(`/api/reply/${alice.token}`, {
-    data: { action: "sectionDraft", issueSectionId: section.id, body: "sneaky" },
+    data: { action: "draft", issueQuestionId: section.id, body: "sneaky" },
   });
   expect(refused.status()).toBe(403);
 

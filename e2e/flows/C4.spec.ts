@@ -59,7 +59,7 @@ test("C4 · the owner edits this round directly: remove, reorder, add, and rewor
 
   // …and keeps the words someone answered once they have.
   const [club] = await rows<{ id: string }>("select id from issue_questions where text = 'The supper club'");
-  await rows("insert into replies (issue_id, issue_question_id, membership_id, body, status) values ($1, $2, $3, 'Pasta.', 'submitted')", [round.id, club.id, alice.id]);
+  await rows("insert into replies (issue_id, issue_question_id, membership_id, body) values ($1, $2, $3, 'Pasta.')", [round.id, club.id, alice.id]);
   await page.reload();
   const again = await openItem(page, "The supper club");
   await again.getByLabel(copyPattern(copy.questions.item.textLabel, { start: true })).fill("Bring a dish");

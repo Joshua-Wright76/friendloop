@@ -26,25 +26,6 @@ test("K3 · a written item asked every round takes text and one photo", async ({
   await chooseFile(page, "Add a photo", { name: "banana.png", mimeType: "image/png", buffer: makePng() }, corner);
   await expect(corner.getByText(copy.reply.photoSaved).first()).toBeVisible();
 
-  // A sheet from before the switch still posts to the old endpoint: a second photo is refused there too.
-  const [section] = await rows<{ id: string }>(
-    "select id from issue_questions where text = 'The potluck corner' limit 1",
-  );
-  const refused = await page.request.post(`/api/reply/${alice.token}/section-media`, {
-    multipart: {
-      issueSectionId: section.id,
-      caption: "",
-      position: "1",
-      photo: {
-        name: "banana2.png",
-        mimeType: "image/png",
-        buffer: makePng(),
-      },
-    },
-  });
-  expect(refused.status()).toBe(409);
-  expect((await refused.json()).error).toContain(copy.reply.errors.sectionPhotoStandardCap);
-
   await page.getByRole("button", { name: copy.reply.done, exact: true }).click();
   await expect(page.getByRole("heading", { name: copy.reply.confirmation.title, exact: true })).toBeVisible();
 

@@ -99,11 +99,9 @@ test("drafts save, update in place, and are capped", async () => {
   const second = await saveDraftFor({ token: alice.token, issueQuestionId: question.id, body: "replaced" });
   assert.equal(second.ok, true);
 
-  const saved = await rows<{ body: string; status: string; updated_at: Date }>("select body, status, updated_at from replies");
+  const saved = await rows<{ body: string; updated_at: Date }>("select body, updated_at from replies");
   assert.equal(saved.length, 1, "one row per answer");
   assert.equal(saved[0].body, "replaced");
-  // Nothing reads it, but code from before answers saved straight in still might.
-  assert.equal(saved[0].status, "submitted");
 
   const long = "x".repeat(9000);
   await saveDraftFor({ token: alice.token, issueQuestionId: question.id, body: long });
@@ -182,10 +180,10 @@ test("the old Send button only checks the link: answers are already in", async (
   const { alice, question, loop } = await openLoop();
   await rows("update memberships set accepted_at = null where id = $1", [alice.id]);
   await saveDraftFor({ token: alice.token, issueQuestionId: question.id, body: "Already in" });
-  const before = await rows("select body, status, submitted_at, updated_at from replies");
+  const before = await rows("select body, updated_at from replies");
 
   assert.equal((await confirmFor(alice.token)).ok, true);
-  assert.deepEqual(await rows("select body, status, submitted_at, updated_at from replies"), before, "nothing changed");
+  assert.deepEqual(await rows("select body, updated_at from replies"), before, "nothing changed");
 
   const reader = loop.members.find((member) => member.email.startsWith("bob"))!;
   await rows("update memberships set participation = 'reader' where id = $1", [reader.id]);

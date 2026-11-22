@@ -18,8 +18,8 @@ test("C7 · Up next shows which round asks each turn-taker, then every-round ite
   });
   const alice = loop.members.find((member) => member.email.startsWith("alice"))!;
   await rows("update groups set questions_per_round = 2 where id = $1", [loop.groupId]);
-  await rows("insert into questions (group_id, text, frequency, format, active, position, emoji) values ($1, 'Fridge wall', 'rotating', 'photo_wall', false, 6, '🧲')", [loop.groupId]);
-  await rows("insert into questions (group_id, text, frequency, format, active, position, admin_only) values ($1, 'Committee notes', 'rotating', 'written', true, 5, true)", [loop.groupId]);
+  await rows("insert into questions (group_id, text, frequency, format, position, emoji) values ($1, 'Fridge wall', 'rotating', 'photo_wall', 6, '🧲')", [loop.groupId]);
+  await rows("insert into questions (group_id, text, frequency, format, position, admin_only) values ($1, 'Committee notes', 'rotating', 'written', 5, true)", [loop.groupId]);
   await rows("insert into questions (group_id, text, frequency, format, active, date_kind, month, day, about_membership_id) values ($1, '', 'on_date', 'written', false, 'birthday', 1, 20, $2)", [loop.groupId, alice.id]);
   await runSweep(AFTER_FIRST_SLOT); // round 1 asks Q1 and Q2
   await signIn(page, "owner@friendloop.test");

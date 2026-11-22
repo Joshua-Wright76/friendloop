@@ -191,7 +191,7 @@ test("delivery carries the round's name and the loop's stationery into the email
     issueId: issue.issueId,
     membershipId: alice.id,
     answers: [{ text: "What made you laugh this week?", body: "The cat." }],
-    submittedAt: AFTER_FIRST_SLOT,
+    answeredAt: AFTER_FIRST_SLOT,
   });
   await saveTheme(loop.groupId, { preset: "lilac", accent: "" });
   await rows("update groups set header_image_url = 'https://cdn.test/banner.png' where id = $1", [loop.groupId]);

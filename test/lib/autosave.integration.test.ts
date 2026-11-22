@@ -1,6 +1,5 @@
 import { test, beforeEach } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
 import { saveDraftFor, savePhotoFor, savePollChoicesFor } from "../../src/lib/reply.ts";
 import { addSection } from "../support/items.ts";
 import { answeredMemberIds } from "../../src/lib/answered.ts";
@@ -88,7 +87,7 @@ test("progress, the reminder and the owner's nudge count saved answers", async (
   const { loop, alice, bob, owner, questions, issue } = await openRound({ poll: true });
   await saveDraftFor({ token: alice.token, issueQuestionId: questions[0].id, body: "Written, never 'sent'" });
   // A pick is an answer as well, until it is cleared.
-  const [poll] = await rows<{ id: string }>("select id from issue_questions where issue_id = $1 and kind = 'poll'", [issue.issueId]);
+  const [poll] = await rows<{ id: string }>("select id from issue_questions where issue_id = $1 and format = 'poll'", [issue.issueId]);
   assert.equal((await savePollChoicesFor({ token: bob.token, issueQuestionId: poll.id, choices: [1] })).ok, true);
   assert.deepEqual([...(await answeredMemberIds(issue.issueId))].sort(), [alice.id, bob.id].sort());
   await savePollChoicesFor({ token: bob.token, issueQuestionId: poll.id, choices: [] });
@@ -115,17 +114,6 @@ test("a section answer counts as having answered", async () => {
   assert.deepEqual([...(await answeredMemberIds(issue.issueId))], [owner.id]);
 });
 
-test("an answer written by code from before this change still goes out", async () => {
-  const { alice, questions, issue } = await openRound();
-  // What the old sheet wrote while its Send button still existed.
-  await rows(
-    "insert into replies (issue_id, issue_question_id, membership_id, body, status) values ($1, $2, $3, 'From the old sheet', 'draft')",
-    [issue.issueId, questions[0].id, alice.id],
-  );
-  assert.equal((await sweep({ at: DELIVERY_DAY })).delivered, 1);
-  assert.ok((await latestOutbox("delivery:")).html.includes("From the old sheet"));
-});
-
 test("a draft a past round went out without never appears in it", async () => {
   const loop = await seedLoop();
   const alice = loop.members.find((member) => member.email.startsWith("alice"))!;
@@ -135,7 +123,7 @@ test("a draft a past round went out without never appears in it", async () => {
   });
   const [question] = await rows<{ id: string }>("select id from issue_questions where issue_id = $1 order by position offset 1 limit 1", [delivered.issueId]);
   await rows(
-    "insert into replies (issue_id, issue_question_id, membership_id, body, photo_url, status, never_sent) values ($1, $2, $3, 'Never sent', '/uploads/never.png', 'draft', true)",
+    "insert into replies (issue_id, issue_question_id, membership_id, body, photo_url, never_sent) values ($1, $2, $3, 'Never sent', '/uploads/never.png', true)",
     [delivered.issueId, question.id, alice.id],
   );
 
@@ -145,35 +133,4 @@ test("a draft a past round went out without never appears in it", async () => {
 
   const album = await loadAlbum({ groupId: loop.groupId, viewerMembershipId: alice.id, viewerIsAdmin: true, filters: { member: null, q: "", pages: 1 } });
   assert.equal(album.total, 0, "its photo stays out of the album too");
-});
-
-test("the migration counts open-round drafts in and keeps past-round drafts out", async () => {
-  const loop = await seedLoop();
-  const alice = loop.members.find((member) => member.email.startsWith("alice"))!;
-  const bob = loop.members.find((member) => member.email.startsWith("bob"))!;
-  const past = await seedDeliveredIssue(loop, { deliveredAt: DELIVERY_DAY, answers: [{ email: alice.email, body: "Sent back then" }] });
-  const open = await seedOpenIssue(loop, { openedAt: DELIVERY_DAY });
-  const pastQuestion = (await rows<{ id: string }>("select id from issue_questions where issue_id = $1 order by position offset 1 limit 1", [past.issueId]))[0].id;
-  const openQuestion = (await rows<{ id: string }>("select id from issue_questions where issue_id = $1 order by position limit 1", [open.issueId]))[0].id;
-  const insert = "insert into replies (issue_id, issue_question_id, membership_id, body, status) values ($1, $2, $3, $4, 'draft')";
-  await rows(insert, [past.issueId, pastQuestion, alice.id, "Left behind"]);
-  await rows(insert, [open.issueId, openQuestion, alice.id, "Still writing"]);
-  await rows(insert, [open.issueId, openQuestion, bob.id, ""]);
-
-  const migration = readFileSync("drizzle/0021_answers_autosave.sql", "utf8")
-    .split("--> statement-breakpoint")
-    .map((statement) => statement.trim())
-    .filter((statement) => /^(--[^\n]*\n)*\s*UPDATE/i.test(statement));
-  assert.equal(migration.length, 4);
-  for (const statement of migration) await rows(statement);
-
-  const after = await rows<{ body: string; status: string; never_sent: boolean; submitted: boolean }>(
-    "select body, status, never_sent, submitted_at is not null as submitted from replies order by body",
-  );
-  assert.deepEqual([...after], [
-    { body: "", status: "draft", never_sent: false, submitted: false },
-    { body: "Left behind", status: "draft", never_sent: true, submitted: false },
-    { body: "Sent back then", status: "submitted", never_sent: false, submitted: true },
-    { body: "Still writing", status: "submitted", never_sent: false, submitted: true },
-  ]);
 });

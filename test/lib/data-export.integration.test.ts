@@ -15,6 +15,7 @@ import { AFTER_FIRST_SLOT } from "../../e2e/support/clock.ts";
 import { seedPoll } from "../../e2e/support/polls.ts";
 import { E2E_NOW } from "../../e2e/support/clock.ts";
 import { clearRequest, setRequestHeaders } from "../stubs/request.mjs";
+import { seedCardAnswer, seedSectionCard } from "../../e2e/support/sections.ts";
 
 beforeEach(() => {
   clearRequest();
@@ -51,19 +52,19 @@ async function seedArchive() {
   // The poll joins the pool and the round after the written answers, so they never share a question.
   const pollQuestion = await seedPoll(loop, { text: "Lake or sea?", options: ["Lake", "Sea"] });
   const poll = await rows<{ id: string }>(
-    "insert into issue_questions (issue_id, question_id, text, position, kind, poll_options) values ($1, $2, 'Lake or sea?', 2, 'poll', '[\"Lake\", \"Sea\"]') returning id",
+    "insert into issue_questions (issue_id, question_id, text, position, format, poll_options) values ($1, $2, 'Lake or sea?', 2, 'poll', '[\"Lake\", \"Sea\"]') returning id",
     [issue.issueId, pollQuestion],
   );
   await rows(
-    "insert into replies (issue_id, issue_question_id, membership_id, poll_choices, status, submitted_at) values ($1, $2, $3, '[1, 7]', 'submitted', now())",
+    "insert into replies (issue_id, issue_question_id, membership_id, poll_choices) values ($1, $2, $3, '[1, 7]')",
     [issue.issueId, poll[0].id, wren.id],
   );
   const second = await rows<{ id: string }>(
-    "select id from issue_questions where issue_id = $1 and kind = 'written' and id not in (select issue_question_id from replies where membership_id = $2)",
+    "select id from issue_questions where issue_id = $1 and format = 'written' and id not in (select issue_question_id from replies where membership_id = $2)",
     [issue.issueId, alice.id],
   );
   // A draft the round went out without, from before answers saved straight into the round.
-  await rows("insert into replies (issue_id, issue_question_id, membership_id, body, status, never_sent) values ($1, $2, $3, 'Alice draft', 'draft', true)", [issue.issueId, second[0].id, alice.id]);
+  await rows("insert into replies (issue_id, issue_question_id, membership_id, body, never_sent) values ($1, $2, $3, 'Alice draft', true)", [issue.issueId, second[0].id, alice.id]);
   await rows("update replies set photo_url = $1 where membership_id = $2 and body = 'Wren laughed'", [PHOTO, wren.id]);
 
   const wrenReply = await rows<{ id: string }>("select id from replies where membership_id = $1 and body = 'Wren laughed'", [wren.id]);
@@ -71,14 +72,13 @@ async function seedArchive() {
   await rows("insert into comments (issue_id, membership_id, body, reply_id) values ($1, $2, 'Ha', $3)", [issue.issueId, alice.id, wrenReply[0].id]);
   await rows("insert into comments (issue_id, membership_id, body, deleted_at) values ($1, $2, 'Taken down', now())", [issue.issueId, alice.id]);
   await rows("insert into reactions (reply_id, membership_id, emoji) values ($1, $2, '🎉')", [wrenReply[0].id, alice.id]);
-  const aliceReply = await rows<{ id: string }>("select id from replies where membership_id = $1 and status = 'submitted'", [alice.id]);
+  const aliceReply = await rows<{ id: string }>("select id from replies where membership_id = $1 and not never_sent", [alice.id]);
   await rows("insert into reactions (reply_id, membership_id, emoji) values ($1, $2, '💛')", [aliceReply[0].id, wren.id]);
   await rows("insert into question_suggestions (group_id, membership_id, text) values ($1, $2, 'Favourite tree?')", [loop.groupId, wren.id]);
 
-  const [wall] = await rows<{ id: string }>("insert into issue_sections (issue_id, kind, title) values ($1, 'photo_wall', 'Wall') returning id", [issue.issueId]);
-  const [entry] = await rows<{ id: string }>("insert into section_replies (issue_id, issue_section_id, membership_id, body, status) values ($1, $2, $3, 'My week', 'submitted') returning id", [issue.issueId, wall.id, wren.id]);
-  await rows("insert into section_media (section_reply_id, url, caption) values ($1, $2, 'Hike')", [entry.id, PHOTO]);
-  await rows("insert into section_replies (issue_id, issue_section_id, membership_id, body, status) values ($1, $2, $3, 'Alice wall', 'submitted')", [issue.issueId, wall.id, alice.id]);
+  const wall = await seedSectionCard(issue.issueId, { kind: "photo_wall", title: "Wall" });
+  await seedCardAnswer(wall, wren.id, { body: "My week", media: [{ url: PHOTO, caption: "Hike" }] });
+  await seedCardAnswer(wall, alice.id, { body: "Alice wall" });
 
   return { loop, wren, alice, userId: user.id, issue };
 }

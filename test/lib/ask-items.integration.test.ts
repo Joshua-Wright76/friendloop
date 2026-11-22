@@ -107,8 +107,8 @@ test("the add card makes any kind of item, and each joins this round as its freq
   assert.deepEqual(await roundTexts(loop.groupId), ["Q1", "Asked now too", "Photo wall", "Party"]);
 
   assert.deepEqual(
-    { text: (await item(wall.id)).text, emoji: (await item(wall.id)).emoji, description: (await item(wall.id)).description, admin_only: (await item(wall.id)).admin_only, active: (await item(wall.id)).active },
-    { text: "Photo wall", emoji: "📸", description: "Your week", admin_only: true, active: false },
+    { text: (await item(wall.id)).text, emoji: (await item(wall.id)).emoji, description: (await item(wall.id)).description, admin_only: (await item(wall.id)).admin_only },
+    { text: "Photo wall", emoji: "📸", description: "Your week", admin_only: true },
   );
   // Asked now, a turn-taker has had this turn: it waits at the back.
   const queue = await rows<{ text: string }>("select text from questions where group_id = $1 and frequency = 'rotating' order by position", [loop.groupId]);
@@ -159,11 +159,11 @@ test("the editor reaches this round unless someone wrote there, and keeps a form
   // Once someone picked, the format and options stay, whatever the form says; the words still change for the next round.
   const alice = loop.members.find((member) => member.email.startsWith("alice"))!;
   const [snapshot] = await rows<{ id: string }>("select id from issue_questions where question_id = $1", [poll.id]);
-  await rows("insert into replies (issue_id, issue_question_id, membership_id, poll_choices, status) values ($1, $2, $3, '[0]', 'submitted')", [round.issueId, snapshot.id, alice.id]);
+  await rows("insert into replies (issue_id, issue_question_id, membership_id, poll_choices) values ($1, $2, $3, '[0]')", [round.issueId, snapshot.id, alice.id]);
   assert.equal(await hasAnswers(poll.id), true);
   assert.deepEqual(await edit(poll.id, { text: "Hot drinks?", format: "photo_wall", pollOptions: [] }), { ok: true, id: poll.id });
   const kept = await item(poll.id);
-  assert.deepEqual([kept.text, kept.format, kept.kind, kept.poll_options], ["Hot drinks?", "poll", "poll", ["Tea", "Coffee", "Water"]]);
+  assert.deepEqual([kept.text, kept.format, kept.poll_options], ["Hot drinks?", "poll", ["Tea", "Coffee", "Water"]]);
   const [frozen] = await rows<{ text: string }>("select text from issue_questions where id = $1", [snapshot.id]);
   assert.equal(frozen.text, "Tea or coffee?", "the words Alice answered stay");
 
@@ -181,8 +181,6 @@ test("changing how often moves an item: to every round it joins now, to turns it
 
   await updateItem({ group, questionId: q2, item: { ...BLANK_ITEM, text: "Q2", frequency: "every_round" }, at });
   assert.deepEqual(await roundTexts(loop.groupId), ["Q1", "Q2"]);
-  const [moved] = await rows<{ active: boolean }>("select active from questions where id = $1", [q2]);
-  assert.equal(moved.active, true, "still a question the code before the switch knows");
 
   await updateItem({ group, questionId: q2, item: { ...BLANK_ITEM, text: "Q2", frequency: "rotating" }, at });
   const queue = await rows<{ text: string }>("select text from questions where group_id = $1 and frequency = 'rotating' order by position", [loop.groupId]);
@@ -190,8 +188,8 @@ test("changing how often moves an item: to every round it joins now, to turns it
 
   await updateItem({ group, questionId: q3, item: { ...BLANK_ITEM, text: "Q3 day", format: "music", frequency: "on_date", date: "2026-01-07" }, at });
   assert.deepEqual(await roundTexts(loop.groupId), ["Q1", "Q2", "Q3 day"]);
-  const [dated] = await rows<{ active: boolean; date_kind: string; day: number }>("select active, date_kind, day from questions where id = $1", [q3]);
-  assert.deepEqual({ ...dated }, { active: false, date_kind: "once", day: 7 });
+  const [dated] = await rows<{ date_kind: string; day: number }>("select date_kind, day from questions where id = $1", [q3]);
+  assert.deepEqual({ ...dated }, { date_kind: "once", day: 7 });
 });
 
 test("stop asking takes an unanswered item out of this round; ask again brings it back where its frequency says", async () => {

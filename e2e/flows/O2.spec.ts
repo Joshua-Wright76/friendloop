@@ -1,6 +1,7 @@
 import { test, expect } from "../support/test";
 import { latestOutbox, resetDatabase, rows } from "../support/db";
 import { seedLoop } from "../support/seed";
+import { seedDateItem } from "../support/sections";
 import { AFTER_FIRST_SLOT, DELIVERY_DAY, runSweep } from "../support/harness";
 import { makePng } from "../support/audio";
 import { chooseFile } from "../support/identity";
@@ -16,8 +17,8 @@ test("O2 · the sweep puts an event in the round whose window holds it, and the 
   const bob = loop.members.find((member) => member.email.startsWith("bob"))!;
 
   // Alice's birthday falls in round 1 (2 to 9 Jan); a housewarming in February does not.
-  await rows("insert into events (group_id, kind, emoji, month, day, membership_id) values ($1, 'birthday', '🎂', 1, 6, $2)", [loop.groupId, alice.id]);
-  await rows("insert into events (group_id, kind, title, emoji, month, day, year) values ($1, 'once', 'The housewarming', '🏡', 2, 14, 2026)", [loop.groupId]);
+  await seedDateItem(loop.groupId, { kind: "birthday", emoji: "🎂", month: 1, day: 6, membershipId: alice.id });
+  await seedDateItem(loop.groupId, { kind: "once", title: "The housewarming", emoji: "🏡", month: 2, day: 14, year: 2026 });
 
   await runSweep(AFTER_FIRST_SLOT);
   const snapshots = await rows<{ title: string; emoji: string; event_date: string }>(

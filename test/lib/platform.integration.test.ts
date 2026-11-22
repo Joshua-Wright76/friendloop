@@ -361,9 +361,9 @@ test("the preview seeds one loop, and can rebuild it from scratch", async () => 
   await enableUiPreview();
   assert.equal((await rows<{ count: number }>("select count(*)::int as count from groups"))[0].count, 1);
 
-  // Tables with no natural unique key (section_media) must not grow per visit.
+  // Tables with no natural unique key (reply_media) must not grow per visit.
   const media = async () =>
-    (await rows<{ count: number }>("select count(*)::int as count from section_media"))[0].count;
+    (await rows<{ count: number }>("select count(*)::int as count from reply_media"))[0].count;
   assert.equal(await media(), 3);
 
   await enableUiPreview(true);
@@ -469,21 +469,18 @@ test("the demo loop shows the new looks, and can try on any outfit without touch
   assert.ok(Object.values(untouched).every((value) => value === null));
 });
 
-test("a preview from an older seed, whose sections shared its questions' ids, is rebuilt rather than topped up", async () => {
+test("a preview from an older seed, whose sections reached its rounds as copies, is rebuilt rather than topped up", async () => {
   await enableUiPreview();
-  const [question] = await rows<{ id: string; text: string }>("select id, text from questions where group_id = $1 order by position, id limit 1", [UI_PREVIEW.groupId]);
-  // What an older seed left: a section on a question's id (copied under a fresh id by the mirror trigger).
-  await rows(
-    "insert into sections (id, group_id, kind, title, position) values ('22222222-2222-4222-8222-222222222240', $1, 'standard', 'The potluck corner', 0)",
-    [UI_PREVIEW.groupId],
-  );
-  assert.equal((await rows<{ text: string }>("select text from questions where id = '22222222-2222-4222-8222-222222222240'"))[0].text, question.text,
-    "the question that shared the id is untouched");
+  // What an older seed left: its potluck corner snapshotted as a copy of a section.
+  await rows("update issue_questions set from_section = true where text = 'The potluck corner'");
 
   await enableUiPreview();
-  assert.equal((await rows("select 1 from sections where id = '22222222-2222-4222-8222-222222222240'")).length, 0, "the old section is gone");
-  const titles = await rows<{ title: string }>("select title from sections where group_id = $1 order by position", [UI_PREVIEW.groupId]);
-  assert.equal(titles.length, 3, "the current seed's three sections, once each");
-  const pool = await rows<{ n: number }>("select count(*)::int as n from questions where group_id = $1 and frequency = 'every_round' and not active", [UI_PREVIEW.groupId]);
-  assert.equal(pool[0].n, 3, "and one copy of each");
+  assert.equal((await rows("select 1 from issue_questions where from_section")).length, 0, "the copies are gone");
+  const items = await rows<{ text: string; format: string }>(
+    "select text, format from questions where group_id = $1 and (format in ('photo_wall', 'music') or text = 'The potluck corner') order by position",
+    [UI_PREVIEW.groupId],
+  );
+  assert.deepEqual(items.map((row) => `${row.text}:${row.format}`), ["The potluck corner:written", "The fridge wall:photo_wall", "Music picks:music"], "the seed's three items, once each");
+  const cards = await rows<{ n: number }>("select count(*)::int as n from issue_questions where text = 'The fridge wall'");
+  assert.equal(cards[0].n, 2, "in both rounds");
 });

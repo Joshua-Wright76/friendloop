@@ -63,7 +63,7 @@ async function idOf(groupId: string, text: string) {
 async function answer(issueId: string, text: string, membershipId: string) {
   const [snapshot] = await rows<{ id: string }>("select id from issue_questions where issue_id = $1 and text = $2", [issueId, text]);
   await rows(
-    "insert into replies (issue_id, issue_question_id, membership_id, body, status) values ($1, $2, $3, 'Mine', 'submitted')",
+    "insert into replies (issue_id, issue_question_id, membership_id, body) values ($1, $2, $3, 'Mine')",
     [issueId, snapshot.id, membershipId],
   );
 }
@@ -83,13 +83,6 @@ test("rounds take their turns from the head of the queue and send them to the ba
   assert.deepEqual(await roundTexts(second.issueId), ["Q3", "Q4"]);
   const third = await open(loop.groupId, 2);
   assert.deepEqual(await roundTexts(third.issueId), ["Q5", "Q1"]);
-
-  // The loop's own cursor stays at the head; the round's points where code from
-  // before the switch would find the turns it just took: at the back.
-  const [group] = await rows<{ question_cursor: number }>("select question_cursor from groups where id = $1", [loop.groupId]);
-  assert.equal(group.question_cursor, 0);
-  const [issue] = await rows<{ question_cursor: number }>("select question_cursor from issues where id = $1", [third.issueId]);
-  assert.equal(issue.question_cursor, 3);
 });
 
 test("a round asks its turn-takers, then every-round items, then the dates in its days", async () => {
@@ -102,18 +95,18 @@ test("a round asks its turn-takers, then every-round items, then the dates in it
     groupId: loop.groupId, text: "Camping", format: "written", frequency: "on_date", at,
     date: { kind: "once", month: 1, day: 5, year: 2026, aboutMembershipId: null },
   });
-  // A stopped item is never asked; a picture that takes turns isn't one of the questions older code knows.
+  // A stopped item is never asked.
   const stopped = await insertPoolItem({ groupId: loop.groupId, text: "Stopped", format: "written", frequency: "every_round", at });
   await rows("update questions set archived_at = now() where id = $1", [stopped]);
 
   const round = await open(loop.groupId);
   assert.deepEqual(await roundTexts(round.issueId), ["Turn one", "Photo wall", "Every week", "Camping"]);
-  const [wall] = await rows<{ format: string; emoji: string; kind: string }>(
-    "select format, emoji, kind from issue_questions where issue_id = $1 and text = 'Photo wall'", [round.issueId]);
-  assert.deepEqual(wall, { format: "photo_wall", emoji: "📸", kind: "written" });
+  const [wall] = await rows<{ format: string; emoji: string }>(
+    "select format, emoji from issue_questions where issue_id = $1 and text = 'Photo wall'", [round.issueId]);
+  assert.deepEqual(wall, { format: "photo_wall", emoji: "📸" });
 });
 
-test("snapshotting outside a transaction counts what it asked and keeps a picture out of the cursor", async () => {
+test("snapshotting outside a transaction counts what it asked", async () => {
   const loop = await seedLoop({ questions: ["Only question"] });
   await insertPoolItem({ groupId: loop.groupId, text: "Weekly picture", format: "photo_wall", frequency: "rotating", at: AFTER_FIRST_SLOT });
   const [issue] = await db
@@ -122,8 +115,6 @@ test("snapshotting outside a transaction counts what it asked and keeps a pictur
     .returning();
   const count = await snapshotRound({ group: await groupOf(loop.groupId), issueId: issue.id, opensAt: issue.opensAt, deliversAt: issue.deliversAt });
   assert.equal(count, 2);
-  const [after] = await rows<{ question_cursor: number }>("select question_cursor from issues where id = $1", [issue.id]);
-  assert.equal(after.question_cursor, 0, "one active question, taken");
 });
 
 test("adding to the open round: a new item joins after its kind, a turn-taker goes to the back", async () => {
@@ -298,15 +289,15 @@ test("a snapshot whose item was deleted keeps the place it was given", async () 
 test("a new item goes to the back of its own list", async () => {
   const loop = await seedLoop({ questions: ["Q1", "Q2"] });
   const at = AFTER_FIRST_SLOT;
-  const position = async (id: string) => (await rows<{ position: number; active: boolean }>("select position, active from questions where id = $1", [id]))[0];
+  const position = async (id: string) => (await rows<{ position: number }>("select position from questions where id = $1", [id]))[0].position;
 
-  assert.deepEqual(await position(await insertPoolItem({ groupId: loop.groupId, text: "Turn", format: "poll", frequency: "rotating", pollOptions: ["a", "b"], at })), { position: 2, active: true });
-  assert.deepEqual(await position(await insertPoolItem({ groupId: loop.groupId, text: "Weekly question", format: "written", frequency: "every_round", at })), { position: 0, active: true });
-  assert.deepEqual(await position(await insertPoolItem({ groupId: loop.groupId, text: "Wall", format: "photo_wall", frequency: "every_round", at })), { position: 1, active: false });
-  assert.deepEqual(await position(await insertPoolItem({
+  assert.equal(await position(await insertPoolItem({ groupId: loop.groupId, text: "Turn", format: "poll", frequency: "rotating", pollOptions: ["a", "b"], at })), 2);
+  assert.equal(await position(await insertPoolItem({ groupId: loop.groupId, text: "Weekly question", format: "written", frequency: "every_round", at })), 0);
+  assert.equal(await position(await insertPoolItem({ groupId: loop.groupId, text: "Wall", format: "photo_wall", frequency: "every_round", at })), 1);
+  assert.equal(await position(await insertPoolItem({
     groupId: loop.groupId, text: "", format: "written", frequency: "on_date", at,
     date: { kind: "birthday", month: 3, day: 1, year: null, aboutMembershipId: loop.members[1].id },
-  })), { position: 0, active: false });
-  const [poll] = await rows<{ kind: string; poll_options: string[] }>("select kind, poll_options from questions where text = 'Turn'");
-  assert.deepEqual(poll, { kind: "poll", poll_options: ["a", "b"] });
+  })), 0);
+  const [poll] = await rows<{ format: string; poll_options: string[] }>("select format, poll_options from questions where text = 'Turn'");
+  assert.deepEqual(poll, { format: "poll", poll_options: ["a", "b"] });
 });

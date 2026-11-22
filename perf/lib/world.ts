@@ -5,8 +5,8 @@ import type { Browser } from "@playwright/test";
 import { sql as drizzleSql } from "drizzle-orm";
 import { db } from "@/db";
 import {
-  comments, events, groups, issueQuestions, issueSections, issues, magicLinks, memberships, musicLinks, outbox,
-  questionSuggestions, questions, reactions, replies, sectionMedia, sectionReplies, sections, sessions, users,
+  comments, groups, issueQuestions, issues, magicLinks, memberships, musicLinks, outbox,
+  questionSuggestions, questions, reactions, replies, replyMedia, sessions, users,
 } from "@/db/schema";
 
 /**
@@ -182,19 +182,20 @@ export async function buildWorld(input: { app: string; browser: Browser }): Prom
     groupId: group.id, email: "invited@friendloop.test", replyToken: pendingToken, invitedAt: new Date(now - DAY),
   }).returning();
 
-  const questionRows = await db.insert(questions).values(QUESTION_TEXT.map((text, position) => ({ groupId: group.id, text, position }))).returning();
+  const questionRows = await db.insert(questions).values(QUESTION_TEXT.map((text, position) => ({ groupId: group.id, text, position, format: "written" as const }))).returning();
   const [poll] = await db.insert(questions).values({
-    groupId: group.id, text: "Where should we camp this summer?", position: QUESTION_TEXT.length, kind: "poll",
+    groupId: group.id, text: "Where should we camp this summer?", position: QUESTION_TEXT.length, format: "poll",
     pollOptions: ["The lake", "The mountains", "The coast", "Backyard tents"],
   }).returning();
-  const sectionRows = await db.insert(sections).values([
-    { groupId: group.id, kind: "standard" as const, title: "Small wins", emoji: "🌱", description: "Anything that went right.", position: 0 },
-    { groupId: group.id, kind: "photo_wall" as const, title: "Photo wall", emoji: "📷", position: 1 },
-    { groupId: group.id, kind: "music" as const, title: "Now playing", emoji: "🎧", position: 2 },
+  // What were sections: items asked every round, after the questions.
+  const sectionRows = await db.insert(questions).values([
+    { groupId: group.id, format: "written" as const, frequency: "every_round" as const, text: "Small wins", emoji: "🌱", description: "Anything that went right.", position: 1000 },
+    { groupId: group.id, format: "photo_wall" as const, frequency: "every_round" as const, text: "Photo wall", emoji: "📷", position: 1001 },
+    { groupId: group.id, format: "music" as const, frequency: "every_round" as const, text: "Now playing", emoji: "🎧", position: 1002 },
   ]).returning();
-  await db.insert(events).values([
-    { groupId: group.id, kind: "birthday" as const, month: 3, day: 14, membershipId: member.membershipId },
-    { groupId: group.id, kind: "once" as const, title: "The reunion", emoji: "🎉", month: 8, day: 2, year: 2027 },
+  await db.insert(questions).values([
+    { groupId: group.id, text: "", format: "written" as const, frequency: "on_date" as const, dateKind: "birthday" as const, month: 3, day: 14, aboutMembershipId: member.membershipId },
+    { groupId: group.id, text: "The reunion", format: "written" as const, frequency: "on_date" as const, dateKind: "once" as const, emoji: "🎉", month: 8, day: 2, year: 2027 },
   ]);
   await db.insert(questionSuggestions).values([
     { groupId: group.id, membershipId: member.membershipId, text: "What song is stuck in your head?" },
@@ -215,39 +216,39 @@ export async function buildWorld(input: { app: string; browser: Browser }): Prom
     }).returning();
     const chosen = Array.from({ length: WORLD_SIZE.questionsPerRound - 1 }, (_, index) => questionRows[(number + index) % questionRows.length]);
     const asked = await db.insert(issueQuestions).values([
-      ...chosen.map((question, position) => ({ issueId: issue.id, questionId: question.id, text: question.text, position })),
-      { issueId: issue.id, questionId: poll.id, text: poll.text, position: chosen.length, kind: "poll" as const, pollOptions: poll.pollOptions },
+      ...chosen.map((question, position) => ({ issueId: issue.id, questionId: question.id, text: question.text, position, format: "written" as const })),
+      { issueId: issue.id, questionId: poll.id, text: poll.text, position: chosen.length, format: "poll" as const, pollOptions: poll.pollOptions },
     ]).returning();
-    const carried = await db.insert(issueSections).values(sectionRows.map((section) => ({
-      issueId: issue.id, sectionId: section.id, kind: section.kind, title: section.title, emoji: section.emoji,
-      description: section.description, position: section.position,
+    const carried = await db.insert(issueQuestions).values(sectionRows.map((section) => ({
+      issueId: issue.id, questionId: section.id, format: section.format, text: section.text, emoji: section.emoji,
+      description: section.description, position: section.position, fromSection: true,
     }))).returning();
 
     // An open round is part-way done: the member under test hasn't written anything yet.
     const authors = status === "open" ? contributors.filter((person) => person !== member).slice(0, 6) : contributors;
-    const submittedAt = new Date(opensAt.getTime() + 2 * DAY);
+    const answeredAt = new Date(opensAt.getTime() + 2 * DAY);
     const replyRows = await db.insert(replies).values(authors.flatMap((person) => asked.map((question) => ({
       issueId: issue.id, issueQuestionId: question.id, membershipId: person.membershipId,
-      body: question.kind === "poll" ? "" : paragraph(1 + Math.floor(random() * 4)),
-      pollChoices: question.kind === "poll" ? [Math.floor(random() * 4)] : [],
-      photoUrl: question.kind === "written" && random() < 0.08 ? pick(photos) : null,
-      status: "submitted" as const, submittedAt,
+      body: question.format === "poll" ? "" : paragraph(1 + Math.floor(random() * 4)),
+      pollChoices: question.format === "poll" ? [Math.floor(random() * 4)] : [],
+      photoUrl: question.format === "written" && random() < 0.08 ? pick(photos) : null,
+      updatedAt: answeredAt,
     })))).returning();
 
     for (const section of carried) {
-      const rows = await db.insert(sectionReplies).values(authors.slice(0, 6).map((person, who) => ({
-        issueId: issue.id, issueSectionId: section.id, membershipId: person.membershipId,
-        body: section.kind === "photo_wall" ? "" : paragraph(1),
-        linkUrl: section.kind === "music" ? musicUrl(number, who) : null,
-        linkProvider: section.kind === "music" ? "spotify" : null,
-        status: "submitted" as const, submittedAt,
+      const rows = await db.insert(replies).values(authors.slice(0, 6).map((person, who) => ({
+        issueId: issue.id, issueQuestionId: section.id, membershipId: person.membershipId,
+        body: section.format === "photo_wall" ? "" : paragraph(1),
+        linkUrl: section.format === "music" ? musicUrl(number, who) : null,
+        linkProvider: section.format === "music" ? "spotify" : null,
+        updatedAt: answeredAt,
       }))).returning();
-      if (section.kind === "photo_wall") {
-        await db.insert(sectionMedia).values(rows.map((row, position) => ({
-          sectionReplyId: row.id, url: photos[position % photos.length], caption: position % 2 ? "From the weekend" : null, position,
+      if (section.format === "photo_wall") {
+        await db.insert(replyMedia).values(rows.map((row, position) => ({
+          replyId: row.id, url: photos[position % photos.length], caption: position % 2 ? "From the weekend" : null, position,
         })));
       }
-      if (section.kind === "music") {
+      if (section.format === "music") {
         await db.insert(musicLinks).values(rows.map((row) => ({
           url: row.linkUrl!, provider: "spotify", title: `Album ${number}`, trackCount: 10,
           tracks: Array.from({ length: 10 }, (_, track) => ({ title: `Track ${track + 1}`, artist: "A band", seconds: 200 })),
@@ -264,7 +265,7 @@ export async function buildWorld(input: { app: string; browser: Browser }): Prom
       membershipId: pick(people).membershipId,
       body: index % 3 === 0 ? `@[${pick(people).membershipId}] ${pick(SENTENCES)}` : pick(SENTENCES),
       replyId: index % 2 ? pick(written).id : null,
-      createdAt: new Date(submittedAt.getTime() + index * 60_000),
+      createdAt: new Date(answeredAt.getTime() + index * 60_000),
     })));
 
     // Every round leaves a prompt, a reminder and a delivery per person in the outbox.
@@ -294,7 +295,7 @@ export async function buildWorld(input: { app: string; browser: Browser }): Prom
     await db.insert(memberships).values({
       groupId: other.id, userId: owner.userId, email: owner.email, name: owner.name, access: "owner", replyToken: token(), acceptedAt: new Date(now - 90 * DAY),
     });
-    await db.insert(questions).values({ groupId: other.id, text: "What are you reading?", position: 0 });
+    await db.insert(questions).values({ groupId: other.id, text: "What are you reading?", position: 0, format: "written" });
   }
 
   let throwaways = 0;
@@ -312,7 +313,7 @@ export async function buildWorld(input: { app: string; browser: Browser }): Prom
       { groupId: loop.id, email: `one-${throwaways}@friendloop.test`, name: "One", replyToken: token(), acceptedAt: new Date() },
       { groupId: loop.id, email: `two-${throwaways}@friendloop.test`, name: "Two", replyToken: token(), invitedAt: new Date() },
     ]).returning();
-    const asked = await db.insert(questions).values(["First?", "Second?", "Third?"].map((text, position) => ({ groupId: loop.id, text, position }))).returning();
+    const asked = await db.insert(questions).values(["First?", "Second?", "Third?"].map((text, position) => ({ groupId: loop.id, text, position, format: "written" as const }))).returning();
     return {
       id: loop.id, name, questionIds: asked.map((row) => row.id),
       members: rows.slice(1).map((row) => ({ id: row.id, email: row.email, replyToken: row.replyToken })),
@@ -340,13 +341,13 @@ export async function buildWorld(input: { app: string; browser: Browser }): Prom
         groupId: loop.id, number: 1, status: "open", slotAt: opensAt, opensAt, deliversAt: new Date(opensAt.getTime() + 7 * DAY),
       }).returning();
       const asked = await db.insert(issueQuestions).values([
-        ...["First?", "Second?", "Third?"].map((text, position) => ({ issueId: issue.id, questionId: loop.questionIds[position], text, position })),
-        { issueId: issue.id, text: "Which one?", position: 3, kind: "poll" as const, pollOptions: ["This", "That"] },
+        ...["First?", "Second?", "Third?"].map((text, position) => ({ issueId: issue.id, questionId: loop.questionIds[position], text, position, format: "written" as const })),
+        { issueId: issue.id, text: "Which one?", position: 3, format: "poll" as const, pollOptions: ["This", "That"] },
       ]).returning();
-      await db.insert(issueSections).values([
-        { issueId: issue.id, kind: "standard" as const, title: "Small wins", emoji: "🌱", position: 0 },
-        { issueId: issue.id, kind: "photo_wall" as const, title: "Photo wall", emoji: "📷", position: 1 },
-        { issueId: issue.id, kind: "music" as const, title: "Now playing", emoji: "🎧", position: 2 },
+      await db.insert(issueQuestions).values([
+        { issueId: issue.id, format: "written" as const, text: "Small wins", emoji: "🌱", position: 1000, fromSection: true },
+        { issueId: issue.id, format: "photo_wall" as const, text: "Photo wall", emoji: "📷", position: 1001, fromSection: true },
+        { issueId: issue.id, format: "music" as const, text: "Now playing", emoji: "🎧", position: 1002, fromSection: true },
       ]);
       return { ...loop, issueId: issue.id, issueQuestionIds: asked.map((row) => row.id) };
     },
