@@ -1,7 +1,7 @@
 import { and, asc, desc, eq, inArray, isNotNull } from "drizzle-orm";
 import { db } from "@/db";
 import { groups, issueQuestions, issues, memberships, questions, replies } from "@/db/schema";
-import { askedOf, formatOf, type AnswerFormat, type AskFrequency } from "./asks";
+import { askedOf, type AnswerFormat, type AskFrequency } from "./asks";
 import { copy, text } from "./copy.ts";
 import { describeDate, localDate, nextOccurrence } from "./event-dates";
 import { kindOf, loadDated, personLabel, ruleOf } from "./events";
@@ -145,7 +145,7 @@ export async function questionsPageOf(input: {
       id: row.id,
       label: birthday ? text(copy.events.birthdayRow, { name: birthdayPeople.get(row.id) ?? "" }) : row.text,
       text: row.text,
-      format: formatOf(row),
+      format: row.format,
       frequency: row.frequency,
       emoji: row.emoji,
       description: row.description,
@@ -226,7 +226,7 @@ async function roundItems(issueId: string, viewer: { id: string; access: Access 
       questionId: snapshot.questionId,
       text: snapshot.text,
       emoji: snapshot.emoji,
-      format: formatOf(snapshot),
+      format: snapshot.format,
       frequency,
       adminOnly: snapshot.adminOnly,
       occurrenceDate: snapshot.occurrenceDate,

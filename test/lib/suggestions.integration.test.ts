@@ -134,8 +134,8 @@ test("an accepted suggestion takes turns: it waits at the back of the queue", as
     [round.issueId],
   );
   assert.equal(asked.some((row) => row.text === "Best sandwich ever?"), false, "a turn-taker waits its turn");
-  const [question] = await rows<{ frequency: string; active: boolean; created_by_membership_id: string }>(
-    "select frequency, active, created_by_membership_id from questions where text = 'Best sandwich ever?'",
+  const [question] = await rows<{ frequency: string; created_by_membership_id: string }>(
+    "select frequency, created_by_membership_id from questions where text = 'Best sandwich ever?'",
   );
-  assert.deepEqual({ ...question }, { frequency: "rotating", active: true, created_by_membership_id: alice.id });
+  assert.deepEqual({ ...question }, { frequency: "rotating", created_by_membership_id: alice.id });
 });

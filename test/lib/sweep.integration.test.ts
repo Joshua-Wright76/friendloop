@@ -79,13 +79,13 @@ test("delivery sends one issue email per member with their own link", async () =
     issueId: issue.issueId,
     membershipId: alice.id,
     answers: [{ text: ALICE_QUESTION, body: "The cat." }],
-    submittedAt: AFTER_FIRST_SLOT,
+    answeredAt: AFTER_FIRST_SLOT,
   });
   await seedReplies({
     issueId: issue.issueId,
     membershipId: bob.id,
     answers: [{ text: ALICE_QUESTION, body: "The dog." }],
-    submittedAt: AFTER_FIRST_SLOT,
+    answeredAt: AFTER_FIRST_SLOT,
   });
   await rows("update replies set added_after_delivery = true where body = 'The dog.'");
 
@@ -146,7 +146,7 @@ test("delivery is idempotent: a second sweep sends nothing more", async () => {
     issueId: issue.issueId,
     membershipId: alice.id,
     answers: [{ text: ALICE_QUESTION, body: "Only answer." }],
-    submittedAt: AFTER_FIRST_SLOT,
+    answeredAt: AFTER_FIRST_SLOT,
   });
 
   assert.equal((await sweep({ at: DELIVERY_DAY })).delivered, 1);
@@ -163,7 +163,7 @@ test("a shared round gets a share token only when sharing is on", async () => {
     issueId: issue.issueId,
     membershipId: alice.id,
     answers: [{ text: ALICE_QUESTION, body: "Something." }],
-    submittedAt: AFTER_FIRST_SLOT,
+    answeredAt: AFTER_FIRST_SLOT,
   });
   await rows("update groups set share_enabled = true where id = $1", [loop.groupId]);
 
@@ -245,7 +245,7 @@ test("the reminder window is 48 hours, and only reaches people who owe an answer
     issueId: issue.issueId,
     membershipId: alice.id,
     answers: [{ text: ALICE_QUESTION, body: "Done." }],
-    submittedAt: AFTER_FIRST_SLOT,
+    answeredAt: AFTER_FIRST_SLOT,
   });
 
   // Outside the window: nothing yet.

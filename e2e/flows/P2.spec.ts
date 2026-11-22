@@ -56,10 +56,12 @@ test("P2 · filtering to one person and searching a word both narrow the Album, 
 
 test("P2 · a long album shows a page at a time and keeps its filters when it grows", async ({ page }) => {
   const world = await seedAlbum();
-  const [{ id: replyId }] = await rows<{ id: string }>("select id from section_replies limit 1");
+  const [{ id: replyId }] = await rows<{ id: string }>(
+    "select r.id from replies r join issue_questions q on q.id = r.issue_question_id where q.text = 'Photo wall' limit 1",
+  );
   await rows(
-    `insert into section_media (section_reply_id, url, caption, position)
-     select $1, u.url, 'Extra ' || n, 10 + n from (select url from section_media limit 1) u, generate_series(1, 30) n`,
+    `insert into reply_media (reply_id, url, caption, position)
+     select $1, u.url, 'Extra ' || n, 10 + n from (select url from reply_media where reply_id = $1 limit 1) u, generate_series(1, 30) n`,
     [replyId],
   );
   await signIn(page, "owner@friendloop.test");

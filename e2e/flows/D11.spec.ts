@@ -52,8 +52,8 @@ test("D11 · concurrent delivery and reminder passes never double-send", async (
     "select id from issue_questions order by position limit 1",
   );
   await rows(
-    `insert into replies (issue_id, issue_question_id, membership_id, body, status, submitted_at)
-     select i.id, $1, $2, 'One answer.', 'submitted', $3 from issues i where i.group_id = $4 limit 1`,
+    `insert into replies (issue_id, issue_question_id, membership_id, body, updated_at)
+     select i.id, $1, $2, 'One answer.', $3 from issues i where i.group_id = $4 limit 1`,
     [question.id, alice.id, AFTER_FIRST_SLOT.toISOString(), loop.groupId],
   );
 

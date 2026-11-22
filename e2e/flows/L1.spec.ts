@@ -31,10 +31,10 @@ test("L1 · the owner adds a poll that lives in the queue like any question", as
   await card.getByRole("button", { name: copy.questions.add.submit, exact: true }).click();
   await expect(page.getByText(copy.questions.done.added)).toBeVisible();
 
-  const [poll] = await rows<{ text: string; poll_options: string[]; poll_multiple: boolean; kind: string }>(
-    "select text, poll_options, poll_multiple, kind from questions where format = 'poll'",
+  const [poll] = await rows<{ text: string; poll_options: string[]; poll_multiple: boolean }>(
+    "select text, poll_options, poll_multiple from questions where format = 'poll'",
   );
-  expect({ ...poll }).toEqual({ text: "Where should we camp?", poll_options: ["The lake", "The mountains", "The coast"], poll_multiple: true, kind: "poll" });
+  expect({ ...poll }).toEqual({ text: "Where should we camp?", poll_options: ["The lake", "The mountains", "The coast"], poll_multiple: true });
 
   // It sits at the end of the queue, labelled, with its options listed.
   const queue = page.getByRole("list", { name: copy.questions.upNext.turnsLabel });
@@ -52,7 +52,7 @@ test("L1 · the owner adds a poll that lives in the queue like any question", as
 
   // The next round carries it, options frozen into the issue.
   await runSweep(AFTER_FIRST_SLOT);
-  const snapshot = await rows<{ kind: string; poll_options: string[] }>("select kind, poll_options from issue_questions where format = 'poll'");
+  const snapshot = await rows<{ poll_options: string[] }>("select poll_options from issue_questions where format = 'poll'");
   expect(snapshot).toHaveLength(1);
   expect(snapshot[0].poll_options).toEqual(["The lake", "The mountains", "The coast"]);
 

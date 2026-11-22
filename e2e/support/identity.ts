@@ -47,7 +47,7 @@ export async function seedWorld(shareToken = "world-share-token") {
     issueId: open.issueId,
     membershipId: alice.id,
     answers: [{ text: "What made you laugh this week?", body: "The cat." }],
-    submittedAt: new Date("2026-01-02T08:05:00Z"),
+    answeredAt: new Date("2026-01-02T08:05:00Z"),
   });
   return { loop, delivered, open, alice, shareToken };
 }

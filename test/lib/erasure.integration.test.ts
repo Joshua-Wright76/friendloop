@@ -24,10 +24,14 @@ import { deleteLoop } from "../../src/lib/manage.ts";
 import { limitKey } from "../../src/lib/rate-limit-policy.ts";
 import { sweep } from "../../src/lib/sweep.ts";
 import { db } from "@/db";
+import * as schema from "@/db/schema";
+import { getTableName, is } from "drizzle-orm";
+import { PgTable } from "drizzle-orm/pg-core";
 import { addMember, rows, seedDeliveredIssue, seedLoop, setEnv, setupDatabase } from "../support/app.ts";
 import { E2E_NOW } from "../../e2e/support/clock.ts";
 import { clearRequest, setRequestHeaders } from "../stubs/request.mjs";
 import { calls as blobCalls, failures as blobFailures, reset as resetBlob } from "../stubs/vercel-blob.mjs";
+import { seedCardAnswer, seedDateItem, seedSectionCard } from "../../e2e/support/sections.ts";
 
 const originalToken = process.env.BLOB_READ_WRITE_TOKEN;
 
@@ -113,34 +117,21 @@ async function seedWorld() {
   await rows("insert into issue_stickers (issue_id, reply_id, membership_id, sticker, side) values ($1, $2, $3, 'frog', 'left')", [issue.issueId, aliceReply.id, wren.id]);
 
   // A suggestion the owner accepted, credited by name on the round.
-  const [question] = await rows<{ id: string }>("insert into questions (group_id, text, position, created_by_membership_id) values ($1, 'Best snack?', 9, $2) returning id", [loop.groupId, wren.id]);
+  const [question] = await rows<{ id: string }>("insert into questions (group_id, text, position, format, created_by_membership_id) values ($1, 'Best snack?', 9, 'written', $2) returning id", [loop.groupId, wren.id]);
   await rows("insert into question_suggestions (group_id, membership_id, text, status, accepted_question_id) values ($1, $2, 'Best snack?', 'accepted', $3)", [loop.groupId, wren.id, question.id]);
-  await rows("insert into issue_questions (issue_id, question_id, text, position, suggested_by) values ($1, $2, 'Best snack?', 9, $3)", [issue.issueId, question.id, WREN.name]);
+  await rows("insert into issue_questions (issue_id, question_id, text, position, format, suggested_by) values ($1, $2, 'Best snack?', 9, 'written', $3)", [issue.issueId, question.id, WREN.name]);
 
-  // A birthday, snapshotted into the round with Alice's wishes and photo on it.
-  const [birthday] = await rows<{ id: string }>("insert into events (group_id, kind, month, day, membership_id) values ($1, 'birthday', 3, 4, $2) returning id", [loop.groupId, wren.id]);
-  const [birthdaySection] = await rows<{ id: string }>(
-    "insert into issue_sections (issue_id, kind, title, event_id, event_date) values ($1, 'standard', $2, $3, '2026-03-04') returning id",
-    [issue.issueId, `${WREN.name}'s birthday`, birthday.id],
-  );
-  const [wishes] = await rows<{ id: string }>("insert into section_replies (issue_id, issue_section_id, membership_id, body, status) values ($1, $2, $3, 'Happy birthday', 'submitted') returning id", [issue.issueId, birthdaySection.id, alice.id]);
-  await rows("insert into section_media (section_reply_id, url) values ($1, $2)", [wishes.id, blob("photo", "alice-birthday")]);
-  // The same birthday in the unified shape (docs/questions-unify-design.md): an ask
-  // about Wren in the pool, and its snapshot in the round. Both go with them.
-  const [birthdayAsk] = await rows<{ id: string }>(
-    "insert into questions (group_id, text, position, active, format, frequency, date_kind, month, day, about_membership_id) values ($1, '', 0, false, 'written', 'on_date', 'birthday', 3, 4, $2) returning id",
-    [loop.groupId, wren.id],
-  );
-  await rows(
-    "insert into issue_questions (issue_id, question_id, text, position, format, occurrence_date, about_membership_id, from_section) values ($1, $2, $3, 1000, 'written', '2026-03-04', $4, true)",
-    [issue.issueId, birthdayAsk.id, `${WREN.name}'s birthday`, wren.id],
-  );
+  // A birthday (docs/questions-unify-design.md): an ask about Wren in the pool, and
+  // its snapshot in the round with Alice's wishes and photo on it. Both go with Wren.
+  const birthdayAsk = await seedDateItem(loop.groupId, { kind: "birthday", month: 3, day: 4, membershipId: wren.id });
+  const birthdayCard = await seedSectionCard(issue.issueId, {
+    title: `${WREN.name}'s birthday`, questionId: birthdayAsk, occurrenceDate: "2026-03-04", aboutMembershipId: wren.id,
+  });
+  await seedCardAnswer(birthdayCard, alice.id, { body: "Happy birthday", media: [{ url: blob("photo", "alice-birthday"), caption: null }] });
 
-  // A regular section with Wren's photo wall entry.
-  const [section] = await rows<{ id: string }>("insert into sections (group_id, kind, title) values ($1, 'photo_wall', 'Wall') returning id", [loop.groupId]);
-  const [wall] = await rows<{ id: string }>("insert into issue_sections (issue_id, section_id, kind, title) values ($1, $2, 'photo_wall', 'Wall') returning id", [issue.issueId, section.id]);
-  const [wallReply] = await rows<{ id: string }>("insert into section_replies (issue_id, issue_section_id, membership_id, body, status) values ($1, $2, $3, 'My week', 'submitted') returning id", [issue.issueId, wall.id, wren.id]);
-  await rows("insert into section_media (section_reply_id, url, caption) values ($1, $2, 'Hike')", [wallReply.id, blob("photo", "wren-wall")]);
+  // A photo wall copied from a section, with Wren's entry.
+  const wall = await seedSectionCard(issue.issueId, { kind: "photo_wall", title: "Wall", position: 1 });
+  await seedCardAnswer(wall, wren.id, { body: "My week", media: [{ url: blob("photo", "wren-wall"), caption: "Hike" }] });
 
   // Feedback and the email trail.
   await rows("insert into feedback (message, path, user_id, membership_id, sender_name, sender_email) values ('Hi', '/you', $1, $2, $3, $4)", [user.id, wren.id, WREN.name, WREN.email]);
@@ -193,8 +184,11 @@ async function seedWorld() {
 type ForeignKey = { table: string; column: string; references: string };
 
 /** Every foreign key in the database, read from the catalog rather than a list. */
+/** The tables `src/db/schema.ts` defines. A table it has let go of may linger in the database until dropped. */
+const SCHEMA_TABLES = new Set<string>(Object.values(schema).filter((value) => is(value, PgTable)).map((table) => getTableName(table)));
+
 async function foreignKeys(): Promise<ForeignKey[]> {
-  return rows<ForeignKey>(
+  const keys = await rows<ForeignKey>(
     `select cl.relname as table, att.attname as column, ref.relname as references
        from pg_constraint con
        join pg_class cl on cl.oid = con.conrelid
@@ -204,6 +198,7 @@ async function foreignKeys(): Promise<ForeignKey[]> {
        join pg_attribute att on att.attrelid = cl.oid and att.attnum = k.attnum
       where con.contype = 'f' and ns.nspname = 'public'`,
   );
+  return keys.filter((key) => SCHEMA_TABLES.has(key.table));
 }
 
 /** Every column that can hold text, so a name or address frozen anywhere is found. */

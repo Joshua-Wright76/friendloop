@@ -5,6 +5,7 @@ import { ALBUM_PAGE_SIZE, parseAlbumFilters } from "../../src/lib/album-query.ts
 import { Q1, seedAlbum, writeUpload } from "../../e2e/support/album.ts";
 import { rows, seedDeliveredIssue, seedLoop, setupDatabase } from "../support/app.ts";
 import { copy } from "@/lib/copy";
+import { seedCardAnswer, seedSectionCard } from "../../e2e/support/sections.ts";
 
 setupDatabase();
 
@@ -147,15 +148,10 @@ test("pages grow the result, with a running total and an honest hasMore", async 
   const delivered = await seedDeliveredIssue(loop, { deliveredAt: new Date("2026-01-09T08:00:00Z"), answers: [] });
   const url = await writeUpload("bulk", "png");
   // One photo wall holding more photos than a page.
-  await rows(`insert into issue_sections (issue_id, kind, title, position) values ($1, 'photo_wall', 'Wall', 0)`, [delivered.issueId]);
-  const [section] = await rows<{ id: string }>("select id from issue_sections where issue_id = $1", [delivered.issueId]);
-  const [reply] = await rows<{ id: string }>(
-    `insert into section_replies (issue_id, issue_section_id, membership_id, status, submitted_at) values ($1, $2, $3, 'submitted', now()) returning id`,
-    [delivered.issueId, section.id, alice.id],
-  );
-  for (let index = 0; index < ALBUM_PAGE_SIZE + 6; index += 1) {
-    await rows("insert into section_media (section_reply_id, url, caption, position) values ($1, $2, $3, $4)", [reply.id, url, `Photo ${index}`, index]);
-  }
+  const wall = await seedSectionCard(delivered.issueId, { kind: "photo_wall", title: "Wall" });
+  await seedCardAnswer(wall, alice.id, {
+    media: Array.from({ length: ALBUM_PAGE_SIZE + 6 }, (_, index) => ({ url, caption: `Photo ${index}` })),
+  });
 
   const input = { groupId: loop.groupId, viewerMembershipId: alice.id, viewerIsAdmin: false };
   const first = await loadAlbum({ ...input, filters: parseAlbumFilters({}) });

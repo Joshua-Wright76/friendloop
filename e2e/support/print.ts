@@ -2,6 +2,7 @@ import { rows } from "./db";
 import { writeUpload } from "./album";
 import { seedPoll } from "./polls";
 import { seedDeliveredIssue, seedLoop, type SeededLoop } from "./seed";
+import { cardId, seedCardAnswer, seedSectionCard } from "./sections";
 
 export const PQ1 = "What made you laugh this week?";
 export const PQ2 = "What are you looking forward to?";
@@ -20,8 +21,8 @@ async function reply(
   input: { body?: string; photoUrl?: string; audioUrl?: string; late?: boolean; choices?: number[] },
 ): Promise<string> {
   const [row] = await rows<{ id: string }>(
-    `insert into replies (issue_id, issue_question_id, membership_id, body, photo_url, audio_url, audio_duration_ms, poll_choices, added_after_delivery, status, submitted_at)
-     values ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'submitted', now()) returning id`,
+    `insert into replies (issue_id, issue_question_id, membership_id, body, photo_url, audio_url, audio_duration_ms, poll_choices, added_after_delivery)
+     values ($1, $2, $3, $4, $5, $6, $7, $8, $9) returning id`,
     [
       issueId,
       await question(issueId, text),
@@ -43,15 +44,7 @@ async function sectionReply(
   membershipId: string,
   input: { body?: string; link?: { url: string; provider: string }; media?: Array<{ url: string; caption: string | null }>; late?: boolean },
 ): Promise<void> {
-  const [section] = await rows<{ id: string }>("select id from issue_sections where issue_id = $1 and title = $2", [issueId, title]);
-  const [created] = await rows<{ id: string }>(
-    `insert into section_replies (issue_id, issue_section_id, membership_id, body, link_url, link_provider, added_after_delivery, status, submitted_at)
-     values ($1, $2, $3, $4, $5, $6, $7, 'submitted', now()) returning id`,
-    [issueId, section.id, membershipId, input.body ?? "", input.link?.url ?? null, input.link?.provider ?? null, input.late ?? false],
-  );
-  for (const [position, item] of (input.media ?? []).entries()) {
-    await rows("insert into section_media (section_reply_id, url, caption, position) values ($1, $2, $3, $4)", [created.id, item.url, item.caption, position]);
-  }
+  await seedCardAnswer(await cardId(issueId, title), membershipId, input);
 }
 
 export const MUSIC_URL = "https://open.spotify.com/track/keepsake";
@@ -84,16 +77,11 @@ export async function seedKeepsake(input: { shareToken?: string } = {}) {
   await reply(issueId, PPOLL, alice.id, { choices: [0, 2] });
   await reply(issueId, PPOLL, bob.id, { choices: [2] });
 
-  await rows(
-    `insert into issue_sections (issue_id, kind, title, emoji, position) values
-       ($1, 'standard', 'Highlights', '✨', 0),
-       ($1, 'photo_wall', 'Photo wall', null, 1),
-       ($1, 'music', 'Song of the week', '🎵', 2),
-       ($1, 'standard', 'Owners only', null, 3),
-       ($1, 'standard', 'Nobody wrote here', null, 4)`,
-    [issueId],
-  );
-  await rows("update issue_sections set admin_only = true where issue_id = $1 and title = 'Owners only'", [issueId]);
+  await seedSectionCard(issueId, { kind: "standard", title: "Highlights", emoji: "✨", position: 0 });
+  await seedSectionCard(issueId, { kind: "photo_wall", title: "Photo wall", position: 1 });
+  await seedSectionCard(issueId, { kind: "music", title: "Song of the week", emoji: "🎵", position: 2 });
+  await seedSectionCard(issueId, { kind: "standard", title: "Owners only", adminOnly: true, position: 3 });
+  await seedSectionCard(issueId, { kind: "standard", title: "Nobody wrote here", position: 4 });
   await sectionReply(issueId, "Highlights", alice.id, { body: "The lake swim.", media: [{ url: await writeUpload("print-lake", "png"), caption: null }] });
   await sectionReply(issueId, "Highlights", bob.id, { body: "Added a day later.", late: true });
   await sectionReply(issueId, "Photo wall", alice.id, {

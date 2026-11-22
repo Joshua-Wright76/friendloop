@@ -101,7 +101,6 @@ test("a birthday inside the window becomes a card titled with the member's name,
   assert.deepEqual(await addBirthday(loop, "1990-01-06"), { ok: true });
   const [item] = await datedItems();
   assert.equal(item.text, "", "a birthday is titled when a round opens");
-  assert.equal(item.active, false, "code from before the switch never asks a date");
 
   await sweep({ at: AFTER_FIRST_SLOT });
   const found = await eventSections();
@@ -396,7 +395,7 @@ test("stopping a date only works inside its own loop", async () => {
 test("a birthday row with no person yet to celebrate places nothing", async () => {
   const loop = await seedLoop();
   await db.insert(questions).values({
-    groupId: loop.groupId, text: "", frequency: "on_date", format: "written", active: false, dateKind: "birthday", month: 1, day: 6, aboutMembershipId: null,
+    groupId: loop.groupId, text: "", frequency: "on_date", format: "written", dateKind: "birthday", month: 1, day: 6, aboutMembershipId: null,
   });
   await sweep({ at: AFTER_FIRST_SLOT });
   assert.equal((await eventSections()).length, 0);

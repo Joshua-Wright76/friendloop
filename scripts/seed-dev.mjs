@@ -22,7 +22,7 @@ try {
   await sql.begin(async (tx) => {
     await tx.unsafe(`
       truncate table email_events, outbox, reactions, comments, replies,
-        issue_sections, events, issue_questions, issues, questions, memberships, groups,
+        reply_media, issue_questions, issues, questions, memberships, groups,
         sessions, magic_links, users restart identity cascade;
     `);
 
@@ -42,15 +42,15 @@ try {
     `;
 
     await tx`
-      insert into questions (group_id, text, position) values
-        (${GROUP}, 'What made you laugh this week?', 0),
-        (${GROUP}, 'What are you looking forward to?', 1),
-        (${GROUP}, 'What''s something small you''re proud of?', 2),
-        (${GROUP}, 'What did you eat that was worth remembering?', 3);
+      insert into questions (group_id, text, position, format) values
+        (${GROUP}, 'What made you laugh this week?', 0, 'written'),
+        (${GROUP}, 'What are you looking forward to?', 1, 'written'),
+        (${GROUP}, 'What''s something small you''re proud of?', 2, 'written'),
+        (${GROUP}, 'What did you eat that was worth remembering?', 3, 'written');
     `;
 
     await tx`
-      insert into questions (group_id, text, position, kind, poll_multiple, poll_options) values
+      insert into questions (group_id, text, position, format, poll_multiple, poll_options) values
         (${GROUP}, 'Where should we camp this summer?', 4, 'poll', false,
           ${JSON.stringify(["The lake", "The mountains", "The coast", "Backyard tents"])}::jsonb);
     `;
@@ -62,35 +62,34 @@ try {
     `;
 
     await tx`
-      insert into issue_questions (issue_id, question_id, text, position, kind, poll_multiple, poll_options)
-      select ${issue.id}, q.id, q.text, q.position, q.kind, q.poll_multiple, q.poll_options
+      insert into issue_questions (issue_id, question_id, text, position, format, poll_multiple, poll_options)
+      select ${issue.id}, q.id, q.text, q.position, q.format, q.poll_multiple, q.poll_options
       from questions q where q.group_id = ${GROUP};
     `;
 
     await tx`
-      insert into replies (issue_id, issue_question_id, membership_id, body, status, submitted_at)
+      insert into replies (issue_id, issue_question_id, membership_id, body)
       select iq.issue_id, iq.id, m.id,
-        'Learned that a cat will accept a fist bump but never a high five.',
-        'submitted', now()
+        'Learned that a cat will accept a fist bump but never a high five.'
       from issue_questions iq, memberships m
       where m.reply_token = 'dev-reply-token' and iq.position = 0;
     `;
 
-    // Events: Alice's birthday lands in the open round (as the sweep would place it),
+    // Dates: Alice's birthday lands in the open round (as the sweep would place it),
     // and a one-time housewarming sits further out on the list.
     const [birthday] = await tx`
-      insert into events (group_id, kind, emoji, month, day, membership_id)
-      select ${GROUP}::uuid, 'birthday', '🎂', 10, 27, m.id from memberships m where m.reply_token = 'alice-reply-token'
-      returning id;
+      insert into questions (group_id, text, position, format, frequency, emoji, date_kind, month, day, about_membership_id)
+      select ${GROUP}::uuid, '', 0, 'written', 'on_date', '🎂', 'birthday', 10, 27, m.id from memberships m where m.reply_token = 'alice-reply-token'
+      returning id, about_membership_id;
     `;
     await tx`
-      insert into events (group_id, kind, title, emoji, month, day, year)
-      values (${GROUP}, 'once', 'The housewarming', '🏡', 12, 12, 2026);
+      insert into questions (group_id, text, position, format, frequency, emoji, date_kind, month, day, year)
+      values (${GROUP}, 'The housewarming', 0, 'written', 'on_date', '🏡', 'once', 12, 12, 2026);
     `;
     await tx`
-      insert into issue_sections (issue_id, kind, title, emoji, description, position, event_id, event_date)
-      values (${issue.id}, 'standard', 'Alice''s birthday', '🎂',
-        'Leave Alice a note or a photo. It lands in the round for everyone to read.', 0, ${birthday.id}, '2026-10-27');
+      insert into issue_questions (issue_id, question_id, text, position, format, emoji, description, occurrence_date, about_membership_id)
+      values (${issue.id}, ${birthday.id}, 'Alice''s birthday', 5, 'written', '🎂',
+        'Leave Alice a note or a photo. It lands in the round for everyone to read.', '2026-10-27', ${birthday.about_membership_id});
     `;
 
     // A round that already went out, so the issue page and the archive have content.
@@ -108,29 +107,27 @@ try {
     `;
 
     await tx`
-      insert into issue_questions (issue_id, question_id, text, position, kind, poll_multiple, poll_options)
-      select ${past.id}, q.id, q.text, q.position, q.kind, q.poll_multiple, q.poll_options
-      from questions q where q.group_id = ${GROUP};
+      insert into issue_questions (issue_id, question_id, text, position, format, poll_multiple, poll_options)
+      select ${past.id}, q.id, q.text, q.position, q.format, q.poll_multiple, q.poll_options
+      from questions q where q.group_id = ${GROUP} and q.frequency = 'rotating';
     `;
 
     await tx`
-      insert into replies (issue_id, issue_question_id, membership_id, body, status, submitted_at)
+      insert into replies (issue_id, issue_question_id, membership_id, body)
       select iq.issue_id, iq.id, m.id,
         case m.reply_token
           when 'dev-reply-token' then 'Three hours in a bookshop and I regret nothing.'
           else 'I finally finished the shelf I started in March.'
-        end,
-        'submitted', now()
+        end
       from issue_questions iq
       join memberships m on m.reply_token in ('dev-reply-token', 'alice-reply-token')
       where iq.issue_id = ${past.id} and iq.position = 1;
     `;
 
     await tx`
-      insert into replies (issue_id, issue_question_id, membership_id, body, poll_choices, status, submitted_at)
+      insert into replies (issue_id, issue_question_id, membership_id, body, poll_choices)
       select iq.issue_id, iq.id, m.id, '',
-        case m.reply_token when 'dev-reply-token' then '[0]'::jsonb else '[1]'::jsonb end,
-        'submitted', now()
+        case m.reply_token when 'dev-reply-token' then '[0]'::jsonb else '[1]'::jsonb end
       from issue_questions iq
       join memberships m on m.reply_token in ('dev-reply-token', 'alice-reply-token')
       where iq.issue_id = ${past.id} and iq.position = 4;

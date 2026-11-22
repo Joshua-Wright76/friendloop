@@ -37,8 +37,8 @@ async function openPollLoop(input: { multiple?: boolean; shared?: boolean } = {}
   if (input.shared) await rows("update groups set share_enabled = true where id = $1", [loop.groupId]);
   await sweep({ at: AFTER_FIRST_SLOT });
 
-  const [written] = await rows<{ id: string }>("select id from issue_questions where kind = 'written'");
-  const [poll] = await rows<{ id: string }>("select id from issue_questions where kind = 'poll'");
+  const [written] = await rows<{ id: string }>("select id from issue_questions where format = 'written'");
+  const [poll] = await rows<{ id: string }>("select id from issue_questions where format = 'poll'");
   const [issue] = await rows<{ id: string }>("select id from issues limit 1");
   const alice = loop.members.find((member) => member.email.startsWith("alice"))!;
   const bob = loop.members.find((member) => member.email.startsWith("bob"))!;
@@ -55,8 +55,8 @@ test("a poll goes to the back of the queue, and a malformed one is refused", asy
   const added = await addItem(loop.groupId, { ...poll, pollOptions: ["Lake", " Coast ", "lake"], pollMultiple: true }, { at: E2E_NOW });
   assert.equal(added.ok, true);
 
-  const [row] = await rows<{ text: string; kind: string; poll_multiple: boolean; poll_options: string[]; position: number }>(
-    "select text, kind, poll_multiple, poll_options, position from questions where kind = 'poll'",
+  const [row] = await rows<{ text: string; poll_multiple: boolean; poll_options: string[]; position: number }>(
+    "select text, poll_multiple, poll_options, position from questions where format = 'poll'",
   );
   assert.equal(row.text, "Camp where?");
   assert.deepEqual(row.poll_options, ["Lake", "Coast"]);
@@ -66,7 +66,7 @@ test("a poll goes to the back of the queue, and a malformed one is refused", asy
   assert.deepEqual(await addItem(loop.groupId, { ...poll, pollOptions: ["Only one"] }), { ok: false, code: "poll" });
   assert.deepEqual(await addItem(loop.groupId, { ...poll, pollOptions: ["a", "b", "c", "d", "e", "f", "g"] }), { ok: false, code: "poll" });
   assert.deepEqual(await addItem(loop.groupId, { ...poll, pollOptions: ["a", "b".repeat(81)] }), { ok: false, code: "poll" });
-  const [{ count }] = await rows<{ count: string }>("select count(*) as count from questions where kind = 'poll'");
+  const [{ count }] = await rows<{ count: string }>("select count(*) as count from questions where format = 'poll'");
   assert.equal(Number(count), 1);
 });
 
@@ -80,13 +80,8 @@ test("a poll moves in the queue and stops like any question", async () => {
   assert.deepEqual(ordered.map((row) => row.text), ["Pick", "One", "Two"]);
 
   await stopAsking(loop.groupId, pollId, E2E_NOW);
-  const [archived] = await rows<{ active: boolean; archived_at: string | null }>(
-    "select active, archived_at from questions where id = $1",
-    [pollId],
-  );
-  // Stopped is `archived_at`; `active` keeps saying "one of the loop's questions" (see asks.ts).
-  assert.equal(archived.active, true);
-  assert.ok(archived.archived_at);
+  const [archived] = await rows<{ archived_at: string | null }>("select archived_at from questions where id = $1", [pollId]);
+  assert.ok(archived.archived_at, "stopped is `archived_at`");
 });
 
 test("a poll rotates through the pool with the written questions", async () => {
@@ -95,22 +90,22 @@ test("a poll rotates through the pool with the written questions", async () => {
   await rows("update groups set questions_per_round = 1 where id = $1", [loop.groupId]);
 
   await sweep({ at: AFTER_FIRST_SLOT });
-  const first = await rows<{ text: string; kind: string }>("select text, kind from issue_questions");
-  assert.deepEqual(first.map((row) => [row.text, row.kind]), [["One", "written"]]);
+  const first = await rows<{ text: string; format: string }>("select text, format from issue_questions");
+  assert.deepEqual(first.map((row) => [row.text, row.format]), [["One", "written"]]);
 
   // Round 1 goes out with an answer in it, and round 2, opening as it goes, carries the poll.
   const [round] = await rows<{ id: string; delivers_at: Date }>("select id, delivers_at from issues where number = 1");
   await seedReplies({ issueId: round.id, membershipId: loop.members[1].id, answers: [{ text: "One", body: "Yes." }] });
   await sweep({ at: new Date(round.delivers_at) });
-  const second = await rows<{ text: string; kind: string }>(
-    "select iq.text, iq.kind from issue_questions iq join issues i on i.id = iq.issue_id where i.number = 2",
+  const second = await rows<{ text: string; format: string }>(
+    "select iq.text, iq.format from issue_questions iq join issues i on i.id = iq.issue_id where i.number = 2",
   );
-  assert.deepEqual(second.map((row) => [row.text, row.kind]), [["Pick", "poll"]]);
+  assert.deepEqual(second.map((row) => [row.text, row.format]), [["Pick", "poll"]]);
 });
 
 test("the issue snapshot freezes a poll's options and mode", async () => {
   const { loop, poll } = await openPollLoop({ multiple: true });
-  await rows("update questions set poll_options = $1::jsonb, poll_multiple = false where group_id = $2 and kind = 'poll'", [
+  await rows("update questions set poll_options = $1::jsonb, poll_multiple = false where group_id = $2 and format = 'poll'", [
     JSON.stringify(["Changed", "Edited"]),
     loop.groupId,
   ]);

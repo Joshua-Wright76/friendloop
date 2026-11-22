@@ -385,7 +385,7 @@ test("a muted member gets no reminder, no nudge and no issue email, and unmuting
   assert.equal(reminded, 2, "owner and bob; alice is muted");
   assert.equal(await nudgeStragglers(loop.groupId), 2);
 
-  await seedReplies({ issueId: issue.issueId, membershipId: bob.id, answers: [{ text: QUESTION, body: "Geese." }], submittedAt: AFTER_FIRST_SLOT });
+  await seedReplies({ issueId: issue.issueId, membershipId: bob.id, answers: [{ text: QUESTION, body: "Geese." }], answeredAt: AFTER_FIRST_SLOT });
   await sweep({ at: DELIVERY_DAY });
 
   const byKind = await rows<{ kind: string; to: string; status: string }>(

@@ -190,7 +190,8 @@ test("an answer must belong to this issue, be submitted, and (for polls) be visi
   const notReal = await postComment({ issueId: issue.issueId, viewerToken: alice.token, body: "x", replyId: "nope" });
   assert.equal(notReal.ok === false && notReal.status, 404);
 
-  await rows("update replies set status = 'draft' where id = $1", [await replyOf("bob@friendloop.test")]);
+  // A draft the round went out without is not an answer to comment on.
+  await rows("update replies set never_sent = true where id = $1", [await replyOf("bob@friendloop.test")]);
   const draft = await postComment({ issueId: issue.issueId, viewerToken: alice.token, body: "x", replyId: await replyOf("bob@friendloop.test") });
   assert.equal(draft.ok === false && draft.status, 404);
 });

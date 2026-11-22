@@ -1,5 +1,4 @@
 import {
-  primaryKey,
   pgTable,
   date,
   uuid,
@@ -14,6 +13,16 @@ import {
   type AnyPgColumn,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
+
+/*
+ * Still in the database, no longer here (docs/questions-unify-design.md, PR D):
+ * the legacy `sections`, `events`, `issue_sections`, `section_replies`,
+ * `section_media` and `unify_ids` tables, `questions.active`/`skip_next`/`kind`,
+ * `issue_questions.kind`, both `question_cursor` columns, `replies.status`/
+ * `submitted_at`, their enums, and the `fill_format_from_kind` trigger. The release
+ * before the contract still named them, so they are dropped one release later;
+ * `drizzle-kit generate` emits those drops, and they belong in that migration only.
+ */
 
 /** Management rights. */
 export const accessEnum = pgEnum("access", ["owner", "admin", "member"]);
@@ -32,17 +41,9 @@ export const reminderPreferenceEnum = pgEnum("reminder_preference", ["all", "las
  */
 export const modeEnum = pgEnum("mode", ["group", "from_you"]);
 export const issueStatusEnum = pgEnum("issue_status", ["open", "delivered", "skipped"]);
-export const replyStatusEnum = pgEnum("reply_status", ["draft", "submitted"]);
-/** The three kinds of recurring content area an issue can carry besides questions. */
-export const sectionKindEnum = pgEnum("section_kind", ["standard", "photo_wall", "music"]);
-/** What a pool question asks for: a written answer, or a pick from fixed options. */
-export const questionKindEnum = pgEnum("question_kind", ["written", "poll"]);
 /** A one-time milestone, or a birthday that comes back every year. */
 export const eventKindEnum = pgEnum("event_kind", ["once", "birthday"]);
-/**
- * How an ask is answered, once questions and sections are one list
- * (`docs/questions-unify-design.md`). Filled from `kind` by a trigger until then.
- */
+/** How an ask is answered (`docs/questions-unify-design.md`). */
 export const answerFormatEnum = pgEnum("answer_format", ["written", "poll", "photo_wall", "music"]);
 /** How often an ask comes round: every round, in turn from the queue, or on a date. */
 export const askFrequencyEnum = pgEnum("ask_frequency", ["every_round", "rotating", "on_date"]);
@@ -150,8 +151,6 @@ export const groups = pgTable("groups", {
   cadenceWeeks: integer("cadence_weeks").default(1).notNull(),
   /** Null keeps every active question in each round; a number rotates the pool. */
   questionsPerRound: integer("questions_per_round"),
-  /** Zero-based position after the last question selected for a round. */
-  questionCursor: integer("question_cursor").default(0).notNull(),
   /** Unused: a round now stays open from one delivery to the next. */
   windowDays: integer("window_days").default(7).notNull(),
   shareEnabled: boolean("share_enabled").default(false).notNull(),
@@ -276,25 +275,14 @@ export const questions = pgTable(
       .notNull(),
     text: text("text").notNull(),
     position: integer("position").default(0).notNull(),
-    /** Whether it is offered when composing the next issue. */
-    active: boolean("active").default(true).notNull(),
-    /** Skipped for the next issue only; cleared once that issue opens. */
-    skipNext: boolean("skip_next").default(false).notNull(),
     archivedAt: timestamp("archived_at", { withTimezone: true }),
-    /** A poll is a question whose answer is a pick from `pollOptions`. */
-    kind: questionKindEnum("kind").default("written").notNull(),
+    /** A poll's options, picked from when `format` is `poll`. */
     pollMultiple: boolean("poll_multiple").default(false).notNull(),
     pollOptions: jsonb("poll_options").$type<string[]>(),
     createdByMembershipId: uuid("created_by_membership_id").references(() => memberships.id, {
       onDelete: "set null",
     }),
-    /*
-     * The unified model, added ahead of the code that uses it
-     * (`docs/questions-unify-design.md`). Until that ships, rows that aren't
-     * `active` written or poll questions are someone else's: see `legacy-ask.ts`.
-     */
-    /** Filled from `kind` by a database trigger when an insert leaves it out. */
-    format: answerFormatEnum("format"),
+    format: answerFormatEnum("format").notNull(),
     frequency: askFrequencyEnum("frequency").default("rotating").notNull(),
     emoji: text("emoji"),
     description: text("description"),
@@ -336,11 +324,6 @@ export const issues = pgTable(
     /** When it started taking answers: the moment the round before it went out. */
     opensAt: timestamp("opens_at", { withTimezone: true }).notNull(),
     deliversAt: timestamp("delivers_at", { withTimezone: true }).notNull(),
-    /**
-     * The loop's question cursor when this round opened. Re-running the selection
-     * from here keeps the open round in step with edits to the question pool.
-     */
-    questionCursor: integer("question_cursor"),
     deliveredAt: timestamp("delivered_at", { withTimezone: true }),
     /** Set when the loop had nothing to send and the issue was dropped. */
     skippedAt: timestamp("skipped_at", { withTimezone: true }),
@@ -366,12 +349,10 @@ export const issueQuestions = pgTable(
     position: integer("position").default(0).notNull(),
     /** Frozen at snapshot time: the name an accepted suggestion credits, null when anonymous. */
     suggestedBy: text("suggested_by"),
-    /** A poll's shape, frozen with the text so editing the pool never rewrites a vote. */
-    kind: questionKindEnum("kind").default("written").notNull(),
+    /** The answer's shape, frozen with the text so editing the pool never rewrites a vote. */
+    format: answerFormatEnum("format").notNull(),
     pollMultiple: boolean("poll_multiple").default(false).notNull(),
     pollOptions: jsonb("poll_options").$type<string[]>(),
-    /** The unified model, ahead of its code: see `questions` and `legacy-ask.ts`. */
-    format: answerFormatEnum("format"),
     emoji: text("emoji"),
     description: text("description"),
     adminOnly: boolean("admin_only").default(false).notNull(),
@@ -441,17 +422,11 @@ export const replies = pgTable(
     videoDurationMs: integer("video_duration_ms"),
     /** A poll answer: indexes into the snapshotted `pollOptions`. Empty on written answers. */
     pollChoices: jsonb("poll_choices").$type<number[]>().default([]).notNull(),
-    /** A music answer's link, ahead of the code that writes it (`docs/questions-unify-design.md`). */
+    /** A music answer's link. */
     linkUrl: text("link_url"),
     linkProvider: text("link_provider"),
     /** A sticker its author slapped on this answer while writing it; null is none. */
     sticker: text("sticker"),
-    /**
-     * Legacy: answers used to wait as drafts until sent. Every save now writes
-     * `submitted`, and nothing reads it (see `src/lib/reply-query.ts`).
-     */
-    status: replyStatusEnum("status").default("draft").notNull(),
-    submittedAt: timestamp("submitted_at", { withTimezone: true }),
     /** Read-only history: an answer added after its round went out, from before a reply link only reached the open round. */
     addedAfterDelivery: boolean("added_after_delivery").default(false).notNull(),
     /** A draft left unsent in a round that went out before answers saved straight into the round. Never shown. */
@@ -513,7 +488,7 @@ export const issueStickers = pgTable(
   (t) => [index("issue_stickers_issue_idx").on(t.issueId), index("issue_stickers_member_idx").on(t.issueId, t.membershipId)],
 );
 
-/** A photo-wall answer's photos, ahead of the code that writes them (`docs/questions-unify-design.md`). */
+/** A photo-wall answer's photos and clips, in order. */
 export const replyMedia = pgTable(
   "reply_media",
   {
@@ -574,152 +549,7 @@ export const reactions = pgTable(
   (t) => [uniqueIndex("reactions_unique_idx").on(t.replyId, t.membershipId, t.emoji)],
 );
 
-/** A recurring content area a loop can carry in every issue besides questions. */
-export const sections = pgTable(
-  "sections",
-  {
-    id: uuid("id").defaultRandom().primaryKey(),
-    groupId: uuid("group_id")
-      .references(() => groups.id, { onDelete: "cascade" })
-      .notNull(),
-    kind: sectionKindEnum("kind").notNull(),
-    title: text("title").notNull(),
-    emoji: text("emoji"),
-    description: text("description"),
-    /** Replies restricted to the owner and admins who contribute. */
-    adminOnly: boolean("admin_only").default(false).notNull(),
-    position: integer("position").default(0).notNull(),
-    /** Whether future issues keep carrying it. */
-    active: boolean("active").default(true).notNull(),
-    archivedAt: timestamp("archived_at", { withTimezone: true }),
-    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-  },
-  (t) => [index("sections_group_idx").on(t.groupId)],
-);
-
-/**
- * A date the loop wants to celebrate. The sweep snapshots the ones that fall in
- * an issue's window into a section; the row itself never rewrites history.
- */
-export const events = pgTable(
-  "events",
-  {
-    id: uuid("id").defaultRandom().primaryKey(),
-    groupId: uuid("group_id")
-      .references(() => groups.id, { onDelete: "cascade" })
-      .notNull(),
-    kind: eventKindEnum("kind").notNull(),
-    /** Required for a one-time event; a birthday is titled from the member's name at snapshot. */
-    title: text("title"),
-    emoji: text("emoji"),
-    month: integer("month").notNull(),
-    day: integer("day").notNull(),
-    /** Set for a one-time event, null for a birthday (the year doesn't matter). */
-    year: integer("year"),
-    /** The birthday person. */
-    membershipId: uuid("membership_id").references(() => memberships.id, { onDelete: "cascade" }),
-    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-  },
-  (t) => [index("events_group_idx").on(t.groupId)],
-);
-
-/** Sections are snapshotted per issue, exactly like questions. */
-export const issueSections = pgTable(
-  "issue_sections",
-  {
-    id: uuid("id").defaultRandom().primaryKey(),
-    issueId: uuid("issue_id")
-      .references(() => issues.id, { onDelete: "cascade" })
-      .notNull(),
-    sectionId: uuid("section_id").references(() => sections.id, { onDelete: "set null" }),
-    kind: sectionKindEnum("kind").notNull(),
-    title: text("title").notNull(),
-    emoji: text("emoji"),
-    description: text("description"),
-    adminOnly: boolean("admin_only").default(false).notNull(),
-    position: integer("position").default(0).notNull(),
-    /** Set when the section is a snapshot of an event; cleared if the event is deleted. */
-    eventId: uuid("event_id").references(() => events.id, { onDelete: "set null" }),
-    /** The calendar date this snapshot celebrates, so one occurrence lands in one issue. */
-    eventDate: date("event_date", { mode: "string" }),
-  },
-  (t) => [
-    uniqueIndex("issue_sections_issue_section_idx").on(t.issueId, t.sectionId),
-    uniqueIndex("issue_sections_event_occurrence_idx").on(t.eventId, t.eventDate),
-  ],
-);
-
-/** One section answer per member per snapshotted section. */
-export const sectionReplies = pgTable(
-  "section_replies",
-  {
-    id: uuid("id").defaultRandom().primaryKey(),
-    issueId: uuid("issue_id")
-      .references(() => issues.id, { onDelete: "cascade" })
-      .notNull(),
-    issueSectionId: uuid("issue_section_id")
-      .references(() => issueSections.id, { onDelete: "cascade" })
-      .notNull(),
-    membershipId: uuid("membership_id")
-      .references(() => memberships.id, { onDelete: "cascade" })
-      .notNull(),
-    /** Standard section text, or the one-line caption on a music pick. */
-    body: text("body").default("").notNull(),
-    /** Music sections only: the pasted link and who it belongs to. */
-    linkUrl: text("link_url"),
-    linkProvider: text("link_provider"),
-    /**
-     * Legacy: answers used to wait as drafts until sent. Every save now writes
-     * `submitted`, and nothing reads it (see `src/lib/reply-query.ts`).
-     */
-    status: replyStatusEnum("status").default("draft").notNull(),
-    submittedAt: timestamp("submitted_at", { withTimezone: true }),
-    /** Read-only history: an answer added after its round went out, from before a reply link only reached the open round. */
-    addedAfterDelivery: boolean("added_after_delivery").default(false).notNull(),
-    /** A draft left unsent in a round that went out before answers saved straight into the round. Never shown. */
-    neverSent: boolean("never_sent").default(false).notNull(),
-    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
-  },
-  (t) => [uniqueIndex("section_replies_unique_idx").on(t.issueId, t.issueSectionId, t.membershipId)],
-);
-
-/** Photos attached to a section answer; photo walls carry several with captions. */
-export const sectionMedia = pgTable(
-  "section_media",
-  {
-    id: uuid("id").defaultRandom().primaryKey(),
-    sectionReplyId: uuid("section_reply_id")
-      .references(() => sectionReplies.id, { onDelete: "cascade" })
-      .notNull(),
-    url: text("url").notNull(),
-    /** Required on photo walls; standard sections attach a single photo without one. */
-    caption: text("caption"),
-    position: integer("position").default(0).notNull(),
-    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-  },
-  (t) => [index("section_media_reply_idx").on(t.sectionReplyId)],
-);
-
 /** Cached metadata for pasted music links; render falls back to a plain card on a miss. */
-/**
- * Legacy row -> unified row, for everything migration `0023` copied out of the
- * section tables (`kind` names the legacy table: section, event, issue_section,
- * section_reply, section_media). A copy keeps its legacy id unless a row of the
- * target table already held it, so `unified_id` is almost always `legacy_id`.
- * The copy and mirror functions resolve through it, and so do the writes a reply
- * sheet loaded before the switch still sends. Dropped with the legacy tables.
- */
-export const unifyIds = pgTable(
-  "unify_ids",
-  {
-    kind: text("kind").notNull(),
-    legacyId: uuid("legacy_id").notNull(),
-    unifiedId: uuid("unified_id").notNull(),
-  },
-  (t) => [primaryKey({ columns: [t.kind, t.legacyId] }), uniqueIndex("unify_ids_unified_idx").on(t.kind, t.unifiedId)],
-);
-
 export const musicLinks = pgTable("music_links", {
   url: text("url").primaryKey(),
   provider: text("provider").notNull(),
@@ -877,5 +707,4 @@ export type Membership = typeof memberships.$inferSelect;
 export type Question = typeof questions.$inferSelect;
 export type Issue = typeof issues.$inferSelect;
 export type Reply = typeof replies.$inferSelect;
-export type LoopEvent = typeof events.$inferSelect;
 export type OutboxRow = typeof outbox.$inferSelect;

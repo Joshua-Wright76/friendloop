@@ -2,7 +2,6 @@ import { and, asc, eq, isNull, max, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { groups, issueQuestions, memberships, questions } from "@/db/schema";
 import { copy, text } from "./copy.ts";
-import { formatOf } from "./asks";
 import type { Executor } from "./round-questions";
 import { issueCoverage, occurrencesInWindow, type EventRule } from "./event-dates.ts";
 
@@ -109,8 +108,7 @@ export async function placeDatedItems(input: {
         issueId: input.issueId,
         questionId: row.question.id,
         ...snapshotTextFor(row),
-        kind: row.question.kind,
-        format: formatOf(row.question),
+        format: row.question.format,
         pollMultiple: row.question.pollMultiple,
         pollOptions: row.question.pollOptions,
         emoji: row.question.emoji ?? copy.events.section.defaultEmoji,

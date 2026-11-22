@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { deliveredRoundsAnsweredBy, parseMemberFilter } from "../../src/lib/rounds-by-member.ts";
 import { resetDatabase, rows, seedDeliveredIssue, seedLoop, seedOpenIssue, seedReplies, setupDatabase } from "../support/app.ts";
 import { AFTER_FIRST_SLOT, E2E_NOW } from "../../e2e/support/clock.ts";
+import { seedCardAnswer, seedSectionCard } from "../../e2e/support/sections.ts";
 
 beforeEach(async () => {
   await resetDatabase();
@@ -82,10 +83,10 @@ test("a cleared poll pick is not an answer", async () => {
     "select id from issue_questions where issue_id = $1 order by position limit 1",
     [round.issueId],
   );
-  await rows("update issue_questions set kind = 'poll', poll_options = '[\"a\",\"b\"]'::jsonb where id = $1", [question.id]);
+  await rows("update issue_questions set format = 'poll', poll_options = '[\"a\",\"b\"]'::jsonb where id = $1", [question.id]);
   await rows(
-    `insert into replies (issue_id, issue_question_id, membership_id, body, status, submitted_at, poll_choices)
-     values ($1, $2, $3, '', 'submitted', $4, '[]'::jsonb)`,
+    `insert into replies (issue_id, issue_question_id, membership_id, body, updated_at, poll_choices)
+     values ($1, $2, $3, '', $4, '[]'::jsonb)`,
     [round.issueId, question.id, alice.id, E2E_NOW.toISOString()],
   );
   assert.equal(
@@ -106,15 +107,8 @@ test("an answer in an admin-only section is only counted for people who may read
     deliveredAt: new Date("2026-01-09T09:00:00Z"),
     answers: [{ email: "bob@friendloop.test", body: "Bob." }],
   });
-  const [section] = await rows<{ id: string }>(
-    `insert into issue_sections (issue_id, kind, title, admin_only) values ($1, 'standard', 'Owners only', true) returning id`,
-    [round.issueId],
-  );
-  await rows(
-    `insert into section_replies (issue_id, issue_section_id, membership_id, body, status, submitted_at)
-     values ($1, $2, $3, 'secret', 'submitted', $4)`,
-    [round.issueId, section.id, alice.id, E2E_NOW.toISOString()],
-  );
+  const section = await seedSectionCard(round.issueId, { title: "Owners only", adminOnly: true });
+  await seedCardAnswer(section, alice.id, { body: "secret" });
 
   const asMember = await deliveredRoundsAnsweredBy({ groupId: loop.groupId, membershipId: alice.id, includeAdminOnly: false });
   assert.equal(asMember.size, 0);

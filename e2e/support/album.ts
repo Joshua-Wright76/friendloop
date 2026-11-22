@@ -5,6 +5,7 @@ import { rows } from "./db";
 import { makeWebm } from "./audio";
 import { TINY_PNG } from "./comments";
 import { seedDeliveredIssue, seedLoop, seedOpenIssue, type SeededLoop } from "./seed";
+import { seedCardAnswer, seedSectionCard } from "./sections";
 
 /** Write bytes where `/uploads/<hash>.<ext>` serves them, named like storage names them. */
 export async function writeUpload(seed: string, extension: "png" | "webm"): Promise<string> {
@@ -27,8 +28,8 @@ async function replyFor(issueId: string, questionText: string, membershipId: str
     [issueId, questionText],
   );
   const [reply] = await rows<{ id: string }>(
-    `insert into replies (issue_id, issue_question_id, membership_id, body, photo_url, audio_url, audio_duration_ms, status, submitted_at, never_sent)
-     values ($1, $2, $3, $4, $5, $6, $7, case when $8 then 'draft'::reply_status else 'submitted'::reply_status end, now(), $8) returning id`,
+    `insert into replies (issue_id, issue_question_id, membership_id, body, photo_url, audio_url, audio_duration_ms, never_sent)
+     values ($1, $2, $3, $4, $5, $6, $7, $8) returning id`,
     [
       issueId,
       question.id,
@@ -41,31 +42,6 @@ async function replyFor(issueId: string, questionText: string, membershipId: str
     ],
   );
   return reply.id;
-}
-
-async function sectionReplyFor(issueId: string, title: string, membershipId: string, media: Array<{ url: string; caption: string | null }>, body = "") {
-  const [section] = await rows<{ id: string }>("select id from issue_sections where issue_id = $1 and title = $2", [issueId, title]);
-  const [reply] = await rows<{ id: string }>(
-    `insert into section_replies (issue_id, issue_section_id, membership_id, body, status, submitted_at)
-     values ($1, $2, $3, $4, 'submitted', now()) returning id`,
-    [issueId, section.id, membershipId, body],
-  );
-  for (const [position, item] of media.entries()) {
-    await rows("insert into section_media (section_reply_id, url, caption, position) values ($1, $2, $3, $4)", [
-      reply.id,
-      item.url,
-      item.caption,
-      position,
-    ]);
-  }
-  return reply.id;
-}
-
-async function snapshotSection(issueId: string, input: { kind: string; title: string; adminOnly?: boolean; position: number }) {
-  await rows(
-    `insert into issue_sections (issue_id, kind, title, admin_only, position) values ($1, $2, $3, $4, $5)`,
-    [issueId, input.kind, input.title, input.adminOnly ?? false, input.position],
-  );
 }
 
 export const Q1 = "What made you laugh this week?";
@@ -110,13 +86,15 @@ export async function seedAlbum(): Promise<{
     audioUrl: await writeUpload("lake", "webm"),
   });
   await replyFor(second.issueId, Q1, sam.id, { body: "Never submitted", photoUrl: await writeUpload("draft", "png"), neverSent: true });
-  await snapshotSection(second.issueId, { kind: "photo_wall", title: "Photo wall", position: 0 });
-  await snapshotSection(second.issueId, { kind: "standard", title: "Owners only", adminOnly: true, position: 1 });
-  await sectionReplyFor(second.issueId, "Photo wall", alice.id, [
-    { url: await writeUpload("wall-1", "png"), caption: "Marshmallows, obviously" },
-    { url: await writeUpload("wall-2", "png"), caption: "The bridge at night" },
-  ]);
-  await sectionReplyFor(second.issueId, "Owners only", sam.id, [{ url: await writeUpload("admin", "png"), caption: "Budget receipt" }]);
+  const wall = await seedSectionCard(second.issueId, { kind: "photo_wall", title: "Photo wall", position: 0 });
+  const ownersOnly = await seedSectionCard(second.issueId, { kind: "standard", title: "Owners only", adminOnly: true, position: 1 });
+  await seedCardAnswer(wall, alice.id, {
+    media: [
+      { url: await writeUpload("wall-1", "png"), caption: "Marshmallows, obviously" },
+      { url: await writeUpload("wall-2", "png"), caption: "The bridge at night" },
+    ],
+  });
+  await seedCardAnswer(ownersOnly, sam.id, { media: [{ url: await writeUpload("admin", "png"), caption: "Budget receipt" }] });
 
   const third = await seedOpenIssue(loop, { openedAt: new Date("2026-01-23T08:00:00Z") });
   await replyFor(third.issueId, Q1, alice.id, { body: "Surprise party plans", photoUrl: await writeUpload("secret", "png") });

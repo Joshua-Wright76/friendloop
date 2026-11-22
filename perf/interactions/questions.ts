@@ -4,7 +4,6 @@ import { live, notice, openPicker, option, part, quote, rowMenu } from "./helper
 
 const page = (c: Ctx, id = c.world.loopId) => `/g/${id}/questions`;
 const phone = (c: Ctx) => c.profile.id === "phone-4g";
-const TAKEN = "What's the best thing you bought lately?";
 const POLL = "Where should we camp this summer?";
 const packQuestion = QUESTION_PACKS.find((pack) => pack.name === "Tiny joys")!.questions[0];
 
@@ -29,13 +28,6 @@ async function suggest(c: Ctx, text: string) {
   await suggestionRow(c).waitFor();
 }
 const suggestionRow = (c: Ctx) => c.page.locator("li").filter({ hasText: `from ${c.world.people[5].name}` });
-
-async function skipState(c: Ctx, skipped: boolean) {
-  await c.world.query(`update questions set skip_next = false where group_id = '${c.world.loopId}'`);
-  await c.world.query(`update questions set skip_next = ${skipped} where group_id = '${c.world.loopId}' and text = '${quote(TAKEN)}'`);
-  await c.page.goto(page(c));
-  await rowMenu(c, TAKEN);
-}
 
 export const questionInteractions: Interaction[] = [
   {
@@ -76,24 +68,6 @@ export const questionInteractions: Interaction[] = [
       : c.page.locator(".question-order-item").first().getByRole("button", { name: /^Down\b/ }).click(),
     // Not the row jumping, which is optimistic: the note that says the server agreed.
     done: () => ({ selector: ".toast", text: "Moved to position 2 of" }),
-  },
-  {
-    id: "questions.skip.on",
-    label: "Skip a question for the next round",
-    surface: "questions", kind: "write", viewer: "owner",
-    flows: ["C4"], routes: ["/g/[id]/questions"],
-    prepare: (c) => skipState(c, false),
-    act: (c) => c.page.getByRole("button", { name: `Skip next round: ${TAKEN}` }).click(),
-    done: () => ({ selector: ".question-order-item p", text: "Sitting out the next round" }),
-  },
-  {
-    id: "questions.skip.off",
-    label: "Bring a skipped question back in",
-    surface: "questions", kind: "write", viewer: "owner",
-    flows: ["C4"], routes: ["/g/[id]/questions"],
-    prepare: (c) => skipState(c, true),
-    act: (c) => c.page.getByRole("button", { name: `Back in: ${TAKEN}` }).click(),
-    done: () => notice("Saved. The rotation is updated."),
   },
   {
     id: "questions.archive.confirm",
@@ -191,55 +165,5 @@ export const questionInteractions: Interaction[] = [
     prepare: (c) => suggest(c, `Perf suggestion ${c.unique}?`),
     act: (c) => suggestionRow(c).getByRole("button", { name: "Decline" }).click(),
     done: () => notice("Suggestion declined."),
-  },
-  {
-    id: "questions.section.add",
-    label: "Add a section and see it listed",
-    surface: "questions", kind: "write", viewer: "owner",
-    flows: ["K1"], routes: ["/g/[id]/questions"],
-    prepare: async (c) => {
-      await c.world.query(`delete from sections where group_id = '${c.world.loopId}' and title like 'Perf %'`);
-      await c.page.goto(page(c));
-      await part(c, "Sections and dates");
-      await c.page.getByPlaceholder("The potluck corner").fill(`Perf section ${c.unique}`);
-    },
-    act: (c) => c.page.getByRole("button", { name: "Add section" }).click(),
-    done: (c) => ({ selector: `[aria-label="Sections in order"] > li`, text: `Perf section ${c.unique}` }),
-  },
-  {
-    id: "questions.section.archive",
-    label: "Archive a section",
-    surface: "questions", kind: "write", viewer: "owner",
-    flows: ["K1"], routes: ["/g/[id]/questions"],
-    prepare: async (c) => {
-      const title = `Perf section ${c.unique}`;
-      await c.world.query(`delete from sections where group_id = '${c.world.loopId}' and title like 'Perf %'`);
-      await c.world.query(`insert into sections (group_id, kind, title, position) values ('${c.world.loopId}', 'standard', '${title}', 99)`);
-      await c.page.goto(page(c));
-      await part(c, "Sections and dates");
-      await rowMenu(c, title);
-      await c.page.getByRole("button", { name: `Archive ${title}` }).click();
-      await c.page.getByRole("button", { name: `Yes, archive ${title}` }).waitFor();
-    },
-    act: (c) => c.page.getByRole("button", { name: `Yes, archive Perf section ${c.unique}` }).click(),
-    done: () => notice("Section archived."),
-  },
-  {
-    id: "questions.event.add",
-    label: "Add an event and see it under Coming up",
-    surface: "questions", kind: "write", viewer: "owner",
-    flows: ["O1"], routes: ["/g/[id]/questions"],
-    prepare: async (c) => {
-      await c.world.query(`delete from events where group_id = '${c.world.loopId}' and title like 'Perf %'`);
-      await c.page.goto(page(c));
-      await part(c, "Sections and dates");
-      await openPicker(c, "Type of event");
-      await option(c, "One-time event").click();
-      const panel = c.page.getByRole("region", { name: "Events and birthdays" });
-      await panel.getByLabel("What's the occasion?").last().fill(`Perf event ${c.unique}`);
-      await panel.getByLabel("Date").last().fill(`${new Date().getFullYear() + 1}-06-15`);
-    },
-    act: (c) => c.page.getByRole("button", { name: "Add event" }).click(),
-    done: (c) => ({ selector: `[aria-label="Events, soonest first"] > li`, text: `Perf event ${c.unique}` }),
   },
 ];

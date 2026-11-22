@@ -4,6 +4,7 @@ import { memberships } from "@/db/schema";
 import { newToken } from "@/lib/tokens";
 import { latestOutbox, resetDatabase, rows } from "../support/db";
 import { seedLoop } from "../support/seed";
+import { seedEveryRoundItem } from "../support/sections";
 import { AFTER_FIRST_SLOT, addWithCard, freezeClock, runSweep, signIn } from "../support/harness";
 import { copy, text as copyText, copyPattern } from "@/lib/copy";
 
@@ -117,7 +118,7 @@ test("C1 · every format reaches the round's sheet and issue; readers read but n
 test("C1 · a round that holds only every-round items still sends every contributor its prompt", async () => {
   const loop = await seedLoop({ questions: [] });
   await addReader(loop.groupId);
-  await rows("insert into sections (group_id, kind, title, emoji) values ($1, 'photo_wall', 'Photo wall', '📸')", [loop.groupId]);
+  await seedEveryRoundItem(loop.groupId, { kind: "photo_wall", title: "Photo wall", emoji: "📸" });
 
   await runSweep(new Date("2026-01-02T08:00:00Z"));
   const prompts = await rows<{ to: string; subject: string; text: string }>(

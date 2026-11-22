@@ -7,6 +7,7 @@ import { groupOf, rows, seedLoop, seedOpenIssue, seedReplies, setupDatabase } fr
 import { AFTER_FIRST_SLOT, HOUR } from "../../e2e/support/clock.ts";
 import { clearRequest, setRequestHeaders } from "../stubs/request.mjs";
 import { copy, text as copyText } from "@/lib/copy";
+import { seedEveryRoundItem } from "../../e2e/support/sections.ts";
 
 setupDatabase();
 
@@ -80,7 +81,7 @@ test("a manual nudge skips people who already answered, and numbers each repeat"
     issueId: issue.issueId,
     membershipId: alice.id,
     answers: [{ text: QUESTION, body: "Answered." }],
-    submittedAt: AFTER_FIRST_SLOT,
+    answeredAt: AFTER_FIRST_SLOT,
   });
 
   assert.equal(await nudgeStragglers(loop.groupId), 2, "owner and bob");
@@ -115,10 +116,7 @@ test("a nudge is refused when there is nothing to nudge", async () => {
 async function sectionsOnlyLoop(sections: Array<{ title: string; adminOnly: boolean }>) {
   const loop = await seedLoop({ name: "Sections", questions: [] });
   for (const [position, section] of sections.entries()) {
-    await rows(
-      "insert into sections (group_id, kind, title, emoji, admin_only, position) values ($1, 'standard', $2, '📝', $3, $4)",
-      [loop.groupId, section.title, section.adminOnly, position],
-    );
+    await seedEveryRoundItem(loop.groupId, { title: section.title, emoji: "📝", adminOnly: section.adminOnly, position });
   }
   return loop;
 }

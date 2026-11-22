@@ -4,7 +4,7 @@ import type { PostgresJsQueryResultHKT } from "drizzle-orm/postgres-js";
 import { db } from "@/db";
 import type * as schema from "@/db/schema";
 import { groups, issueQuestions, issues, questions, replies } from "@/db/schema";
-import { formatOf, legacyActive, type AnswerFormat, type AskFrequency } from "./asks";
+import { type AnswerFormat, type AskFrequency } from "./asks";
 import { placeDatedItems } from "./events";
 import { takeTurns } from "./round-plan";
 import { reorderIds } from "./question-order";
@@ -44,8 +44,7 @@ export function snapshotOf(question: QuestionRow, credit: string | null) {
     questionId: question.id,
     text: question.text,
     suggestedBy: credit,
-    kind: question.kind,
-    format: formatOf(question),
+    format: question.format,
     pollMultiple: question.pollMultiple,
     pollOptions: question.pollOptions,
     emoji: question.emoji,
@@ -121,15 +120,6 @@ export async function snapshotRound(input: {
   // When every turn-taker is asked each round, the queue's order is just the round's: nothing moves.
   if (group.questionsPerRound !== null) await sendToBack(ex, group.id, taken.map((question) => question.id));
   const dated = await placeDatedItems({ ex, group, issueId, opensAt: input.opensAt, deliversAt: input.deliversAt });
-  // After a rollback, code from before the switch re-derives this round from the
-  // cursor it opened with, over its pool in order: the turns just taken are now at
-  // its back. The loop's own cursor stays 0, the head of the queue.
-  const [{ pool }] = await ex
-    .select({ pool: sql<number>`count(*)::int` })
-    .from(questions)
-    .where(and(eq(questions.groupId, group.id), eq(questions.active, true), isNull(questions.archivedAt)));
-  const takenActive = taken.filter((question) => question.active).length;
-  await ex.update(issues).set({ questionCursor: Math.max(0, pool - takenActive) }).where(eq(issues.id, issueId));
   return taken.length + everyRound.length + dated;
 }
 
@@ -329,7 +319,6 @@ export async function refreshOpenRound(groupId: string, questionId: string): Pro
     .update(issueQuestions)
     .set({
       text: fresh.text,
-      kind: fresh.kind,
       format: fresh.format,
       pollMultiple: fresh.pollMultiple,
       pollOptions: fresh.pollOptions,
@@ -411,8 +400,6 @@ export async function insertPoolItem(item: NewItem): Promise<string> {
       groupId: item.groupId,
       text: item.text,
       position: await nextPosition(item.groupId, item.frequency),
-      active: legacyActive(item),
-      kind: item.format === "poll" ? "poll" : "written",
       format: item.format,
       frequency: item.frequency,
       pollMultiple: item.pollMultiple ?? false,

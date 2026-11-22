@@ -102,7 +102,7 @@ export async function seedLoop(input: SeedLoopInput = {}): Promise<SeededLoop> {
   for (const [index, text] of texts.entries()) {
     const [row] = await db
       .insert(questions)
-      .values({ groupId: group.id, text, position: index })
+      .values({ groupId: group.id, text, position: index, format: "written" })
       .returning();
     questionIds.push(row.id);
   }
@@ -148,7 +148,7 @@ export async function seedOpenIssue(
         questionId: question.id,
         text: question.text,
         position: index,
-        kind: question.kind,
+        format: question.format,
         pollMultiple: question.pollMultiple,
         pollOptions: question.pollOptions,
       })),
@@ -163,7 +163,8 @@ export async function seedReplies(input: {
   issueId: string;
   membershipId: string;
   answers: Array<{ text: string; body: string }>;
-  submittedAt?: Date;
+  /** When they wrote it; the frozen test clock unless given. */
+  answeredAt?: Date;
 }): Promise<void> {
   const rows = await db
     .select()
@@ -178,8 +179,7 @@ export async function seedReplies(input: {
       issueQuestionId: row.id,
       membershipId: input.membershipId,
       body: answer.body,
-      status: "submitted",
-      submittedAt: input.submittedAt ?? E2E_NOW,
+      updatedAt: input.answeredAt ?? E2E_NOW,
     });
   }
 }
@@ -253,7 +253,7 @@ export async function seedDeliveredIssue(
         questionId: question.id,
         text: question.text,
         position: index,
-        kind: question.kind,
+        format: question.format,
         pollMultiple: question.pollMultiple,
         pollOptions: question.pollOptions,
       })),
@@ -271,8 +271,7 @@ export async function seedDeliveredIssue(
       issueQuestionId: row.id,
       membershipId: membership.id,
       body: answer.body,
-      status: "submitted",
-      submittedAt: input.deliveredAt,
+      updatedAt: input.deliveredAt,
     });
   }
 

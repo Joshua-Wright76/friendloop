@@ -5,11 +5,9 @@ import {
   comments,
   emailEvents,
   emailSuppressions,
-  events,
   feedback,
   groups,
   issueQuestions,
-  issueSections,
   magicLinks,
   memberships,
   outbox,
@@ -193,13 +191,6 @@ async function eraseMemberships(tx: Executor, membershipIds: string[], alsoKnown
     await tx.update(issueQuestions).set({ suggestedBy: null }).where(inArray(issueQuestions.questionId, questionIds));
   }
 
-  // A birthday card is titled with the person's name; it goes with them. The round's
-  // copy cascades from `about_membership_id`; the legacy copy kept until the contract
-  // release is keyed by its event, which goes with them too.
-  const birthdays = await tx.select({ id: events.id }).from(events).where(inArray(events.membershipId, membershipIds));
-  const birthdayIds = birthdays.map((event) => event.id);
-  if (birthdayIds.length > 0) await tx.delete(issueSections).where(inArray(issueSections.eventId, birthdayIds));
-
   await tx.delete(feedback).where(inArray(feedback.membershipId, membershipIds));
   await deleteMemberCounters(tx, membershipIds);
   await deleteEmailEvents(tx, inArray(outbox.membershipId, membershipIds));
@@ -209,7 +200,8 @@ async function eraseMemberships(tx: Executor, membershipIds: string[], alsoKnown
     [...rows.flatMap((row) => [row.email, row.name ?? row.email.split("@")[0]]), ...alsoKnownAs],
   );
 
-  // Replies, comments, reactions, suggestions, section answers, birthdays, their
+  // Replies, comments, reactions, suggestions, birthdays (the pool item and each
+  // round's card, titled with their name, through `about_membership_id`), their
   // line in each round, the stickers they stuck around rounds (and any stuck on
   // their answers, with the answers) and this person's own email rows all cascade
   // from the membership.

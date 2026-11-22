@@ -74,7 +74,7 @@ test("N8 · the owner sets a motto, sign-off, seal, divider and celebration, and
   const [question] = await rows<{ id: string }>("select id from issue_questions where issue_id = $1 order by position limit 1", [delivered.issueId]);
   const bob = loop.members.find((member) => member.email.startsWith("bob"))!;
   await rows(
-    "insert into replies (issue_id, issue_question_id, membership_id, body, status, submitted_at) values ($1, $2, $3, 'Bob saw it too.', 'submitted', now())",
+    "insert into replies (issue_id, issue_question_id, membership_id, body) values ($1, $2, $3, 'Bob saw it too.')",
     [delivered.issueId, question.id, bob.id],
   );
 

@@ -39,8 +39,8 @@ async function makeUser(email = "owner@friendloop.test"): Promise<string> {
 }
 
 async function questionsOf(groupId: string) {
-  return rows<{ id: string; text: string; position: number; active: boolean; skip_next: boolean }>(
-    "select id, text, position, active, skip_next from questions where group_id = $1 order by position",
+  return rows<{ id: string; text: string; position: number }>(
+    "select id, text, position from questions where group_id = $1 order by position",
     [groupId],
   );
 }

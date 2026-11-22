@@ -6,14 +6,10 @@ import { checkMusicLink, musicCardFor, musicCardsFor, PHOTO_WALL_MAX } from "../
 import { addSection } from "../support/items.ts";
 import {
   deletePhotoIfUnreferenced,
-  removeSectionMediaFor,
   removeWallPhotoFor,
   saveAudioFor,
   saveDraftFor,
   saveMusicFor,
-  saveSectionMusicFor,
-  saveSectionPhotoFor,
-  saveSectionTextFor,
   saveWallPhotoFor,
   sheetFor,
 } from "../../src/lib/reply.ts";
@@ -29,8 +25,7 @@ import { copy } from "@/lib/copy";
 /*
  * What were sections are items asked every round in the one list of questions
  * (docs/questions-unify-design.md): photo walls, music picks and written items.
- * Their answers are `replies` (and `reply_media` on a photo wall). A sheet loaded
- * before the switch still writes through the old section actions. Adding,
+ * Their answers are `replies` (and `reply_media` on a photo wall). Adding,
  * editing and stopping items is covered in ask-items.integration.test.ts.
  */
 
@@ -69,15 +64,15 @@ async function openSection(input?: { kind?: Kind; adminOnly?: boolean }) {
   return { ...base, issueId: snapshot.issue_id, issueSectionId: snapshot.id };
 }
 
-/** A section the release before the switch put in the open round: copied in by the mirror triggers. */
-async function legacySection(issueId: string, groupId: string, kind: Kind = "standard") {
-  const [section] = await rows<{ id: string }>(
-    "insert into sections (group_id, kind, title, position) values ($1, $2, 'From before', 0) returning id",
-    [groupId, kind],
+/** A section the release before the switch put in the open round, as migration `0023` copied it. */
+async function copiedSection(issueId: string, groupId: string) {
+  const [item] = await rows<{ id: string }>(
+    "insert into questions (group_id, text, position, format, frequency) values ($1, 'From before', 1000, 'written', 'every_round') returning id",
+    [groupId],
   );
   const [snapshot] = await rows<{ id: string }>(
-    "insert into issue_sections (issue_id, section_id, kind, title, position) values ($1, $2, $3, 'From before', 0) returning id",
-    [issueId, section.id, kind],
+    "insert into issue_questions (issue_id, question_id, text, position, format, from_section) values ($1, $2, 'From before', 1000, 'written', true) returning id",
+    [issueId, item.id],
   );
   return snapshot.id;
 }
@@ -96,8 +91,8 @@ test("sections arrive in an open round, and members answer them", async () => {
   assert.equal(sheet.questions[2].format, "written");
   assert.equal(sheet.questions[2].fromSection, false);
 
-  assert.equal((await saveSectionTextFor({ token: base.token, issueSectionId: base.issueSectionId, body: "Banana bread." })).ok, true);
-  assert.equal((await saveSectionTextFor({ token: base.token, issueSectionId: base.issueSectionId, body: "Banana bread, again." })).ok, true);
+  assert.equal((await saveDraftFor({ token: base.token, issueQuestionId: base.issueSectionId, body: "Banana bread." })).ok, true);
+  assert.equal((await saveDraftFor({ token: base.token, issueQuestionId: base.issueSectionId, body: "Banana bread, again." })).ok, true);
   const [row] = await rows<{ body: string }>("select body from replies where issue_question_id = $1", [base.issueSectionId]);
   assert.equal(row.body, "Banana bread, again.");
 
@@ -105,33 +100,33 @@ test("sections arrive in an open round, and members answer them", async () => {
   assert.deepEqual([...(await answeredMemberIds(base.issueId))], [base.alice.id]);
 
   // Cleared back to nothing, it isn't an answer any more.
-  await saveSectionTextFor({ token: base.token, issueSectionId: base.issueSectionId, body: "   " });
+  await saveDraftFor({ token: base.token, issueQuestionId: base.issueSectionId, body: "   " });
   assert.equal((await answeredMemberIds(base.issueId)).size, 0);
 });
 
 test("bad tokens, unknown items and the wrong format read as refusals, not errors", async () => {
   const base = await openSection();
 
-  const invalid = await saveSectionTextFor({ token: "nope", issueSectionId: base.issueSectionId, body: "x" });
+  const invalid = await saveDraftFor({ token: "nope", issueQuestionId: base.issueSectionId, body: "x" });
   assert.equal(invalid.ok === false && invalid.status === 404, true);
 
-  const unknown = await saveSectionTextFor({ token: base.token, issueSectionId: "00000000-0000-4000-8000-000000000000", body: "x" });
+  const unknown = await saveDraftFor({ token: base.token, issueQuestionId: "00000000-0000-4000-8000-000000000000", body: "x" });
   assert.equal(unknown.ok === false && unknown.status === 409, true);
 
   // A loop with no round open has nothing to write in.
   const lonely = await createSectionRow({ kind: "music", title: "Music only" });
-  const nothingOpen = await saveSectionMusicFor({
+  const nothingOpen = await saveMusicFor({
     token: lonely.token,
-    issueSectionId: "00000000-0000-4000-8000-000000000000",
+    issueQuestionId: "00000000-0000-4000-8000-000000000000",
     url: "https://open.spotify.com/album/1DFixLWuPkv3KT3TnV35m3",
     caption: "",
   });
   assert.equal(nothingOpen.ok === false && nothingOpen.status === 409, true);
 
   // A written item takes no music pick, and a music pick takes no text.
-  const refusedMusic = await saveSectionMusicFor({
+  const refusedMusic = await saveMusicFor({
     token: base.token,
-    issueSectionId: base.issueSectionId,
+    issueQuestionId: base.issueSectionId,
     url: "https://open.spotify.com/album/1DFixLWuPkv3KT3TnV35m3",
     caption: "",
   });
@@ -148,9 +143,9 @@ test("music picks store the provider and clear cleanly", async () => {
   assert.equal(wrongLink.ok === false && wrongLink.status === 400, true);
 
   assert.equal(
-    (await saveSectionMusicFor({
+    (await saveMusicFor({
       token: base.token,
-      issueSectionId: base.issueSectionId,
+      issueQuestionId: base.issueSectionId,
       url: "https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC",
       caption: "Our road trip record",
     })).ok,
@@ -173,49 +168,26 @@ test("music picks store the provider and clear cleanly", async () => {
   assert.equal(cleared.link_url, null);
 });
 
-test("an old sheet's standard-section photo is the answer's one photo, removed by the answer's id", async () => {
-  const base = await openSection();
-
-  const saved = await saveSectionPhotoFor({ token: base.token, issueSectionId: base.issueSectionId, bytes: png(), contentType: "image/png", caption: "ignored", position: 0 });
-  assert.ok(saved.ok);
-  const [reply] = await rows<{ id: string; photo_url: string }>("select id, photo_url from replies where issue_question_id = $1", [base.issueSectionId]);
-  assert.equal(saved.mediaId, reply.id, "the old sheet keeps the answer's id to take it off again");
-  assert.equal(reply.photo_url, saved.url);
-  assert.match(saved.url, /\/uploads\/[a-f0-9]{64}\.png$/);
-
-  const second = await saveSectionPhotoFor({ token: base.token, issueSectionId: base.issueSectionId, bytes: png(), contentType: "image/png", caption: "", position: 1 });
-  assert.equal(second.ok === false && second.status === 409, true);
-
-  const invalid = await saveSectionPhotoFor({ token: base.token, issueSectionId: base.issueSectionId, bytes: new Uint8Array(makeWebm()), contentType: "audio/webm", caption: "", position: 0 });
-  assert.equal(invalid.ok === false && invalid.status === 415, true);
-
-  // A music card refuses photos either way.
+test("a music card takes no wall photo", async () => {
   const music = await openSection({ kind: "music" });
-  const wrongKind = await saveSectionPhotoFor({ token: music.token, issueSectionId: music.issueSectionId, bytes: png(), contentType: "image/png", caption: "", position: 0 });
+  const wrongKind = await saveWallPhotoFor({ token: music.token, issueQuestionId: music.issueSectionId, bytes: png(), contentType: "image/png", caption: "", position: 0 });
   assert.equal(wrongKind.ok === false && wrongKind.status === 409, true);
-  const wrongRemoval = await removeSectionMediaFor({ token: music.token, issueSectionId: music.issueSectionId, mediaId: saved.mediaId });
+  const wrongRemoval = await removeWallPhotoFor({ token: music.token, issueQuestionId: music.issueSectionId, mediaId: "00000000-0000-4000-8000-000000000000" });
   assert.equal(wrongRemoval.ok === false && wrongRemoval.status === 409, true);
-
-  assert.equal((await removeSectionMediaFor({ token: base.token, issueSectionId: base.issueSectionId, mediaId: saved.mediaId })).ok, true);
-  const [after] = await rows<{ photo_url: string | null }>("select photo_url from replies where issue_question_id = $1", [base.issueSectionId]);
-  assert.equal(after.photo_url, null);
-  assert.equal(existsSync(uploaded(saved.url)), false);
 });
 
-test("a photo wall takes one caption per photo, up to six, through either way of writing", async () => {
+test("a photo wall takes one caption per photo, up to six", async () => {
   const wall = await openSection({ kind: "photo_wall" });
 
   // A text answer is not a photo wall's shape.
-  const refusedText = await saveSectionTextFor({ token: wall.token, issueSectionId: wall.issueSectionId, body: "words" });
+  const refusedText = await saveDraftFor({ token: wall.token, issueQuestionId: wall.issueSectionId, body: "words" });
   assert.equal(refusedText.ok === false && refusedText.status === 409, true);
 
   for (let index = 0; index < PHOTO_WALL_MAX; index += 1) {
-    const write = index % 2 === 0 ? saveSectionPhotoFor : (input: Parameters<typeof saveSectionPhotoFor>[0]) =>
-      saveWallPhotoFor({ ...input, issueQuestionId: input.issueSectionId });
-    const saved = await write({ token: wall.token, issueSectionId: wall.issueSectionId, bytes: png(), contentType: "image/png", caption: `Photo ${index + 1}`, position: index });
+    const saved = await saveWallPhotoFor({ token: wall.token, issueQuestionId: wall.issueSectionId, bytes: png(), contentType: "image/png", caption: `Photo ${index + 1}`, position: index });
     assert.equal(saved.ok, true);
   }
-  const capped = await saveSectionPhotoFor({ token: wall.token, issueSectionId: wall.issueSectionId, bytes: png(), contentType: "image/png", caption: "Seventh", position: 6 });
+  const capped = await saveWallPhotoFor({ token: wall.token, issueQuestionId: wall.issueSectionId, bytes: png(), contentType: "image/png", caption: "Seventh", position: 6 });
   assert.equal(capped.ok === false && capped.status === 409, true);
 
   const invalid = await saveWallPhotoFor({ token: wall.token, issueQuestionId: wall.issueSectionId, bytes: new Uint8Array(makeWebm()), contentType: "audio/webm", caption: "", position: 0 });
@@ -231,9 +203,9 @@ test("a photo wall takes one caption per photo, up to six, through either way of
   // Taking one off: an id that isn't theirs is not found, theirs goes, file and all.
   const missing = await removeWallPhotoFor({ token: wall.token, issueQuestionId: wall.issueSectionId, mediaId: "00000000-0000-4000-8000-000000000000" });
   assert.equal(missing.ok === false && missing.status === 404, true);
-  const notMine = await removeSectionMediaFor({ token: wall.bob.token, issueSectionId: wall.issueSectionId, mediaId: item.media[0].id });
+  const notMine = await removeWallPhotoFor({ token: wall.bob.token, issueQuestionId: wall.issueSectionId, mediaId: item.media[0].id });
   assert.equal(notMine.ok, false, "someone else's photo is never theirs to take off");
-  assert.equal((await removeSectionMediaFor({ token: wall.token, issueSectionId: wall.issueSectionId, mediaId: item.media[0].id })).ok, true);
+  assert.equal((await removeWallPhotoFor({ token: wall.token, issueQuestionId: wall.issueSectionId, mediaId: item.media[0].id })).ok, true);
   assert.equal((await rows("select 1 from reply_media")).length, PHOTO_WALL_MAX - 1);
   assert.equal(existsSync(uploaded(item.media[0].url)), false);
 });
@@ -253,9 +225,9 @@ test("owners-only items hide from members but answer for owners", async () => {
   assert.ok(ownerSheet.some((item) => item.text === "Committee notes"));
 
   const [hidden] = await rows<{ id: string }>("select id from issue_questions where text = 'Committee notes'");
-  const refused = await saveSectionTextFor({ token: alice.token, issueSectionId: hidden.id, body: "sneak" });
+  const refused = await saveDraftFor({ token: alice.token, issueQuestionId: hidden.id, body: "sneak" });
   assert.equal(refused.ok === false && refused.status === 403, true);
-  assert.equal((await saveSectionTextFor({ token: loop.ownerToken, issueSectionId: hidden.id, body: "owner answer" })).ok, true);
+  assert.equal((await saveDraftFor({ token: loop.ownerToken, issueQuestionId: hidden.id, body: "owner answer" })).ok, true);
 });
 
 test("a birthday card never reaches the person it is about", async () => {
@@ -275,7 +247,7 @@ test("a birthday card never reaches the person it is about", async () => {
 
 test("a card copied from a section in the open round is written, without voice notes", async () => {
   const base = await openSection();
-  const copied = await legacySection(base.issueId, base.groupId);
+  const copied = await copiedSection(base.issueId, base.groupId);
 
   const item = (await sheetFor(base.token))!.questions.find((candidate) => candidate.id === copied)!;
   assert.equal(`${item.format}:${item.fromSection}`, "written:true");
@@ -295,43 +267,24 @@ test("a photo stays on disk while any row still shows it", async () => {
   await deletePhotoIfUnreferenced(url);
   assert.ok(existsSync(uploaded(url)), "a wall photo still uses it");
 
-  // The legacy copy, kept until the contract release, counts too.
   await rows("delete from reply_media");
-  const [reply] = await rows<{ id: string }>("select id from replies limit 1");
-  await rows(
-    "insert into section_replies (id, issue_id, issue_section_id, membership_id) select id, issue_id, issue_question_id, membership_id from replies where id = $1",
-    [reply.id],
-  ).catch(() => undefined);
-  const legacy = await legacySection(base.issueId, base.groupId, "photo_wall");
-  const [legacyReply] = await rows<{ id: string }>(
-    "insert into section_replies (issue_id, issue_section_id, membership_id) values ($1, $2, $3) returning id",
-    [base.issueId, legacy, base.bob.id],
-  );
-  await rows("insert into section_media (section_reply_id, url) values ($1, $2)", [legacyReply.id, url]);
-  await rows("delete from reply_media");
-  await deletePhotoIfUnreferenced(url);
-  assert.ok(existsSync(uploaded(url)), "the legacy copy still uses it");
-
-  await rows("delete from section_media");
   await deletePhotoIfUnreferenced(url);
   assert.equal(existsSync(uploaded(url)), false);
 });
 
-test("gates cover readers, cap-sized bodies, and an old unopened link's first write", async () => {
+test("gates cover readers and an old unopened link's first write", async () => {
   const base = await openSection();
 
   await rows("update memberships set participation = 'reader' where reply_token = $1", [base.token]);
-  const reader = await saveSectionTextFor({ token: base.token, issueSectionId: base.issueSectionId, body: "x" });
+  const reader = await saveDraftFor({ token: base.token, issueQuestionId: base.issueSectionId, body: "x" });
   assert.equal(reader.ok === false && reader.status === 403, true);
 
   // Invited long ago and never opened: the link still works, and the first write counts as joining.
   await rows("update memberships set participation = 'contributor', accepted_at = null, invited_at = $1 where reply_token = $2", ["2025-01-01T00:00:00Z", base.token]);
-  assert.equal((await saveSectionTextFor({ token: base.token, issueSectionId: base.issueSectionId, body: "First write here." })).ok, true);
+  assert.equal((await saveDraftFor({ token: base.token, issueQuestionId: base.issueSectionId, body: "First write here." })).ok, true);
   const [accepted] = await rows<{ accepted_at: string }>("select accepted_at from memberships where reply_token = $1", [base.token]);
   assert.ok(accepted.accepted_at, "a first write marks them as having joined");
 
-  const oversized = await saveSectionTextFor({ token: base.token, issueSectionId: base.issueSectionId, body: "a".repeat(2001) });
-  assert.equal(oversized.ok === false && oversized.status === 400, true);
 
   // An invalid token has no sheet at all.
   assert.equal(await sheetFor("nope"), null);
@@ -366,14 +319,11 @@ test("storage failures are warm refusals, never crashes", async (t) => {
     setEnv("BLOB_READ_WRITE_TOKEN", originalToken);
   });
 
-  const standard = await openSection();
   const wall = await openSection({ kind: "photo_wall" });
   // Production storage without a token refuses through the same wording.
   setEnv("NODE_ENV", "production");
   setEnv("E2E", undefined);
   setEnv("BLOB_READ_WRITE_TOKEN", undefined);
-  const refusedStandard = await saveSectionPhotoFor({ token: standard.token, issueSectionId: standard.issueSectionId, bytes: png(), contentType: "image/png", caption: "", position: 0 });
-  assert.equal(refusedStandard.ok === false && refusedStandard.status === 500, true);
   const refusedWall = await saveWallPhotoFor({ token: wall.token, issueQuestionId: wall.issueSectionId, bytes: png(), contentType: "image/png", caption: "", position: 0 });
   assert.equal(refusedWall.ok === false && refusedWall.status === 500, true);
 });

@@ -201,7 +201,7 @@ test("a sticker on a photo wall or music pick shows on its card too", async () =
   const { alice, issue, first } = await openLoop();
   await rows("update issue_questions set format = 'music', from_section = true where id = $1", [first.id]);
   await rows(
-    "insert into replies (issue_id, issue_question_id, membership_id, body, link_url, link_provider, sticker, status, submitted_at) values ($1, $2, $3, 'On repeat', 'https://open.spotify.com/track/1', 'spotify', 'star', 'submitted', now())",
+    "insert into replies (issue_id, issue_question_id, membership_id, body, link_url, link_provider, sticker) values ($1, $2, $3, 'On repeat', 'https://open.spotify.com/track/1', 'spotify', 'star')",
     [issue.issueId, first.id, alice.id],
   );
   await rows("update issues set status = 'delivered', delivered_at = now() where id = $1", [issue.issueId]);

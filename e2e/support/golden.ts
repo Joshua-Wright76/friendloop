@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { rows, runMigrationFile } from "./db";
+import { rows } from "./db";
 
 /*
  * The golden past issue (docs/questions-unify-design.md, "Past issues stay exact").
@@ -11,14 +11,16 @@ import { rows, runMigrationFile } from "./db";
  * an answer cleared back to blank, a poll, a suggestion credit, a question nobody
  * answered, a standard section with a photo, a photo wall, a music pick, an
  * owners-only section, a section nobody answered, a one-time event and a birthday,
- * plus reactions and comments. Everything is written straight into the legacy
- * tables with fixed ids, tokens and times, so what it renders is the same on every
- * run and the snapshots under `test/golden/` can be compared byte for byte.
+ * plus reactions and comments. Everything is written with fixed ids, tokens and
+ * times, so what it renders is the same on every run and the snapshots under
+ * `test/golden/` can be compared byte for byte.
  *
- * Merging sections into questions must leave every snapshot unchanged. If a change
- * is meant to alter how past rounds read, regenerate with `UPDATE_GOLDEN=1` and
- * review the diff. The seed writes the legacy tables, as the release before the
- * switch did: the mirror triggers copy it, or `migrateLikeTheDeploy` runs `0023`.
+ * The sections, dates and their answers are written as migration `0023` copied
+ * them out of the legacy tables (dropped since): items asked every round or on a
+ * date, snapshotted with `from_section`, their answers in `replies` and the photos
+ * in `reply_media`, every copy keeping its legacy id. Past rounds must keep reading
+ * exactly as they did before sections became questions. If a change is meant to
+ * alter how past rounds read, regenerate with `UPDATE_GOLDEN=1` and review the diff.
  */
 
 const id = (n: number) => `00000000-0000-4000-8000-${String(n).padStart(12, "0")}`;
@@ -70,7 +72,7 @@ export async function seedGoldenWorld(): Promise<void> {
 
   // The pool, and a suggestion Alice made that the owner accepted.
   await rows(
-    `insert into questions (id, group_id, text, position, kind, poll_multiple, poll_options, created_by_membership_id, created_at) values
+    `insert into questions (id, group_id, text, position, format, poll_multiple, poll_options, created_by_membership_id, created_at) values
       ($1, $5, 'What made you laugh this week?', 0, 'written', false, null, null, '2026-01-01T00:00:00Z'),
       ($2, $5, 'What are you looking forward to?', 1, 'written', false, null, $6, '2026-01-01T00:00:00Z'),
       ($3, $5, 'Which weekends work?', 2, 'poll', true, '["June","July","August"]', null, '2026-01-01T00:00:00Z'),
@@ -78,8 +80,8 @@ export async function seedGoldenWorld(): Promise<void> {
     [id(20), id(21), id(22), id(23), g, alice.id],
   );
   await rows(
-    `insert into questions (id, group_id, text, position, active, archived_at, created_at)
-     values ($1, $2, 'What did you plant?', 4, false, '2026-06-01T00:00:00Z', '2026-01-01T00:00:00Z')`,
+    `insert into questions (id, group_id, text, position, format, archived_at, created_at)
+     values ($1, $2, 'What did you plant?', 4, 'written', '2026-06-01T00:00:00Z', '2026-01-01T00:00:00Z')`,
     [id(25), g],
   );
   await rows(
@@ -88,31 +90,31 @@ export async function seedGoldenWorld(): Promise<void> {
     [id(24), g, alice.id, id(21)],
   );
 
-  // Sections and dates.
+  // Sections, asked every round after the questions, and dates.
   await rows(
-    `insert into sections (id, group_id, kind, title, emoji, description, admin_only, position, created_at) values
-      ($1, $6, 'standard', 'This week', '📝', 'Anything you want to tell us.', false, 0, '2026-01-01T00:00:00Z'),
-      ($2, $6, 'photo_wall', 'Photo wall', '📸', null, false, 1, '2026-01-01T00:00:00Z'),
-      ($3, $6, 'music', 'Song of the week', '🎵', 'One song, any service.', false, 2, '2026-01-01T00:00:00Z'),
-      ($4, $6, 'standard', 'Planning', '🗂️', 'Just for the people running things.', true, 3, '2026-01-01T00:00:00Z'),
-      ($5, $6, 'standard', 'Small wins', '🏅', null, false, 4, '2026-01-01T00:00:00Z')`,
+    `insert into questions (id, group_id, text, position, format, frequency, emoji, description, admin_only, created_at) values
+      ($1, $6, 'This week', 1000, 'written', 'every_round', '📝', 'Anything you want to tell us.', false, '2026-01-01T00:00:00Z'),
+      ($2, $6, 'Photo wall', 1001, 'photo_wall', 'every_round', '📸', null, false, '2026-01-01T00:00:00Z'),
+      ($3, $6, 'Song of the week', 1002, 'music', 'every_round', '🎵', 'One song, any service.', false, '2026-01-01T00:00:00Z'),
+      ($4, $6, 'Planning', 1003, 'written', 'every_round', '🗂️', 'Just for the people running things.', true, '2026-01-01T00:00:00Z'),
+      ($5, $6, 'Small wins', 1004, 'written', 'every_round', '🏅', null, false, '2026-01-01T00:00:00Z')`,
     [id(30), id(31), id(32), id(33), id(34), g],
   );
   await rows(
-    `insert into events (id, group_id, kind, title, emoji, month, day, year, membership_id, created_at) values
-      ($1, $3, 'once', 'Camping weekend', '🏕️', 10, 29, 2026, null, '2026-01-01T00:00:00Z'),
-      ($2, $3, 'birthday', null, '🎂', 10, 28, null, $4, '2026-01-01T00:00:00Z')`,
+    `insert into questions (id, group_id, text, position, format, frequency, emoji, date_kind, month, day, year, about_membership_id, created_at) values
+      ($1, $3, 'Camping weekend', 0, 'written', 'on_date', '🏕️', 'once', 10, 29, 2026, null, '2026-01-01T00:00:00Z'),
+      ($2, $3, '', 0, 'written', 'on_date', '🎂', 'birthday', 10, 28, null, $4, '2026-01-01T00:00:00Z')`,
     [id(40), id(41), g, alice.id],
   );
 
   // The round, delivered, with its share link.
   await rows(
-    `insert into issues (id, group_id, number, status, slot_at, opens_at, delivers_at, delivered_at, share_token, question_cursor, created_at)
-     values ($1, $2, 1, 'delivered', $3, $4, $3, $3, $5, 0, $4)`,
+    `insert into issues (id, group_id, number, status, slot_at, opens_at, delivers_at, delivered_at, share_token, created_at)
+     values ($1, $2, 1, 'delivered', $3, $4, $3, $3, $5, $4)`,
     [issue, g, DELIVERED, OPENED, GOLDEN.shareToken],
   );
   await rows(
-    `insert into issue_questions (id, issue_id, question_id, text, position, suggested_by, kind, poll_multiple, poll_options) values
+    `insert into issue_questions (id, issue_id, question_id, text, position, suggested_by, format, poll_multiple, poll_options) values
       ($1, $5, $6, 'What made you laugh this week?', 0, null, 'written', false, null),
       ($2, $5, $7, 'What are you looking forward to?', 1, 'Alice', 'written', false, null),
       ($3, $5, $8, 'Which weekends work?', 2, null, 'poll', true, '["June","July","August"]'),
@@ -120,15 +122,16 @@ export async function seedGoldenWorld(): Promise<void> {
     [id(50), id(51), id(52), id(53), issue, id(20), id(21), id(22), id(23)],
   );
   await rows(
-    `insert into issue_sections (id, issue_id, section_id, kind, title, emoji, description, admin_only, position, event_id, event_date) values
-      ($1, $8, $9, 'standard', 'This week', '📝', 'Anything you want to tell us.', false, 0, null, null),
-      ($2, $8, $10, 'photo_wall', 'Photo wall', '📸', null, false, 1, null, null),
-      ($3, $8, $11, 'music', 'Song of the week', '🎵', 'One song, any service.', false, 2, null, null),
-      ($4, $8, $12, 'standard', 'Planning', '🗂️', 'Just for the people running things.', true, 3, null, null),
-      ($5, $8, $13, 'standard', 'Small wins', '🏅', null, false, 4, null, null),
-      ($6, $8, null, 'standard', 'Camping weekend', '🏕️', null, false, 5, $14, '2026-10-29'),
-      ($7, $8, null, 'standard', 'Alice''s birthday', '🎂', null, false, 6, $15, '2026-10-28')`,
-    [id(60), id(61), id(62), id(63), id(64), id(65), id(66), issue, id(30), id(31), id(32), id(33), id(34), id(40), id(41)],
+    `insert into issue_questions (id, issue_id, question_id, text, position, format, emoji, description, admin_only, occurrence_date,
+                                  about_membership_id, from_section) values
+      ($1, $8, $9, 'This week', 1000, 'written', '📝', 'Anything you want to tell us.', false, null, null, true),
+      ($2, $8, $10, 'Photo wall', 1001, 'photo_wall', '📸', null, false, null, null, true),
+      ($3, $8, $11, 'Song of the week', 1002, 'music', '🎵', 'One song, any service.', false, null, null, true),
+      ($4, $8, $12, 'Planning', 1003, 'written', '🗂️', 'Just for the people running things.', true, null, null, true),
+      ($5, $8, $13, 'Small wins', 1004, 'written', '🏅', null, false, null, null, true),
+      ($6, $8, $14, 'Camping weekend', 1005, 'written', '🏕️', null, false, '2026-10-29', null, true),
+      ($7, $8, $15, 'Alice''s birthday', 1006, 'written', '🎂', null, false, '2026-10-28', $16, true)`,
+    [id(60), id(61), id(62), id(63), id(64), id(65), id(66), issue, id(30), id(31), id(32), id(33), id(34), id(40), id(41), alice.id],
   );
 
   // Question answers.
@@ -141,12 +144,11 @@ export async function seedGoldenWorld(): Promise<void> {
   ) =>
     rows(
       `insert into replies (id, issue_id, issue_question_id, membership_id, body, photo_url, audio_url, audio_duration_ms, poll_choices,
-                            status, submitted_at, added_after_delivery, never_sent, created_at, updated_at)
-       values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $11, $11)`,
+                            added_after_delivery, never_sent, created_at, updated_at)
+       values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $12)`,
       [
         replyId, issue, issueQuestionId, membershipId, input.body ?? "", input.photo ?? null, input.audio ?? null,
-        input.audio ? 4_000 : null, input.choices ?? [], input.neverSent ? "draft" : "submitted", at(minutes),
-        input.late ?? false, input.neverSent ?? false,
+        input.audio ? 4_000 : null, input.choices ?? [], input.late ?? false, input.neverSent ?? false, at(minutes),
       ],
     );
   await reply(id(70), id(50), sam.id, 10, { body: "The goose on the towpath.", photo: "/uploads/golden-goose.png", audio: "/uploads/golden-honk.webm" });
@@ -158,7 +160,8 @@ export async function seedGoldenWorld(): Promise<void> {
   await reply(id(76), id(52), alice.id, 70, { choices: [1] });
   await reply(id(77), id(53), alice.id, 80, { body: "   " });
 
-  // Section answers.
+  // Section answers: answers like any other, a photo wall's photos (and a section's
+  // one photo, in a round already out) as `reply_media`.
   const sectionReply = async (
     replyId: string,
     issueSectionId: string,
@@ -167,17 +170,17 @@ export async function seedGoldenWorld(): Promise<void> {
     input: { body?: string; link?: string; late?: boolean; neverSent?: boolean; media?: Array<[string, string, string | null]> },
   ) => {
     await rows(
-      `insert into section_replies (id, issue_id, issue_section_id, membership_id, body, link_url, link_provider, status, submitted_at,
-                                    added_after_delivery, never_sent, created_at, updated_at)
-       values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $9, $9)`,
+      `insert into replies (id, issue_id, issue_question_id, membership_id, body, link_url, link_provider,
+                            added_after_delivery, never_sent, created_at, updated_at)
+       values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $10)`,
       [
         replyId, issue, issueSectionId, membershipId, input.body ?? "", input.link ?? null, input.link ? "spotify" : null,
-        input.neverSent ? "draft" : "submitted", at(minutes), input.late ?? false, input.neverSent ?? false,
+        input.late ?? false, input.neverSent ?? false, at(minutes),
       ],
     );
     for (const [position, [mediaId, url, caption]] of (input.media ?? []).entries()) {
       await rows(
-        "insert into section_media (id, section_reply_id, url, caption, position, created_at) values ($1, $2, $3, $4, $5, $6)",
+        "insert into reply_media (id, reply_id, url, caption, position, created_at) values ($1, $2, $3, $4, $5, $6)",
         [mediaId, replyId, url, caption, position, at(minutes)],
       );
     }
@@ -217,26 +220,6 @@ export async function reopenGoldenRound(): Promise<void> {
   await rows("update issues set status = 'open', delivered_at = null where id = $1", [GOLDEN.issueId]);
 }
 
-/**
- * The loop as PR A's release left it: sections, events and their answers only in
- * the legacy tables. The test schema already has `0023`'s mirror triggers, so the
- * seed was copied as it went in; this takes the copy out again.
- */
-export async function undoUnifiedCopy(): Promise<void> {
-  const copies = (kind: string) => `select unified_id from unify_ids where kind = '${kind}'`;
-  await rows(`delete from reply_media where id in (${copies("section_media")})`);
-  await rows(`delete from replies where id in (${copies("section_reply")})`);
-  await rows("delete from issue_questions where from_section");
-  await rows(`delete from questions where id in (${copies("section")} union ${copies("event")})`);
-  await rows("delete from unify_ids");
-}
-
-/** Run the real `0023` against the loop as PR A's release left it. */
-export async function migrateLikeTheDeploy(): Promise<void> {
-  await undoUnifiedCopy();
-  await runMigrationFile(path.join(process.cwd(), "drizzle", "0023_questions_unify.sql"));
-}
-
 const GOLDEN_DIR = path.join(process.cwd(), "test", "golden");
 
 /**
@@ -259,22 +242,19 @@ export function stableIds(text: string): string {
 /**
  * Compare `value` with `test/golden/<name>`. A missing file, or `UPDATE_GOLDEN=1`,
  * writes it instead; a missing file still fails, so CI can never pass on nothing.
- * `compareOnly` never writes: for a second reading that must agree with the first.
  */
 export function matchGolden(
   name: string,
   value: unknown,
-  options: { compareOnly?: boolean } = {},
 ): { ok: true } | { ok: false; expected: string; actual: string } {
   const actual = stableIds(typeof value === "string" ? value : `${JSON.stringify(value, null, 2)}\n`);
   const file = path.join(GOLDEN_DIR, name);
-  if (process.env.UPDATE_GOLDEN === "1" && !options.compareOnly) {
+  if (process.env.UPDATE_GOLDEN === "1") {
     mkdirSync(GOLDEN_DIR, { recursive: true });
     writeFileSync(file, actual);
     return { ok: true };
   }
   if (!existsSync(file)) {
-    if (options.compareOnly) return { ok: false, expected: `(no ${name} yet)`, actual };
     mkdirSync(GOLDEN_DIR, { recursive: true });
     writeFileSync(file, actual);
     return { ok: false, expected: `(no ${name} yet: written now, review and commit it)`, actual };
