@@ -246,9 +246,7 @@ test("removing a photo keeps the text and deletes the file", async () => {
   const result = await removePhotoFor({ token: alice.token, issueQuestionId: question.id });
   assert.equal(result.ok, true);
 
-  const [reply] = await rows<{ photo_url: string | null; body: string; status: string }>(
-    "select photo_url, body, status from replies",
-  );
+  const [reply] = await rows<{ photo_url: string | null; body: string }>("select photo_url, body from replies");
   assert.equal(reply.photo_url, null);
   assert.equal(reply.body, "With a picture");
 
