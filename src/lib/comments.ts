@@ -82,7 +82,7 @@ export async function postComment(input: PostCommentInput): Promise<PostCommentR
 
   if (input.replyId) {
     const [answer] = await db
-      .select({ membershipId: replies.membershipId, kind: issueQuestions.kind, adminOnly: issueQuestions.adminOnly })
+      .select({ membershipId: replies.membershipId, format: issueQuestions.format, adminOnly: issueQuestions.adminOnly })
       .from(replies)
       .innerJoin(issueQuestions, eq(issueQuestions.id, replies.issueQuestionId))
       .where(
@@ -93,7 +93,7 @@ export async function postComment(input: PostCommentInput): Promise<PostCommentR
     // there is nothing for them to comment on yet.
     // An owners-only answer isn't there for a plain member to comment on.
     const hidden =
-      (answer?.kind === "poll" && issue.status !== "delivered" && answer.membershipId !== author.id) ||
+      (answer?.format === "poll" && issue.status !== "delivered" && answer.membershipId !== author.id) ||
       (answer?.adminOnly && author.access === "member");
     if (!answer || hidden) return fail(404, copy.issue.errors.answerGone);
   }

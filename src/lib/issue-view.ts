@@ -17,7 +17,6 @@ import { copy } from "./copy.ts";
 import { loadComments, type IssueComment } from "./comment-view.ts";
 import { tallyPoll, type PollTallyRow } from "./poll.ts";
 import { musicCardsFor, type MusicProvider, type MusicTrack } from "./music";
-import { formatOf } from "./asks";
 import { cleanPlacement, isStickerKey, parseSignature } from "./looks.ts";
 
 export type IssueAnswer = {
@@ -395,7 +394,7 @@ export async function loadIssue(input: {
   const blockRows = shown.filter((question) => !question.fromSection);
 
   const blocks: IssueBlock[] = blockRows.map((question) => {
-    const format = formatOf(question);
+    const format = question.format;
     const answers = rows.filter((row) => row.issueQuestionId === question.id);
     return {
       questionId: question.id,
@@ -449,7 +448,7 @@ export async function loadIssue(input: {
   });
 
   const sections: IssueSectionBlock[] = sectionRows.map((question) => {
-    const format = formatOf(question);
+    const format = question.format;
     return {
       id: question.id,
       kind: format === "photo_wall" || format === "music" ? format : "standard",

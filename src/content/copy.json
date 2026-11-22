@@ -1125,7 +1125,6 @@
       "wallVideoCap": "A photo wall takes two videos from each person, and you've added both.",
       "sectionSaveFailed": "That isn't saved yet. It's safe on this device, and we'll try again when you're back online.",
       "sectionPhotoCap": "A photo wall holds six photos or videos, and this one is full.",
-      "sectionPhotoStandardCap": "An answer takes one photo, and this one already has it.",
       "changedElsewhere": "This answer changed on another device, so we didn't overwrite it. Try again to replace it with what's here.",
       "tooManyUploads": "That's a lot of files for one hour. Try again a little later.",
       "sticker": "That isn't one of our stickers."

@@ -1,7 +1,7 @@
 import { and, eq, isNotNull, isNull } from "drizzle-orm";
 import { db } from "@/db";
 import { groups, issueQuestions, memberships, questions, replies } from "@/db/schema";
-import { formatOf, legacyActive, type AnswerFormat, type AskFrequency } from "./asks";
+import { type AnswerFormat, type AskFrequency } from "./asks";
 import { localDate, parseDateInput } from "./event-dates";
 import { ITEM_DESCRIPTION_MAX, ITEM_EMOJI_MAX, ITEM_TEXT_MAX, QUESTIONS_PER_ROUND_MAX } from "./item-limits";
 import { normalizePollOptions, POLL_MAX_OPTIONS, POLL_MIN_OPTIONS, POLL_OPTION_MAX } from "./poll";
@@ -226,7 +226,7 @@ export async function updateItem(input: {
   if (await hasAnswers(existing.id)) {
     // The answers people gave are in its format, and a poll's picks point at its options:
     // changing either would make them answers to something else.
-    item.format = formatOf(existing);
+    item.format = existing.format;
     item.pollOptions = existing.pollOptions ?? [];
     item.pollMultiple = existing.pollMultiple;
   }
@@ -237,11 +237,7 @@ export async function updateItem(input: {
 
   await db
     .update(questions)
-    .set({
-      ...values,
-      // Only ever narrowed: a section's copy stays out of reach of the code before the switch.
-      active: existing.active && legacyActive(values),
-    })
+    .set(values)
     .where(eq(questions.id, existing.id));
   if (moved && values.frequency !== "on_date") await sendToBackOf(input.group.id, existing.id, values.frequency);
 

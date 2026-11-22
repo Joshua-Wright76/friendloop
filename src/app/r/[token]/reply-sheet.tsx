@@ -61,8 +61,6 @@ export type SheetQuestion = {
   format: "written" | "poll" | "photo_wall" | "music";
   /** False on a card copied from a section in the round that was open at the switch: it never took voice notes. */
   voice: boolean;
-  /** What a sheet from before the switch called this card, for words it kept on the device. Usually `id`. */
-  legacyId: string;
   linkUrl: string;
   linkProvider: string;
   media: SheetMedia[];
@@ -84,7 +82,6 @@ type SheetMedia = { id: string; url: string; caption: string | null; videoUrl?: 
 
 type SheetSection = {
   id: string;
-  legacyId: string;
   kind: "photo_wall" | "music";
   /** False on a wall copied from a section: those never took clips. */
   video: boolean;
@@ -184,7 +181,6 @@ export function ReplySheet({
   const questions = useMemo(() => items.filter((item) => !isCard(item)), [items]);
   const sections = useMemo(() => items.filter(isCard).map((item): SheetSection => ({
     id: item.id,
-    legacyId: item.legacyId,
     kind: item.format === "music" ? "music" : "photo_wall",
     video: item.voice,
     title: item.text,
@@ -912,7 +908,7 @@ export function ReplySheet({
       }
       for (const section of sections) {
         if (section.kind === "music") {
-          const kept = recallPick(token, section.id) ?? recallPick(token, section.legacyId);
+          const kept = recallPick(token, section.id);
           if (!kept) continue;
           setSectionLinks((current) => (current[section.id] ? current : { ...current, [section.id]: kept.url }));
           setSectionCaptions((current) => (current[section.id] ? current : { ...current, [section.id]: kept.caption }));
@@ -1082,30 +1078,6 @@ export function ReplySheet({
     },
     [autosize, persist],
   );
-
-  // A sheet from before sections became questions kept a section's unsaved words on
-  // this device under its own key. That section is a question card now: its words
-  // come back into the card and save, once.
-  useEffect(() => {
-    const frame = requestAnimationFrame(() => {
-      for (const question of questions) {
-        if (question.kind === "poll") continue;
-        const key = extraKey(token, question.legacyId);
-        const kept = recall(key);
-        if (kept === null) continue;
-        letGo(key);
-        if (kept === question.body) continue;
-        revisions.current.set(question.id, (revisions.current.get(question.id) ?? 0) + 1);
-        dirty.current.add(question.id);
-        latestBodies.current[question.id] = kept;
-        setBodies((current) => ({ ...current, [question.id]: kept }));
-        void persist(question.id, kept);
-      }
-    });
-    return () => cancelAnimationFrame(frame);
-    // Once, as the sheet arrives.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   /** A tap saves straight away, in order, so the last tap always wins. */
   const choosePoll = useCallback(
@@ -2246,7 +2218,6 @@ export function ReplySheet({
 // Per link, so two people on one shared device never see each other's words.
 const pickKey = (token: string, sectionId: string) => `friendloop-pick:${token.slice(-12)}:${sectionId}`;
 const pollKey = (token: string, questionId: string) => `friendloop-poll:${token.slice(-12)}:${questionId}`;
-const extraKey = (token: string, sectionId: string) => `friendloop-extra:${token.slice(-12)}:${sectionId}`;
 type KeptPick = { url: string; caption: string; error: string };
 
 function keep(key: string, value: string) {

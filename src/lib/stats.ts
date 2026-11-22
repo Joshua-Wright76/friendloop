@@ -56,7 +56,7 @@ export type Stats = {
 
 /** The shared answer definition, without selecting any answer content. */
 const REPLY_ACTIVITY_SQL = sql`
-  select coalesce(r.submitted_at, r.created_at) as happened_at,
+  select r.updated_at as happened_at,
     r.membership_id, i.group_id
   from replies r
   join issues i on i.id = r.issue_id
@@ -66,17 +66,6 @@ const REPLY_ACTIVITY_SQL = sql`
       or r.video_url is not null or jsonb_array_length(r.poll_choices) > 0
       or r.link_url is not null
       or exists (select 1 from reply_media rm where rm.reply_id = r.id))
-`;
-
-const SECTION_ACTIVITY_SQL = sql`
-  select coalesce(sr.submitted_at, sr.created_at) as happened_at,
-    sr.membership_id, i.group_id
-  from section_replies sr
-  join issues i on i.id = sr.issue_id
-  join groups g on g.id = i.group_id
-  where not g.is_synthetic and not sr.never_sent
-    and (sr.body ~ '\\S' or sr.link_url is not null
-      or exists (select 1 from section_media sm where sm.section_reply_id = sr.id))
 `;
 
 export async function readStats(range: StatsRange = 30, at: Date = new Date()): Promise<Stats> {
@@ -104,12 +93,8 @@ export async function readStats(range: StatsRange = 30, at: Date = new Date()): 
   const usageQuery = db.execute<Record<string, number | string>>(sql`
     with activity as (
       ${REPLY_ACTIVITY_SQL}
-      and coalesce(r.submitted_at, r.created_at) >= ${previousStart.toISOString()}
-      and coalesce(r.submitted_at, r.created_at) < ${end.toISOString()}
-      union all
-      ${SECTION_ACTIVITY_SQL}
-      and coalesce(sr.submitted_at, sr.created_at) >= ${previousStart.toISOString()}
-      and coalesce(sr.submitted_at, sr.created_at) < ${end.toISOString()}
+      and r.updated_at >= ${previousStart.toISOString()}
+      and r.updated_at < ${end.toISOString()}
     ), rounds as (
       select i.delivered_at as happened_at, i.group_id
       from issues i join groups g on g.id = i.group_id
@@ -141,12 +126,8 @@ export async function readStats(range: StatsRange = 30, at: Date = new Date()): 
       from generate_series(${start.toISOString()}::timestamptz, ${end.toISOString()}::timestamptz - interval '1 day', interval '1 day') day
     ), activity as (
       ${REPLY_ACTIVITY_SQL}
-      and coalesce(r.submitted_at, r.created_at) >= ${start.toISOString()}
-      and coalesce(r.submitted_at, r.created_at) < ${end.toISOString()}
-      union all
-      ${SECTION_ACTIVITY_SQL}
-      and coalesce(sr.submitted_at, sr.created_at) >= ${start.toISOString()}
-      and coalesce(sr.submitted_at, sr.created_at) < ${end.toISOString()}
+      and r.updated_at >= ${start.toISOString()}
+      and r.updated_at < ${end.toISOString()}
     ), daily_activity as (
       select (happened_at at time zone 'UTC')::date as day, count(*)::int as answers,
         count(distinct membership_id)::int as active_people

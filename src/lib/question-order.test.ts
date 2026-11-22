@@ -26,27 +26,27 @@ test("reorderIds clamps destinations and leaves an unknown id untouched", () => 
 test("fresh question data updates fields without replacing an optimistic reorder", () => {
   const preferredIds = ["b", "a"];
   const fresh = [
-    { id: "a", text: "First", skipNext: false },
-    { id: "b", text: "Second", skipNext: true },
-    { id: "c", text: "New", skipNext: false },
+    { id: "a", text: "First", marked: false },
+    { id: "b", text: "Second", marked: true },
+    { id: "c", text: "New", marked: false },
   ];
 
   assert.deepEqual(itemsInPreferredOrder(preferredIds, fresh), [
-    { id: "b", text: "Second", skipNext: true },
-    { id: "a", text: "First", skipNext: false },
-    { id: "c", text: "New", skipNext: false },
+    { id: "b", text: "Second", marked: true },
+    { id: "a", text: "First", marked: false },
+    { id: "c", text: "New", marked: false },
   ]);
 });
 
 test("fresh question data removes archived items and appends new items", () => {
   const preferredIds = ["b", "a"];
   const fresh = [
-    { id: "a", text: "a", skipNext: false },
-    { id: "c", text: "c", skipNext: false },
+    { id: "a", text: "a", marked: false },
+    { id: "c", text: "c", marked: false },
   ];
 
   assert.deepEqual(itemsInPreferredOrder(preferredIds, fresh), [
-    { id: "a", text: "a", skipNext: false },
-    { id: "c", text: "c", skipNext: false },
+    { id: "a", text: "a", marked: false },
+    { id: "c", text: "c", marked: false },
   ]);
 });

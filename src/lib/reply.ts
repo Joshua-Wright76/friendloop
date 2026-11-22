@@ -1,6 +1,6 @@
 import { and, asc, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { groups, issueQuestions, issueStatusLines, issues, memberships, replies, replyMedia, unifyIds, users } from "@/db/schema";
+import { groups, issueQuestions, issueStatusLines, issues, memberships, replies, replyMedia, users } from "@/db/schema";
 import { getNow } from "./clock";
 import { copy } from "./copy.ts";
 import { cleanDisplayName } from "./names";
@@ -12,7 +12,7 @@ import { isMediaReferenced } from "./media-cleanup.ts";
 import { storedReminderPreference } from "./reminders.ts";
 import { checkPollChoices } from "./poll";
 import { log } from "./log";
-import { askedOf, formatOf, type AnswerFormat } from "./asks";
+import { askedOf, type AnswerFormat } from "./asks";
 import { checkMusicLink, MUSIC_CAPTION_MAX, PHOTO_WALL_MAX } from "./music";
 import { validatePhoto } from "./photo-validation";
 import { cleanLine, isStickerKey, STATUS_LINE_MAX, stickerChoice } from "./looks.ts";
@@ -128,7 +128,7 @@ async function ensureWritableQuestion(
     .from(issueQuestions)
     .where(and(eq(issueQuestions.id, issueQuestionId), eq(issueQuestions.issueId, context.issue.id)))
     .limit(1);
-  if (!question || !formats.includes(formatOf(question))) {
+  if (!question || !formats.includes(question.format)) {
     return { ok: false, result: { ok: false, status: 409, error: copy.reply.errors.wrongQuestion } };
   }
   if (question.adminOnly && context.membership.access === "member") {
@@ -200,11 +200,11 @@ export async function savePhotoFor(input: {
         membershipId: context.membership.id,
         body: "",
         photoUrl: input.photoUrl,
-        ...inTheRound(at),
+        updatedAt: at,
       })
       .onConflictDoUpdate({
         target: [replies.issueId, replies.issueQuestionId, replies.membershipId],
-        set: { photoUrl: input.photoUrl, updatedAt: at, ...inTheRound(at) },
+        set: { photoUrl: input.photoUrl, updatedAt: at },
       });
 
     if (!context.membership.acceptedAt) {
@@ -301,11 +301,11 @@ export async function saveDraftFor(input: {
       issueQuestionId: question.id,
       membershipId: context.membership.id,
       body,
-      ...inTheRound(at),
+      updatedAt: at,
     })
     .onConflictDoUpdate({
       target: [replies.issueId, replies.issueQuestionId, replies.membershipId],
-      set: { body, updatedAt: at, ...inTheRound(at) },
+      set: { body, updatedAt: at },
     });
 
   await markAccepted(context.membership.id, context.membership.acceptedAt, at);
@@ -339,11 +339,11 @@ export async function savePollChoicesFor(input: {
       membershipId: context.membership.id,
       body: "",
       pollChoices: choices,
-      ...inTheRound(at),
+      updatedAt: at,
     })
     .onConflictDoUpdate({
       target: [replies.issueId, replies.issueQuestionId, replies.membershipId],
-      set: { pollChoices: choices, updatedAt: at, ...inTheRound(at) },
+      set: { pollChoices: choices, updatedAt: at },
     });
 
   await markAccepted(context.membership.id, context.membership.acceptedAt, at);
@@ -365,16 +365,6 @@ export async function confirmFor(token: string): Promise<WriteResult> {
   const at = await getNow();
   await markAccepted(context.membership.id, context.membership.acceptedAt, at);
   return { ok: true, savedAt: at.toISOString() };
-}
-
-/**
- * Columns every save writes. Nothing reads `status` any more (an answer counts
- * when it has something in it, see `reply-query.ts`), but code from before this
- * rule may still be running for a few minutes after the database changes, and
- * it only counts `submitted` rows.
- */
-export function inTheRound(at: Date) {
-  return { status: "submitted" as const, submittedAt: at };
 }
 
 async function markAccepted(membershipId: string, acceptedAt: Date | null, at: Date) {
@@ -465,14 +455,6 @@ export async function sheetFor(token: string) {
       .where(and(eq(issueStatusLines.issueId, context.issue.id), eq(issueStatusLines.membershipId, context.membership.id)))
       .limit(1),
   ]);
-  // A sheet from before the switch kept unsaved words under the legacy id.
-  const copied = rows.filter((question) => question.fromSection).map((question) => question.id);
-  const legacy = copied.length === 0
-    ? []
-    : await db
-        .select({ legacyId: unifyIds.legacyId, unifiedId: unifyIds.unifiedId })
-        .from(unifyIds)
-        .where(and(eq(unifyIds.kind, "issue_section"), inArray(unifyIds.unifiedId, copied)));
   const media = existing.length === 0
     ? []
     : await db
@@ -494,11 +476,9 @@ export async function sheetFor(token: string) {
           text: question.text,
           emoji: question.emoji,
           description: question.description,
-          format: formatOf(question),
+          format: question.format,
           /** Copied from a section in the round open at the switch: written, but without voice notes. */
           fromSection: question.fromSection,
-          /** The id a sheet from before the switch knew this card by, for what it kept on the device. */
-          legacyId: legacy.find((row) => row.unifiedId === question.id)?.legacyId ?? question.id,
           body: reply?.body ?? "",
           photoUrl: reply?.photoUrl ?? null,
           audioUrl: reply?.audioUrl ?? null,
@@ -506,7 +486,7 @@ export async function sheetFor(token: string) {
           videoUrl: reply?.videoUrl ?? null,
           videoPosterUrl: reply?.videoPosterUrl ?? null,
           videoDurationMs: reply?.videoDurationMs ?? null,
-          kind: question.kind,
+          kind: question.format === "poll" ? ("poll" as const) : ("written" as const),
           pollMultiple: question.pollMultiple,
           pollOptions: question.pollOptions ?? [],
           pollChoices: reply?.pollChoices ?? [],
@@ -585,7 +565,7 @@ export async function saveAudioFor(input: {
         body: "",
         audioUrl: input.audioUrl,
         audioDurationMs: input.audioDurationMs,
-        ...inTheRound(at),
+        updatedAt: at,
       })
       .onConflictDoUpdate({
         target: [replies.issueId, replies.issueQuestionId, replies.membershipId],
@@ -593,7 +573,6 @@ export async function saveAudioFor(input: {
           audioUrl: input.audioUrl,
           audioDurationMs: input.audioDurationMs,
           updatedAt: at,
-          ...inTheRound(at),
         },
       });
 
@@ -683,7 +662,7 @@ export async function saveStickerFor(input: {
       membershipId: context.membership.id,
       body: "",
       sticker: choice.sticker,
-      ...inTheRound(at),
+      updatedAt: at,
     })
     .onConflictDoUpdate({
       target: [replies.issueId, replies.issueQuestionId, replies.membershipId],
@@ -732,7 +711,7 @@ export async function authorizeVideoForReply(
   const gate = await ensureWritableQuestion(token, issueQuestionId, ["written", "photo_wall"]);
   if (!gate.ok) return gate.result;
   if (gate.question.fromSection) return { ok: false, status: 409, error: copy.reply.errors.wrongQuestion };
-  return { ok: true, format: formatOf(gate.question) === "photo_wall" ? "photo_wall" : "written" };
+  return { ok: true, format: gate.question.format === "photo_wall" ? "photo_wall" : "written" };
 }
 
 /** Delete a stored clip only after no row points at it. */
@@ -911,12 +890,11 @@ async function touchReply(
       membershipId: context.membership.id,
       body: "",
       ...patch,
-      ...inTheRound(at),
       updatedAt: at,
     })
     .onConflictDoUpdate({
       target: [replies.issueId, replies.issueQuestionId, replies.membershipId],
-      set: { ...patch, ...inTheRound(at), updatedAt: at },
+      set: { ...patch, updatedAt: at },
     })
     .returning({ id: replies.id });
   await markAccepted(context.membership.id, context.membership.acceptedAt, at);
@@ -1065,93 +1043,4 @@ export async function removeWallPhotoFor(input: {
   await dropUnreferenced([{ url: media.videoUrl, video: true }], "Unable to remove a photo-wall video");
   await markAccepted(context.membership.id, context.membership.acceptedAt, at);
   return { ok: true, savedAt: at.toISOString() };
-}
-
-/*
- * A sheet loaded before sections became questions still posts `sectionDraft`,
- * `sectionMusic` and `/section-media` with the ids it was given. Those ids are
- * now `issue_questions` ids, so each old write lands on the same answer the new
- * sheet edits. Removed with the contract release.
- */
-
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-/**
- * The unified id migration `0023` gave a legacy row. Almost always the same id;
- * a different one only where the legacy id was already taken (`unify_ids`).
- * Anything never copied is passed through, and fails the usual checks.
- */
-export async function unifiedIdOf(kind: "issue_section" | "section_media", legacyId: string): Promise<string> {
-  if (!UUID.test(legacyId)) return legacyId;
-  const [row] = await db
-    .select({ id: unifyIds.unifiedId })
-    .from(unifyIds)
-    .where(and(eq(unifyIds.kind, kind), eq(unifyIds.legacyId, legacyId)))
-    .limit(1);
-  return row?.id ?? legacyId;
-}
-
-/** `sectionDraft`: a standard section's text, now a written answer. */
-export async function saveSectionTextFor(input: { token: string; issueSectionId: string; body: string }): Promise<WriteResult | { ok: false; status: 400; error: string }> {
-  if (input.body.length > 2_000) return { ok: false, status: 400, error: copy.reply.errors.sectionSaveFailed };
-  return saveDraftFor({ token: input.token, issueQuestionId: await unifiedIdOf("issue_section", input.issueSectionId), body: input.body });
-}
-
-/** `sectionMusic`: a music section's pick. */
-export async function saveSectionMusicFor(input: { token: string; issueSectionId: string; url: string; caption: string }): Promise<MusicWriteResult> {
-  return saveMusicFor({
-    token: input.token,
-    issueQuestionId: await unifiedIdOf("issue_section", input.issueSectionId),
-    url: input.url,
-    caption: input.caption,
-  });
-}
-
-/** `POST /section-media`: a photo wall's photo, or a standard section's one photo (now the answer's photo). */
-export async function saveSectionPhotoFor(input: {
-  token: string;
-  issueSectionId: string;
-  bytes: Uint8Array;
-  contentType?: string;
-  caption: string;
-  position: number;
-}): Promise<WallPhotoWriteResult> {
-  const issueQuestionId = await unifiedIdOf("issue_section", input.issueSectionId);
-  const wall = await saveWallPhotoFor({ ...input, issueQuestionId });
-  if (wall.ok || wall.error !== copy.reply.errors.wrongQuestion) return wall;
-
-  const gate = await ensureWritableQuestion(input.token, issueQuestionId, ["written"]);
-  if (!gate.ok) return gate.result;
-  const validation = validatePhoto(input.bytes, input.contentType);
-  if (!validation.ok) return refusedPhoto(validation);
-  const [existing] = await db
-    .select({ photoUrl: replies.photoUrl })
-    .from(replies)
-    .where(and(
-      eq(replies.issueId, gate.context.issue.id),
-      eq(replies.issueQuestionId, gate.question.id),
-      eq(replies.membershipId, gate.context.membership.id),
-    ))
-    .limit(1);
-  if (existing?.photoUrl) return { ok: false, status: 409, error: copy.reply.errors.sectionPhotoStandardCap };
-
-  let url: string;
-  try {
-    url = await storePhoto(input.bytes, validation.format);
-  } catch {
-    return { ok: false, status: 500, error: copy.reply.errors.photoUploadFailed };
-  }
-  const at = await getNow();
-  // The old sheet keeps this id to take the photo off again: the answer's own.
-  const replyId = await touchReply(gate, { photoUrl: url }, at);
-  return { ok: true, savedAt: at.toISOString(), mediaId: replyId, url };
-}
-
-/** `DELETE /section-media`: a photo-wall photo by its id, or a standard section's photo by its answer's. */
-export async function removeSectionMediaFor(input: { token: string; issueSectionId: string; mediaId: string }): Promise<WriteResult> {
-  const issueQuestionId = await unifiedIdOf("issue_section", input.issueSectionId);
-  const mediaId = await unifiedIdOf("section_media", input.mediaId);
-  const removed = await removeWallPhotoFor({ token: input.token, issueQuestionId, mediaId });
-  if (removed.ok || removed.status !== 404) return removed;
-  return removePhotoFor({ token: input.token, issueQuestionId });
 }

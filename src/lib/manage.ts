@@ -96,7 +96,7 @@ export async function createLoop(input: CreateLoopInput): Promise<string> {
   const texts = input.questions.map((text) => text.trim()).filter(Boolean);
   if (texts.length > 0) {
     await db.insert(questions).values(
-      texts.map((text, index) => ({ groupId: group.id, text, position: index })),
+      texts.map((text, index) => ({ groupId: group.id, text, position: index, format: "written" as const })),
     );
   }
 

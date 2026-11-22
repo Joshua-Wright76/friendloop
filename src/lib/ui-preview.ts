@@ -4,10 +4,8 @@ import { notFound } from "next/navigation";
 import { db } from "@/db";
 import {
   comments,
-  events,
   groups,
   issueQuestions,
-  issueSections,
   issues,
   magicLinks,
   memberships,
@@ -15,9 +13,7 @@ import {
   questionSuggestions,
   questions,
   replies,
-  sectionMedia,
-  sectionReplies,
-  sections,
+  replyMedia,
   sessions,
   users,
   reactions,
@@ -188,12 +184,10 @@ const OPEN_QUESTION_IDS = [
   "22222222-2222-4222-8222-222222222283",
 ];
 /*
- * Every table gets its own id range, so no two seeded rows ever share an id across
- * tables that are, or were, copied into one another (sections and events into
- * questions, round sections into round questions, section answers into answers):
- * questions …240–243 and …280–281, round questions …250–253, …260–263 and
- * …282–285, sections …2b0–2b2, round sections …245–24a, …24d and …24e, events
- * …24b and …24c, answers …2a0 and …2a1 (the rest of the answers get fresh ids).
+ * Fixed ids: questions …240–243 and …280–281, the potluck, wall and music items
+ * …2b0–2b2, the birthday and the housewarming …24b and …24c; round questions
+ * …250–253, …260–263 and …282–285, the items' snapshots …245–24a, the birthday's
+ * …24d and …24e; answers …2a0 and …2a1 (the rest of the answers get fresh ids).
  */
 const SECTION_IDS = [
   "22222222-2222-4222-8222-2222222222b0",
@@ -332,18 +326,16 @@ export function isConstraintViolation(error: unknown): boolean {
  * any other loop a visitor made while signed in as the demo user.
  */
 /**
- * Older seeds gave the demo's sections the ids of its first three questions. The
- * copy into one list keeps those apart now, but topping up such a demo would
- * leave its old sections beside the new ones, so it is rebuilt instead.
+ * Older seeds wrote the demo's potluck, wall, music and birthday as sections, which
+ * reached its rounds as copies marked `from_section`. Topping up such a demo would
+ * leave those beside the items this seed writes, so it is rebuilt instead.
  */
-const RETIRED_SECTION_IDS = [
-  "22222222-2222-4222-8222-222222222240",
-  "22222222-2222-4222-8222-222222222241",
-  "22222222-2222-4222-8222-222222222242",
-];
-
 async function olderSeedPresent(): Promise<boolean> {
-  const [row] = await db.select({ id: sections.id }).from(sections).where(inArray(sections.id, RETIRED_SECTION_IDS)).limit(1);
+  const [row] = await db
+    .select({ id: issueQuestions.id })
+    .from(issueQuestions)
+    .where(and(inArray(issueQuestions.issueId, [UI_PREVIEW.openIssueId, UI_PREVIEW.deliveredIssueId]), eq(issueQuestions.fromSection, true)))
+    .limit(1);
   return Boolean(row);
 }
 
@@ -433,7 +425,7 @@ async function seedUiPreview(now: Date, { deleteGroup, deleteUser }: { deleteGro
       groupId: UI_PREVIEW.groupId,
       text,
       position: index,
-      kind: POLLS[index] ? "poll" as const : "written" as const,
+      format: POLLS[index] ? "poll" as const : "written" as const,
       pollMultiple: POLLS[index]?.multiple ?? false,
       pollOptions: POLLS[index]?.options ?? null,
     }))).onConflictDoNothing();
@@ -477,7 +469,7 @@ async function seedUiPreview(now: Date, { deleteGroup, deleteUser }: { deleteGro
 
     await tx.insert(issueQuestions).values(QUESTION_TEXT.flatMap((text, index) => {
       const poll = {
-        kind: POLLS[index] ? "poll" as const : "written" as const,
+        format: POLLS[index] ? "poll" as const : "written" as const,
         pollMultiple: POLLS[index]?.multiple ?? false,
         pollOptions: POLLS[index]?.options ?? null,
       };
@@ -495,8 +487,7 @@ async function seedUiPreview(now: Date, { deleteGroup, deleteUser }: { deleteGro
         membershipId: UI_PREVIEW.ownerMembershipId,
         body: OWNER_ANSWERS[index],
         pollChoices: OWNER_PICKS[index] ?? [],
-        status: "submitted" as const,
-        submittedAt: new Date(now.getTime() - 86400000),
+        updatedAt: new Date(now.getTime() - 86400000),
       },
       {
         // Alice answers the first question out loud so the issue player and the
@@ -509,8 +500,7 @@ async function seedUiPreview(now: Date, { deleteGroup, deleteUser }: { deleteGro
         audioUrl: index === 0 ? "/dev-preview/voice-note.webm" : null,
         audioDurationMs: index === 0 ? 1_408 : null,
         pollChoices: ALICE_PICKS[index] ?? [],
-        status: "submitted" as const,
-        submittedAt: new Date(now.getTime() - 86400000),
+        updatedAt: new Date(now.getTime() - 86400000),
       },
     ]);
     replyRows.push({
@@ -518,8 +508,6 @@ async function seedUiPreview(now: Date, { deleteGroup, deleteUser }: { deleteGro
       issueQuestionId: OPEN_QUESTION_IDS[0],
       membershipId: UI_PREVIEW.ownerMembershipId,
       body: "The cat accepted a fist bump but refused a high five.",
-      status: "submitted",
-      submittedAt: now,
     });
     await tx.insert(replies).values(replyRows).onConflictDoNothing();
 
@@ -571,219 +559,147 @@ async function seedUiPreview(now: Date, { deleteGroup, deleteUser }: { deleteGro
       },
     ]).onConflictDoNothing();
 
-    // Sections: a recurring potluck note, a photo wall, and music picks, so the
-    // sheet, the delivered issue, and the dashboard all have something to show.
-    const sectionRows = [
-      {
-        id: SECTION_IDS[0],
-        groupId: UI_PREVIEW.groupId,
-        kind: "standard" as const,
-        title: "The potluck corner",
-        emoji: "🍲",
-        description: "What did you cook, eat, or share this week?",
-        position: 0,
-      },
-      {
-        id: SECTION_IDS[1],
-        groupId: UI_PREVIEW.groupId,
-        kind: "photo_wall" as const,
-        title: "The fridge wall",
-        emoji: "🧲",
-        description: "Pin up the photos worth keeping.",
-        position: 1,
-      },
-      {
-        id: SECTION_IDS[2],
-        groupId: UI_PREVIEW.groupId,
-        kind: "music" as const,
-        title: "Music picks",
-        emoji: "🎵",
-        description: null,
-        position: 2,
-      },
+    // A potluck note, a photo wall and music picks that take turns with the
+    // questions, so the sheet, the delivered issue and the dashboard all have
+    // something to show; then Alice's birthday (every year) and a one-time
+    // housewarming, the birthday placed in both rounds as opening them would.
+    const itemRows = [
+      { id: SECTION_IDS[0], format: "written" as const, text: "The potluck corner", emoji: "🍲", description: "What did you cook, eat, or share this week?" },
+      { id: SECTION_IDS[1], format: "photo_wall" as const, text: "The fridge wall", emoji: "🧲", description: "Pin up the photos worth keeping." },
+      { id: SECTION_IDS[2], format: "music" as const, text: "Music picks", emoji: "🎵", description: null },
     ];
-    await tx.insert(sections).values(sectionRows).onConflictDoNothing();
-
-    // Events: Alice's birthday (every year) and a one-time housewarming, plus the
-    // birthday as a snapshotted section in both rounds, as the sweep would leave it.
-    await tx.insert(events).values([
+    await tx.insert(questions).values([
+      ...itemRows.map((item, index) => ({ ...item, groupId: UI_PREVIEW.groupId, position: QUESTION_TEXT.length + index })),
       {
         id: PREVIEW_BIRTHDAY_EVENT_ID,
         groupId: UI_PREVIEW.groupId,
-        kind: "birthday" as const,
-        title: null,
+        text: "",
+        format: "written" as const,
+        frequency: "on_date" as const,
         emoji: "🎂",
+        dateKind: "birthday" as const,
         month: 3,
         day: 14,
-        year: null,
-        membershipId: UI_PREVIEW.aliceMembershipId,
+        aboutMembershipId: UI_PREVIEW.aliceMembershipId,
       },
       {
         id: PREVIEW_ONCE_EVENT_ID,
         groupId: UI_PREVIEW.groupId,
-        kind: "once" as const,
-        title: "The housewarming",
+        text: "The housewarming",
+        format: "written" as const,
+        frequency: "on_date" as const,
         emoji: "🏡",
+        dateKind: "once" as const,
         month: 6,
         day: 20,
         year: now.getUTCFullYear() + 1,
-        membershipId: null,
-      },
-    ]).onConflictDoNothing();
-    await tx.insert(issueSections).values([
-      {
-        id: OPEN_BIRTHDAY_SECTION_ID,
-        issueId: UI_PREVIEW.openIssueId,
-        sectionId: null,
-        kind: "standard" as const,
-        title: "Alice's birthday",
-        emoji: "🎂",
-        description: "Leave Alice a note or a photo. It lands in the round for everyone to read.",
-        adminOnly: false,
-        position: 3,
-        eventId: PREVIEW_BIRTHDAY_EVENT_ID,
-        eventDate: `${now.getUTCFullYear()}-03-14`,
-      },
-      {
-        id: DELIVERED_BIRTHDAY_SECTION_ID,
-        issueId: UI_PREVIEW.deliveredIssueId,
-        sectionId: null,
-        kind: "standard" as const,
-        title: "Alice's birthday",
-        emoji: "🎂",
-        description: "Leave Alice a note or a photo. It lands in the round for everyone to read.",
-        adminOnly: false,
-        position: 3,
-        eventId: PREVIEW_BIRTHDAY_EVENT_ID,
-        eventDate: `${now.getUTCFullYear() - 1}-03-14`,
       },
     ]).onConflictDoNothing();
 
-    await tx.insert(issueSections).values([
-      ...sectionRows.map((section, index) => ({
-        id: OPEN_SECTION_IDS[index],
-        issueId: UI_PREVIEW.openIssueId,
-        sectionId: section.id,
-        kind: section.kind,
-        title: section.title,
-        emoji: section.emoji,
-        description: section.description,
-        adminOnly: false,
-        position: index,
-      })),
-      ...sectionRows.map((section, index) => ({
-        id: DELIVERED_SECTION_IDS[index],
-        issueId: UI_PREVIEW.deliveredIssueId,
-        sectionId: section.id,
-        kind: section.kind,
-        title: section.title,
-        emoji: section.emoji,
-        description: section.description,
-        adminOnly: false,
-        position: index,
-      })),
+    const birthday = {
+      questionId: PREVIEW_BIRTHDAY_EVENT_ID,
+      text: "Alice's birthday",
+      format: "written" as const,
+      emoji: "🎂",
+      description: "Leave Alice a note or a photo. It lands in the round for everyone to read.",
+      aboutMembershipId: UI_PREVIEW.aliceMembershipId,
+      position: QUESTION_TEXT.length + itemRows.length,
+    };
+    await tx.insert(issueQuestions).values([
+      ...itemRows.flatMap((item, index) => [OPEN_SECTION_IDS, DELIVERED_SECTION_IDS].map((ids, round) => ({
+        id: ids[index],
+        issueId: round === 0 ? UI_PREVIEW.openIssueId : UI_PREVIEW.deliveredIssueId,
+        questionId: item.id,
+        text: item.text,
+        format: item.format,
+        emoji: item.emoji,
+        description: item.description,
+        position: QUESTION_TEXT.length + index,
+      }))),
+      { ...birthday, id: OPEN_BIRTHDAY_SECTION_ID, issueId: UI_PREVIEW.openIssueId, occurrenceDate: `${now.getUTCFullYear()}-03-14` },
+      { ...birthday, id: DELIVERED_BIRTHDAY_SECTION_ID, issueId: UI_PREVIEW.deliveredIssueId, occurrenceDate: `${now.getUTCFullYear() - 1}-03-14` },
     ]).onConflictDoNothing();
 
-    // Round 11 answers the sections; round 12 keeps a draft in progress. Any
-    // of these already existing (a repeat /dev/ui visit) is treated as done.
-    await tx.insert(sectionReplies).values([
+    // Round 11 answers them; round 12 keeps a draft in progress. Any of these
+    // already existing (a repeat /dev/ui visit) is treated as done.
+    const yesterday = new Date(now.getTime() - 86400000);
+    await tx.insert(replies).values([
       {
         issueId: UI_PREVIEW.deliveredIssueId,
-        issueSectionId: DELIVERED_SECTION_IDS[0],
+        issueQuestionId: DELIVERED_SECTION_IDS[0],
         membershipId: UI_PREVIEW.aliceMembershipId,
         body: "Lemon cake, obviously. Got to the corner café early for the last slice.",
-        status: "submitted",
-        submittedAt: new Date(now.getTime() - 86400000),
+        updatedAt: yesterday,
       },
       {
         issueId: UI_PREVIEW.deliveredIssueId,
-        issueSectionId: DELIVERED_SECTION_IDS[1],
+        issueQuestionId: DELIVERED_SECTION_IDS[1],
         membershipId: UI_PREVIEW.aliceMembershipId,
         body: "",
-        status: "submitted",
-        submittedAt: new Date(now.getTime() - 86400000),
+        updatedAt: yesterday,
       },
       {
         issueId: UI_PREVIEW.deliveredIssueId,
-        issueSectionId: DELIVERED_SECTION_IDS[2],
+        issueQuestionId: DELIVERED_SECTION_IDS[2],
         membershipId: UI_PREVIEW.aliceMembershipId,
         body: "Our road trip record",
         linkUrl: SPOTIFY_ALBUM_URL,
         linkProvider: "spotify",
-        status: "submitted",
-        submittedAt: new Date(now.getTime() - 86400000),
+        updatedAt: yesterday,
       },
       {
         issueId: UI_PREVIEW.deliveredIssueId,
-        issueSectionId: DELIVERED_SECTION_IDS[2],
+        issueQuestionId: DELIVERED_SECTION_IDS[2],
         membershipId: UI_PREVIEW.ownerMembershipId,
         body: "Ghost-story soundtrack for the campfire, as promised",
         linkUrl: QOBUZ_PLAYLIST_URL,
         linkProvider: "qobuz",
-        status: "submitted",
-        submittedAt: new Date(now.getTime() - 86400000),
+        updatedAt: yesterday,
       },
       {
         issueId: UI_PREVIEW.deliveredIssueId,
-        issueSectionId: DELIVERED_SECTION_IDS[2],
+        issueQuestionId: DELIVERED_SECTION_IDS[2],
         membershipId: UI_PREVIEW.samMembershipId,
         body: "For the drive home",
         linkUrl: BANDCAMP_ALBUM_URL,
         linkProvider: "bandcamp",
-        status: "submitted",
-        submittedAt: new Date(now.getTime() - 86400000),
+        updatedAt: yesterday,
       },
       {
         issueId: UI_PREVIEW.openIssueId,
-        issueSectionId: OPEN_SECTION_IDS[0],
+        issueQuestionId: OPEN_SECTION_IDS[0],
         membershipId: UI_PREVIEW.ownerMembershipId,
         body: "The soup story, take two.",
-        status: "submitted",
       },
       {
         issueId: UI_PREVIEW.deliveredIssueId,
-        issueSectionId: DELIVERED_BIRTHDAY_SECTION_ID,
+        issueQuestionId: DELIVERED_BIRTHDAY_SECTION_ID,
         membershipId: UI_PREVIEW.ownerMembershipId,
         body: "Happy birthday, Alice. Thank you for the lemon cake, the road trips, and all of it.",
-        status: "submitted",
-        submittedAt: new Date(now.getTime() - 86400000),
+        updatedAt: yesterday,
       },
     ]).onConflictDoNothing();
 
     const [wallReply] = await tx
-      .select({ id: sectionReplies.id })
-      .from(sectionReplies)
+      .select({ id: replies.id })
+      .from(replies)
       .where(
         and(
-          eq(sectionReplies.issueId, UI_PREVIEW.deliveredIssueId),
-          eq(sectionReplies.issueSectionId, DELIVERED_SECTION_IDS[1]),
+          eq(replies.issueId, UI_PREVIEW.deliveredIssueId),
+          eq(replies.issueQuestionId, DELIVERED_SECTION_IDS[1]),
+          eq(replies.membershipId, UI_PREVIEW.aliceMembershipId),
         ),
       )
       .limit(1);
 
-    // section_media has no natural unique key, so conflict handling cannot make
+    // reply_media has no natural unique key, so conflict handling cannot make
     // this idempotent: replace the wall's photos instead of appending to them.
-    await tx.delete(sectionMedia).where(eq(sectionMedia.sectionReplyId, wallReply.id));
-    await tx.insert(sectionMedia).values([
-      {
-        sectionReplyId: wallReply.id,
-        url: "/dev-preview/potluck.png",
-        caption: "The whole table",
-        position: 0,
-      },
-      {
-        sectionReplyId: wallReply.id,
-        url: "/dev-preview/fridge.png",
-        caption: "The leftovers",
-        position: 1,
-      },
+    await tx.delete(replyMedia).where(eq(replyMedia.replyId, wallReply.id));
+    await tx.insert(replyMedia).values([
+      { replyId: wallReply.id, url: "/dev-preview/potluck.png", caption: "The whole table", position: 0 },
+      { replyId: wallReply.id, url: "/dev-preview/fridge.png", caption: "The leftovers", position: 1 },
       // Captions are optional, so the demo wall shows a photo without one.
-      {
-        sectionReplyId: wallReply.id,
-        url: "/dev-preview/dusk.png",
-        caption: null,
-        position: 2,
-      },
+      { replyId: wallReply.id, url: "/dev-preview/dusk.png", caption: null, position: 2 },
     ]);
 
     // Upserted so an older preview picks up the songs (and stays fresh).

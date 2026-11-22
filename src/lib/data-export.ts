@@ -21,7 +21,7 @@ import { copy } from "./copy.ts";
 import { plainBody } from "./mentions.ts";
 import { appUrl } from "./urls.ts";
 import { replyHasContentCondition } from "./reply-query";
-import { formatOf } from "./asks";
+import type { AnswerFormat } from "./asks";
 import { coverOf, isStickerKey, parseSignature } from "./looks.ts";
 
 /**
@@ -51,7 +51,7 @@ type MediaRow = { replyId: string; url: string; caption: string | null; videoUrl
 
 /** A photo wall or music pick says so; written and poll items read as they always have. */
 function formatFields(question: QuestionRow) {
-  const format = formatOf(question);
+  const format = question.format;
   return format === "photo_wall" || format === "music" ? { format } : {};
 }
 
@@ -81,7 +81,7 @@ function videoOf(reply: ReplyRow) {
 
 /** What a photo wall, a music pick or a written answer's link adds to an exported answer. */
 function answerExtras(question: QuestionRow, reply: ReplyRow, media: MediaRow[]) {
-  const format = formatOf(question);
+  const format = question.format;
   if (format === "music") return { linkUrl: reply.linkUrl };
   if (format === "photo_wall") return { photos: photosOf(reply, media, false) };
   // A written answer can carry a music link and a clip too.
@@ -99,16 +99,18 @@ async function mediaFor(replyIds: string[]): Promise<MediaRow[]> {
 
 /**
  * The pool as exports have always listed it: the loop's written and poll
- * questions, stopped ones included. Items asked every round as sections, dates,
- * photo walls and music picks appear in the rounds that asked them.
+ * questions that take turns, stopped ones included. Items asked every round as
+ * sections, dates, photo walls and music picks appear in the rounds that asked them.
  */
 function exportPoolCondition(): SQL {
-  const condition = or(
-    eq(questions.active, true),
-    and(isNotNull(questions.archivedAt), eq(questions.frequency, "rotating"), inArray(questions.format, ["written", "poll"])),
-  );
+  const condition = and(eq(questions.frequency, "rotating"), inArray(questions.format, ["written", "poll"]));
   if (!condition) throw new Error("Export pool condition is empty.");
   return condition;
+}
+
+/** Exports have always named a question's kind: a poll, or written for everything else. */
+function legacyKind(question: { format: AnswerFormat }): "written" | "poll" {
+  return question.format === "poll" ? "poll" : "written";
 }
 
 type Names = Map<string, string>;
@@ -425,8 +427,8 @@ async function roundOf(issue: typeof issues.$inferSelect, names: Names) {
     deliveredAt: issue.deliveredAt,
     questions: asked.map((question) => ({
       question: question.text,
-      kind: question.kind,
-      ...(question.kind === "poll" ? { options: question.pollOptions, multiple: question.pollMultiple } : {}),
+      kind: legacyKind(question),
+      ...(question.format === "poll" ? { options: question.pollOptions, multiple: question.pollMultiple } : {}),
       suggestedBy: question.suggestedBy,
       ...formatFields(question),
       answers: answered
@@ -447,7 +449,7 @@ async function roundOf(issue: typeof issues.$inferSelect, names: Names) {
         })),
     })),
     sections: carried.map((section) => {
-      const format = formatOf(section);
+      const format = section.format;
       return {
         section: section.text,
         kind: format === "photo_wall" || format === "music" ? format : "standard",
@@ -533,8 +535,8 @@ export async function loopArchive(groupId: string, at: Date): Promise<{ groupNam
     })),
     questionPool: pool.map((question) => ({
       question: question.text,
-      kind: question.kind,
-      ...(question.kind === "poll" ? { options: question.pollOptions } : {}),
+      kind: legacyKind(question),
+      ...(question.format === "poll" ? { options: question.pollOptions } : {}),
       archived: question.archivedAt !== null,
     })),
   };

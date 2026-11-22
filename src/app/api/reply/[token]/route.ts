@@ -7,8 +7,6 @@ import {
   saveNameFor,
   savePollChoicesFor,
   saveReminderPreferenceFor,
-  saveSectionMusicFor,
-  saveSectionTextFor,
   saveStatusLineFor,
   saveStickerFor,
 } from "@/lib/reply";
@@ -94,37 +92,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ tok
       token,
       issueQuestionId: payload.issueQuestionId,
       url: typeof payload.url === "string" ? payload.url : "",
-    });
-    return result.ok
-      ? NextResponse.json({ ok: true, savedAt: result.savedAt })
-      : NextResponse.json({ error: result.error }, { status: result.status });
-  }
-
-  // A sheet loaded before sections became questions still sends these, with ids
-  // that now name its questions. Removed with the contract release.
-  if (payload.action === "sectionDraft") {
-    if (typeof payload.issueSectionId !== "string") {
-      return NextResponse.json({ error: copy.reply.errors.missingQuestion }, { status: 400 });
-    }
-    const result = await saveSectionTextFor({
-      token,
-      issueSectionId: payload.issueSectionId,
-      body: typeof payload.body === "string" ? payload.body : "",
-    });
-    return result.ok
-      ? NextResponse.json({ ok: true, savedAt: result.savedAt })
-      : NextResponse.json({ error: result.error }, { status: result.status });
-  }
-
-  if (payload.action === "sectionMusic") {
-    if (typeof payload.issueSectionId !== "string") {
-      return NextResponse.json({ error: copy.reply.errors.missingQuestion }, { status: 400 });
-    }
-    const result = await saveSectionMusicFor({
-      token,
-      issueSectionId: payload.issueSectionId,
-      url: typeof payload.url === "string" ? payload.url : "",
-      caption: typeof payload.caption === "string" ? payload.caption : "",
     });
     return result.ok
       ? NextResponse.json({ ok: true, savedAt: result.savedAt })
